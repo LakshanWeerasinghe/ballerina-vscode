@@ -31,6 +31,7 @@ import { RequestType } from "vscode-messenger-common";
 const _preFix = "service-designer";
 export const exportOASFile: RequestType<ExportOASRequest, ExportOASResponse> = { method: `${_preFix}/exportOASFile` };
 export const getTriggerModels: RequestType<TriggerModelsRequest, TriggerModelsResponse> = { method: `${_preFix}/getTriggerModels` };
+export const searchTriggers: RequestType<TriggerModelsRequest, TriggerModelsResponse> = { method: `${_preFix}/searchTriggers` };
 export const getListeners: RequestType<ListenersRequest, ListenersResponse> = { method: `${_preFix}/getListeners` };
 export const getListenerModel: RequestType<ListenerModelRequest, ListenerModelResponse> = { method: `${_preFix}/getListenerModel` };
 export const addListenerSourceCode: RequestType<ListenerSourceCodeRequest, UpdatedArtifactsResponse> = { method: `${_preFix}/addListenerSourceCode` };

@@ -15,10 +15,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useEffect, useState } from 'react';
-import { Icon } from '@wso2/ui-toolkit';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Codicon, Icon, SearchBox } from '@wso2/ui-toolkit';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import { DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, TriggerModelsResponse, ServiceModel, SCOPE } from '@wso2/ballerina-core';
+import debounce from 'lodash.debounce';
 
 import { CardGrid, PanelViewMore, Title, TitleWrapper } from './styles';
 import { BodyText } from '../../styles';
@@ -31,9 +32,16 @@ interface EventIntegrationPanelProps {
     triggers: TriggerModelsResponse;
 };
 
+const SEARCH_DEBOUNCE_MS = 700;
+
 export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
     const { rpcClient } = useRpcContext();
     const isDisabled = props.scope && (props.scope !== SCOPE.EVENT_INTEGRATION && props.scope !== SCOPE.ANY);
+
+    const [showSearch, setShowSearch] = useState<boolean>(false);
+    const [query, setQuery] = useState<string>("");
+    const [searching, setSearching] = useState<boolean>(false);
+    const [results, setResults] = useState<ServiceModel[]>([]);
 
     const handleClick = async (key: DIRECTORY_MAP, model: ServiceModel) => {
         await rpcClient.getVisualizerRpcClient().openView({
@@ -49,6 +57,43 @@ export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
             },
         });
     };
+
+    // Discover event triggers from Ballerina Central. Debounced so we don't hit Central on every keystroke.
+    const runSearch = useMemo(
+        () =>
+            debounce((searchQuery: string) => {
+                setSearching(true);
+                rpcClient
+                    .getServiceDesignerRpcClient()
+                    .searchTriggers({ query: searchQuery })
+                    .then((res) => {
+                        setResults(res?.local ?? []);
+                    })
+                    .finally(() => {
+                        setSearching(false);
+                    });
+            }, SEARCH_DEBOUNCE_MS),
+        [rpcClient]
+    );
+
+    useEffect(() => {
+        return () => runSearch.cancel();
+    }, [runSearch]);
+
+    const onQueryChange = (value: string) => {
+        setQuery(value);
+        runSearch(value);
+    };
+
+    const openSearch = () => {
+        setShowSearch(true);
+        // Prime the list with popular triggers from Central (empty query -> curated defaults).
+        if (results.length === 0) {
+            runSearch("");
+        }
+    };
+
+    const localTriggerIds = new Set(props.triggers.local.map((t) => `${t.orgName}/${t.packageName}`));
 
     return (
         <PanelViewMore disabled={isDisabled}>
@@ -81,7 +126,49 @@ export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
                         }
                         )
                 }
+                {!isDisabled && !showSearch && (
+                    <ButtonCard
+                        id="trigger-search-more"
+                        title="Search more"
+                        icon={<Codicon name="search" />}
+                        onClick={openSearch}
+                    />
+                )}
             </CardGrid>
+            {showSearch && (
+                <div style={{ marginTop: 12 }}>
+                    <SearchBox
+                        placeholder="Search event triggers on Ballerina Central"
+                        value={query}
+                        onChange={onQueryChange}
+                        iconPosition="end"
+                        aria-label="search-event-triggers"
+                        data-testid="trigger-search-input"
+                        sx={{ width: '100%' }}
+                    />
+                    <CardGrid style={{ marginTop: 12 }}>
+                        {searching && <RelativeLoader />}
+                        {!searching && results.length === 0 && (
+                            <BodyText>No triggers found on Central for this search.</BodyText>
+                        )}
+                        {!searching &&
+                            results
+                                // Central may echo a package already available locally; hide duplicates.
+                                .filter((item) => !localTriggerIds.has(`${item.orgName}/${item.packageName}`))
+                                .map((item) => (
+                                    <ButtonCard
+                                        id={`central-trigger-${item.moduleName.replace(/\./g, '-')}`}
+                                        key={`${item.orgName}/${item.packageName}`}
+                                        title={item.name}
+                                        icon={getEntryNodeIcon(item)}
+                                        onClick={() => handleClick(DIRECTORY_MAP.SERVICE, item)}
+                                        disabled={isDisabled}
+                                        isBeta={isBetaModule(item.moduleName)}
+                                    />
+                                ))}
+                    </CardGrid>
+                </div>
+            )}
         </PanelViewMore>
     );
 };

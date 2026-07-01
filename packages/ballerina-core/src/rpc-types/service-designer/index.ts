@@ -29,6 +29,7 @@ import {
 export interface ServiceDesignerAPI {
     exportOASFile: (params: ExportOASRequest) => Promise<ExportOASResponse>;
     getTriggerModels: (params: TriggerModelsRequest) => Promise<TriggerModelsResponse>;
+    searchTriggers: (params: TriggerModelsRequest) => Promise<TriggerModelsResponse>;
     getListeners: (params: ListenersRequest) => Promise<ListenersResponse>;
     getListenerModel: (params: ListenerModelRequest) => Promise<ListenerModelResponse>;
     addListenerSourceCode: (params: ListenerSourceCodeRequest) => Promise<UpdatedArtifactsResponse>;

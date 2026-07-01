@@ -33,6 +33,6 @@ import io.ballerina.projects.Project;
  * @param document      the Ballerina document
  * @since 1.3.0
  */
-public record GetServiceInitModelContext(String orgName, String packageName, String moduleName, Project project,
-                                         SemanticModel semanticModel, Document document) {
+public record GetServiceInitModelContext(String orgName, String packageName, String moduleName, String version,
+                                         Project project, SemanticModel semanticModel, Document document) {
 }

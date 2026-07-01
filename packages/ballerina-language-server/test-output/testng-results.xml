@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testng-results ignored="0" total="19" passed="19" failed="0" skipped="0">
+  <reporter-output>
+  </reporter-output>
+  <suite started-at="2026-07-01T17:37:44 IST" name="Command line suite" finished-at="2026-07-01T17:37:44 IST" duration-ms="106">
+    <groups>
+    </groups>
+    <test started-at="2026-07-01T17:37:44 IST" name="Command line test" finished-at="2026-07-01T17:37:44 IST" duration-ms="106">
+      <class name="io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest">
+        <test-method signature="testFunctionModelToWireFunction()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431]" started-at="2026-07-01T17:37:44 IST" name="testFunctionModelToWireFunction" finished-at="2026-07-01T17:37:44 IST" duration-ms="5" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testFunctionModelToWireFunction -->
+        <test-method signature="testLibraryArtifactToServiceTemplate()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431]" started-at="2026-07-01T17:37:44 IST" name="testLibraryArtifactToServiceTemplate" finished-at="2026-07-01T17:37:44 IST" duration-ms="2" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testLibraryArtifactToServiceTemplate -->
+        <test-method signature="testUnknownServiceTypeFallsBackToSingle()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431]" started-at="2026-07-01T17:37:44 IST" name="testUnknownServiceTypeFallsBackToSingle" finished-at="2026-07-01T17:37:44 IST" duration-ms="1" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testUnknownServiceTypeFallsBackToSingle -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest">
+        <test-method signature="testResolveConfigFromModelAndParsedArgs()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest@223f3642]" started-at="2026-07-01T17:37:44 IST" name="testResolveConfigFromModelAndParsedArgs" finished-at="2026-07-01T17:37:44 IST" duration-ms="3" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testResolveConfigFromModelAndParsedArgs -->
+        <test-method signature="testSelectorHasNoOptionsSoNestedConfigRenders()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest@223f3642]" started-at="2026-07-01T17:37:44 IST" name="testSelectorHasNoOptionsSoNestedConfigRenders" finished-at="2026-07-01T17:37:44 IST" duration-ms="2" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testSelectorHasNoOptionsSoNestedConfigRenders -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest">
+        <test-method signature="testAdaptedFunctionGeneratesSource()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest@5db250b4]" started-at="2026-07-01T17:37:44 IST" name="testAdaptedFunctionGeneratesSource" finished-at="2026-07-01T17:37:44 IST" duration-ms="5" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testAdaptedFunctionGeneratesSource -->
+        <test-method signature="testDesignerFunctionsCarryConnectorCodedata()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest@5db250b4]" started-at="2026-07-01T17:37:44 IST" name="testDesignerFunctionsCarryConnectorCodedata" finished-at="2026-07-01T17:37:44 IST" duration-ms="1" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testDesignerFunctionsCarryConnectorCodedata -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest">
+        <test-method signature="testChoiceAndGroupSectionListener()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7]" started-at="2026-07-01T17:37:44 IST" name="testChoiceAndGroupSectionListener" finished-at="2026-07-01T17:37:44 IST" duration-ms="10" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testChoiceAndGroupSectionListener -->
+        <test-method signature="testFunctionEmissionFromMetadata()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7]" started-at="2026-07-01T17:37:44 IST" name="testFunctionEmissionFromMetadata" finished-at="2026-07-01T17:37:44 IST" duration-ms="2" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testFunctionEmissionFromMetadata -->
+        <test-method signature="testKafkaAddSourceMatchesHardcodedOutput()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7]" started-at="2026-07-01T17:37:44 IST" name="testKafkaAddSourceMatchesHardcodedOutput" finished-at="2026-07-01T17:37:44 IST" duration-ms="4" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testKafkaAddSourceMatchesHardcodedOutput -->
+        <test-method signature="testUseExistingListenerAttachesWithoutDeclaration()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7]" started-at="2026-07-01T17:37:44 IST" name="testUseExistingListenerAttachesWithoutDeclaration" finished-at="2026-07-01T17:37:44 IST" duration-ms="1" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testUseExistingListenerAttachesWithoutDeclaration -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest">
+        <test-method signature="testDeprecatedPackagesSkipped()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf]" started-at="2026-07-01T17:37:44 IST" name="testDeprecatedPackagesSkipped" finished-at="2026-07-01T17:37:44 IST" duration-ms="2" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testDeprecatedPackagesSkipped -->
+        <test-method signature="testToTriggerResultsFiltersAndMaps()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf]" started-at="2026-07-01T17:37:44 IST" name="testToTriggerResultsFiltersAndMaps" finished-at="2026-07-01T17:37:44 IST" duration-ms="1" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testToTriggerResultsFiltersAndMaps -->
+        <test-method signature="testIsTriggerPackage()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf]" started-at="2026-07-01T17:37:44 IST" name="testIsTriggerPackage" finished-at="2026-07-01T17:37:44 IST" duration-ms="0" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testIsTriggerPackage -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest">
+        <test-method signature="testOverlayAppliesConnectorMetadata()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest@38c5cc4c]" started-at="2026-07-01T17:37:44 IST" name="testOverlayAppliesConnectorMetadata" finished-at="2026-07-01T17:37:44 IST" duration-ms="4" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testOverlayAppliesConnectorMetadata -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest">
+        <test-method signature="testUseExistingDisabledWhenNoListeners()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest@37918c79]" started-at="2026-07-01T17:37:44 IST" name="testUseExistingDisabledWhenNoListeners" finished-at="2026-07-01T17:37:44 IST" duration-ms="2" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testUseExistingDisabledWhenNoListeners -->
+        <test-method signature="testUseExistingEnabledAndDefaultWhenListenersPresent()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest@37918c79]" started-at="2026-07-01T17:37:44 IST" name="testUseExistingEnabledAndDefaultWhenListenersPresent" finished-at="2026-07-01T17:37:44 IST" duration-ms="1" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testUseExistingEnabledAndDefaultWhenListenersPresent -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest -->
+      <class name="io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest">
+        <test-method signature="testMissingModelsReturnEmpty()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest@4df828d7]" started-at="2026-07-01T17:37:44 IST" name="testMissingModelsReturnEmpty" finished-at="2026-07-01T17:37:44 IST" duration-ms="3" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testMissingModelsReturnEmpty -->
+        <test-method signature="testReadKafkaConnectorModels()[pri:0, instance:io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest@4df828d7]" started-at="2026-07-01T17:37:44 IST" name="testReadKafkaConnectorModels" finished-at="2026-07-01T17:37:44 IST" duration-ms="40" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- testReadKafkaConnectorModels -->
+      </class> <!-- io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest -->
+    </test> <!-- Command line test -->
+  </suite> <!-- Command line suite -->
+</testng-results>

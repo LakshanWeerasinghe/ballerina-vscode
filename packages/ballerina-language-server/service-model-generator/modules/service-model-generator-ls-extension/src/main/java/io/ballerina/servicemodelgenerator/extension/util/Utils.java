@@ -61,6 +61,7 @@ import io.ballerina.modelgenerator.commons.CommonUtils;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.projects.Document;
+import io.ballerina.projects.Package;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.FunctionReturnType;
@@ -1264,7 +1265,7 @@ public final class Utils {
      * @param moduleName     the module name
      * @param lsClientLogger the language server client logger for notifications
      */
-    public static void resolveModule(String orgName, String packageName, String moduleName,
+    public static void resolveModule(String orgName, String packageName, String moduleName, String version,
                                      LSClientLogger lsClientLogger) {
         if (BALLERINA.equals(orgName) && DISTRIBUTION_MODULES.contains(packageName)) {
             return;
@@ -1272,14 +1273,29 @@ public final class Utils {
         Path balHomePath = RepoUtils.createAndGetHomeReposPath();
         Path packagePath = balHomePath.resolve(Path.of(REPOSITORIES_DIR, CENTRAL_REPO, BALA_DIR, orgName,
                 packageName));
-        if (Files.exists(packagePath)) {
-            return;
-        }
-        CentralAPI centralApi = RemoteCentral.getInstance();
-        String latestVersion = centralApi.latestPackageVersion(orgName, packageName);
-        ModuleInfo moduleInfo = new ModuleInfo(orgName, packageName, moduleName, latestVersion);
+        boolean hasVersion = version != null && !version.isBlank();
 
-        if (PackageUtil.isModuleUnresolved(orgName, packageName, latestVersion)) {
+        if (Files.exists(packagePath)) {
+            if (!hasVersion) {
+                // No specific version requested and the package is already present locally.
+                return;
+            }
+            // A specific version was requested (e.g. a trigger picked from Central search): the package
+            // directory exists, but possibly for a different version. Use PackageUtil.getModulePackage to
+            // confirm the requested version resolves to a proper Package (pulling it if needed).
+            Optional<Package> resolvedPackage = PackageUtil.getModulePackage(
+                    PackageUtil.getSampleProject(), orgName, packageName, version);
+            if (resolvedPackage.isPresent()) {
+                return;
+            }
+            // Requested version not resolvable locally -> fall through to pull it below.
+        }
+
+        CentralAPI centralApi = RemoteCentral.getInstance();
+        String targetVersion = hasVersion ? version : centralApi.latestPackageVersion(orgName, packageName);
+        ModuleInfo moduleInfo = new ModuleInfo(orgName, packageName, moduleName, targetVersion);
+
+        if (PackageUtil.isModuleUnresolved(orgName, packageName, targetVersion)) {
             notifyClient(MessageType.Info, PULLING_THE_MODULE_MESSAGE, moduleInfo, lsClientLogger);
             Optional<SemanticModel> semanticModel = PackageUtil.getSemanticModel(moduleInfo);
             if (semanticModel.isEmpty()) {

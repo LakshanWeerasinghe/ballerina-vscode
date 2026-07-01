@@ -66,6 +66,7 @@ import {
     getServiceModel,
     getServiceModelFromCode,
     getTriggerModels,
+    searchTriggers,
     updateListenerSourceCode,
     updateResourceSourceCode,
     updateServiceSourceCode,
@@ -89,6 +90,10 @@ export class ServiceDesignerRpcClient implements ServiceDesignerAPI {
 
     getTriggerModels(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
         return this._messenger.sendRequest(getTriggerModels, HOST_EXTENSION, params);
+    }
+
+    searchTriggers(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
+        return this._messenger.sendRequest(searchTriggers, HOST_EXTENSION, params);
     }
 
     getListeners(params: ListenersRequest): Promise<ListenersResponse> {

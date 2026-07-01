@@ -1,0 +1,175 @@
+<html>
+<head>
+<title>TestNG:  Command line test</title>
+<link href="../testng.css" rel="stylesheet" type="text/css" />
+<link href="../my-testng.css" rel="stylesheet" type="text/css" />
+
+<style type="text/css">
+.log { display: none;} 
+.stack-trace { display: none;} 
+</style>
+<script type="text/javascript">
+<!--
+function flip(e) {
+  current = e.style.display;
+  if (current == 'block') {
+    e.style.display = 'none';
+    return 0;
+  }
+  else {
+    e.style.display = 'block';
+    return 1;
+  }
+}
+
+function toggleBox(szDivId, elem, msg1, msg2)
+{
+  var res = -1;  if (document.getElementById) {
+    res = flip(document.getElementById(szDivId));
+  }
+  else if (document.all) {
+    // this is the way old msie versions work
+    res = flip(document.all[szDivId]);
+  }
+  if(elem) {
+    if(res == 0) elem.innerHTML = msg1; else elem.innerHTML = msg2;
+  }
+
+}
+
+function toggleAllBoxes() {
+  if (document.getElementsByTagName) {
+    d = document.getElementsByTagName('div');
+    for (i = 0; i < d.length; i++) {
+      if (d[i].className == 'log') {
+        flip(d[i]);
+      }
+    }
+  }
+}
+
+// -->
+</script>
+
+</head>
+<body>
+<h2 align='center'>Command line test</h2><table border='1' align="center">
+<tr>
+<td>Tests passed/Failed/Skipped:</td><td>19/0/0</td>
+</tr><tr>
+<td>Started on:</td><td>Wed Jul 01 17:37:44 IST 2026</td>
+</tr>
+<tr><td>Total time:</td><td>0 seconds (106 ms)</td>
+</tr><tr>
+<td>Included groups:</td><td></td>
+</tr><tr>
+<td>Excluded groups:</td><td></td>
+</tr>
+</table><p/>
+<small><i>(Hover the method name to see the test class name)</i></small><p/>
+<table width='100%' border='1' class='invocation-passed'>
+<tr><td colspan='4' align='center'><b>PASSED TESTS</b></td></tr>
+<tr><td><b>Test method</b></td>
+<td><b>Attribute(s)</b></td>
+<td width="30%"><b>Exception</b></td>
+<td width="10%"><b>Time (seconds)</b></td>
+<td><b>Instance</b></td>
+</tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest.testUnknownServiceTypeFallsBackToSingle()'><b>testUnknownServiceTypeFallsBackToSingle</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest.testChoiceAndGroupSectionListener()'><b>testChoiceAndGroupSectionListener</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest.testFunctionEmissionFromMetadata()'><b>testFunctionEmissionFromMetadata</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest.testFunctionModelToWireFunction()'><b>testFunctionModelToWireFunction</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest.testSelectorHasNoOptionsSoNestedConfigRenders()'><b>testSelectorHasNoOptionsSoNestedConfigRenders</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest@223f3642</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest.testAdaptedFunctionGeneratesSource()'><b>testAdaptedFunctionGeneratesSource</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest@5db250b4</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest.testKafkaAddSourceMatchesHardcodedOutput()'><b>testKafkaAddSourceMatchesHardcodedOutput</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest.testReadKafkaConnectorModels()'><b>testReadKafkaConnectorModels</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest@4df828d7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest.testUseExistingEnabledAndDefaultWhenListenersPresent()'><b>testUseExistingEnabledAndDefaultWhenListenersPresent</b><br>Test class: io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest@37918c79</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest.testOverlayAppliesConnectorMetadata()'><b>testOverlayAppliesConnectorMetadata</b><br>Test class: io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.builder.function.FunctionEditOverlayTest@38c5cc4c</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest.testUseExistingListenerAttachesWithoutDeclaration()'><b>testUseExistingListenerAttachesWithoutDeclaration</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest@2fd6b6c7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest.testResolveConfigFromModelAndParsedArgs()'><b>testResolveConfigFromModelAndParsedArgs</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest@223f3642</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest.testMissingModelsReturnEmpty()'><b>testMissingModelsReturnEmpty</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReaderTest@4df828d7</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest.testLibraryArtifactToServiceTemplate()'><b>testLibraryArtifactToServiceTemplate</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.MetadataAdapterTest@5bfa9431</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest.testToTriggerResultsFiltersAndMaps()'><b>testToTriggerResultsFiltersAndMaps</b><br>Test class: io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest.testDesignerFunctionsCarryConnectorCodedata()'><b>testDesignerFunctionsCarryConnectorCodedata</b><br>Test class: io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenAddFunctionTest@5db250b4</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest.testDeprecatedPackagesSkipped()'><b>testDeprecatedPackagesSkipped</b><br>Test class: io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest.testIsTriggerPackage()'><b>testIsTriggerPackage</b><br>Test class: io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest@78e94dcf</td></tr>
+<tr>
+<td title='io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest.testUseExistingDisabledWhenNoListeners()'><b>testUseExistingDisabledWhenNoListeners</b><br>Test class: io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest</td>
+<td></td>
+<td>0</td>
+<td>io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest@37918c79</td></tr>
+</table><p>
+</body>
+</html>

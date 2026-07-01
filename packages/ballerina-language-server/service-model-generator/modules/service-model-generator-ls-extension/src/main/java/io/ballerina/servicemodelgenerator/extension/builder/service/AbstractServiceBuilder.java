@@ -552,7 +552,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
      * @param serviceNode  the service declaration node from source
      * @param context      the model context
      */
-    private void populateServiceModelFromSource(Service serviceModel, ServiceDeclarationNode serviceNode,
+    protected void populateServiceModelFromSource(Service serviceModel, ServiceDeclarationNode serviceNode,
                                                 ModelFromSourceContext context) {
         extractServicePathInfo(serviceNode, serviceModel);
 

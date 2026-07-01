@@ -34,7 +34,9 @@ import io.ballerina.servicemodelgenerator.extension.builder.function.HttpFunctio
 import io.ballerina.servicemodelgenerator.extension.builder.function.KafkaFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.McpFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.RabbitMQFunctionBuilder;
+import io.ballerina.servicemodelgenerator.extension.builder.function.SchemaDrivenFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SolaceFunctionBuilder;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceMetadata;
@@ -88,6 +90,15 @@ public class FunctionBuilderRouter {
         return CONSTRUCTOR_MAP.getOrDefault(protocol, DefaultFunctionBuilder::new).get();
     }
 
+    /**
+     * Returns {@code true} when no hardcoded function builder is registered for {@code moduleName} but
+     * the connector ships both JSON models — mirrors {@code ServiceBuilderRouter} (hardcoded wins).
+     */
+    private static boolean useSchemaDrivenPath(String orgName, String pkgName, String moduleName, String version) {
+        return moduleName != null && !CONSTRUCTOR_MAP.containsKey(moduleName)
+                && ConnectorModelReader.getInstance().hasConnectorModels(orgName, pkgName, version);
+    }
+
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
         NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
         GetModelContext context = GetModelContext.fromServiceAndFunctionType(moduleName, functionType);
@@ -113,7 +124,11 @@ public class FunctionBuilderRouter {
         if (function.getKind().equals(OBJECT_METHOD)) {
             moduleName = DEFAULT;
         }
-        NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
+        Codedata fnCodedata = function.getCodedata();
+        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(
+                fnCodedata.getOrgName(), fnCodedata.getPackageName(), moduleName, fnCodedata.getVersion())
+                        ? new SchemaDrivenFunctionBuilder()
+                        : getFunctionBuilder(moduleName);
         UpdateModelContext context =
                 new UpdateModelContext(null, function, semanticModel, project, workspaceManager, filePath,
                         document, null, functionNode);
@@ -128,7 +143,10 @@ public class FunctionBuilderRouter {
             context = new ModelFromSourceContext(functionNode, null, semanticModel, null, "",
                     metadata.serviceTypeIdentifier(), moduleID.orgName(), moduleID.packageName(),
                     moduleID.moduleName(), moduleID.version());
-            NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleID.moduleName());
+            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(),
+                    moduleID.packageName(), moduleID.moduleName(), moduleID.version())
+                            ? new SchemaDrivenFunctionBuilder()
+                            : getFunctionBuilder(moduleID.moduleName());
             Function function = functionBuilder.getModelFromSource(context);
             Codedata codedata = function.getCodedata();
             codedata.setOrgName(moduleID.orgName());

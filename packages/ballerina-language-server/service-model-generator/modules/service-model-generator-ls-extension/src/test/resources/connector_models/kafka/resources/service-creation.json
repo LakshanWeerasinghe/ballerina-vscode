@@ -1,0 +1,127 @@
+{
+  "$comment": "Full Kafka service-init model sample (ballerinax/kafka). Validates against service-init-model.schema.json. The COMPLETE model the library stores (no compaction) — every property keeps its marker booleans (enabled/editable/optional/advanced). Faithful to the real LS corpus file get_service_init_model/config/kafka_service_model.json, enriched with per-field validations[] (named rules) and source-gen metadata. It shows: multi-type fields (TEXT | REPEATABLE_LIST with an element template | EXPRESSION); source-gen roles via codedata.argType (LISTENER_PARAM_REQUIRED, LISTENER_PARAM_INCLUDED_FIELD); codedata.position on the required positional arg bootstrapServers (emitted as `new (<bootstrapServers>, ...)`); a record-typed advanced field (RECORD_MAP_EXPRESSION + typeMembers for kafka:SecureSocket); and the listener variable name (LISTENER_VAR_NAME).",
+  "serviceInitModel": {
+    "schemaVersion": "1.0",
+    "id": "11",
+    "displayName": "Kafka Event Integration",
+    "description": "Create a service to handle messages from Kafka topic(s)",
+    "orgName": "ballerinax",
+    "packageName": "kafka",
+    "moduleName": "kafka",
+    "version": "4.5.0",
+    "type": "kafka",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_kafka_4.5.0.png",
+    "properties": {
+      "bootstrapServers": {
+        "metadata": { "label": "Bootstrap Servers", "description": "List of remote server endpoints of the Kafka brokers" },
+        "codedata": { "argType": "LISTENER_PARAM_REQUIRED", "position": 1 },
+        "value": "\"localhost:9092\"",
+        "placeholder": "localhost:9092",
+        "types": [
+          { "fieldType": "TEXT", "ballerinaType": "string", "selected": true },
+          {
+            "fieldType": "REPEATABLE_LIST",
+            "ballerinaType": "string[]",
+            "template": {
+              "types": [
+                { "fieldType": "TEXT", "ballerinaType": "string", "selected": false },
+                { "fieldType": "EXPRESSION", "ballerinaType": "string", "selected": false }
+              ],
+              "enabled": false,
+              "editable": false,
+              "optional": false,
+              "advanced": false
+            },
+            "selected": false
+          },
+          { "fieldType": "EXPRESSION", "ballerinaType": "string|string[]", "selected": false }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": false,
+        "advanced": false,
+        "validations": [ { "rule": "common.validate.required" } ]
+      },
+      "topics": {
+        "metadata": { "label": "Topic(s)", "description": "The topic(s) to subscribe to" },
+        "codedata": { "argType": "LISTENER_PARAM_INCLUDED_FIELD" },
+        "value": "\"myTopic\"",
+        "placeholder": "myTopic",
+        "types": [
+          { "fieldType": "TEXT", "ballerinaType": "string", "selected": true },
+          {
+            "fieldType": "REPEATABLE_LIST",
+            "ballerinaType": "string[]",
+            "template": {
+              "types": [
+                { "fieldType": "TEXT", "ballerinaType": "string", "selected": false },
+                { "fieldType": "EXPRESSION", "ballerinaType": "string", "selected": false }
+              ],
+              "enabled": false,
+              "editable": false,
+              "optional": false,
+              "advanced": false
+            },
+            "selected": false
+          },
+          { "fieldType": "EXPRESSION", "ballerinaType": "string|string[]", "selected": false }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": false,
+        "advanced": false,
+        "validations": [ { "rule": "common.validate.required" } ]
+      },
+      "groupId": {
+        "metadata": { "label": "Group ID", "description": "Unique identifier for the consumer group" },
+        "codedata": { "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD" },
+        "value": "",
+        "placeholder": "my-group",
+        "types": [
+          { "fieldType": "TEXT", "ballerinaType": "string", "selected": true },
+          { "fieldType": "EXPRESSION", "ballerinaType": "string", "selected": false }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": true,
+        "advanced": false
+      },
+      "secureSocket": {
+        "metadata": { "label": "Secure Socket", "description": "Configure SSL/TLS configuration for a secure connection" },
+        "codedata": { "argType": "LISTENER_PARAM_INCLUDED_FIELD" },
+        "value": "",
+        "types": [
+          {
+            "fieldType": "RECORD_MAP_EXPRESSION",
+            "ballerinaType": "kafka:SecureSocket",
+            "typeMembers": [
+              { "type": "SecureSocket", "packageInfo": "ballerinax:kafka:4.5.0", "packageName": "kafka", "kind": "RECORD_TYPE", "selected": true }
+            ],
+            "selected": true
+          },
+          { "fieldType": "EXPRESSION", "ballerinaType": "kafka:SecureSocket", "selected": false }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": true,
+        "advanced": true
+      },
+      "listenerVarName": {
+        "metadata": { "label": "Listener Name", "description": "Provide a name for the listener being created" },
+        "codedata": { "type": "LISTENER_VAR_NAME" },
+        "value": "kafkaListener",
+        "types": [
+          { "fieldType": "IDENTIFIER", "selected": true }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": false,
+        "advanced": true,
+        "validations": [
+          { "rule": "ls.validate.unique.listener.name" },
+          { "rule": "common.validate.identifier" }
+        ]
+      }
+    }
+  }
+}

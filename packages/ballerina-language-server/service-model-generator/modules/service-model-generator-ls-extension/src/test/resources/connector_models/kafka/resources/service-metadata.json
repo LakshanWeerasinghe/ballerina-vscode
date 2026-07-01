@@ -1,0 +1,160 @@
+{
+  "$comment": "Service Metadata Model (LibraryArtifact) for kafka. One per connector; functions are FunctionModel.",
+  "libraryArtifact": {
+    "schemaVersion": "1.0",
+    "name": "kafka",
+    "version": "4.5.0",
+    "serviceDeclaration": {
+      "displayName": "Kafka Event Integration",
+      "description": "Create a service to handle messages from Kafka topic(s)",
+      "optionalTypeDescriptor": true,
+      "typeDescriptorLabel": "Service Type",
+      "typeDescriptorDescription": "The name of the service contract type",
+      "typeDescriptorDefaultValue": "Service",
+      "addDefaultTypeDescriptor": false,
+      "optionalAbsoluteResourcePath": true,
+      "absoluteResourcePathLabel": "Service Base Path",
+      "absoluteResourcePathDescription": "",
+      "absoluteResourcePathDefaultValue": "",
+      "optionalStringLiteral": true,
+      "stringLiteralLabel": "Service Base Path",
+      "stringLiteralDescription": "",
+      "stringLiteralDefaultValue": "",
+      "listenerKind": "SINGLE_SELECT_LISTENER",
+      "kind": "event"
+    },
+    "serviceTypes": {
+      "Service": {
+        "name": "Service",
+        "description": "",
+        "functions": [
+          {
+            "metadata": {
+              "label": "onConsumerRecord",
+              "description": "The `onConsumerRecord` remote method will be triggered when a message is received from Kafka topic(s)"
+            },
+            "name": "onConsumerRecord",
+            "nameEditable": false,
+            "kind": "REMOTE",
+            "accessor": "",
+            "qualifiers": [
+              "remote"
+            ],
+            "enabled": false,
+            "optional": false,
+            "editable": true,
+            "canAddParameters": false,
+            "annotations": [],
+            "parameters": [
+              {
+                "metadata": {
+                  "label": "Consumer messages",
+                  "description": "The messages received for Kafka topic(s)"
+                },
+                "name": "messages",
+                "nameEditable": true,
+                "type": "kafka:AnydataConsumerRecord[]",
+                "typeEditable": true,
+                "kind": "REQUIRED",
+                "optional": false,
+                "importStatements": "",
+                "enabled": true,
+                "editable": true,
+                "annotations": []
+              },
+              {
+                "metadata": {
+                  "label": "Caller",
+                  "description": "The Kafka caller object to commit the offsets"
+                },
+                "name": "caller",
+                "nameEditable": true,
+                "type": "kafka:Caller",
+                "typeEditable": false,
+                "kind": "OPTIONAL",
+                "optional": true,
+                "importStatements": "",
+                "enabled": true,
+                "editable": true,
+                "annotations": []
+              }
+            ],
+            "returnType": {
+              "metadata": {
+                "label": "Return Type",
+                "description": "The return type of the function."
+              },
+              "type": "error",
+              "typeEditable": false,
+              "enabled": true,
+              "optional": true,
+              "hasError": true,
+              "importStatements": "",
+              "editable": false,
+              "annotations": []
+            }
+          },
+          {
+            "metadata": {
+              "label": "onError",
+              "description": "The `onError` remote method will be triggered when an error occurs during the message processing"
+            },
+            "name": "onError",
+            "nameEditable": false,
+            "kind": "REMOTE",
+            "accessor": "",
+            "qualifiers": [
+              "remote"
+            ],
+            "enabled": false,
+            "optional": true,
+            "editable": true,
+            "canAddParameters": false,
+            "annotations": [],
+            "parameters": [
+              {
+                "metadata": {
+                  "label": "Kafka Error",
+                  "description": "The error occurred during the message processing"
+                },
+                "name": "kafkaError",
+                "nameEditable": true,
+                "type": "kafka:Error",
+                "typeEditable": false,
+                "kind": "REQUIRED",
+                "optional": false,
+                "importStatements": "",
+                "enabled": true,
+                "editable": true,
+                "annotations": []
+              }
+            ],
+            "returnType": {
+              "metadata": {
+                "label": "Return Type",
+                "description": "The return type of the function."
+              },
+              "type": "error",
+              "typeEditable": false,
+              "enabled": true,
+              "optional": true,
+              "hasError": true,
+              "importStatements": "",
+              "editable": false,
+              "annotations": []
+            }
+          }
+        ]
+      }
+    },
+    "readOnlyMetadata": [
+      {
+        "key": "topics",
+        "displayName": "Topic(s)",
+        "kind": "LISTENER_PARAM",
+        "paramKind": "INCLUDED_FIELD",
+        "path": "config.topics"
+      }
+    ]
+  }
+}

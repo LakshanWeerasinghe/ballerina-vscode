@@ -386,6 +386,19 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
         });
     }
 
+    async searchTriggers(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
+        return new Promise(async (resolve) => {
+            const context = StateMachine.context();
+            try {
+                const res: TriggerModelsResponse = await context.langClient.searchTriggers(params);
+                resolve(res);
+            } catch (error) {
+                console.log(error);
+                resolve({ local: [] });
+            }
+        });
+    }
+
     async getFunctionModel(params: FunctionModelRequest): Promise<FunctionModelResponse> {
         return new Promise(async (resolve) => {
             const context = StateMachine.context();
