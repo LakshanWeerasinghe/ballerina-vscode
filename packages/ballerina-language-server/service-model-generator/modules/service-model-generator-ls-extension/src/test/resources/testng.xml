@@ -43,6 +43,17 @@ under the License.
             <class name="io.ballerina.servicemodelgenerator.extension.GetServiceInitModelTest"/>
             <class name="io.ballerina.servicemodelgenerator.extension.AddServiceAndListenerTest"/>
             <class name="io.ballerina.servicemodelgenerator.extension.UpdateListenerTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.TriggerModelReaderTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.TriggerSourceGenerationTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.TriggerServiceAdapterTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.PayloadComposerTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.AnnotationEmitterTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.TriggerImportTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGeneratorTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.TriggerFunctionExpansionTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.builder.service.ListenerChoiceSelectionTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolverTest"/>
+            <class name="io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtilTest"/>
         </classes>
     </test>
 </suite>

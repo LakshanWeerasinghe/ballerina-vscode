@@ -60,6 +60,15 @@ public class Function {
     private boolean canAddParameters;
     private Codedata codedata;
     private Map<String, Value> properties;
+    // Handler-catalog fields carried by the unified TriggerModel (phase6): functions sharing a
+    // `group` are format variants of one logical handler (each labelled by `variantLabel`, offered
+    // to the user under `addLabel`); `repeatable` allows several instances per service and
+    // `nameEditable:false` locks the emitted function name to the variant's.
+    private String group;
+    private String variantLabel;
+    private String addLabel;
+    private Boolean repeatable;
+    private Boolean nameEditable;
 
     public Function(MetaData metadata, List<String> qualifiers, String kind, Value accessor, Value name,
                     Value documentation, List<Parameter> parameters, Map<String, Parameter> schema,
@@ -374,6 +383,46 @@ public class Function {
             return null;
         }
         return this.properties.get(key);
+    }
+
+    public String getGroup() {
+        return group;
+    }
+
+    public void setGroup(String group) {
+        this.group = group;
+    }
+
+    public String getVariantLabel() {
+        return variantLabel;
+    }
+
+    public void setVariantLabel(String variantLabel) {
+        this.variantLabel = variantLabel;
+    }
+
+    public String getAddLabel() {
+        return addLabel;
+    }
+
+    public void setAddLabel(String addLabel) {
+        this.addLabel = addLabel;
+    }
+
+    public Boolean getRepeatable() {
+        return repeatable;
+    }
+
+    public void setRepeatable(Boolean repeatable) {
+        this.repeatable = repeatable;
+    }
+
+    public Boolean getNameEditable() {
+        return nameEditable;
+    }
+
+    public void setNameEditable(Boolean nameEditable) {
+        this.nameEditable = nameEditable;
     }
 
     public boolean isCanAddParameters() {

@@ -53,6 +53,13 @@ import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./ut
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FileIntegrationForm } from "./Forms/FileIntegrationForm";
 import FileIntegrationConfigForm from "./Forms/FileIntegrationForm/FileIntegrationConfigForm";
+import { TriggerHandlerForm } from "./Forms/TriggerHandlerForm";
+import TriggerHandlerConfigForm from "./Forms/TriggerHandlerForm/TriggerHandlerConfigForm";
+import {
+    catalogFunctionsOf,
+    handlerGroupId,
+    isSchemaTriggerService as checkSchemaTriggerService,
+} from "./Forms/TriggerHandlerForm/payloadComposer";
 import { getTryItAIDefaultPromptService, getTryItDropdownOptions, TryItOptionValue, TryItQuickPickItem } from "../shared/tryIt";
 
 const LoadingContainer = styled.div`
@@ -224,6 +231,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
     const [initFunction, setInitFunction] = useState<FunctionModel>(undefined);
     const [selectedFTPHandler, setSelectedFTPHandler] = useState<string>(undefined);
+    const [selectedTriggerGroup, setSelectedTriggerGroup] = useState<string>(undefined);
     const [addMore, setAddMore] = useState<boolean>(false);
     const [selectedTryItOption, setSelectedTryItOption] = useState<TryItOptionValue>(TryItOptionValue.TRY_IT);
     const [isTryItInProgress, setIsTryItInProgress] = useState<boolean>(false);
@@ -420,6 +428,10 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             }
         });
 
+        // Schema-driven triggers ship their addable handler catalog separately (`schemaFunctions`);
+        // it feeds the same "+ Handler" affordance as disabled template functions.
+        unusedHandlers.push(...(service.schemaFunctions ?? []));
+
         setEnabledHandlers(enabledHandlers);
         setUnusedHandlers(unusedHandlers);
         setObjectMethods(objectMethods);
@@ -528,6 +540,28 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             });
     };
 
+    // Schema-driven trigger (unified TriggerModel): it ships an addable handler catalog
+    // (`schemaFunctions`) and/or functions carrying the catalog markers (`group`/`variantLabel`),
+    // so the generic TriggerHandlerForm applies — no module gate.
+    const isSchemaTriggerService = checkSchemaTriggerService(serviceModel);
+
+    const handleNewTriggerHandler = (group: string) => {
+        setSelectedTriggerGroup(group);
+        setFunctionModel(undefined);
+        setIsNew(true);
+        setShowForm(true);
+        setShowFunctionConfigForm(false);
+        setIsSaving(false);
+    };
+
+    const getTriggerHandlerTitle = () => {
+        const groupId = selectedTriggerGroup ?? (functionModel ? handlerGroupId(functionModel) : undefined);
+        const groupMembers = [...(serviceModel ? catalogFunctionsOf(serviceModel) : []), ...(serviceModel?.functions ?? [])];
+        const groupLabel = groupMembers.find(fn => handlerGroupId(fn) === groupId)?.metadata?.label
+            ?? "Handler";
+        return `${isNew ? "New " : ""}${groupLabel} Configuration`;
+    };
+
     const handleNewFTPFunction = (selectedHandler: string) => {
         const templateFunction = serviceModel?.functions?.find(
             (fn) => !fn.enabled && fn.metadata?.label === selectedHandler
@@ -630,6 +664,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsNew(false);
         setFunctionModel(undefined);
         setSelectedFTPHandler(undefined);
+        setSelectedTriggerGroup(undefined);
         // If a handler was selected, also close the FunctionConfigForm
         if (selectedHandler) {
             setShowFunctionConfigForm(false);
@@ -1187,7 +1222,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </>
                             )}
 
-                            {isFtpService && (
+                            {/* {isFtpService && (
                                 <>
                                     <SectionHeader
                                         title="File Handlers"
@@ -1234,7 +1269,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         </EmptyReadmeContainer>
                                     )}
                                 </>
-                            )}
+                            )} */}
 
                             {/* Listing Tools in MCP */}
                             {isMcpService && (
@@ -1293,7 +1328,9 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* Listing service type bound functions */}
-                            {!(isHttpService || isMcpService || isFtpService) && (
+                            {!(isHttpService || isMcpService ) && (
+                            // {!(isHttpService || isMcpService || isFtpService) && (
+
                                 <>
                                     <SectionHeader
                                         title="Event Handlers"
@@ -1468,7 +1505,9 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions with data binding */}
-                            {functionModel && !isHttpService && !isMcpService && !isFtpService && canDataBind(functionModel) && (
+                            {functionModel && !isHttpService && !isMcpService
+                            // {functionModel && !isHttpService && !isMcpService && !isFtpService
+                                && !isSchemaTriggerService && canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Message Handler Configuration"}
                                     show={showForm}
@@ -1494,7 +1533,9 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions */}
-                            {functionModel && !isHttpService && !isMcpService && !isFtpService && !canDataBind(functionModel) && (
+                            {/* {functionModel && !isHttpService && !isMcpService && !isFtpService */}
+                            {functionModel && !isHttpService && !isMcpService
+                                && !isSchemaTriggerService && !canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Function Configuration"}
                                     show={showForm}
@@ -1510,7 +1551,8 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding a new handler to the service */}
-                            {serviceModel && !isHttpService && !isFtpService && (
+                            {/* {serviceModel && !isHttpService && !isFtpService && !isSchemaTriggerService && ( */}
+                            {serviceModel && !isHttpService && !isSchemaTriggerService && (
                                 <PanelContainer
                                     title={"Select Handler to Add"}
                                     show={showFunctionConfigForm}
@@ -1525,7 +1567,44 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     />
                                 </PanelContainer>
                             )}
-                            {serviceModel && isFtpService && (
+                            {/* Schema-driven trigger: group catalog + generic handler form */}
+                            {serviceModel && isSchemaTriggerService && (
+                                <PanelContainer
+                                    title={"Select Handler to Add"}
+                                    show={showFunctionConfigForm}
+                                    onClose={handleFunctionConfigClose}
+                                >
+                                    <TriggerHandlerConfigForm
+                                        isSaving={isSaving}
+                                        serviceModel={serviceModel}
+                                        onSubmit={handleNewTriggerHandler}
+                                        onBack={handleFunctionConfigClose}
+                                    />
+                                </PanelContainer>
+                            )}
+                            {serviceModel && isSchemaTriggerService && (
+                                <PanelContainer
+                                    title={getTriggerHandlerTitle()}
+                                    show={showForm}
+                                    onClose={handleNewFunctionClose}
+                                    width={400}
+                                >
+                                    {showForm && (
+                                        <TriggerHandlerForm
+                                            key={`${isNew ? "new" : "edit"}-${selectedTriggerGroup ?? functionModel?.name?.value ?? "handler"}`}
+                                            functionModel={functionModel}
+                                            serviceModel={serviceModel}
+                                            isSaving={isSaving}
+                                            filePath={filePath}
+                                            onSave={handleFunctionSubmit}
+                                            onClose={handleNewFunctionClose}
+                                            isNew={isNew}
+                                            selectedGroup={selectedTriggerGroup}
+                                        />
+                                    )}
+                                </PanelContainer>
+                            )}
+                            {/* {serviceModel && isFtpService && (
                                 <PanelContainer
                                     title={"Select Handler to Add"}
                                     show={showFunctionConfigForm}
@@ -1538,7 +1617,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         onBack={handleFunctionConfigClose}
                                     />
                                 </PanelContainer>
-                            )}
+                            )} */}
 
                             {/* This is for adding a init function to the service */}
                             <PanelContainer
@@ -1555,7 +1634,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 />
                             </PanelContainer>
 
-                            {isFtpService && serviceModel && (
+                            {/* {isFtpService && serviceModel && (
                                 <PanelContainer
                                     title={getFtpHandlerTitle()}
                                     show={showForm}
@@ -1576,7 +1655,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         />
                                     )}
                                 </PanelContainer>
-                            )}
+                            )} */}
 
                             {functionModel && isMcpService && (
                                 <PanelContainer

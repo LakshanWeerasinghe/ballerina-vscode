@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Icon } from '@wso2/ui-toolkit';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import { DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, TriggerModelsResponse, ServiceModel, SCOPE } from '@wso2/ballerina-core';
@@ -23,17 +23,20 @@ import { DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, TriggerModelsResponse, Service
 import { CardGrid, PanelViewMore, Title, TitleWrapper } from './styles';
 import { BodyText } from '../../styles';
 import ButtonCard from '../../../components/ButtonCard';
-import { isBetaModule, OutOfScopeComponentTooltip } from './componentListUtils';
+import { isBetaModule, matchesArtifactQuery, OutOfScopeComponentTooltip } from './componentListUtils';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 
 interface EventIntegrationPanelProps {
     scope: SCOPE;
     triggers: TriggerModelsResponse;
+    /** Page-level gallery search; when set, only matching cards show (Central search is a separate panel). */
+    searchQuery?: string;
 };
 
 export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
     const { rpcClient } = useRpcContext();
     const isDisabled = props.scope && (props.scope !== SCOPE.EVENT_INTEGRATION && props.scope !== SCOPE.ANY);
+    const searchQuery = props.searchQuery ?? "";
 
     const handleClick = async (key: DIRECTORY_MAP, model: ServiceModel) => {
         await rpcClient.getVisualizerRpcClient().openView({
@@ -50,6 +53,15 @@ export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
         });
     };
 
+    const visibleTriggers = props.triggers.local
+        .filter((t) => t.type === "event")
+        .filter((t) => matchesArtifactQuery(searchQuery, t.name, t.moduleName));
+
+    // While the user is searching, a section with no matches disappears entirely.
+    if (searchQuery.trim() && visibleTriggers.length === 0) {
+        return null;
+    }
+
     return (
         <PanelViewMore disabled={isDisabled}>
             <TitleWrapper>
@@ -61,25 +73,23 @@ export function EventIntegrationPanel(props: EventIntegrationPanelProps) {
             <CardGrid>
                 {props.triggers.local.length === 0 && <RelativeLoader />}
                 {
-                    props.triggers.local
-                        .filter((t) => t.type === "event")
-                        .map((item, index) => {
-                            return (
-                                <ButtonCard
-                                    id={`trigger-${item.moduleName.replace(/\./g, '-')}`}
-                                    key={item.id}
-                                    title={item.name}
-                                    icon={getEntryNodeIcon(item)}
-                                    onClick={() => {
-                                        handleClick(DIRECTORY_MAP.SERVICE, item);
-                                    }}
-                                    disabled={isDisabled}
-                                    tooltip={isDisabled ? OutOfScopeComponentTooltip : ""}
-                                    isBeta={isBetaModule(item.moduleName)}
-                                />
-                            );
-                        }
-                        )
+                    visibleTriggers.map((item, index) => {
+                        return (
+                            <ButtonCard
+                                id={`trigger-${item.moduleName.replace(/\./g, '-')}`}
+                                key={item.id}
+                                title={item.name}
+                                icon={getEntryNodeIcon(item)}
+                                onClick={() => {
+                                    handleClick(DIRECTORY_MAP.SERVICE, item);
+                                }}
+                                disabled={isDisabled}
+                                tooltip={isDisabled ? OutOfScopeComponentTooltip : ""}
+                                isBeta={isBetaModule(item.moduleName)}
+                            />
+                        );
+                    }
+                    )
                 }
             </CardGrid>
         </PanelViewMore>

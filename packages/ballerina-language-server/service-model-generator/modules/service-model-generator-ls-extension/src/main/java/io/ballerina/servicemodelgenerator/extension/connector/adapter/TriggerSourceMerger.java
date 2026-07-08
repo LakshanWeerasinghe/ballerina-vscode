@@ -1,0 +1,467 @@
+/*
+ *  Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com)
+ *
+ *  WSO2 LLC. licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ */
+
+package io.ballerina.servicemodelgenerator.extension.connector.adapter;
+
+import com.google.gson.Gson;
+import io.ballerina.compiler.syntax.tree.ExpressionNode;
+import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
+import io.ballerina.compiler.syntax.tree.MappingFieldNode;
+import io.ballerina.compiler.syntax.tree.NodeParser;
+import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
+import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.Function;
+import io.ballerina.servicemodelgenerator.extension.model.Parameter;
+import io.ballerina.servicemodelgenerator.extension.model.Service;
+import io.ballerina.servicemodelgenerator.extension.model.Value;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Folds the functions parsed from the user's source into a schema-driven trigger template
+ * ({@link TriggerServiceAdapter#toServiceTemplate}) — the read-side counterpart of the wire source
+ * emitter. After the merge the wire {@link Service} carries:
+ *
+ * <ul>
+ *   <li>{@code functions} — exactly the handlers present in the source, each <i>enriched</i> with its
+ *       schema variant's data so the generic handler form can edit it: catalog fields
+ *       ({@code group}/{@code variantLabel}), the payload parameter's composition codedata (with
+ *       {@code boundType} and the PAYLOAD_MODIFIER flag states <i>reverse-composed</i> from the
+ *       actual parameter type), and the annotation tree ticked and filled from the source's
+ *       {@code @module:Config {...}} attachment;</li>
+ *   <li>{@code schemaFunctions} — the still-addable catalog: shipped variants minus those consumed by
+ *       the source (a variant whose emitted function name already exists cannot be added again,
+ *       unless its name is editable), plus any template handlers missing from the source.</li>
+ * </ul>
+ *
+ * Source functions that match no schema variant are kept as-is (read-only), mirroring the default
+ * merge behaviour for hand-written members.
+ *
+ * @since 1.9.0
+ */
+public final class TriggerSourceMerger {
+
+    private static final String TYPE_PLACEHOLDER = "{{type}}";
+    private static final String CD_PAYLOAD_TYPE = "PAYLOAD_TYPE";
+    private static final String CD_PAYLOAD_MODIFIER = "PAYLOAD_MODIFIER";
+    private static final String CD_COMPLEX_FUNCTION_ANNOTATION = "COMPLEX_FUNCTION_ANNOTATION";
+    private static final String CD_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
+    private static final String CD_MAPPING_CONSTRUCTOR = "MAPPING_CONSTRUCTOR";
+    private static final String CD_ENUM_LITERAL = "ENUM_LITERAL";
+    private static final String CD_FIELD_VALUE_CHOICE = "FIELD_VALUE_CHOICE";
+
+    private static final Gson GSON = new Gson();
+
+    private TriggerSourceMerger() {
+    }
+
+    /**
+     * Merges the source-parsed functions into the trigger template in place. Expects the template
+     * layout produced by {@link TriggerServiceAdapter}: {@code functions} = the model's present
+     * handlers, {@code schemaFunctions} = the expanded addable catalog.
+     */
+    public static void mergeSource(Service serviceModel, List<Function> functionsInSource) {
+        List<Function> catalog = new ArrayList<>();
+        if (serviceModel.getFunctions() != null) {
+            // Present-handler templates are part of the search space; if missing from the source
+            // they become addable again, so they join the catalog below.
+            catalog.addAll(serviceModel.getFunctions());
+        }
+        if (serviceModel.getSchemaFunctions() != null) {
+            catalog.addAll(serviceModel.getSchemaFunctions());
+        }
+
+        List<Function> merged = new ArrayList<>();
+        for (Function source : functionsInSource == null ? List.<Function>of() : functionsInSource) {
+            Function template = findTemplate(catalog, source);
+            if (template == null) {
+                // A hand-written member the schema does not know: keep it, read-only.
+                source.setEditable(false);
+                source.setOptional(true);
+                merged.add(source);
+                continue;
+            }
+            // A name-editable handler can be added again under another name, so its template stays
+            // in the catalog and the source function enriches a copy; a fixed-name variant (the
+            // common case) is consumed — it leaves the addable catalog.
+            Function enriched = Boolean.TRUE.equals(template.getNameEditable()) ? copyOf(template) : template;
+            if (enriched == template) {
+                catalog.remove(template);
+            }
+            enrich(enriched, source);
+            merged.add(enriched);
+        }
+
+        for (Function remaining : catalog) {
+            remaining.setEnabled(false);
+        }
+        serviceModel.setFunctions(merged);
+        serviceModel.setSchemaFunctions(catalog);
+    }
+
+    /** Matches a source function to its schema template by emitted name (and accessor for resources). */
+    private static Function findTemplate(List<Function> templates, Function source) {
+        String sourceName = valueOf(source.getName());
+        if (sourceName == null) {
+            return null;
+        }
+        for (Function template : templates) {
+            if (!sourceName.equals(valueOf(template.getName()))) {
+                continue;
+            }
+            String sourceAccessor = valueOf(source.getAccessor());
+            String templateAccessor = valueOf(template.getAccessor());
+            if (sourceAccessor == null || templateAccessor == null
+                    || sourceAccessor.equals(templateAccessor)) {
+                return template;
+            }
+        }
+        return null;
+    }
+
+    private static Function copyOf(Function template) {
+        return GSON.fromJson(GSON.toJson(template), Function.class);
+    }
+
+    // ----- enrichment of one matched handler -----
+
+    private static void enrich(Function template, Function source) {
+        template.setEnabled(true);
+        template.setEditable(true);
+        template.setOptional(false);
+        if (template.getCodedata() == null) {
+            template.setCodedata(source.getCodedata());
+        } else if (source.getCodedata() != null) {
+            template.getCodedata().setLineRange(source.getCodedata().getLineRange());
+        }
+        if (template.getName() != null && source.getName() != null) {
+            template.getName().setValue(source.getName().getValue());
+        }
+        if (template.getReturnType() != null && source.getReturnType() != null
+                && source.getReturnType().getValue() != null && !source.getReturnType().getValue().isBlank()) {
+            template.getReturnType().setValue(source.getReturnType().getValue());
+            template.getReturnType().setEnabled(true);
+        }
+        reconcileParameters(template, source);
+        applyAnnotationsFromSource(template, source);
+    }
+
+    /**
+     * Reconciles the template's parameters with the source signature. Framework parameters (fixed
+     * types like {@code smb:FileInfo}/{@code smb:Caller}) match by type text and toggle their
+     * include state; the payload parameter takes the first unclaimed source parameter and is
+     * reverse-composed. Unknown extra source parameters are appended read-only.
+     */
+    private static void reconcileParameters(Function template, Function source) {
+        List<Parameter> sourceParams = source.getParameters() == null
+                ? new ArrayList<>() : new ArrayList<>(source.getParameters());
+        Parameter payloadTemplate = null;
+        for (Parameter templateParam : template.getParameters() == null
+                ? List.<Parameter>of() : template.getParameters()) {
+            if (isPayloadParameter(templateParam)) {
+                payloadTemplate = templateParam;
+                continue;
+            }
+            Parameter match = claimByType(sourceParams, typeOf(templateParam));
+            if (match == null) {
+                templateParam.setEnabled(false);
+                continue;
+            }
+            templateParam.setEnabled(true);
+            if (templateParam.getName() != null && match.getName() != null) {
+                templateParam.getName().setValue(match.getName().getValue());
+            }
+        }
+        if (payloadTemplate != null) {
+            if (sourceParams.isEmpty()) {
+                payloadTemplate.setEnabled(false);
+            } else {
+                applyPayloadSource(template, payloadTemplate, sourceParams.remove(0));
+            }
+        }
+        for (Parameter extra : sourceParams) {
+            extra.setEnabled(true);
+            extra.setEditable(false);
+            template.getParameters().add(extra);
+        }
+    }
+
+    private static boolean isPayloadParameter(Parameter parameter) {
+        return parameter.getType() != null && parameter.getType().getCodedata() != null
+                && CD_PAYLOAD_TYPE.equals(parameter.getType().getCodedata().getType());
+    }
+
+    private static Parameter claimByType(List<Parameter> sourceParams, String typeText) {
+        if (typeText == null) {
+            return null;
+        }
+        for (int i = 0; i < sourceParams.size(); i++) {
+            if (typeText.equals(typeOf(sourceParams.get(i)))) {
+                return sourceParams.remove(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reverse-composes the payload parameter from its actual source type: an active PAYLOAD_MODIFIER
+     * is recognised by its template (e.g. {@code stream<{{type}}, error?>}), the element type is
+     * extracted through the matching template, and a non-default element becomes {@code boundType} —
+     * exactly undoing the composition the add flow performed.
+     */
+    private static void applyPayloadSource(Function template, Parameter payloadParam, Parameter sourceParam) {
+        String actualType = typeOf(sourceParam);
+        Codedata typeCodedata = payloadParam.getType() == null ? null : payloadParam.getType().getCodedata();
+
+        String element = null;
+        Map<String, Value> properties = template.getProperties() == null ? Map.of() : template.getProperties();
+        for (Value property : properties.values()) {
+            Codedata propertyCodedata = property.getCodedata();
+            if (propertyCodedata == null || !CD_PAYLOAD_MODIFIER.equals(propertyCodedata.getType())
+                    || propertyCodedata.getTemplate() == null) {
+                continue;
+            }
+            String extracted = elementOf(propertyCodedata.getTemplate(), actualType);
+            property.setValue(String.valueOf(extracted != null));
+            if (extracted != null) {
+                element = extracted;
+            }
+        }
+        if (element == null && typeCodedata != null) {
+            element = elementOf(typeCodedata.getTemplate(), actualType);
+        }
+        if (typeCodedata != null && element != null && !element.equals(typeCodedata.getDefaultType())) {
+            typeCodedata.setBoundType(element);
+        }
+        if (payloadParam.getType() != null && actualType != null) {
+            payloadParam.getType().setValue(actualType);
+        }
+        if (payloadParam.getName() != null && sourceParam.getName() != null) {
+            payloadParam.getName().setValue(sourceParam.getName().getValue());
+        }
+        payloadParam.setEnabled(true);
+    }
+
+    /**
+     * Extracts the {@code {{type}}} element from an actual type through a composition template
+     * (whitespace-insensitive), or {@code null} when the type was not produced by that template.
+     */
+    static String elementOf(String template, String actualType) {
+        if (template == null || actualType == null || !template.contains(TYPE_PLACEHOLDER)) {
+            return null;
+        }
+        String normalizedTemplate = template.replaceAll("\\s+", "");
+        String normalizedActual = actualType.replaceAll("\\s+", "");
+        int placeholder = normalizedTemplate.indexOf(TYPE_PLACEHOLDER);
+        String prefix = normalizedTemplate.substring(0, placeholder);
+        String suffix = normalizedTemplate.substring(placeholder + TYPE_PLACEHOLDER.length());
+        if (normalizedActual.length() <= prefix.length() + suffix.length()
+                || !normalizedActual.startsWith(prefix) || !normalizedActual.endsWith(suffix)) {
+            return null;
+        }
+        return normalizedActual.substring(prefix.length(), normalizedActual.length() - suffix.length());
+    }
+
+    // ----- annotation tree population from the source attachment -----
+
+    /**
+     * Fills each COMPLEX_FUNCTION_ANNOTATION tree from the corresponding annotation attachment the
+     * source parser found on the function ({@code @module:Name {field: value, ...}}): present
+     * mapping fields are ticked and their leaves/choices set, absent optional fields stay unchecked.
+     */
+    private static void applyAnnotationsFromSource(Function template, Function source) {
+        if (template.getProperties() == null) {
+            return;
+        }
+        for (Value tree : template.getProperties().values()) {
+            Codedata treeCodedata = tree.getCodedata();
+            if (treeCodedata == null || !CD_COMPLEX_FUNCTION_ANNOTATION.equals(treeCodedata.getType())) {
+                continue;
+            }
+            String body = sourceAnnotationBody(source, treeCodedata.getOriginalName());
+            if (body == null || body.isBlank()) {
+                continue;
+            }
+            if (NodeParser.parseExpression(body) instanceof MappingConstructorExpressionNode mapping) {
+                applyMapping(tree, mapping);
+            }
+        }
+    }
+
+    /** The mapping body of the source's annotation attachment with the given name, if present. */
+    private static String sourceAnnotationBody(Function source, String annotationName) {
+        if (source.getProperties() == null || annotationName == null) {
+            return null;
+        }
+        for (Value property : source.getProperties().values()) {
+            Codedata codedata = property.getCodedata();
+            if (codedata != null && CD_ANNOTATION_ATTACHMENT.equals(codedata.getType())
+                    && annotationName.equals(codedata.getOriginalName())) {
+                return property.getValue();
+            }
+        }
+        return null;
+    }
+
+    /** Applies a parsed mapping constructor onto the MAPPING_FIELD children of a container node. */
+    private static void applyMapping(Value container, MappingConstructorExpressionNode mapping) {
+        Map<String, ExpressionNode> fields = fieldsOf(mapping);
+        if (container.getProperties() == null) {
+            return;
+        }
+        for (Value child : container.getProperties().values()) {
+            Codedata codedata = child.getCodedata();
+            if (codedata == null || codedata.getField() == null) {
+                continue;
+            }
+            ExpressionNode fieldValue = fields.get(codedata.getField());
+            boolean isLeaf = child.getProperties() == null || child.getProperties().isEmpty();
+            if (fieldValue == null) {
+                // Absent in the source: an optional leaf gates on `enabled`, a flag-gated
+                // container on `value` — the two include conventions the emitter understands.
+                if (isLeaf) {
+                    child.setEnabled(false);
+                } else {
+                    child.setValue("false");
+                }
+                continue;
+            }
+            child.setEnabled(true);
+            if (isLeaf) {
+                child.setValue(fieldValue.toSourceCode().trim());
+            } else {
+                child.setValue("true");
+                applyFieldValue(child, fieldValue);
+            }
+        }
+    }
+
+    private static Map<String, ExpressionNode> fieldsOf(MappingConstructorExpressionNode mapping) {
+        Map<String, ExpressionNode> fields = new LinkedHashMap<>();
+        for (MappingFieldNode field : mapping.fields()) {
+            if (field instanceof SpecificFieldNode specificField && specificField.valueExpr().isPresent()) {
+                fields.put(specificField.fieldName().toSourceCode().trim(), specificField.valueExpr().get());
+            }
+        }
+        return fields;
+    }
+
+    /** Applies a source field value onto a flag-gated field's nested value node (mirrors the emitter). */
+    private static void applyFieldValue(Value fieldNode, ExpressionNode expression) {
+        if (fieldNode.getProperties() == null || fieldNode.getProperties().isEmpty()) {
+            return;
+        }
+        Value valueNode = fieldNode.getProperties().values().iterator().next();
+        applyValueNode(valueNode, expression);
+    }
+
+    private static void applyValueNode(Value node, ExpressionNode expression) {
+        Codedata codedata = node.getCodedata();
+        String type = codedata == null ? null : codedata.getType();
+        if (CD_FIELD_VALUE_CHOICE.equals(type)) {
+            applyChoice(node, expression);
+            return;
+        }
+        if (CD_MAPPING_CONSTRUCTOR.equals(type)
+                && expression instanceof MappingConstructorExpressionNode mapping) {
+            applyMapping(node, mapping);
+            return;
+        }
+        // A childless value node is a leaf: the source expression text is its editable value.
+        if (node.getProperties() == null || node.getProperties().isEmpty()) {
+            node.setValue(expression.toSourceCode().trim());
+        }
+    }
+
+    /**
+     * Selects the FIELD_VALUE_CHOICE branch the source value came from: a mapping value matches the
+     * MAPPING_CONSTRUCTOR branch sharing the most field names; a scalar matches an ENUM_LITERAL
+     * branch's (possibly qualified) value or the branch's own value.
+     */
+    private static void applyChoice(Value choiceNode, ExpressionNode expression) {
+        if (choiceNode.getChoices() == null || choiceNode.getChoices().isEmpty()) {
+            return;
+        }
+        Value selected = null;
+        if (expression instanceof MappingConstructorExpressionNode mapping) {
+            Map<String, ExpressionNode> fields = fieldsOf(mapping);
+            int bestScore = 0;
+            for (Value branch : choiceNode.getChoices()) {
+                int score = branchFieldOverlap(branch, fields);
+                if (score > bestScore) {
+                    bestScore = score;
+                    selected = branch;
+                }
+            }
+            if (selected != null) {
+                applyMapping(selected, mapping);
+            }
+        } else {
+            String text = expression.toSourceCode().trim();
+            String unqualified = text.contains(":") ? text.substring(text.lastIndexOf(':') + 1) : text;
+            for (Value branch : choiceNode.getChoices()) {
+                Codedata branchCodedata = branch.getCodedata();
+                String branchValue = branchCodedata != null && CD_ENUM_LITERAL.equals(branchCodedata.getType())
+                        && branchCodedata.getValue() != null ? branchCodedata.getValue() : branch.getValue();
+                if (text.equals(branchValue) || unqualified.equals(branchValue)) {
+                    selected = branch;
+                    break;
+                }
+            }
+        }
+        if (selected == null) {
+            return;
+        }
+        for (Value branch : choiceNode.getChoices()) {
+            branch.setEnabled(branch == selected);
+        }
+        if (selected.getValue() != null && !selected.getValue().isBlank()) {
+            choiceNode.setValue(selected.getValue());
+        }
+    }
+
+    private static int branchFieldOverlap(Value branch, Map<String, ExpressionNode> fields) {
+        if (branch.getProperties() == null) {
+            return 0;
+        }
+        int score = 0;
+        for (Value child : branch.getProperties().values()) {
+            Codedata codedata = child.getCodedata();
+            if (codedata != null && codedata.getField() != null && fields.containsKey(codedata.getField())) {
+                score++;
+            }
+        }
+        return score;
+    }
+
+    // ----- small accessors -----
+
+    private static String valueOf(Value value) {
+        return value == null ? null : value.getValue();
+    }
+
+    private static String typeOf(Parameter parameter) {
+        if (parameter == null || parameter.getType() == null || parameter.getType().getValue() == null) {
+            return null;
+        }
+        return parameter.getType().getValue().trim();
+    }
+}

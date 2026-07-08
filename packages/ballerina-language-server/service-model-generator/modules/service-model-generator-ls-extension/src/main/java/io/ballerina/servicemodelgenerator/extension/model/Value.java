@@ -46,6 +46,7 @@ public class Value {
     private List<Value> choices;
     private Map<String, Value> properties;
     private List<PropertyType> types;
+    private List<ValidationRule> validations;
     private boolean enabled;
     private boolean editable;
     private boolean optional;
@@ -66,6 +67,7 @@ public class Value {
         this.choices = value.choices;
         this.imports = value.imports;
         this.types = value.types;
+        this.validations = value.validations;
     }
 
     public Value(MetaData metadata, boolean enabled, boolean editable, Object value, List<Object> values,
@@ -109,6 +111,9 @@ public class Value {
         RAW_TEMPLATE,
         SINGLE_SELECT_LISTENER,
         MULTIPLE_SELECT_LISTENER,
+        // The spelling connector-shipped trigger models use (phase-6 schema); without the constant
+        // Gson silently nulls the fieldType on parse.
+        MULTI_SELECT_LISTENER,
         FILE_SELECT,
         OPTIONAL_IDENTIFIER,
         ACTION_TYPE,
@@ -341,6 +346,14 @@ public class Value {
         return imports;
     }
 
+    public List<ValidationRule> getValidations() {
+        return validations;
+    }
+
+    public void setValidations(List<ValidationRule> validations) {
+        this.validations = validations;
+    }
+
     public static class ValueBuilder {
         private MetaData metadata;
         private Codedata codedata;
@@ -351,6 +364,7 @@ public class Value {
         private List<Object> items;
         private Map<String, Value> properties;
         private Map<String, String> imports;
+        private List<ValidationRule> validations;
         private boolean enabled = false;
         private boolean editable = false;
         private boolean optional = false;
@@ -438,9 +452,16 @@ public class Value {
             return this;
         }
 
+        public ValueBuilder setValidations(List<ValidationRule> validations) {
+            this.validations = validations;
+            return this;
+        }
+
         public Value build() {
-            return new Value(metadata, enabled, editable, value, values, placeholder, optional, advanced,
+            Value built = new Value(metadata, enabled, editable, value, values, placeholder, optional, advanced,
                     properties, items, codedata, types, imports);
+            built.setValidations(validations);
+            return built;
         }
     }
 }

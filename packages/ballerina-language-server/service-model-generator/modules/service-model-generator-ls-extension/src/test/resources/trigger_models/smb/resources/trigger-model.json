@@ -1,0 +1,1627 @@
+{
+  "schemaVersion": "1.0",
+  "displayName": "SMB",
+  "description": "Create a service that monitors a directory on a remote SMB share for file additions, with content-specific handlers for text, JSON, XML, CSV and raw binary files.",
+  "orgName": "ballerina",
+  "packageName": "smb",
+  "moduleName": "smb",
+  "version": "1.0.3",
+  "type": "smb",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_smb_1.0.3.png",
+  "kind": "file",
+  "initProperties": {
+    "listener": {
+      "metadata": {
+        "label": "Listener",
+        "description": "Attach the service to a new or existing SMB listener."
+      },
+      "types": [
+        {
+          "fieldType": "CHOICE",
+          "selected": true
+        }
+      ],
+      "value": "createNew",
+      "enabled": true,
+      "editable": true,
+      "optional": false,
+      "advanced": false,
+      "codedata": {
+        "type": "LISTENER_CONFIG"
+      },
+      "choices": [
+        {
+          "metadata": {
+            "label": "Create New Listener",
+            "description": "Define a new SMB listener in the project."
+          },
+          "types": [
+            {
+              "fieldType": "FORM",
+              "selected": true
+            }
+          ],
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "properties": {
+            "listenerConfig": {
+              "metadata": {
+                "label": "Listener Configurations",
+                "description": "Configure the SMB listener."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "properties": {
+                "listenerVarName": {
+                  "metadata": {
+                    "label": "Listener Name",
+                    "description": "Provide a name for the listener being created."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "IDENTIFIER",
+                      "selected": true,
+                      "ballerinaType": "smb:Listener"
+                    }
+                  ],
+                  "value": "smbListener",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "LISTENER_VAR_NAME"
+                  },
+                  "validations": [
+                    {
+                      "rule": "common.validate.identifier"
+                    },
+                    {
+                      "rule": "ls.validate.unique.listener.name",
+                      "message": "A listener with this name already exists in the project"
+                    }
+                  ]
+                },
+                "host": {
+                  "metadata": {
+                    "label": "Host",
+                    "description": "Hostname or IP address of the remote SMB server."
+                  },
+                  "placeholder": "localhost",
+                  "value": "\"localhost\"",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "host"
+                  },
+                  "types": [
+                    {
+                      "fieldType": "TEXT",
+                      "ballerinaType": "string",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "string",
+                      "selected": false
+                    }
+                  ]
+                },
+                "port": {
+                  "metadata": {
+                    "label": "Port",
+                    "description": "Port number of the SMB service."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "NUMBER",
+                      "ballerinaType": "int",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "int",
+                      "selected": false
+                    }
+                  ],
+                  "value": "445",
+                  "placeholder": "445",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "port"
+                  },
+                  "validations": [
+                    {
+                      "rule": "common.validate.number.range",
+                      "args": {
+                        "min": 1,
+                        "max": 65535
+                      },
+                      "message": "Port must be between 1 and 65535"
+                    }
+                  ]
+                },
+                "share": {
+                  "metadata": {
+                    "label": "Share",
+                    "description": "SMB share name to connect to."
+                  },
+                  "placeholder": "share",
+                  "value": "\"\"",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "share"
+                  },
+                  "types": [
+                    {
+                      "fieldType": "TEXT",
+                      "ballerinaType": "string",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "string",
+                      "selected": false
+                    }
+                  ],
+                  "validations": [
+                    {
+                      "rule": "common.validate.required",
+                      "message": "Share is required"
+                    }
+                  ]
+                },
+                "auth": {
+                  "metadata": {
+                    "label": "Authentication",
+                    "description": "Choose how to authenticate with the SMB server."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "CHOICE",
+                      "selected": true
+                    }
+                  ],
+                  "value": "credentials",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "auth"
+                  },
+                  "choices": [
+                    {
+                      "metadata": {
+                        "label": "Username & Password",
+                        "description": "Basic-auth username and password for the SMB share."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "FORM",
+                          "selected": true
+                        }
+                      ],
+                      "value": "credentials",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "properties": {
+                        "username": {
+                          "metadata": {
+                            "label": "Username",
+                            "description": "Remote server username for basic authentication."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "\"user\"",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.credentials.username"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "password": {
+                          "metadata": {
+                            "label": "Password",
+                            "description": "Remote server password for basic authentication."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "\"password\"",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.credentials.password"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "domain": {
+                          "metadata": {
+                            "label": "Domain",
+                            "description": "Optional Windows/AD domain for authentication."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.credentials.domain"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "metadata": {
+                        "label": "Kerberos",
+                        "description": "Kerberos authentication for the SMB server."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "FORM",
+                          "selected": true
+                        }
+                      ],
+                      "value": "kerberos",
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "properties": {
+                        "principal": {
+                          "metadata": {
+                            "label": "Principal",
+                            "description": "Kerberos principal used to authenticate."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.kerberosConfig.principal"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "keytab": {
+                          "metadata": {
+                            "label": "Keytab Path",
+                            "description": "Path to the Kerberos keytab file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "",
+                          "placeholder": "/path/to/krb5.keytab",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.kerberosConfig.keytab"
+                          }
+                        },
+                        "configFile": {
+                          "metadata": {
+                            "label": "Kerberos Config File",
+                            "description": "Path to the Kerberos (krb5.conf) configuration file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "value": "",
+                          "placeholder": "/path/to/krb5.conf",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "auth.kerberosConfig.configFile"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "fileNamePattern": {
+                  "metadata": {
+                    "label": "File Name Pattern",
+                    "description": "Optional regex the file name must match for the listener to raise events."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "TEXT",
+                      "ballerinaType": "string",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "string",
+                      "selected": false
+                    }
+                  ],
+                  "value": "",
+                  "placeholder": "(.*).csv",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "fileNamePattern"
+                  }
+                },
+                "pollingInterval": {
+                  "metadata": {
+                    "label": "Polling Interval",
+                    "description": "Polling interval in seconds for checking file changes."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "NUMBER",
+                      "ballerinaType": "decimal",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "decimal",
+                      "selected": false
+                    }
+                  ],
+                  "value": "60",
+                  "placeholder": "60",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "pollingInterval"
+                  },
+                  "validations": [
+                    {
+                      "rule": "common.validate.number.range",
+                      "args": {
+                        "min": 1
+                      },
+                      "message": "Polling interval must be a positive number"
+                    }
+                  ]
+                },
+                "dialects": {
+                  "metadata": {
+                    "label": "Protocol Dialects",
+                    "description": "Supported SMB protocol dialects, in preference order."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "smb:Dialect[]",
+                      "selected": true
+                    }
+                  ],
+                  "value": "[smb:SMB_3_1_1, smb:SMB_3_0_2, smb:SMB_3_0, smb:SMB_2_1, smb:SMB_2_0_2]",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "dialects"
+                  }
+                },
+                "signRequired": {
+                  "metadata": {
+                    "label": "Require Message Signing",
+                    "description": "Whether SMB message signing is required."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "ballerinaType": "boolean",
+                      "selected": true
+                    }
+                  ],
+                  "value": false,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "signRequired"
+                  }
+                },
+                "encryptData": {
+                  "metadata": {
+                    "label": "Encrypt Data",
+                    "description": "Whether to encrypt SMB data in transit."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "ballerinaType": "boolean",
+                      "selected": true
+                    }
+                  ],
+                  "value": false,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "encryptData"
+                  }
+                },
+                "enableDfs": {
+                  "metadata": {
+                    "label": "Enable DFS",
+                    "description": "Whether to enable Distributed File System (DFS) support."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "ballerinaType": "boolean",
+                      "selected": true
+                    }
+                  ],
+                  "value": false,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "enableDfs"
+                  }
+                },
+                "bufferSize": {
+                  "metadata": {
+                    "label": "Buffer Size",
+                    "description": "Size of the buffer for read/write operations, in bytes."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "NUMBER",
+                      "ballerinaType": "int",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "int",
+                      "selected": false
+                    }
+                  ],
+                  "value": "65536",
+                  "placeholder": "65536",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "bufferSize"
+                  }
+                },
+                "connectTimeout": {
+                  "metadata": {
+                    "label": "Connect Timeout",
+                    "description": "Connection timeout in seconds."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "NUMBER",
+                      "ballerinaType": "decimal",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "decimal",
+                      "selected": false
+                    }
+                  ],
+                  "value": "30",
+                  "placeholder": "30",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "connectTimeout"
+                  }
+                },
+                "laxDataBinding": {
+                  "metadata": {
+                    "label": "Lax Data Binding",
+                    "description": "Enables relaxed data binding for XML, JSON, and CSV content."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "ballerinaType": "boolean",
+                      "selected": true
+                    }
+                  ],
+                  "value": false,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "laxDataBinding"
+                  }
+                },
+                "csvFailSafeContentType": {
+                  "metadata": {
+                    "label": "CSV Fail-Safe Log Content",
+                    "description": "In fail-safe mode, malformed CSV records are skipped and logged separately. Chooses what to log."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "ENUM",
+                      "ballerinaType": "smb:ErrorLogContentType",
+                      "selected": true,
+                      "options": [
+                        {
+                          "label": "Metadata",
+                          "value": "METADATA"
+                        },
+                        {
+                          "label": "Raw",
+                          "value": "RAW"
+                        },
+                        {
+                          "label": "Raw And Metadata",
+                          "value": "RAW_AND_METADATA"
+                        }
+                      ]
+                    }
+                  ],
+                  "value": "METADATA",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "path": "csvFailSafe.contentType",
+                    "valueQualifier": "smb"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "Use Existing Listener",
+            "description": "Attach to an SMB listener already declared in the project."
+          },
+          "types": [
+            {
+              "fieldType": "FORM",
+              "selected": true
+            }
+          ],
+          "enabled": false,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "properties": {
+            "existingListener": {
+              "metadata": {
+                "label": "Listener",
+                "description": "Select one or more existing listeners to attach the service to (no new(...) is generated)."
+              },
+              "types": [
+                {
+                  "fieldType": "MULTI_SELECT_LISTENER",
+                  "selected": true,
+                  "ballerinaType": "smb:Listener"
+                }
+              ],
+              "items": [
+                "smbListener"
+              ],
+              "value": "smbListener",
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "codedata": {
+                "type": "KEY_EXISTING_LISTENER"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "serviceType": {
+      "metadata": {
+        "label": "Service Type",
+        "description": "The name of the service contract type."
+      },
+      "types": [
+        {
+          "fieldType": "TEXT",
+          "selected": true,
+          "ballerinaType": "smb:Service"
+        }
+      ],
+      "value": "smb:Service",
+      "enabled": true,
+      "editable": false,
+      "optional": true,
+      "advanced": true,
+      "codedata": {
+        "type": "SERVICE_TYPE_DESCRIPTOR",
+        "moduleName": "smb",
+        "originalName": "Service"
+      }
+    },
+    "basePath": {
+      "metadata": {
+        "label": "Service Base Path",
+        "description": "Optional attach point for the service."
+      },
+      "types": [
+        {
+          "fieldType": "SERVICE_PATH",
+          "selected": true,
+          "ballerinaType": "string"
+        }
+      ],
+      "value": "",
+      "enabled": true,
+      "editable": true,
+      "optional": true,
+      "advanced": true,
+      "codedata": {
+        "type": "SERVICE_BASE_PATH"
+      }
+    }
+  },
+  "serviceTypes": [
+    {
+      "metadata": {
+        "label": "SMB Service",
+        "description": "Handles file system change events from a monitored directory on a remote SMB share."
+      },
+      "name": "Service",
+      "description": "SMB service for handling file system change events.",
+      "enabled": true,
+      "editable": false,
+      "codedata": {
+        "type": "SERVICE_TYPE_DESCRIPTOR",
+        "moduleName": "smb",
+        "originalName": "Service"
+      },
+      "properties": {
+        "serviceConfig": {
+          "metadata": {
+            "label": "Service Configuration",
+            "description": "@smb:ServiceConfig — the directory within the share this service monitors."
+          },
+          "types": [
+            {
+              "fieldType": "GROUP_SECTION",
+              "selected": true
+            }
+          ],
+          "value": "",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": false,
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "originalName": "ServiceConfig",
+            "moduleName": "smb",
+            "path": ""
+          },
+          "properties": {
+            "path": {
+              "metadata": {
+                "label": "Monitored Path",
+                "description": "Directory within the SMB share to monitor. Defaults to the service name when not specified."
+              },
+              "types": [
+                {
+                  "fieldType": "TEXT",
+                  "ballerinaType": "string",
+                  "selected": true
+                },
+                {
+                  "fieldType": "EXPRESSION",
+                  "ballerinaType": "string",
+                  "selected": false
+                }
+              ],
+              "value": "",
+              "placeholder": "/home/in",
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false,
+              "codedata": {
+                "type": "ANNOTATION_FIELD",
+                "path": "path"
+              }
+            }
+          }
+        }
+      },
+      "functions": [],
+      "schemaFunctions": [
+        {
+          "$comment": "On File Change TEMPLATE — repeatable:true (one instance per content format). The content parameter is kind=VARIANT: selecting a format swaps the whole content sub-form and the emitted handler name. The SMB listener auto-routes files to the matching handler by file extension (.txt->onFileText, .json->onFileJson, .xml->onFileXml, .csv->onFileCsv, other->onFile); @smb:FunctionConfig can override the routing pattern per handler. fileInfo is always present (not optional, unlike FTP); caller is optional.",
+          "metadata": {
+            "label": "On File Change",
+            "description": "Invoked when a file matching the pattern is added to the monitored directory.",
+            "addLabel": "Add On File Change Handler"
+          },
+          "name": "onFileCsv",
+          "nameEditable": false,
+          "kind": "COMPLEX_REMOTE_FUNCTION",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "group": "onFileChange",
+          "variantLabel": "CSV",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": true,
+          "documentation": "Handles an added file. Choose the file format to bind the content and set the emitted handler name; the listener routes files to it automatically by extension.",
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onFileCsv",
+            "moduleName": "smb",
+            "group": "onFileChange"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "File Format",
+                "description": "The format the added file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+              },
+              "kind": "VARIANT",
+              "type": {
+                "metadata": {
+                  "label": "File Format",
+                  "description": "The format the added file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "value": "CSV",
+                "types": [
+                  {
+                    "fieldType": "VARIATION_SELECTOR",
+                    "selected": true,
+                    "options": [
+                      {
+                        "label": "CSV",
+                        "value": "CSV",
+                        "helperText": "Comma-separated rows — binds each row to T, emits T[] (or stream<T, error?> for large files)."
+                      },
+                      {
+                        "label": "JSON",
+                        "value": "JSON",
+                        "helperText": "Binds the file content to json or a custom record type."
+                      },
+                      {
+                        "label": "XML",
+                        "value": "XML",
+                        "helperText": "Binds the file content to xml or a custom record type."
+                      },
+                      {
+                        "label": "Text",
+                        "value": "TEXT",
+                        "helperText": "Delivers the file content as a plain string."
+                      },
+                      {
+                        "label": "Raw Bytes",
+                        "value": "RAW",
+                        "helperText": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
+                      }
+                    ]
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "codedata": {
+                  "type": "VARIANT_SELECTOR"
+                },
+                "properties": {
+                  "CSV": {
+                    "metadata": {
+                      "label": "CSV",
+                      "description": "Comma-separated rows — binds each row to T, emits T[] (or stream<T, error?> for large files)."
+                    },
+                    "types": [
+                      {
+                        "fieldType": "COMPLEX_PAYLOAD",
+                        "selected": true
+                      }
+                    ],
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "VARIANT",
+                      "originalName": "onFileCsv",
+                      "variantLabel": "CSV"
+                    },
+                    "properties": {
+                      "rows": {
+                        "metadata": {
+                          "label": "Rows",
+                          "description": "Content Schema contains a row of CSV Row type"
+                        },
+                        "value": true,
+                        "types": [
+                          {
+                            "fieldType": "METADATA_FLAG",
+                            "selected": true
+                          }
+                        ],
+                        "enabled": true,
+                        "editable": false,
+                        "optional": false,
+                        "advanced": false,
+                        "codedata": {
+                          "type": "METADATA_FLAG"
+                        }
+                      },
+                      "stream": {
+                        "metadata": {
+                          "label": "Stream (Large Files)",
+                          "description": "Process the file content in chunks"
+                        },
+                        "value": false,
+                        "types": [
+                          {
+                            "fieldType": "FLAG",
+                            "selected": true,
+                            "template": "stream<{{type}}, error?>"
+                          }
+                        ],
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false,
+                        "codedata": {
+                          "type": "PAYLOAD_MODIFIER",
+                          "modifier": "stream",
+                          "template": "stream<{{type}}, error?>",
+                          "supersedes": [
+                            "base"
+                          ],
+                          "targetParam": "payload"
+                        }
+                      },
+                      "payload": {
+                        "metadata": {
+                          "label": "Define Row Schema",
+                          "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
+                        },
+                        "value": "string[][]",
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false,
+                        "types": [
+                          {
+                            "fieldType": "PAYLOAD_TYPE",
+                            "selected": true,
+                            "formats": [
+                              {
+                                "supported": [
+                                  "schema",
+                                  "browse",
+                                  "json",
+                                  "xml"
+                                ],
+                                "defaultFormat": "schema"
+                              }
+                            ],
+                            "ballerinaType": "string[][]",
+                            "template": "{{type}}[]"
+                          }
+                        ],
+                        "codedata": {
+                          "type": "PAYLOAD_TYPE",
+                          "bindable": true,
+                          "boundType": "",
+                          "typeConstraint": "anydata",
+                          "bindingKind": "USER_SELECTED",
+                          "defaultType": "string[]",
+                          "template": "{{type}}[]"
+                        }
+                      }
+                    }
+                  },
+                  "JSON": {
+                    "metadata": {
+                      "label": "JSON",
+                      "description": "Binds the file content to json or a custom record type."
+                    },
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": false
+                      }
+                    ],
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "VARIANT",
+                      "originalName": "onFileJson",
+                      "variantLabel": "JSON"
+                    },
+                    "properties": {
+                      "payload": {
+                        "metadata": {
+                          "label": "Define Content Schema",
+                          "description": "Bound content type (defaults to json)."
+                        },
+                        "value": "json",
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false,
+                        "types": [
+                          {
+                            "fieldType": "PAYLOAD_TYPE",
+                            "selected": true,
+                            "ballerinaType": "json",
+                            "formats": [
+                              {
+                                "supported": [
+                                  "json",
+                                  "schema",
+                                  "browse"
+                                ],
+                                "defaultFormat": "json"
+                              }
+                            ],
+                            "template": "{{type}}"
+                          }
+                        ],
+                        "codedata": {
+                          "type": "PAYLOAD_TYPE",
+                          "bindable": true,
+                          "boundType": "",
+                          "typeConstraint": "anydata",
+                          "bindingKind": "USER_SELECTED",
+                          "defaultType": "json",
+                          "template": "{{type}}"
+                        }
+                      }
+                    }
+                  },
+                  "XML": {
+                    "metadata": {
+                      "label": "XML",
+                      "description": "Binds the file content to xml or a custom record type."
+                    },
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": false
+                      }
+                    ],
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "VARIANT",
+                      "originalName": "onFileXml",
+                      "variantLabel": "XML"
+                    },
+                    "properties": {
+                      "payload": {
+                        "metadata": {
+                          "label": "Define Content Schema",
+                          "description": "Bound content type (defaults to xml)."
+                        },
+                        "value": "xml",
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false,
+                        "types": [
+                          {
+                            "fieldType": "PAYLOAD_TYPE",
+                            "selected": true,
+                            "ballerinaType": "xml",
+                            "formats": [
+                              {
+                                "supported": [
+                                  "xml",
+                                  "schema",
+                                  "browse"
+                                ],
+                                "defaultFormat": "xml"
+                              }
+                            ],
+                            "template": "{{type}}"
+                          }
+                        ],
+                        "codedata": {
+                          "type": "PAYLOAD_TYPE",
+                          "bindable": true,
+                          "boundType": "",
+                          "typeConstraint": "anydata",
+                          "bindingKind": "USER_SELECTED",
+                          "defaultType": "xml",
+                          "template": "{{type}}"
+                        }
+                      }
+                    }
+                  },
+                  "TEXT": {
+                    "metadata": {
+                      "label": "Text",
+                      "description": "Delivers the file content as a plain string."
+                    },
+                    "types": [
+                      {
+                        "fieldType": "TYPE",
+                        "selected": false
+                      }
+                    ],
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "VARIANT",
+                      "originalName": "onFileText",
+                      "variantLabel": "Text"
+                    },
+                    "properties": {
+                      "payload": {
+                        "metadata": {
+                          "label": "Content",
+                          "description": "The text file content as a plain string."
+                        },
+                        "value": "string",
+                        "enabled": false,
+                        "editable": false,
+                        "optional": false,
+                        "advanced": false,
+                        "types": [
+                          {
+                            "fieldType": "TYPE",
+                            "selected": true,
+                            "ballerinaType": "string",
+                            "template": "{{type}}"
+                          }
+                        ],
+                        "codedata": {
+                          "type": "PAYLOAD_TYPE",
+                          "bindable": false,
+                          "defaultType": "string"
+                        }
+                      }
+                    }
+                  },
+                  "RAW": {
+                    "metadata": {
+                      "label": "Raw Bytes",
+                      "description": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
+                    },
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": false
+                      }
+                    ],
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "VARIANT",
+                      "originalName": "onFile",
+                      "variantLabel": "Raw Bytes"
+                    },
+                    "properties": {
+                      "stream": {
+                        "metadata": {
+                          "label": "Stream (Large Files)",
+                          "description": "Deliver the content as stream<byte[], error?> to process large binary files in chunks."
+                        },
+                        "value": false,
+                        "types": [
+                          {
+                            "fieldType": "FLAG",
+                            "selected": true,
+                            "template": "stream<{{type}}, error?>"
+                          }
+                        ],
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false,
+                        "codedata": {
+                          "type": "PAYLOAD_MODIFIER",
+                          "modifier": "stream",
+                          "template": "stream<{{type}}, error?>",
+                          "supersedes": [
+                            "base"
+                          ],
+                          "targetParam": "payload"
+                        }
+                      },
+                      "payload": {
+                        "metadata": {
+                          "label": "Content",
+                          "description": "Raw file content as byte[], or stream<byte[], error?> when streaming is enabled."
+                        },
+                        "value": "byte[]",
+                        "enabled": true,
+                        "editable": false,
+                        "optional": false,
+                        "advanced": false,
+                        "types": [
+                          {
+                            "fieldType": "PAYLOAD_TYPE",
+                            "selected": true,
+                            "ballerinaType": "byte[]",
+                            "template": "{{type}}"
+                          }
+                        ],
+                        "codedata": {
+                          "type": "PAYLOAD_TYPE",
+                          "bindable": false,
+                          "defaultType": "byte[]",
+                          "template": "{{type}}"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "content",
+                  "description": "The format the added file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "placeholder": "content",
+                "value": "content",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "File Metadata (fileInfo)",
+                "description": "Additional file properties such as size, modification time and permissions."
+              },
+              "kind": "REQUIRED",
+              "type": {
+                "metadata": {
+                  "label": "Parameter Type",
+                  "description": "The type of the parameter"
+                },
+                "placeholder": "smb:FileInfo",
+                "value": "smb:FileInfo",
+                "types": [
+                  {
+                    "fieldType": "TYPE",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "fileInfo",
+                  "description": "Additional file properties such as size, modification time and permissions."
+                },
+                "placeholder": "fileInfo",
+                "value": "fileInfo",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": true,
+              "editable": false,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "SMB Connection (caller)",
+                "description": "SMB connection handle for performing additional file operations (write, rename) within the handler."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include SMB Connection (caller)",
+                  "description": "Tick to include the SMB Connection (caller) parameter in the handler signature."
+                },
+                "placeholder": "smb:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "smb:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "SMB connection handle for performing additional file operations (write, rename) within the handler."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          },
+          "properties": {
+            "functionConfig": {
+              "metadata": {
+                "label": "File Name Pattern Override",
+                "description": "@smb:FunctionConfig — overrides the extension-based routing pattern for this handler."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "codedata": {
+                "type": "COMPLEX_FUNCTION_ANNOTATION",
+                "originalName": "FunctionConfig",
+                "moduleName": "smb"
+              },
+              "properties": {
+                "fileNamePattern": {
+                  "metadata": {
+                    "label": "File Name Pattern",
+                    "description": "Regex pattern the file name must match to route to this handler (overrides default extension-based routing)."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "TEXT",
+                      "ballerinaType": "string",
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "string",
+                      "selected": false
+                    }
+                  ],
+                  "value": "",
+                  "placeholder": "(.*).csv",
+                  "enabled": false,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "fileNamePattern",
+                    "optional": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "$comment": "onError TEMPLATE — complete signature. repeatable:false (add-once). Per the library's own tests this handler is declared WITHOUT the 'remote' qualifier and takes a plain 'error', not 'smb:Error' — flagged as an assumption for review since it deviates from the remote-qualifier convention used by other connectors.",
+          "metadata": {
+            "label": "On Error",
+            "description": "Invoked when an error occurs while polling or dispatching file events.",
+            "addLabel": "Add On Error Handler"
+          },
+          "name": "onError",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [],
+          "group": "onError",
+          "variantLabel": "onError",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": false,
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onError",
+            "moduleName": "smb",
+            "group": "onError"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Error",
+                "description": "The error that occurred while polling or dispatching file events."
+              },
+              "kind": "REQUIRED",
+              "type": {
+                "metadata": {
+                  "label": "Parameter Type",
+                  "description": "The type of the parameter"
+                },
+                "placeholder": "error",
+                "value": "error",
+                "types": [
+                  {
+                    "fieldType": "TYPE",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "err",
+                  "description": "The error that occurred while polling or dispatching file events."
+                },
+                "placeholder": "err",
+                "value": "err",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "readOnlyMetadata": [
+    {
+      "key": "host",
+      "displayName": "Host",
+      "kind": "LISTENER_PARAM",
+      "paramKind": "INCLUDED_DEFAULTABLE_FIELD",
+      "path": "host"
+    },
+    {
+      "key": "share",
+      "displayName": "Share",
+      "kind": "LISTENER_PARAM",
+      "paramKind": "INCLUDED_DEFAULTABLE_FIELD",
+      "path": "share"
+    },
+    {
+      "key": "path",
+      "displayName": "Monitored Path",
+      "kind": "ANNOTATION",
+      "path": "serviceConfig.path"
+    }
+  ]
+}

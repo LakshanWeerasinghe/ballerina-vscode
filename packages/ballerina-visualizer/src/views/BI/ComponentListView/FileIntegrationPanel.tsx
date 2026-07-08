@@ -23,18 +23,21 @@ import { EVENT_TYPE, MACHINE_VIEW, SCOPE, ServiceModel, TriggerModelsResponse } 
 import { CardGrid, PanelViewMore, Title, TitleWrapper } from './styles';
 import { BodyText } from '../../styles';
 import ButtonCard from '../../../components/ButtonCard';
-import { OutOfScopeComponentTooltip } from './componentListUtils';
+import { matchesArtifactQuery, OutOfScopeComponentTooltip } from './componentListUtils';
 import { RelativeLoader } from '../../../components/RelativeLoader';
 
 interface FileIntegrationPanelProps {
     scope: SCOPE;
     triggers: TriggerModelsResponse;
+    /** Page-level gallery search; when set, only matching cards show. */
+    searchQuery?: string;
 };
 
 export function FileIntegrationPanel(props: FileIntegrationPanelProps) {
     const { rpcClient } = useRpcContext();
 
     const isDisabled = props.scope && (props.scope !== SCOPE.FILE_INTEGRATION && props.scope !== SCOPE.ANY);
+    const searchQuery = props.searchQuery ?? "";
 
     const handleOnSelect = async (model: ServiceModel) => {
         await rpcClient.getVisualizerRpcClient().openView({
@@ -51,6 +54,15 @@ export function FileIntegrationPanel(props: FileIntegrationPanelProps) {
         });
     };
 
+    const visibleTriggers = props.triggers.local
+        .filter((t) => t.type === "file")
+        .filter((t) => matchesArtifactQuery(searchQuery, t.name, t.moduleName));
+
+    // While the user is searching, a section with no matches disappears entirely.
+    if (searchQuery.trim() && visibleTriggers.length === 0) {
+        return null;
+    }
+
     return (
         <PanelViewMore disabled={isDisabled}>
             <TitleWrapper>
@@ -59,8 +71,7 @@ export function FileIntegrationPanel(props: FileIntegrationPanelProps) {
             </TitleWrapper>
             <CardGrid>
                 {props.triggers.local.length === 0 && <RelativeLoader />}
-                {props.triggers.local
-                    .filter((t) => t.type === "file")
+                {visibleTriggers
                     .map((item, index) => {
                         return (
                             <ButtonCard

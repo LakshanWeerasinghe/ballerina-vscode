@@ -34,7 +34,9 @@ import io.ballerina.servicemodelgenerator.extension.builder.function.HttpFunctio
 import io.ballerina.servicemodelgenerator.extension.builder.function.KafkaFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.McpFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.RabbitMQFunctionBuilder;
+import io.ballerina.servicemodelgenerator.extension.builder.function.SchemaDrivenFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SolaceFunctionBuilder;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceMetadata;
@@ -88,6 +90,25 @@ public class FunctionBuilderRouter {
         return CONSTRUCTOR_MAP.getOrDefault(protocol, DefaultFunctionBuilder::new).get();
     }
 
+    /**
+     * Returns {@code true} when the connector's schema is available — either bundled as a classpath
+     * resource in this jar (checked first, no network/bala-cache cost), or, when no hardcoded function
+     * builder is registered for {@code moduleName}, resolved from the connector's {@code .bala}. Mirrors
+     * {@code ServiceBuilderRouter} (hardcoded wins unless a schema is available).
+     */
+    private static boolean useSchemaDrivenPath(String orgName, String pkgName, String moduleName, String version) {
+        if (moduleName == null) {
+            return false;
+        }
+        if (ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName)) {
+            return true;
+        }
+        if (CONSTRUCTOR_MAP.containsKey(moduleName)) {
+            return false;
+        }
+        return ConnectorModelReader.getInstance().hasTriggerModel(orgName, pkgName, version);
+    }
+
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
         NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
         GetModelContext context = GetModelContext.fromServiceAndFunctionType(moduleName, functionType);
@@ -98,7 +119,13 @@ public class FunctionBuilderRouter {
                                                           SemanticModel semanticModel, Document document,
                                                           NonTerminalNode node,
                                                           WorkspaceManager workspaceManager) throws Exception {
-        NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
+        // Schema-driven connectors add handlers via the generic builder; route by the function's
+        // stamped connector identity (codedata), mirroring updateFunction.
+        Codedata fnCodedata = function.getCodedata();
+        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(
+                fnCodedata.getOrgName(), fnCodedata.getPackageName(), moduleName, fnCodedata.getVersion())
+                        ? new SchemaDrivenFunctionBuilder()
+                        : getFunctionBuilder(moduleName);
         Project project = document != null ? document.module().project() : null;
         AddModelContext context = new AddModelContext(null, function, semanticModel, project,
                 workspaceManager, filePath, document, node);
@@ -113,7 +140,11 @@ public class FunctionBuilderRouter {
         if (function.getKind().equals(OBJECT_METHOD)) {
             moduleName = DEFAULT;
         }
-        NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
+        Codedata fnCodedata = function.getCodedata();
+        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(
+                fnCodedata.getOrgName(), fnCodedata.getPackageName(), moduleName, fnCodedata.getVersion())
+                        ? new SchemaDrivenFunctionBuilder()
+                        : getFunctionBuilder(moduleName);
         UpdateModelContext context =
                 new UpdateModelContext(null, function, semanticModel, project, workspaceManager, filePath,
                         document, null, functionNode);
@@ -128,7 +159,10 @@ public class FunctionBuilderRouter {
             context = new ModelFromSourceContext(functionNode, null, semanticModel, null, "",
                     metadata.serviceTypeIdentifier(), moduleID.orgName(), moduleID.packageName(),
                     moduleID.moduleName(), moduleID.version());
-            NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleID.moduleName());
+            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(),
+                    moduleID.packageName(), moduleID.moduleName(), moduleID.version())
+                            ? new SchemaDrivenFunctionBuilder()
+                            : getFunctionBuilder(moduleID.moduleName());
             Function function = functionBuilder.getModelFromSource(context);
             Codedata codedata = function.getCodedata();
             codedata.setOrgName(moduleID.orgName());

@@ -1370,6 +1370,7 @@ export interface ServiceModelRequest {
     listenerName?: string;
     orgName?: string;
     pkgName?: string;
+    version?: string;
 }
 export interface ServiceModelResponse {
     service: ServiceModel;
@@ -2078,6 +2079,7 @@ export interface BIInterface extends BaseLangClientInterface {
 
     // New Service Designer APIs
     getTriggerModels: (params: TriggerModelsRequest) => Promise<TriggerModelsResponse>;
+    searchTriggers: (params: TriggerModelsRequest) => Promise<TriggerModelsResponse>;
     getListeners: (params: ListenersRequest) => Promise<ListenersResponse>;
     getListenerModel: (params: ListenerModelRequest) => Promise<ListenerModelResponse>;
     addListenerSourceCode: (params: ListenerSourceCodeRequest) => Promise<ListenerSourceCodeResponse>;

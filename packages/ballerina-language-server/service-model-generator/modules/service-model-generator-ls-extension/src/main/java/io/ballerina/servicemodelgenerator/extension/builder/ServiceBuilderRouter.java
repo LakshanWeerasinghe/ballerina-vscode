@@ -25,6 +25,7 @@ import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.service.AiChatServiceBuilder;
+import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.AsbServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.DefaultServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.FTPServiceBuilder;
@@ -40,6 +41,7 @@ import io.ballerina.servicemodelgenerator.extension.builder.service.RabbitMQServ
 import io.ballerina.servicemodelgenerator.extension.builder.service.ShopifyTriggerServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SolaceServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.TCPServiceBuilder;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceMetadata;
@@ -93,7 +95,7 @@ public class ServiceBuilderRouter {
         put(GRAPHQL, GraphqlServiceBuilder::new);
         put(MCP, McpServiceBuilder::new);
         put(KAFKA, KafkaServiceBuilder::new);
-        put(ASB, AsbServiceBuilder::new);
+//        put(ASB, AsbServiceBuilder::new);
         put(SOLACE, SolaceServiceBuilder::new);
         put(MSSQL, MssqlCdcServiceBuilder::new);
         put(POSTGRESQL, PostgresqlCdcServiceBuilder::new);
@@ -105,6 +107,23 @@ public class ServiceBuilderRouter {
 
     public static ServiceNodeBuilder getServiceBuilder(String protocol) {
         return CONSTRUCTOR_MAP.getOrDefault(protocol, DefaultServiceBuilder::new).get();
+    }
+
+    /**
+     * Returns {@code true} when the connector's schema is available — either bundled as a classpath
+     * resource in this jar (checked first, no network/bala-cache cost; lets a hardcoded builder migrate
+     * onto the schema-driven path module-by-module), or, when no hardcoded builder is registered for
+     * {@code moduleName}, resolved from the connector's {@code .bala} ({@code trigger-model.json}).
+     * Otherwise the hardcoded builder wins (zero regression).
+     */
+    private static boolean useSchemaDrivenPath(String orgName, String pkgName, String moduleName, String version) {
+        if (ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName)) {
+            return true;
+        }
+        if (CONSTRUCTOR_MAP.containsKey(moduleName)) {
+            return false;
+        }
+        return ConnectorModelReader.getInstance().hasTriggerModel(orgName, pkgName, version);
     }
 
     public static Optional<Service> getModelTemplate(String orgName, String moduleName) {
@@ -127,7 +146,10 @@ public class ServiceBuilderRouter {
         }
         ModuleID moduleID = serviceMetadata.moduleId();
 
-        NodeBuilder<Service> serviceBuilder = getServiceBuilder(moduleID.moduleName());
+        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(moduleID.orgName(),
+                moduleID.packageName(), moduleID.moduleName(), moduleID.version())
+                        ? new SchemaDrivenServiceBuilder()
+                        : getServiceBuilder(moduleID.moduleName());
         ModelFromSourceContext context = new ModelFromSourceContext(node, project, semanticModel,
                 workspaceManager, filePath, serviceMetadata.serviceType(), moduleID.orgName(),
                 moduleID.packageName(), moduleID.moduleName(), moduleID.version());
@@ -142,7 +164,10 @@ public class ServiceBuilderRouter {
                                                          SemanticModel semanticModel, Project project,
                                                          WorkspaceManager workspaceManager,
                                                          String filePath, Document document) throws Exception {
-        NodeBuilder<Service> serviceBuilder = getServiceBuilder(service.getModuleName());
+        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(service.getOrgName(), service.getPackageName(),
+                service.getModuleName(), service.getVersion())
+                        ? new SchemaDrivenServiceBuilder()
+                        : getServiceBuilder(service.getModuleName());
         AddModelContext context = new AddModelContext(service, null, semanticModel, project,
                 workspaceManager, filePath, document, null);
         return serviceBuilder.addModel(context);
@@ -153,7 +178,10 @@ public class ServiceBuilderRouter {
                                                             WorkspaceManager workspaceManager,
                                                             String filePath, Document document,
                                                             ServiceDeclarationNode serviceNode) throws Exception {
-        NodeBuilder<?> serviceBuilder = getServiceBuilder(service.getModuleName());
+        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(service.getOrgName(), service.getPackageName(),
+                service.getModuleName(), service.getVersion())
+                        ? new SchemaDrivenServiceBuilder()
+                        : getServiceBuilder(service.getModuleName());
         UpdateModelContext context = new UpdateModelContext(service, null, semanticModel, null,
                 workspaceManager, filePath, document, serviceNode, null);
         return serviceBuilder.updateModel(context);
@@ -161,9 +189,13 @@ public class ServiceBuilderRouter {
 
     public static ServiceInitModel getServiceInitModel(ServiceModelRequest request, Project project,
                                                        SemanticModel semanticModel, Document document) {
-        ServiceNodeBuilder serviceBuilder = getServiceBuilder(request.moduleName());
         GetServiceInitModelContext context = new GetServiceInitModelContext(
-                request.orgName(), request.pkgName(), request.moduleName(), project, semanticModel, document);
+                request.orgName(), request.pkgName(), request.moduleName(), request.version(),
+                project, semanticModel, document);
+        ServiceNodeBuilder serviceBuilder =
+                useSchemaDrivenPath(request.orgName(), request.pkgName(), request.moduleName(), request.version())
+                        ? new SchemaDrivenServiceBuilder()
+                        : getServiceBuilder(request.moduleName());
         return serviceBuilder.getServiceInitModel(context);
     }
 
@@ -173,9 +205,12 @@ public class ServiceBuilderRouter {
                                                                    String filePath,
                                                                    Document document)
             throws Exception {
-        ServiceNodeBuilder serviceBuilder = getServiceBuilder(serviceInitModel.getModuleName());
         AddServiceInitModelContext context = new AddServiceInitModelContext(serviceInitModel, semanticModel, project,
                 workspaceManager, filePath, document);
+        ServiceNodeBuilder serviceBuilder = useSchemaDrivenPath(serviceInitModel.getOrgName(),
+                serviceInitModel.getPackageName(), serviceInitModel.getModuleName(), serviceInitModel.getVersion())
+                        ? new SchemaDrivenServiceBuilder()
+                        : getServiceBuilder(serviceInitModel.getModuleName());
         return serviceBuilder.addServiceInitSource(context);
     }
 }

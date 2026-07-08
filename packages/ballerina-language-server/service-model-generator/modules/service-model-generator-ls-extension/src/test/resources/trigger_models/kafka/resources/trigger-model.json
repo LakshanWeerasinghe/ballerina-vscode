@@ -1,0 +1,645 @@
+{
+  "$comment": "Phase-6 TriggerModel \u2014 Kafka. Single document unifying the add-trigger init form (initProperties) with the service type(s) and their handler functions (serviceTypes). Kafka does not support attaching to an existing listener, so initProperties has no listener CHOICE \u2014 listenerConfig is a plain GROUP_SECTION (always generates `listener kafka:Listener <name> = new(<bootstrapServers>, {<config>})`). serviceTypes[0].functions holds the locked default handler onConsumerRecord; schemaFunctions holds the addable onError. Sources: phase-4 kafka creation+metadata examples + vscode inbuilt-triggers/kafka.json.",
+  "schemaVersion": "1.0",
+  "id": "1",
+  "displayName": "Kafka Event Integration",
+  "description": "Create a service to handle messages from Kafka topic(s)",
+  "orgName": "ballerinax",
+  "packageName": "kafka",
+  "moduleName": "kafka",
+  "version": "4.5.0",
+  "type": "kafka",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_kafka_4.5.0.png",
+  "kind": "event",
+  "initProperties": {
+    "listenerConfig": {
+      "metadata": {
+        "label": "Listener Configurations",
+        "description": "Configure the Kafka listener."
+      },
+      "types": [
+        {
+          "fieldType": "GROUP_SECTION",
+          "selected": true
+        }
+      ],
+      "enabled": true,
+      "editable": true,
+      "optional": false,
+      "advanced": false,
+      "properties": {
+        "listenerVarName": {
+          "metadata": {
+            "label": "Listener Name",
+            "description": "Provide a name for the listener being created."
+          },
+          "types": [
+            {
+              "fieldType": "IDENTIFIER",
+              "selected": true,
+              "ballerinaType": "kafka:Listener"
+            }
+          ],
+          "value": "kafkaListener",
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "codedata": {
+            "type": "LISTENER_VAR_NAME"
+          },
+          "validations": [
+            {
+              "rule": "common.validate.identifier"
+            },
+            {
+              "rule": "ls.validate.unique.listener.name",
+              "message": "A listener with this name already exists in the project"
+            }
+          ]
+        },
+        "bootstrapServers": {
+          "metadata": {
+            "label": "Bootstrap Servers",
+            "description": "List of remote server endpoints of the Kafka brokers."
+          },
+          "placeholder": "localhost:9092",
+          "value": "\"localhost:9092\"",
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "codedata": {
+            "argType": "LISTENER_PARAM_REQUIRED",
+            "position": 1
+          },
+          "types": [
+            {
+              "fieldType": "TEXT",
+              "ballerinaType": "string",
+              "selected": true
+            },
+            {
+              "fieldType": "REPEATABLE_LIST",
+              "ballerinaType": "string[]",
+              "selected": false,
+              "template": {
+                "metadata": {
+                  "label": "Server"
+                },
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "types": [
+                  {
+                    "fieldType": "TEXT",
+                    "ballerinaType": "string",
+                    "selected": true
+                  },
+                  {
+                    "fieldType": "EXPRESSION",
+                    "ballerinaType": "string",
+                    "selected": false
+                  }
+                ]
+              }
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "string|string[]",
+              "selected": false
+            }
+          ],
+          "validations": [
+            {
+              "rule": "common.validate.required"
+            }
+          ]
+        },
+        "topics": {
+          "metadata": {
+            "label": "Topic(s)",
+            "description": "The topic(s) to subscribe to."
+          },
+          "placeholder": "myTopic",
+          "value": "\"myTopic\"",
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+            "path": "topics"
+          },
+          "types": [
+            {
+              "fieldType": "TEXT",
+              "ballerinaType": "string",
+              "selected": true
+            },
+            {
+              "fieldType": "REPEATABLE_LIST",
+              "ballerinaType": "string[]",
+              "selected": false,
+              "template": {
+                "metadata": {
+                  "label": "Topic"
+                },
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "types": [
+                  {
+                    "fieldType": "TEXT",
+                    "ballerinaType": "string",
+                    "selected": true
+                  },
+                  {
+                    "fieldType": "EXPRESSION",
+                    "ballerinaType": "string",
+                    "selected": false
+                  }
+                ]
+              }
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "string|string[]",
+              "selected": false
+            }
+          ],
+          "validations": [
+            {
+              "rule": "common.validate.required"
+            }
+          ]
+        },
+        "groupId": {
+          "metadata": {
+            "label": "Group ID",
+            "description": "Unique identifier for the consumer group."
+          },
+          "placeholder": "my-group",
+          "value": "",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": false,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+            "path": "groupId"
+          },
+          "types": [
+            {
+              "fieldType": "TEXT",
+              "ballerinaType": "string",
+              "selected": true
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "string",
+              "selected": false
+            }
+          ]
+        },
+        "pollingInterval": {
+          "metadata": {
+            "label": "Polling Interval",
+            "description": "Interval (in seconds) the consumer polls for new messages."
+          },
+          "value": "1",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": true,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+            "path": "pollingInterval"
+          },
+          "types": [
+            {
+              "fieldType": "NUMBER",
+              "ballerinaType": "decimal",
+              "selected": true
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "decimal",
+              "selected": false
+            }
+          ]
+        },
+        "autoCommit": {
+          "metadata": {
+            "label": "Auto Commit",
+            "description": "Automatically commit offsets periodically."
+          },
+          "value": "true",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": true,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+            "path": "autoCommit"
+          },
+          "types": [
+            {
+              "fieldType": "FLAG",
+              "ballerinaType": "boolean",
+              "selected": true
+            }
+          ]
+        },
+        "secureSocket": {
+          "metadata": {
+            "label": "Secure Socket",
+            "description": "Configure SSL/TLS configuration for a secure connection."
+          },
+          "value": "",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": true,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+            "path": "secureSocket"
+          },
+          "types": [
+            {
+              "fieldType": "RECORD_MAP_EXPRESSION",
+              "ballerinaType": "kafka:SecureSocket",
+              "selected": true,
+              "typeMembers": [
+                {
+                  "type": "SecureSocket",
+                  "packageInfo": "ballerinax:kafka:4.5.0",
+                  "packageName": "kafka",
+                  "kind": "RECORD_TYPE",
+                  "selected": true
+                }
+              ]
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "kafka:SecureSocket",
+              "selected": false
+            }
+          ]
+        },
+        "auth": {
+          "metadata": {
+            "label": "Authentication",
+            "description": "Authentication credentials for the Kafka brokers."
+          },
+          "value": "",
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": true,
+          "codedata": {
+            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+            "path": "auth"
+          },
+          "types": [
+            {
+              "fieldType": "RECORD_MAP_EXPRESSION",
+              "ballerinaType": "kafka:AuthenticationConfiguration",
+              "selected": true,
+              "typeMembers": [
+                {
+                  "type": "AuthenticationConfiguration",
+                  "packageInfo": "ballerinax:kafka:4.5.0",
+                  "packageName": "kafka",
+                  "kind": "RECORD_TYPE",
+                  "selected": true
+                }
+              ]
+            },
+            {
+              "fieldType": "EXPRESSION",
+              "ballerinaType": "kafka:AuthenticationConfiguration",
+              "selected": false
+            }
+          ]
+        }
+      }
+    }
+  },
+  "serviceTypes": [
+    {
+      "metadata": {
+        "label": "Kafka Consumer",
+        "description": "Consumes messages from the subscribed Kafka topic(s)."
+      },
+      "name": "Service",
+      "description": "Handles messages received from Kafka topic(s).",
+      "enabled": true,
+      "editable": false,
+      "codedata": {
+        "type": "SERVICE_TYPE_DESCRIPTOR",
+        "moduleName": "kafka",
+        "originalName": "Service"
+      },
+      "properties": {},
+      "functions": [],
+      "schemaFunctions": [
+        {
+          "metadata": {
+            "label": "onConsumerRecord",
+            "description": "The `onConsumerRecord` remote method is triggered when a batch of messages is received from the subscribed Kafka topic(s).",
+            "addLabel": "Add On Consumer Record Handler"
+          },
+          "name": "onConsumerRecord",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "enabled": false,
+          "editable": true,
+          "optional": false,
+          "canAddParameters": false,
+          "repeatable": false,
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onConsumerRecord",
+            "moduleName": "kafka"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Consumer Records",
+                "description": "The batch of messages received from the Kafka topic(s)."
+              },
+              "kind": "DATA_BINDING",
+              "type": {
+                "metadata": {
+                  "label": "Parameter Type",
+                  "description": "The type of the parameter"
+                },
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "DATA_BINDING",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the Kafka message"
+                    },
+                    "value": "",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
+                      "defaultType": "kafka:AnydataConsumerRecord",
+                      "modifiers": {
+                        "type": "ballerinax:kafka:1.4.0:AnydataConsumerRecord",
+                        "field": "value",
+                        "typeIndentidier": "KafkaConsumerRecord",
+                        "template": "T[]"
+                      }
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "records",
+                  "description": "The batch of messages received from the Kafka topic(s)."
+                },
+                "placeholder": "records",
+                "value": "records",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "Caller",
+                "description": "The Kafka caller object used to commit offsets manually."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include Caller",
+                  "description": "Tick to include the Kafka caller parameter in the handler signature."
+                },
+                "placeholder": "kafka:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "kafka:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "The Kafka caller object used to commit offsets manually."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "onError",
+            "description": "The `onError` remote method is triggered when an error occurs during message processing.",
+            "addLabel": "Add On Error Handler"
+          },
+          "name": "onError",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": false,
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onError",
+            "moduleName": "kafka"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Kafka Error",
+                "description": "The error that occurred during message processing."
+              },
+              "kind": "REQUIRED",
+              "type": {
+                "metadata": {
+                  "label": "Parameter Type",
+                  "description": "The type of the parameter"
+                },
+                "placeholder": "kafka:Error",
+                "value": "kafka:Error",
+                "types": [
+                  {
+                    "fieldType": "TYPE",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "kafkaError",
+                  "description": "The error that occurred during message processing."
+                },
+                "placeholder": "kafkaError",
+                "value": "kafkaError",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "readOnlyMetadata": [
+    {
+      "key": "topics",
+      "displayName": "Topic(s)",
+      "kind": "LISTENER_PARAM",
+      "paramKind": "INCLUDED_FIELD",
+      "path": "topics"
+    },
+    {
+      "key": "groupId",
+      "displayName": "Group ID",
+      "kind": "LISTENER_PARAM",
+      "paramKind": "INCLUDED_DEFAULTABLE_FIELD",
+      "path": "groupId"
+    }
+  ]
+}

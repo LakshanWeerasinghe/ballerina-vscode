@@ -50,6 +50,10 @@ export interface ServiceModel {
     icon: string;
     properties?: ConfigProperties;
     functions?: FunctionModel[];
+    // Schema-driven triggers (unified TriggerModel) split the handlers in two: `functions` holds
+    // what exists in the user's source, `schemaFunctions` the connector-shipped addable catalog
+    // (one entry per handler variant; consumed variants are removed by the language server).
+    schemaFunctions?: FunctionModel[];
     codedata?: CodeData;
 }
 
@@ -78,6 +82,16 @@ export interface FunctionModel {
     optional: boolean;
     editable: boolean;
     codedata?: CodeData;
+
+    // Handler-catalog fields carried by schema-driven triggers (unified TriggerModel): functions
+    // sharing a `group` are format variants of one logical handler (labelled by `variantLabel`,
+    // offered under `addLabel`); `repeatable` allows several instances per service and
+    // `nameEditable: false` locks the emitted function name to the variant's.
+    group?: string;
+    variantLabel?: string;
+    addLabel?: string;
+    repeatable?: boolean;
+    nameEditable?: boolean;
 
     canAddParameters?: boolean;
 
@@ -162,6 +176,24 @@ interface CodeData {
     packageName?: string;
     moduleName?: string;
     version?: string;
+    position?: number;
+    path?: string;
+    valueQualifier?: string;
+    // Payload-composition hints of schema-driven triggers: the rendered type is
+    // template({{type}} -> boundType ?? defaultType), optionally superseded by an active
+    // PAYLOAD_MODIFIER's own template (e.g. stream<{{type}}, error?>).
+    template?: string;
+    defaultType?: string;
+    boundType?: string;
+    bindable?: boolean;
+    modifier?: string;
+    targetParam?: string;
+    // Annotation-tree hints (COMPLEX_FUNCTION_ANNOTATION -> MAPPING_FIELD leaves). A leaf's
+    // rendered kind (e.g. string quoting) derives from the node's types[], not codedata.
+    field?: string;
+    optional?: boolean;
+    // The literal an ENUM_LITERAL choice branch emits (qualified by valueQualifier).
+    value?: string;
 }
 
 export interface PropertyModel {

@@ -200,7 +200,7 @@ function populateServiceInitModelFromFormFields(formFields: FormField[], model: 
 
 export function ServiceCreationView(props: ServiceCreationViewProps) {
 
-    const { projectPath, orgName, packageName, moduleName } = props;
+    const { projectPath, orgName, packageName, moduleName, version } = props;
     const { rpcClient } = useRpcContext();
 
     const [headerInfo, setHeaderInfo] = useState<HeaderInfo>(null);
@@ -222,7 +222,8 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
             const promise = rpcClient
                 .getServiceDesignerRpcClient()
                 .getServiceInitModel({
-                    filePath: "", orgName: orgName, pkgName: packageName, moduleName: moduleName, listenerName: ""
+                    filePath: "", orgName: orgName, pkgName: packageName, moduleName: moduleName,
+                    listenerName: "", version: version
                 });
 
             let timer: ReturnType<typeof setTimeout> | null = null;

@@ -430,6 +430,7 @@ enum EXTENDED_APIS {
     BI_GET_RECORD_MODEL_FROM_SOURCE = 'typesManager/findMatchingType',
     BI_GET_RECORD_SOURCE = 'typesManager/generateValue',
     BI_SERVICE_GET_TRIGGER_MODELS = 'serviceDesign/getTriggerModels',
+    BI_SERVICE_SEARCH_TRIGGERS = 'serviceDesign/searchTriggers',
     BI_SERVICE_GET_LISTENERS = 'serviceDesign/getListeners',
     BI_SERVICE_GET_LISTENER = 'serviceDesign/getListenerModel',
     BI_SERVICE_ADD_LISTENER = 'serviceDesign/addListener',
@@ -1258,6 +1259,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async getTriggerModels(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
         return this.sendRequest<TriggerModelsResponse>(EXTENDED_APIS.BI_SERVICE_GET_TRIGGER_MODELS, params);
+    }
+
+    async searchTriggers(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
+        return this.sendRequest<TriggerModelsResponse>(EXTENDED_APIS.BI_SERVICE_SEARCH_TRIGGERS, params);
     }
 
     async getListeners(params: ListenersRequest): Promise<ListenersResponse> {

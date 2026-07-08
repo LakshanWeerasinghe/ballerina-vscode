@@ -21,6 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.core;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import io.ballerina.centralconnector.RemoteCentral;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.syntax.tree.ClassDefinitionNode;
 import io.ballerina.compiler.syntax.tree.ExplicitNewExpressionNode;
@@ -89,6 +90,7 @@ import io.ballerina.servicemodelgenerator.extension.model.response.TriggerRespon
 import io.ballerina.servicemodelgenerator.extension.util.FTPListenerUtil;
 import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
 import io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil;
+import io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtil;
 import io.ballerina.servicemodelgenerator.extension.util.TypeCompletionGenerator;
 import io.ballerina.servicemodelgenerator.extension.util.Utils;
 import io.ballerina.tools.text.LineRange;
@@ -120,6 +122,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DEFAULT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.FTP;
@@ -425,6 +428,28 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                     .flatMap(Optional::stream)
                     .toList();
             return new TriggerListResponse(triggerBasicInfoList);
+        });
+    }
+
+    /**
+     * Discover event-integration trigger packages on Ballerina Central ("Search more"). Complements
+     * {@link #getTriggerModels} (local index) with a live Central search; connectors that ship their
+     * trigger models are then addable with no language-server release. Excludes triggers already known
+     * locally and degrades to an empty list when Central is unavailable.
+     *
+     * @param request Trigger list request ({@code query} is the search term)
+     * @return {@link TriggerListResponse} of the matching Central triggers
+     */
+    @JsonRequest
+    public CompletableFuture<TriggerListResponse> searchTriggers(TriggerListRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            Set<String> localKeys = triggerProperties.values().stream()
+                    .map(tp -> tp.orgName() + "/" + tp.name())
+                    .collect(Collectors.toSet());
+            String query = request == null ? null : request.query();
+            List<TriggerBasicInfo> centralTriggers = TriggerSearchUtil.searchCentral(
+                    RemoteCentral.getInstance(), query, null, null, localKeys);
+            return new TriggerListResponse(centralTriggers);
         });
     }
 
@@ -962,7 +987,8 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 if (document.isEmpty() || semanticModel.isEmpty()) {
                     throw new IllegalStateException("Failed to load the document or semantic model");
                 }
-                Utils.resolveModule(request.orgName(), request.pkgName(), request.moduleName(), lsClientLogger);
+                Utils.resolveModule(request.orgName(), request.pkgName(), request.moduleName(),
+                        request.version(), lsClientLogger);
                 return new ServiceInitModelResponse(ServiceBuilderRouter.getServiceInitModel(request,
                         project, semanticModel.get(), document.get()));
             } catch (Throwable e) {
