@@ -553,7 +553,7 @@
         "moduleName": "ftp",
         "originalName": "Service"
       }
-    },
+    }
   },
   "serviceTypes": [
     {

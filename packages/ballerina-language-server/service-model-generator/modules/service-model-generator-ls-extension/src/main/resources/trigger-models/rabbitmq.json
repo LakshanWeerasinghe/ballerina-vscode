@@ -307,8 +307,7 @@
         {
           "metadata": {
             "label": "On Message",
-            "description": "Triggered when a message is received from the subscribed queue (fire-and-forget consumption).",
-            "addLabel": "Add On Message Handler"
+            "description": "Triggered when a message is received from the subscribed queue (fire-and-forget consumption)."
           },
           "name": "onMessage",
           "nameEditable": false,
@@ -317,8 +316,8 @@
           "qualifiers": [
             "remote"
           ],
-          "group": "onMessage",
-          "variantLabel": "onMessage",
+          "group": "consume",
+          "variantLabel": "On Message",
           "enabled": false,
           "editable": true,
           "optional": false,
@@ -328,7 +327,7 @@
             "type": "FUNCTION",
             "originalName": "onMessage",
             "moduleName": "rabbitmq",
-            "group": "onMessage"
+            "group": "consume"
           },
           "parameters": [
             {
@@ -499,8 +498,7 @@
         {
           "metadata": {
             "label": "On Request",
-            "description": "Triggered for request-reply style consumption; the returned value is published back to the message's replyTo queue. Mutually exclusive with On Message.",
-            "addLabel": "Add On Request Handler"
+            "description": "Triggered for request-reply style consumption; the returned value is published back to the message's replyTo queue. Mutually exclusive with On Message."
           },
           "name": "onRequest",
           "nameEditable": false,
@@ -509,8 +507,8 @@
           "qualifiers": [
             "remote"
           ],
-          "group": "onRequest",
-          "variantLabel": "onRequest",
+          "group": "consume",
+          "variantLabel": "On Request",
           "enabled": false,
           "editable": true,
           "optional": true,
@@ -520,7 +518,7 @@
             "type": "FUNCTION",
             "originalName": "onRequest",
             "moduleName": "rabbitmq",
-            "group": "onRequest"
+            "group": "consume"
           },
           "parameters": [
             {
@@ -691,8 +689,7 @@
         {
           "metadata": {
             "label": "On Error",
-            "description": "Triggered when an error occurs while dispatching a message to On Message / On Request.",
-            "addLabel": "Add On Error Handler"
+            "description": "Triggered when an error occurs while dispatching a message to On Message / On Request."
           },
           "name": "onError",
           "nameEditable": false,

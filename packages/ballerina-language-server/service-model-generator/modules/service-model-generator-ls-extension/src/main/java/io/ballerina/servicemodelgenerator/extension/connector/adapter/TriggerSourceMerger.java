@@ -31,9 +31,11 @@ import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Folds the functions parsed from the user's source into a schema-driven trigger template
@@ -91,6 +93,10 @@ public final class TriggerSourceMerger {
         }
 
         List<Function> merged = new ArrayList<>();
+        // A group whose consumed variant is NOT repeatable (e.g. RabbitMQ's onMessage/onRequest — the
+        // compiler plugin allows exactly one) is mutually exclusive: once one sibling is present, every
+        // other sibling must leave the addable catalog too, not just the matched one.
+        Set<String> consumedExclusiveGroups = new HashSet<>();
         for (Function source : functionsInSource == null ? List.<Function>of() : functionsInSource) {
             Function template = findTemplate(catalog, source);
             if (template == null) {
@@ -106,9 +112,16 @@ public final class TriggerSourceMerger {
             Function enriched = Boolean.TRUE.equals(template.getNameEditable()) ? copyOf(template) : template;
             if (enriched == template) {
                 catalog.remove(template);
+                if (template.getGroup() != null && !Boolean.TRUE.equals(template.getRepeatable())) {
+                    consumedExclusiveGroups.add(template.getGroup());
+                }
             }
             enrich(enriched, source);
             merged.add(enriched);
+        }
+
+        if (!consumedExclusiveGroups.isEmpty()) {
+            catalog.removeIf(fn -> fn.getGroup() != null && consumedExclusiveGroups.contains(fn.getGroup()));
         }
 
         for (Function remaining : catalog) {

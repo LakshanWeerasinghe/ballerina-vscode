@@ -76,7 +76,9 @@ public class ConnectorModelReader {
             Constants.FTP, "trigger-models/ftp.json",
             Constants.KAFKA, "trigger-models/kafka.json",
             Constants.RABBITMQ, "trigger-models/rabbitmq.json",
-            Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json"
+            Constants.MQTT, "trigger-models/mqtt.json",
+            Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json",
+            Constants.ASB, "trigger-models/asb.json"
     );
 
     private final Gson gson = new Gson();
