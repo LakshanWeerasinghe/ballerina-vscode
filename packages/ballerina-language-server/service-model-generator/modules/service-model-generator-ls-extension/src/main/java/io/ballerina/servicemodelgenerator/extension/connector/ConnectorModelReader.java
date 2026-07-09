@@ -80,7 +80,8 @@ public class ConnectorModelReader {
             Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json",
             Constants.ASB, "trigger-models/asb.json",
             Constants.SF, "trigger-models/salesforce.json",
-            Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json"
+            Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json",
+            Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json"
     );
 
     private final Gson gson = new Gson();
