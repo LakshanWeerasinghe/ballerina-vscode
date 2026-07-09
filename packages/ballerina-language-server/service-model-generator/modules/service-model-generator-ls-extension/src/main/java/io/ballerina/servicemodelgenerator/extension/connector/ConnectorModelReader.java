@@ -78,7 +78,8 @@ public class ConnectorModelReader {
             Constants.RABBITMQ, "trigger-models/rabbitmq.json",
             Constants.MQTT, "trigger-models/mqtt.json",
             Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json",
-            Constants.ASB, "trigger-models/asb.json"
+            Constants.ASB, "trigger-models/asb.json",
+            Constants.SF, "trigger-models/salesforce.json"
     );
 
     private final Gson gson = new Gson();

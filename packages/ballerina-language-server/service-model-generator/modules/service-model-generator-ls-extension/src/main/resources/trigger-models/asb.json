@@ -193,7 +193,7 @@
                           "advanced": false,
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "queueName"
+                            "path": "entityConfig.queueName"
                           },
                           "types": [
                             {
@@ -232,7 +232,7 @@
                       "optional": false,
                       "advanced": false,
                       "codedata": {
-                        "type": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                         "path": "entityConfig"
                       },
                       "properties": {
@@ -249,7 +249,7 @@
                           "advanced": false,
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "topicName"
+                            "path": "entityConfig.topicName"
                           },
                           "types": [
                             {
@@ -282,7 +282,7 @@
                           "advanced": false,
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "subscriptionName"
+                            "path": "entityConfig.subscriptionName"
                           },
                           "types": [
                             {
@@ -403,68 +403,23 @@
                 "label": "Message",
                 "description": "The message received from the subscribed queue or topic subscription."
               },
-              "kind": "DATA_BINDING",
+              "kind": "REQUIRED",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "",
+                "value": "asb:Message",
                 "types": [
                   {
-                    "fieldType": "DATA_BINDING",
+                    "fieldType": "TYPE",
                     "selected": true
                   }
                 ],
                 "enabled": true,
-                "editable": true,
-                "optional": true,
-                "advanced": false,
-                "properties": {
-                  "payload": {
-                    "metadata": {
-                      "label": "Message Configuration",
-                      "description": "Define the shape of the Azure Service Bus message body"
-                    },
-                    "value": "",
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false,
-                    "types": [
-                      {
-                        "fieldType": "PAYLOAD_TYPE",
-                        "selected": true,
-                        "formats": [
-                          {
-                            "supported": [
-                              "schema",
-                              "browse",
-                              "json",
-                              "xml"
-                            ],
-                            "defaultFormat": "json"
-                          }
-                        ]
-                      }
-                    ],
-                    "codedata": {
-                      "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
-                      "bindable": true,
-                      "boundType": "",
-                      "typeConstraint": "anydata",
-                      "bindingKind": "USER_SELECTED",
-                      "defaultType": "asb:Message",
-                      "template": "{{type}}",
-                      "modifiers": {
-                        "type": "ballerinax:asb:3.10.0:Message",
-                        "field": "body",
-                        "typeIdentifier": "AsbAnydataMessage",
-                        "template": "T"
-                      }
-                    }
-                  }
-                }
+                "editable": false,
+                "optional": false,
+                "advanced": false
               },
               "name": {
                 "metadata": {
@@ -539,7 +494,7 @@
               "enabled": false,
               "editable": true,
               "optional": true,
-              "advanced": true,
+              "advanced": false,
               "hidden": false,
               "codedata": {
                 "type": "FUNCTION_PARAM"
