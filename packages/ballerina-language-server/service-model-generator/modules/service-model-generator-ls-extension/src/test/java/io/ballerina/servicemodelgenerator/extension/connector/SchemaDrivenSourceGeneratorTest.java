@@ -74,6 +74,34 @@ public class SchemaDrivenSourceGeneratorTest {
                 "service must attach to the selected existing listener, got:\n" + block);
     }
 
+    @Test
+    public void testListenerVarNameBallerinaTypeOverridesDefaultListenerTypeName() throws Exception {
+        // MSSQL CDC's listener type is `mssql:CdcListener`, not `mssql:Listener` (the assumed default
+        // for every other connector). The listenerVarName field's IDENTIFIER type carries the real
+        // type via `ballerinaType`, and the generator must use it instead of `<protocol>:Listener`.
+        Path creationPath = resource("connector_models/mssql_cdc/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertTrue(listener.startsWith("listener mssql:CdcListener mssqlCdcListener = new ("),
+                "listener type must come from listenerVarName's ballerinaType hint, got:\n" + listener);
+    }
+
+    @Test
+    public void testTextSetFieldRendersAsArrayLiteralFromValues() throws Exception {
+        // MSSQL CDC's `databaseNames` is a TEXT_SET: the UI submits its entries via `values` (a list),
+        // leaving `value` empty. The generic leaf-rendering path must fall back to `values` and emit
+        // an array literal, or the field silently drops out of the generated record.
+        Path creationPath = resource("connector_models/mssql_cdc/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertTrue(listener.contains("databaseNames: [\"db1\", \"db2\"]"),
+                "TEXT_SET field must render as an array literal from `values`, got:\n" + listener);
+    }
+
     private Path resource(String name) throws Exception {
         return Paths.get(getClass().getClassLoader().getResource(name).toURI());
     }

@@ -81,7 +81,8 @@ public class ConnectorModelReader {
             Constants.ASB, "trigger-models/asb.json",
             Constants.SF, "trigger-models/salesforce.json",
             Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json",
-            Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json"
+            Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json",
+            Constants.MSSQL, "trigger-models/mssql.json"
     );
 
     private final Gson gson = new Gson();

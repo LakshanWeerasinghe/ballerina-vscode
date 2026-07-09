@@ -21,6 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import io.ballerina.servicemodelgenerator.extension.util.Constants;
@@ -462,8 +463,9 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     private static String renderListenerDeclaration(String protocol, ListenerArgs args) {
-        return String.format("%s %s%s%s %s = %s (%s);", LISTENER, protocol, COLON, LISTENER_TYPE,
-                args.varName, NEW, args.render());
+        String listenerType = args.listenerType != null && !args.listenerType.isBlank()
+                ? args.listenerType : protocol + COLON + LISTENER_TYPE;
+        return String.format("%s %s %s = %s (%s);", LISTENER, listenerType, args.varName, NEW, args.render());
     }
 
     // ------------------------------------------------------------------
@@ -503,6 +505,10 @@ public final class SchemaDrivenSourceGenerator {
                 String varName = value(field);
                 if (!varName.isEmpty()) {
                     args.varName = varName;
+                }
+                String listenerType = listenerTypeOf(field);
+                if (listenerType != null) {
+                    args.listenerType = listenerType;
                 }
                 continue;
             }
@@ -668,6 +674,25 @@ public final class SchemaDrivenSourceGenerator {
                 || ARG_TYPE_LISTENER_VAR_NAME.equals(codedata.getArgType());
     }
 
+    /**
+     * The listener's actual Ballerina type (e.g. {@code mssql:CdcListener}), read off the
+     * {@code listenerVarName} field's {@code ballerinaType} — the connector's declared listener type
+     * name is not always {@code Listener} (MSSQL CDC's is {@code CdcListener}). Falls back to
+     * {@code null} (so the caller defaults to {@code <protocol>:Listener}) when unset, for manifests
+     * authored before this hint existed.
+     */
+    private static String listenerTypeOf(Value field) {
+        if (field.getTypes() == null) {
+            return null;
+        }
+        for (PropertyType type : field.getTypes()) {
+            if (type.ballerinaType() != null && !type.ballerinaType().isBlank()) {
+                return type.ballerinaType();
+            }
+        }
+        return null;
+    }
+
     private static Value enabledOrFirstChoice(List<Value> choices) {
         if (choices == null || choices.isEmpty()) {
             return null;
@@ -709,7 +734,16 @@ public final class SchemaDrivenSourceGenerator {
             return "";
         }
         String rendered = field.getValue();
-        return rendered == null ? "" : rendered;
+        if (rendered != null && !rendered.isEmpty()) {
+            return rendered;
+        }
+        // Multi-valued fields (TEXT_SET / EXPRESSION_SET / MULTIPLE_SELECT) carry their entries in
+        // `values`, not `value` (e.g. MSSQL CDC's `databaseNames`) -> render as an array literal.
+        List<String> values = field.getValues();
+        if (values != null && !values.isEmpty()) {
+            return "[" + String.join(", ", values) + "]";
+        }
+        return "";
     }
 
     /** The "use existing" selector — by key or by {@code codedata.type == KEY_EXISTING_LISTENER}. */
@@ -746,6 +780,7 @@ public final class SchemaDrivenSourceGenerator {
         private final List<String> looseConfig = new ArrayList<>();
         private final Map<String, Object> includedTree = new LinkedHashMap<>();
         private String varName = "";
+        private String listenerType;
 
         private void addPositional(Integer position, String rendered) {
             if (position != null) {
