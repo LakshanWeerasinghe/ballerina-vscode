@@ -10,7 +10,43 @@
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_salesforce_8.7.0.png",
   "kind": "event",
   "initProperties": {
-    "listenerConfig": {
+    "listener": {
+      "metadata": {
+        "label": "Listener",
+        "description": "Attach the service to a new or existing Salesforce listener."
+      },
+      "types": [
+        {
+          "fieldType": "CHOICE",
+          "selected": true
+        }
+      ],
+      "value": "createNew",
+      "enabled": true,
+      "editable": true,
+      "optional": false,
+      "advanced": false,
+      "codedata": {
+        "type": "LISTENER_CONFIG"
+      },
+      "choices": [
+        {
+          "metadata": {
+            "label": "Create New Listener",
+            "description": "Define a new Salesforce listener in the project."
+          },
+          "types": [
+            {
+              "fieldType": "FORM",
+              "selected": true
+            }
+          ],
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "properties": {
+            "listenerConfig": {
       "metadata": {
         "label": "Listener Configurations",
         "description": "Configure the Salesforce Streaming API (CometD) listener."
@@ -309,11 +345,59 @@
           ]
         }
       }
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "Use Existing Listener",
+            "description": "Attach to one or more Salesforce listeners already declared in the project."
+          },
+          "types": [
+            {
+              "fieldType": "FORM",
+              "selected": true
+            }
+          ],
+          "enabled": false,
+          "editable": true,
+          "optional": false,
+          "advanced": false,
+          "properties": {
+            "existingListener": {
+              "metadata": {
+                "label": "Listener(s)",
+                "description": "Select one or more existing listeners to attach the service to (no new(...) is generated)."
+              },
+              "types": [
+                {
+                  "fieldType": "MULTI_SELECT_LISTENER",
+                  "selected": true,
+                  "ballerinaType": "salesforce:Listener"
+                }
+              ],
+              "items": [
+                "salesforceListener"
+              ],
+              "value": [
+                "salesforceListener"
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "codedata": {
+                "type": "KEY_EXISTING_LISTENER"
+              }
+            }
+          }
+        }
+      ]
     },
     "serviceType": {
       "metadata": {
-        "label": "Service Type",
-        "description": "The type of Salesforce event this service listens for. Selecting a type determines the available handler functions."
+        "label": "Event Type",
+        "description": "The type of Salesforce event to listen for: Change Data Capture or Platform Events."
       },
       "types": [
         {
@@ -359,7 +443,7 @@
           "ballerinaType": "string"
         }
       ],
-      "value": "",
+      "value": "/data/ChangeEvents",
       "placeholder": "/data/ChangeEvents",
       "enabled": true,
       "editable": true,

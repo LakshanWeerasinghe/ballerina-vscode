@@ -79,7 +79,8 @@ public class ConnectorModelReader {
             Constants.MQTT, "trigger-models/mqtt.json",
             Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json",
             Constants.ASB, "trigger-models/asb.json",
-            Constants.SF, "trigger-models/salesforce.json"
+            Constants.SF, "trigger-models/salesforce.json",
+            Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json"
     );
 
     private final Gson gson = new Gson();

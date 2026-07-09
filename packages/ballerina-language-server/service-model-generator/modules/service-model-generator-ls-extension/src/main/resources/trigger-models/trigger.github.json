@@ -146,7 +146,7 @@
                   "advanced": true,
                   "codedata": {
                     "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "path": "listenerConfig.webhookSecret",
+                    "path": "webhookSecret",
                     "originalName": "webhookSecret",
                     "position": 1
                   },
