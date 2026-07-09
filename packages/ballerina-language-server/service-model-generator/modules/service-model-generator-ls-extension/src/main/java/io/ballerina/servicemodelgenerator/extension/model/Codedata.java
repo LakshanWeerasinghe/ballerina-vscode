@@ -50,6 +50,9 @@ public class Codedata {
     private String modifier;
     private String targetParam;
     private String field;
+    // Base identifier used when generating a wrapper type name for an included-record payload
+    // binding (e.g. "KafkaAnydataConsumer" -> generated "KafkaAnydataConsumer1" in types.bal).
+    private String typeIdentifier;
     private Boolean optional;
     // The literal an ENUM_LITERAL choice branch emits (qualified by `valueQualifier`).
     private String value;
@@ -222,6 +225,14 @@ public class Codedata {
 
     public void setField(String field) {
         this.field = field;
+    }
+
+    public String getTypeIdentifier() {
+        return typeIdentifier;
+    }
+
+    public void setTypeIdentifier(String typeIdentifier) {
+        this.typeIdentifier = typeIdentifier;
     }
 
     public Boolean getOptional() {

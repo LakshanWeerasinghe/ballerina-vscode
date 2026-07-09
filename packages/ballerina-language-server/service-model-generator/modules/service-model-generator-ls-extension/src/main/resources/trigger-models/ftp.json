@@ -554,27 +554,6 @@
         "originalName": "Service"
       }
     },
-    "basePath": {
-      "metadata": {
-        "label": "Service Base Path",
-        "description": "Optional attach point for the service."
-      },
-      "types": [
-        {
-          "fieldType": "SERVICE_PATH",
-          "selected": true,
-          "ballerinaType": "string"
-        }
-      ],
-      "value": "",
-      "enabled": true,
-      "editable": true,
-      "optional": true,
-      "advanced": true,
-      "codedata": {
-        "type": "SERVICE_BASE_PATH"
-      }
-    }
   },
   "serviceTypes": [
     {

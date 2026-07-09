@@ -35,6 +35,7 @@ import { FunctionModel, ParameterModel, PropertyModel, ServiceModel } from "@wso
 const TYPE_PLACEHOLDER = "{{type}}";
 
 export const CODEDATA_PAYLOAD_TYPE = "PAYLOAD_TYPE";
+export const CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD = "PAYLOAD_TYPE_INCLUDED_RECORD";
 export const CODEDATA_PAYLOAD_MODIFIER = "PAYLOAD_MODIFIER";
 export const CODEDATA_METADATA_FLAG = "METADATA_FLAG";
 export const CODEDATA_COMPLEX_ANNOTATION = "COMPLEX_FUNCTION_ANNOTATION";
@@ -74,7 +75,9 @@ export function catalogFunctionsOf(serviceModel: ServiceModel): FunctionModel[] 
 /** The payload (data-binding) parameter of an expanded variant, if any. */
 export function payloadParameterOf(fn: FunctionModel): ParameterModel | undefined {
     return fn.parameters?.find(
-        (p) => p.kind === "DATA_BINDING" || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE
+        (p) => p.kind === "DATA_BINDING"
+            || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE
+            || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD
     );
 }
 
@@ -83,6 +86,26 @@ export function propertiesOfRole(fn: FunctionModel, role: string): [string, Prop
     return Object.entries(fn.properties ?? {}).filter(
         ([, prop]) => (prop as PropertyModel).codedata?.type === role
     ) as [string, PropertyModel][];
+}
+
+/**
+ * Whether a single handler variant has anything {@link TriggerHandlerForm} would let the user
+ * configure: a bindable payload, composition flags, function annotations, or opt-in advanced
+ * parameters. False for a handler like kafka's `onError`, whose only parameter is a fixed,
+ * non-editable error — the form would render empty, so callers can skip it (add directly / hide
+ * the edit affordance) instead of opening a blank panel.
+ */
+export function hasConfigurableFields(fn: FunctionModel): boolean {
+    if (!fn) {
+        return false;
+    }
+    const payloadParam = payloadParameterOf(fn);
+    const isPayloadBindable = payloadParam?.type?.codedata?.bindable === true;
+    const hasMetadataFlags = propertiesOfRole(fn, CODEDATA_METADATA_FLAG).length > 0;
+    const hasModifierFlags = propertiesOfRole(fn, CODEDATA_PAYLOAD_MODIFIER).length > 0;
+    const hasAnnotations = propertiesOfRole(fn, CODEDATA_COMPLEX_ANNOTATION).length > 0;
+    const hasAdvancedParams = fn.parameters?.some((p) => p.advanced === true) ?? false;
+    return isPayloadBindable || hasMetadataFlags || hasModifierFlags || hasAnnotations || hasAdvancedParams;
 }
 
 export function applyTypeTemplate(template: string | undefined, element: string): string {

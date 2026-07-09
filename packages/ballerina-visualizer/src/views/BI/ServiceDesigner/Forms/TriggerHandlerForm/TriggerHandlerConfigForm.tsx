@@ -19,15 +19,18 @@
 import React from "react";
 import { SidePanelBody } from "@wso2/ui-toolkit";
 import { FunctionModel, ServiceModel } from "@wso2/ballerina-core";
+import { cloneDeep } from "lodash";
 import ButtonCard from "../../../../../components/ButtonCard";
 
 import { EditorContentColumn } from "../../styles";
-import { catalogFunctionsOf, handlerGroupId } from "./payloadComposer";
+import { catalogFunctionsOf, handlerGroupId, hasConfigurableFields } from "./payloadComposer";
 
 interface TriggerHandlerConfigFormProps {
     serviceModel: ServiceModel;
     isSaving: boolean;
     onSubmit: (group: string) => void;
+    /** Adds a handler straight away, bypassing the config form (nothing in it to configure). */
+    onQuickAdd: (functionModel: FunctionModel) => void;
     onBack?: () => void;
 }
 
@@ -35,6 +38,10 @@ interface HandlerGroup {
     id: string;
     label: string;
     description: string;
+    /** False when the group has exactly one variant and nothing configurable on it. */
+    needsForm: boolean;
+    /** The variant to add directly when {@code needsForm} is false. */
+    quickAddFunction?: FunctionModel;
 }
 
 /**
@@ -42,25 +49,52 @@ interface HandlerGroup {
  * functions are its format variants). The language server ships the still-addable variants in the
  * service's `schemaFunctions` — consumed ones are already removed — so every catalog group is
  * offerable. Fully driven by the wire model's `group`/`addLabel` fields, no per-connector code.
+ *
+ * A group with a single variant and nothing configurable on it (e.g. kafka's `onError`, whose only
+ * parameter is a fixed, non-editable error) is added straight away instead of opening an empty form.
  */
 export function TriggerHandlerConfigForm(props: TriggerHandlerConfigFormProps) {
-    const { serviceModel, isSaving, onSubmit } = props;
+    const { serviceModel, isSaving, onSubmit, onQuickAdd } = props;
 
     const handlerGroups: HandlerGroup[] = React.useMemo(() => {
+        const catalog = catalogFunctionsOf(serviceModel) as FunctionModel[];
         const groups = new Map<string, HandlerGroup>();
-        for (const fn of catalogFunctionsOf(serviceModel) as FunctionModel[]) {
+        const membersByGroup = new Map<string, FunctionModel[]>();
+        for (const fn of catalog) {
             const id = handlerGroupId(fn);
-            if (!id || groups.has(id)) {
+            if (!id) {
                 continue;
             }
-            groups.set(id, {
-                id,
-                label: fn.metadata?.label || id,
-                description: fn.metadata?.description || "",
-            });
+            if (!groups.has(id)) {
+                groups.set(id, {
+                    id,
+                    label: fn.metadata?.label || id,
+                    description: fn.metadata?.description || "",
+                    needsForm: true,
+                });
+            }
+            if (!membersByGroup.has(id)) {
+                membersByGroup.set(id, []);
+            }
+            membersByGroup.get(id).push(fn);
+        }
+        for (const group of groups.values()) {
+            const members = membersByGroup.get(group.id) ?? [];
+            group.needsForm = members.length > 1 || members.some(hasConfigurableFields);
+            if (!group.needsForm) {
+                group.quickAddFunction = members[0];
+            }
         }
         return Array.from(groups.values());
     }, [serviceModel]);
+
+    const handleCardClick = (group: HandlerGroup) => {
+        if (group.needsForm) {
+            onSubmit(group.id);
+            return;
+        }
+        onQuickAdd({ ...cloneDeep(group.quickAddFunction), enabled: true });
+    };
 
     return (
         <SidePanelBody>
@@ -71,7 +105,7 @@ export function TriggerHandlerConfigForm(props: TriggerHandlerConfigFormProps) {
                         id={`handler-group-card-${index}`}
                         title={group.label}
                         tooltip={group.description}
-                        onClick={() => onSubmit(group.id)}
+                        onClick={() => handleCardClick(group)}
                         disabled={isSaving}
                     />
                 ))}

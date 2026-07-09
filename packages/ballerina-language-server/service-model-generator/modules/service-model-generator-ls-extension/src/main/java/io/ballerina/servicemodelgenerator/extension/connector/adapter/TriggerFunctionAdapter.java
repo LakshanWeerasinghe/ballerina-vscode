@@ -194,6 +194,10 @@ public final class TriggerFunctionAdapter {
         for (TriggerModel.Parameter parameter : parameters) {
             if (parameter == variantParameter && variant != null) {
                 result.add(toPayloadParameter(parameter, variant));
+            } else if (PayloadComposer.payloadNode(parameter.type()) != null) {
+                // Variant-less payload param (e.g. kafka's consumer records): same composition
+                // ride-along as a variant's, sourced from the parameter's own type tree.
+                result.add(toPayloadParameter(parameter, parameter.type()));
             } else {
                 result.add(toParameter(parameter));
             }
@@ -202,13 +206,13 @@ public final class TriggerFunctionAdapter {
     }
 
     /**
-     * The composed payload parameter of one variant. The rendered type comes from the composition
-     * algorithm; the inputs of that composition (base template, default/bound element type,
-     * bindability) ride on the type's {@code codedata} so the UI can recompose when the user toggles
-     * a modifier or binds a custom schema.
+     * The composed payload parameter of a variant sub-form or a variant-less DATA_BINDING type tree.
+     * The rendered type comes from the composition algorithm; the inputs of that composition (base
+     * template, default/bound element type, bindability) ride on the type's {@code codedata} so the
+     * UI can recompose when the user toggles a modifier or binds a custom schema.
      */
-    private static Parameter toPayloadParameter(TriggerModel.Parameter model, TriggerModel.Property variant) {
-        TriggerModel.Property payload = PayloadComposer.payloadNode(variant);
+    private static Parameter toPayloadParameter(TriggerModel.Parameter model, TriggerModel.Property payloadTree) {
+        TriggerModel.Property payload = PayloadComposer.payloadNode(payloadTree);
         TriggerModel.Codedata payloadCodedata = payload == null ? null : payload.codedata();
 
         String label = payload != null && payload.metadata() != null && notBlank(payload.metadata().label())
@@ -217,16 +221,22 @@ public final class TriggerFunctionAdapter {
                 && notBlank(payload.metadata().description())
                         ? payload.metadata().description() : description(model.metadata());
 
-        String composedType = PayloadComposer.effectiveType(variant);
-        String defaultType = PayloadComposer.defaultComposedType(variant);
+        String composedType = PayloadComposer.effectiveType(payloadTree);
+        String defaultType = PayloadComposer.defaultComposedType(payloadTree);
         boolean bindable = payloadCodedata != null && Boolean.TRUE.equals(payloadCodedata.bindable());
 
-        Codedata typeCodedata = new Codedata("PAYLOAD_TYPE");
+        // Preserve the payload marker as shipped: PAYLOAD_TYPE_INCLUDED_RECORD additionally tells the
+        // save flow to generate a wrapper record in types.bal instead of binding the type directly.
+        Codedata typeCodedata = new Codedata(payloadCodedata != null && notBlank(payloadCodedata.type())
+                ? payloadCodedata.type() : "PAYLOAD_TYPE");
         typeCodedata.setBindable(bindable);
-        typeCodedata.setTemplate(PayloadComposer.payloadTemplate(variant));
+        typeCodedata.setTemplate(normalizeTemplate(PayloadComposer.payloadTemplate(payloadTree)));
         if (payloadCodedata != null) {
             typeCodedata.setDefaultType(payloadCodedata.defaultType());
             typeCodedata.setBoundType(payloadCodedata.boundType());
+            typeCodedata.setField(includedRecordHint(payloadCodedata, payloadCodedata.field(), "field"));
+            typeCodedata.setTypeIdentifier(
+                    includedRecordHint(payloadCodedata, null, "typeIdentifier", "typeIndentidier"));
         }
 
         Value type = new Value.ValueBuilder()
@@ -249,6 +259,38 @@ public final class TriggerFunctionAdapter {
                 .enabled(true)
                 .editable(model.editable() == null || model.editable())
                 .build();
+    }
+
+    /**
+     * An included-record hint (payload field name / wrapper type identifier) declared either directly
+     * on the payload {@code codedata} or inside its {@code modifiers} map, checked under the given
+     * keys (the schema's historical {@code typeIndentidier} spelling included).
+     */
+    private static String includedRecordHint(TriggerModel.Codedata payloadCodedata, String direct, String... keys) {
+        if (notBlank(direct)) {
+            return direct;
+        }
+        if (payloadCodedata.modifiers() instanceof Map<?, ?> modifiers) {
+            for (String key : keys) {
+                Object value = modifiers.get(key);
+                if (value != null && notBlank(String.valueOf(value))) {
+                    return String.valueOf(value);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Normalizes a wrap template onto the {@code {{type}}} placeholder the front-end recomposer
+     * understands — the included-record form (kafka) declares its wrap as a standalone {@code T}
+     * (e.g. {@code T[]}), which only the LS-side composer accepts.
+     */
+    private static String normalizeTemplate(String template) {
+        if (template == null || template.isBlank() || template.contains("{{type}}")) {
+            return template;
+        }
+        return template.replaceAll("\\bT\\b", "{{type}}");
     }
 
     private static Parameter toParameter(TriggerModel.Parameter model) {

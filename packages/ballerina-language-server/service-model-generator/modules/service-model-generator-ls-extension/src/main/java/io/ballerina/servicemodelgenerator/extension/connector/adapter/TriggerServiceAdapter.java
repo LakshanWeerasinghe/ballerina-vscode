@@ -93,6 +93,7 @@ public final class TriggerServiceAdapter {
 
         properties.put(PROP_KEY_LISTENER, getListenersProperty(protocol, Value.FieldType.SINGLE_SELECT_LISTENER));
         properties.put(PROP_KEY_SERVICE_TYPE, serviceTypeProperty(descriptor, type));
+        addServiceTypeProperties(properties, type.properties());
 
         // Present handlers (the model's functions[]) become wire `functions`; the addable catalog
         // (schemaFunctions[]) becomes wire `schemaFunctions` — one entry per handler variant, each
@@ -154,6 +155,25 @@ public final class TriggerServiceAdapter {
         }
         String name = type.name() == null ? "" : type.name();
         return name.contains(COLON) ? name : protocol + COLON + name;
+    }
+
+    /**
+     * Adds the service type's own properties (e.g. RabbitMQ's {@code serviceConfig}
+     * {@code SERVICE_ANNOTATION} container) to the template, keyed as declared in the schema. The
+     * container's value is the raw {@code {...}} mapping-constructor text (overlaid from source once
+     * the service is read back — see {@code Utils#updateAnnotationAttachmentProperty}) rather than
+     * per-field state, so no field-level merging is needed here.
+     */
+    private static void addServiceTypeProperties(Map<String, Value> properties,
+                                                 Map<String, TriggerModel.Property> typeProperties) {
+        if (typeProperties == null) {
+            return;
+        }
+        for (Map.Entry<String, TriggerModel.Property> entry : typeProperties.entrySet()) {
+            TriggerModel.Property property = entry.getValue();
+            Value value = PropertyValueAdapter.toValue(property);
+            properties.put(entry.getKey(), value);
+        }
     }
 
     private static Value serviceTypeProperty(String descriptor, TriggerModel.ServiceTypeModel type) {

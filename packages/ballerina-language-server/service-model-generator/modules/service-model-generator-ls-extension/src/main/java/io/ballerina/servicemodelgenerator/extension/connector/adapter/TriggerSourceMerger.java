@@ -61,6 +61,7 @@ public final class TriggerSourceMerger {
 
     private static final String TYPE_PLACEHOLDER = "{{type}}";
     private static final String CD_PAYLOAD_TYPE = "PAYLOAD_TYPE";
+    private static final String CD_PAYLOAD_TYPE_INCLUDED_RECORD = "PAYLOAD_TYPE_INCLUDED_RECORD";
     private static final String CD_PAYLOAD_MODIFIER = "PAYLOAD_MODIFIER";
     private static final String CD_COMPLEX_FUNCTION_ANNOTATION = "COMPLEX_FUNCTION_ANNOTATION";
     private static final String CD_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
@@ -205,8 +206,11 @@ public final class TriggerSourceMerger {
     }
 
     private static boolean isPayloadParameter(Parameter parameter) {
-        return parameter.getType() != null && parameter.getType().getCodedata() != null
-                && CD_PAYLOAD_TYPE.equals(parameter.getType().getCodedata().getType());
+        if (parameter.getType() == null || parameter.getType().getCodedata() == null) {
+            return false;
+        }
+        String codedataType = parameter.getType().getCodedata().getType();
+        return CD_PAYLOAD_TYPE.equals(codedataType) || CD_PAYLOAD_TYPE_INCLUDED_RECORD.equals(codedataType);
     }
 
     private static Parameter claimByType(List<Parameter> sourceParams, String typeText) {

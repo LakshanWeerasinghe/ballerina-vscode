@@ -75,6 +75,7 @@ public class ConnectorModelReader {
     private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = Map.of(
             Constants.FTP, "trigger-models/ftp.json",
             Constants.KAFKA, "trigger-models/kafka.json",
+            Constants.RABBITMQ, "trigger-models/rabbitmq.json",
             Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json"
     );
 

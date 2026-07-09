@@ -254,11 +254,16 @@
                     ],
                     "codedata": {
                       "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
                       "defaultType": "kafka:AnydataConsumerRecord",
+                      "template": "{{type}}[]",
                       "modifiers": {
                         "type": "ballerinax:kafka:1.4.0:AnydataConsumerRecord",
                         "field": "value",
-                        "typeIndentidier": "KafkaConsumerRecord",
+                        "typeIdentifier": "KafkaAnydataConsumer",
                         "template": "T[]"
                       }
                     }
@@ -338,7 +343,7 @@
               "enabled": false,
               "editable": true,
               "optional": true,
-              "advanced": false,
+              "advanced": true,
               "hidden": false,
               "codedata": {
                 "type": "FUNCTION_PARAM"
@@ -428,8 +433,8 @@
                 "optional": false,
                 "advanced": false
               },
-              "enabled": false,
-              "editable": true,
+              "enabled": true,
+              "editable": false,
               "optional": false,
               "advanced": false,
               "hidden": false,

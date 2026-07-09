@@ -23,6 +23,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
+import io.ballerina.servicemodelgenerator.extension.util.Constants;
 import io.ballerina.servicemodelgenerator.extension.util.Utils;
 import org.eclipse.lsp4j.TextEdit;
 
@@ -173,12 +174,90 @@ public final class SchemaDrivenSourceGenerator {
         if (collected.hasArgs()) {
             builder.append(renderListenerDeclaration(protocol, collected)).append(NEW_LINE);
         }
+        for (String annotation : buildServiceAnnotations(filledInitForm)) {
+            builder.append(annotation).append(NEW_LINE);
+        }
         builder.append(SERVICE).append(SPACE).append(descriptor).append(SPACE).append(ON).append(SPACE)
                 .append(collected.varName).append(SPACE).append(OPEN_BRACE)
                 .append(NEW_LINE)
                 .append(String.join(TWO_NEW_LINES, functions)).append(NEW_LINE)
                 .append(CLOSE_BRACE).append(NEW_LINE);
         return builder.toString();
+    }
+
+    /**
+     * The service-level annotation attachments (e.g. {@code @rabbitmq:ServiceConfig {...}}), built
+     * entirely from {@code SERVICE_ANNOTATION} fields present in the filled {@code ServiceInitModel}
+     * (the add-service init form) — the {@code TriggerModel}'s service-type properties are not
+     * consulted here, since at add-time the only values available are the ones the user filled in the
+     * init form (e.g. RabbitMQ's {@code queueName}). Fields are grouped by their annotation identity
+     * ({@code moduleName}/{@code originalName}), so several init-form fields belonging to the same
+     * annotation are merged into one {@code @module:Name {...}} attachment.
+     */
+    private static List<String> buildServiceAnnotations(ServiceInitModel filledInitForm) {
+        Map<String, AnnotationFields> byAnnotation = new LinkedHashMap<>();
+        collectAnnotationFields(filledInitForm.getProperties(), byAnnotation);
+        List<String> annotations = new ArrayList<>();
+        for (AnnotationFields annotation : byAnnotation.values()) {
+            if (!annotation.fields.isEmpty()) {
+                annotations.add(annotation.render());
+            }
+        }
+        return annotations;
+    }
+
+    /**
+     * Recursively collects {@code SERVICE_ANNOTATION} leaf fields (a {@code path} names the field)
+     * from a filled form, e.g. the init form's {@code queueName}, grouping same-annotation fields
+     * ({@code moduleName}/{@code originalName}) together.
+     */
+    private static void collectAnnotationFields(Map<String, Value> properties,
+                                                Map<String, AnnotationFields> byAnnotation) {
+        if (properties == null) {
+            return;
+        }
+        for (Value field : properties.values()) {
+            if (isChoice(field)) {
+                Value branch = enabledOrFirstChoice(field.getChoices());
+                if (branch != null) {
+                    collectAnnotationFields(branch.getProperties(), byAnnotation);
+                }
+                continue;
+            }
+            Codedata codedata = field.getCodedata();
+            if (codedata != null && Constants.CD_TYPE_SERVICE_ANNOTATION.equals(codedata.getType())
+                    && codedata.getPath() != null && !codedata.getPath().isBlank()
+                    && field.isEnabledWithValue()) {
+                String rendered = qualifiedValue(field);
+                if (!rendered.isEmpty()) {
+                    String key = codedata.getModuleName() + COLON + codedata.getOriginalName();
+                    byAnnotation.computeIfAbsent(key,
+                            k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()))
+                            .fields.add(codedata.getPath() + ": " + rendered);
+                }
+            }
+            if (isGroup(field)) {
+                collectAnnotationFields(field.getProperties(), byAnnotation);
+            }
+        }
+    }
+
+    /** Accumulates the fields of one {@code @moduleName:originalName {...}} service annotation. */
+    private static final class AnnotationFields {
+        private final String moduleName;
+        private final String originalName;
+        private final List<String> fields = new ArrayList<>();
+
+        private AnnotationFields(String moduleName, String originalName) {
+            this.moduleName = moduleName;
+            this.originalName = originalName;
+        }
+
+        private String render() {
+            String prefix = moduleName == null || moduleName.isBlank()
+                    ? "@" + originalName : "@" + moduleName + COLON + originalName;
+            return prefix + " {" + String.join(", ", fields) + "}";
+        }
     }
 
     /**

@@ -23,6 +23,7 @@ import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.Option;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
+import io.ballerina.servicemodelgenerator.extension.model.PropertyTypeMemberInfo;
 import io.ballerina.servicemodelgenerator.extension.model.ValidationRule;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
@@ -125,7 +126,8 @@ public final class PropertyValueAdapter {
             for (PropertyType type : value.getTypes()) {
                 types.add(new TriggerModel.PropertyType(
                         type.fieldType() == null ? null : type.fieldType().name(),
-                        type.selected(), type.ballerinaType(), null, null, null, null, null));
+                        type.selected(), type.ballerinaType(), null,
+                        toModelTypeMembers(type.typeMembers()), null, null, null));
             }
         }
         Map<String, TriggerModel.Property> children = null;
@@ -147,6 +149,19 @@ public final class PropertyValueAdapter {
                 toModelCodedata(value.getCodedata()), null);
     }
 
+    private static List<TriggerModel.TypeMember> toModelTypeMembers(List<PropertyTypeMemberInfo> typeMembers) {
+        if (typeMembers == null) {
+            return null;
+        }
+        List<TriggerModel.TypeMember> result = new ArrayList<>();
+        for (PropertyTypeMemberInfo member : typeMembers) {
+            result.add(new TriggerModel.TypeMember(
+                    member.type(), member.packageInfo(), member.packageName(),
+                    member.kind(), member.selected()));
+        }
+        return result;
+    }
+
     private static PropertyType toPropertyType(TriggerModel.PropertyType type) {
         PropertyType.Builder builder = new PropertyType.Builder()
                 .fieldType(wireFieldType(type.fieldType()))
@@ -158,6 +173,15 @@ public final class PropertyValueAdapter {
                 options.add(new Option(option.label(), option.value()));
             }
             builder.options(options);
+        }
+        if (type.typeMembers() != null) {
+            List<PropertyTypeMemberInfo> typeMembers = new ArrayList<>();
+            for (TriggerModel.TypeMember member : type.typeMembers()) {
+                typeMembers.add(new PropertyTypeMemberInfo(
+                        member.type(), member.packageInfo(), member.packageName(),
+                        member.kind(), Boolean.TRUE.equals(member.selected())));
+            }
+            builder.typeMembers(typeMembers);
         }
         return builder.build();
     }

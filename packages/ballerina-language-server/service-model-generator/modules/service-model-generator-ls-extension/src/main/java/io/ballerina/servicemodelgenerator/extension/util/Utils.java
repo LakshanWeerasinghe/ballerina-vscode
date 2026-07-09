@@ -105,6 +105,7 @@ import java.util.stream.Collectors;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ANNOT_PREFIX;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.BALLERINA;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_ANNOTATION_ATTACHMENT;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_SERVICE_ANNOTATION;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CLOSE_PAREN;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.COLON;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GET;
@@ -531,7 +532,19 @@ public final class Utils {
         metadata.get().annotations().forEach(annotationNode -> {
             String annotName = annotationNode.annotReference().toString().trim();
             String[] split = annotName.split(":");
+            String moduleName = split.length > 1 ? split[0] : "";
             annotName = split[split.length - 1];
+
+            // A schema-driven SERVICE_ANNOTATION container (e.g. RabbitMQ's `serviceConfig`, keyed by
+            // its own schema key, not `annot<Name>`) is matched by module/name wherever it sits in the
+            // tree; the raw mapping-constructor text is enough as its value (same as the legacy
+            // flat-property path below) — no need to distribute it field by field.
+            Value schemaContainer = findServiceAnnotationContainer(service.getProperties(), moduleName, annotName);
+            if (schemaContainer != null) {
+                schemaContainer.setValue(getAnnotationValue(annotationNode));
+                return;
+            }
+
             String propertyName = ANNOT_PREFIX + annotName;
             if (service.getProperties().containsKey(propertyName)) {
                 Value property = service.getProperties().get(propertyName);
@@ -540,19 +553,46 @@ public final class Utils {
                 Codedata codedata = new Codedata.Builder()
                         .setType(CD_TYPE_ANNOTATION_ATTACHMENT)
                         .setOriginalName(annotName)
-                        .setModuleName(split.length > 1 ? split[0] : "")
+                        .setModuleName(moduleName)
                         .build();
 
                 Value value = new Value.ValueBuilder()
                         .metadata(annotName, annotName)
                         .setCodedata(codedata)
                         .value(getAnnotationValue(annotationNode))
+                        .types(List.of(PropertyType.types(Value.FieldType.EXPRESSION)))
                         .enabled(true)
                         .editable(true)
                         .build();
                 service.getProperties().put(propertyName, value);
             }
         });
+    }
+
+    /**
+     * Recursively locates a {@code SERVICE_ANNOTATION} container ({@code codedata.type ==
+     * SERVICE_ANNOTATION}) matching an annotation's module/name — wherever it sits in the service's
+     * properties tree (a schema-driven template keys it by its own schema key, e.g. {@code
+     * serviceConfig}, not by a fixed convention).
+     */
+    private static Value findServiceAnnotationContainer(Map<String, Value> properties, String moduleName,
+                                                        String originalName) {
+        if (properties == null) {
+            return null;
+        }
+        for (Value value : properties.values()) {
+            Codedata cd = value.getCodedata();
+            if (cd != null && CD_TYPE_SERVICE_ANNOTATION.equals(cd.getType())
+                    && originalName.equals(cd.getOriginalName())
+                    && (moduleName.isEmpty() || moduleName.equals(cd.getModuleName()))) {
+                return value;
+            }
+            Value nested = findServiceAnnotationContainer(value.getProperties(), moduleName, originalName);
+            if (nested != null) {
+                return nested;
+            }
+        }
+        return null;
     }
 
     public static void updateAnnotationAttachmentProperty(FunctionDefinitionNode functionDef,
@@ -776,10 +816,20 @@ public final class Utils {
         List<String> annots = new ArrayList<>();
         for (Map.Entry<String, Value> property : properties.entrySet()) {
             Value value = property.getValue();
-            if (Objects.nonNull(value.getCodedata()) && Objects.nonNull(value.getCodedata().getType()) &&
-                    value.getCodedata().getType().equals("ANNOTATION_ATTACHMENT") && value.isEnabledWithValue()) {
-                String ref = getAnnotationModule(value.getCodedata(), service.getModuleName())
-                        + ":" + value.getCodedata().getOriginalName();
+            Codedata codedata = value.getCodedata();
+            if (codedata == null || codedata.getType() == null || !value.isEnabledWithValue()) {
+                continue;
+            }
+            // CD_TYPE_ANNOTATION_ATTACHMENT is the legacy hardcoded-builder convention (property keyed
+            // `annot<Name>`); CD_TYPE_SERVICE_ANNOTATION is the schema-driven (unified TriggerModel)
+            // container (e.g. RabbitMQ's `serviceConfig`, keyed by its own schema key) — both hold the
+            // raw `{...}` mapping-constructor body as their value, so both render the same way. Without
+            // this, a schema-driven service's annotation is invisible to this method, so the caller
+            // (addServiceAnnotationTextEdits) computes an empty edit and wipes the existing
+            // `@module:Name {...}` attachment from source on every save.
+            if (CD_TYPE_ANNOTATION_ATTACHMENT.equals(codedata.getType())
+                    || CD_TYPE_SERVICE_ANNOTATION.equals(codedata.getType())) {
+                String ref = getAnnotationModule(codedata, service.getModuleName()) + ":" + codedata.getOriginalName();
                 String annotTemplate = "@%s%s".formatted(ref, value.getValue());
                 annots.add(annotTemplate);
             }

@@ -58,6 +58,7 @@ import TriggerHandlerConfigForm from "./Forms/TriggerHandlerForm/TriggerHandlerC
 import {
     catalogFunctionsOf,
     handlerGroupId,
+    hasConfigurableFields,
     isSchemaTriggerService as checkSchemaTriggerService,
 } from "./Forms/TriggerHandlerForm/payloadComposer";
 import { getTryItAIDefaultPromptService, getTryItDropdownOptions, TryItOptionValue, TryItQuickPickItem } from "../shared/tryIt";
@@ -554,6 +555,12 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsSaving(false);
     };
 
+    /** Adds a catalog handler straight away — used when it has nothing worth showing a form for. */
+    const handleQuickAddTriggerHandler = (functionModel: FunctionModel) => {
+        setShowFunctionConfigForm(false);
+        handleFunctionSubmit(functionModel, false, true);
+    };
+
     const getTriggerHandlerTitle = () => {
         const groupId = selectedTriggerGroup ?? (functionModel ? handlerGroupId(functionModel) : undefined);
         const groupMembers = [...(serviceModel ? catalogFunctionsOf(serviceModel) : []), ...(serviceModel?.functions ?? [])];
@@ -757,14 +764,17 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
      * @param value
      * @param openDiagram - Whether to open the flow diagram after saving
      */
-    const handleFunctionSubmit = async (value: FunctionModel, openDiagram: boolean = false) => {
+    const handleFunctionSubmit = async (value: FunctionModel, openDiagram: boolean = false, forceNew?: boolean) => {
         setIsSaving(true);
         const lineRange: LineRange = {
             startLine: { line: position.startLine, offset: position.startColumn },
             endLine: { line: position.endLine, offset: position.endColumn },
         };
+        // `forceNew` lets a caller bypass the `isNew` state (e.g. a quick-add from the catalog that
+        // never goes through the usual open-form flow, so the state may be stale).
+        const addingNew = forceNew ?? isNew;
         let res = undefined;
-        if (isNew) {
+        if (addingNew) {
             res = await rpcClient
                 .getServiceDesignerRpcClient()
                 .addFunctionSourceCode({ filePath, codedata: { lineRange }, function: value, artifactType: DIRECTORY_MAP.SERVICE });
@@ -1345,17 +1355,24 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         </ActionGroup>
                                     </SectionHeader>
                                     <FunctionsContainer>
-                                        {enabledHandlers.map((functionModel, index) => (
-                                            <ResourceAccordion
-                                                key={`${index}-${functionModel.name.value}`}
-                                                functionModel={functionModel}
-                                                goToSource={() => { }}
-                                                onEditResource={handleFunctionEdit}
-                                                onDeleteResource={handleFunctionDelete}
-                                                onResourceImplement={handleOpenDiagram}
-                                                deletionTypeLabel="event handler"
-                                            />
-                                        ))}
+                                        {enabledHandlers.map((functionModel, index) => {
+                                            // A schema-driven handler with nothing configurable (e.g.
+                                            // kafka's onError) opens an empty form — gray out the edit button.
+                                            const editDisabled = isSchemaTriggerService
+                                                && !hasConfigurableFields(functionModel);
+                                            return (
+                                                <ResourceAccordion
+                                                    key={`${index}-${functionModel.name.value}`}
+                                                    functionModel={functionModel}
+                                                    goToSource={() => { }}
+                                                    onEditResource={handleFunctionEdit}
+                                                    onDeleteResource={handleFunctionDelete}
+                                                    onResourceImplement={handleOpenDiagram}
+                                                    deletionTypeLabel="event handler"
+                                                    editDisabled={editDisabled}
+                                                />
+                                            );
+                                        })}
                                     </FunctionsContainer>
 
                                     {enabledHandlers.length === 0 && (
@@ -1578,6 +1595,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                         isSaving={isSaving}
                                         serviceModel={serviceModel}
                                         onSubmit={handleNewTriggerHandler}
+                                        onQuickAdd={handleQuickAddTriggerHandler}
                                         onBack={handleFunctionConfigClose}
                                     />
                                 </PanelContainer>

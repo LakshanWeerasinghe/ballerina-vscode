@@ -44,6 +44,11 @@ import java.util.Optional;
  * {@code string} quotes the value, everything else renders raw) — which is what makes
  * {@code moveTo: "/x"} emit correctly rather than as a raw template.
  *
+ * <p>Service-level {@code SERVICE_ANNOTATION} attachments (e.g. RabbitMQ's
+ * {@code @rabbitmq:ServiceConfig}) are a different shape — collected purely from the filled
+ * {@code ServiceInitModel} at add-time — and are handled by
+ * {@link SchemaDrivenSourceGenerator#buildServiceAnnotations}, not here.
+ *
  * @since 1.9.0
  */
 public final class AnnotationEmitter {

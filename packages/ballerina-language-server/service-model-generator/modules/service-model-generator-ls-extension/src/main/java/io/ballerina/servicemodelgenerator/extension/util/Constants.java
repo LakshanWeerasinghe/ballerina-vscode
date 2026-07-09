@@ -109,6 +109,10 @@ public class Constants {
     public static final String DB_KIND_OPTIONAL = "OPTIONAL";
 
     public static final String CD_TYPE_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
+    // Schema-driven (unified TriggerModel) service-level annotation container, e.g. RabbitMQ's
+    // `serviceConfig` (-> @rabbitmq:ServiceConfig). Distinct from CD_TYPE_ANNOTATION_ATTACHMENT, which
+    // is the legacy hardcoded-builder convention (property keyed `annot<Name>`).
+    public static final String CD_TYPE_SERVICE_ANNOTATION = "SERVICE_ANNOTATION";
     public static final String CD_TYPE_INCLUDE_RECORD_PARAM = "INCLUDE_RECORD_PARAM";
 
     public static final String ARG_TYPE_LISTENER_VAR_NAME = "LISTENER_VAR_NAME";

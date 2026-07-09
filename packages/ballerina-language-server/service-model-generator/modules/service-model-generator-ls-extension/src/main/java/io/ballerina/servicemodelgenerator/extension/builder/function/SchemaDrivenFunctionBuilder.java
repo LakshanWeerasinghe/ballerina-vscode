@@ -20,6 +20,7 @@ package io.ballerina.servicemodelgenerator.extension.builder.function;
 
 import io.ballerina.servicemodelgenerator.extension.connector.AnnotationEmitter;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
+import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.PropertyValueAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
@@ -32,6 +33,8 @@ import io.ballerina.servicemodelgenerator.extension.model.context.ModelFromSourc
 import io.ballerina.servicemodelgenerator.extension.model.context.UpdateModelContext;
 import org.eclipse.lsp4j.TextEdit;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,13 +72,31 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
     @Override
     public Map<String, List<TextEdit>> addModel(AddModelContext context) throws Exception {
         renderComplexAnnotations(context.function());
-        return super.addModel(context);
+        // Must run before the emitter: it rewrites the payload param's type to the generated wrapper.
+        Map<String, List<TextEdit>> typeEdits = IncludedRecordBinder.forAdd(context);
+        return mergeEdits(super.addModel(context), typeEdits);
     }
 
     @Override
     public Map<String, List<TextEdit>> updateModel(UpdateModelContext context) {
         renderComplexAnnotations(context.function());
-        return super.updateModel(context);
+        Map<String, List<TextEdit>> typeEdits = IncludedRecordBinder.forUpdate(context);
+        return mergeEdits(super.updateModel(context), typeEdits);
+    }
+
+    /** Merges the types.bal edits of an included-record binding into the emitter's edit map. */
+    private static Map<String, List<TextEdit>> mergeEdits(Map<String, List<TextEdit>> main,
+                                                          Map<String, List<TextEdit>> extra) {
+        if (extra.isEmpty()) {
+            return main;
+        }
+        Map<String, List<TextEdit>> merged = new HashMap<>(main);
+        extra.forEach((file, edits) -> merged.merge(file, edits, (a, b) -> {
+            List<TextEdit> all = new ArrayList<>(a);
+            all.addAll(b);
+            return all;
+        }));
+        return merged;
     }
 
     /**

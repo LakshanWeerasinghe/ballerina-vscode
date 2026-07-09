@@ -22,6 +22,7 @@ import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
+import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
@@ -135,6 +136,9 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         serviceModel.getServiceType().setValue(serviceType);
         serviceModel.getServiceType().setEditable(false);
         populateServiceModelFromSource(serviceModel, (ServiceDeclarationNode) context.node(), context);
+        // Included-record payloads: the textual merge above only sees the generated wrapper's name
+        // (e.g. KafkaAnydataConsumer1[]); resolve its payload field so the UI shows the bound type.
+        IncludedRecordBinder.overlayFromSource(serviceModel, context);
         return serviceModel;
     }
 

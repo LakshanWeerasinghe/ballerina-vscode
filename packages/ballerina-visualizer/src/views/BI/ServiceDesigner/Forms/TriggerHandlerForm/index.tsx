@@ -52,6 +52,7 @@ import {
     CODEDATA_COMPLEX_ANNOTATION,
     CODEDATA_METADATA_FLAG,
     CODEDATA_PAYLOAD_MODIFIER,
+    CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD,
     catalogFunctionsOf,
     composePayloadType,
     functionSignatureKey,
@@ -60,7 +61,6 @@ import {
     isModifierActive,
     payloadParameterOf,
     propertiesOfRole,
-    typeNameToParamName,
 } from "./payloadComposer";
 
 const SIGNATURE_CHANGE_BODY_WARNING =
@@ -222,7 +222,12 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     const payloadLabel = payloadParam?.metadata?.label || "Content Schema";
     const isPayloadBindable = payloadParam?.type?.codedata?.bindable === true;
-    const payloadIsArray = (payloadParam?.type?.codedata?.template ?? "").trim().endsWith("[]");
+    // An included-record databind (e.g. kafka's message shape) defaults the type creator to the
+    // import tab — the schema's payload format is sample-driven (JSON) rather than built by hand.
+    const typeCreatorDefaultTab =
+        payloadParam?.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD
+            ? "import"
+            : "create-from-scratch";
 
     const handleTypeCreated = (type: Type | string, imports?: Imports) => {
         setIsTypeEditorOpen(false);
@@ -230,7 +235,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
             return;
         }
         const typeName = typeof type === "string" ? type : type.name;
-        const paramName = typeNameToParamName(typeName, payloadIsArray);
+        // The parameter keeps its schema-shipped name — only the bound shape changes.
         const parameters = functionModel.parameters.map((p) => {
             if (p !== payloadParam) {
                 return p;
@@ -242,7 +247,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
             if (imports) {
                 updatedType.imports = imports;
             }
-            return { ...p, name: { ...p.name, value: paramName }, type: updatedType, enabled: true };
+            return { ...p, type: updatedType, enabled: true };
         });
         setFunctionModel(withRecomposedPayload({ ...functionModel, parameters }));
     };
@@ -459,18 +464,44 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                 <Typography variant="body2" sx={{ marginBottom: 8 }}>
                                     {payloadLabel}
                                 </Typography>
+                                {/* The card presents the bound shape only (no name, no array/wrapper
+                                    composition); an edit flows back as the new bound element and the
+                                    stored composed type is derived from it. */}
                                 <Parameters
-                                    parameters={[payloadParam]}
+                                    parameters={[{
+                                        ...payloadParam,
+                                        type: {
+                                            ...payloadParam.type,
+                                            value: payloadParam.type?.codedata?.boundType
+                                                || payloadParam.type?.value,
+                                        },
+                                    }]}
+                                    hideName={true}
                                     onChange={(edited) => {
                                         if (edited.length === 0) {
                                             handleDeletePayloadSchema();
                                             return;
                                         }
                                         const [editedPayload] = edited;
+                                        const editedElement = editedPayload.type?.value ?? "";
                                         const parameters = functionModel.parameters.map((p) =>
-                                            p === payloadParam ? editedPayload : p
+                                            p === payloadParam
+                                                ? {
+                                                    ...p,
+                                                    type: {
+                                                        ...p.type,
+                                                        imports: editedPayload.type?.imports ?? p.type?.imports,
+                                                        codedata: {
+                                                            ...p.type?.codedata,
+                                                            boundType: editedElement,
+                                                        },
+                                                    },
+                                                    enabled: true,
+                                                }
+                                                : p
                                         );
-                                        setFunctionModel({ ...functionModel, parameters });
+                                        setFunctionModel(
+                                            withRecomposedPayload({ ...functionModel, parameters }));
                                     }}
                                     showPayload={true}
                                     typeLabel={payloadLabel}
@@ -561,7 +592,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                 initialTypeName={"Content"}
                 modalTitle={`Define ${payloadLabel}`}
                 payloadContext={payloadContext}
-                defaultTab="create-from-scratch"
+                defaultTab={typeCreatorDefaultTab}
                 modalWidth={650}
                 modalHeight={600}
             />
