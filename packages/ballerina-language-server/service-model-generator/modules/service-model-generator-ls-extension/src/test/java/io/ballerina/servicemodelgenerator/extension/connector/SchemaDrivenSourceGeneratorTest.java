@@ -102,6 +102,75 @@ public class SchemaDrivenSourceGeneratorTest {
                 "TEXT_SET field must render as an array literal from `values`, got:\n" + listener);
     }
 
+    @Test
+    public void testCdcOperationFlagsFoldIntoOptionsSkippedOperations() throws Exception {
+        // MSSQL CDC's Insert/Update/Delete checkboxes are CDC_OPERATION_ENABLE flags: a deselected
+        // one (value "false") contributes its op-code to `options.skippedOperations`, and an enabled
+        // one contributes nothing. The fixture leaves Insert on, Update/Delete off, so only "u"/"d"
+        // must appear — folded into a fresh `options` argument (the user left options empty).
+        Path creationPath = resource("connector_models/mssql_cdc/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertEquals(listener,
+                "listener mssql:CdcListener mssqlCdcListener = new (database = {hostname: \"localhost\", "
+                        + "port: 1433, username: \"sa\", password: \"pass\", databaseNames: [\"db1\", \"db2\"]}, "
+                        + "options = {skippedOperations: [\"u\", \"d\"]});",
+                "deselected CDC operations must fold into a trailing options.skippedOperations arg");
+        Assert.assertFalse(listener.contains("enableCreate") || listener.contains("enableUpdate"),
+                "CDC operation flags must not emit as their own listener args, got:\n" + listener);
+    }
+
+    @Test
+    public void testMysqlCdcListenerDeclaration() throws Exception {
+        // MySQL CDC: databases -> database.includedDatabases (a TEXT_SET, optional), no schemas/
+        // databaseInstance, port 3306, listener type mysql:CdcListener, and Update/Delete deselected.
+        Path creationPath = resource("connector_models/mysql_cdc/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertEquals(listener,
+                "listener mysql:CdcListener mysqlCdcListener = new (database = {hostname: \"localhost\", "
+                        + "port: 3306, username: \"sa\", password: \"pass\", includedDatabases: [\"db1\"]}, "
+                        + "options = {skippedOperations: [\"u\", \"d\"]});");
+    }
+
+    @Test
+    public void testPostgresqlCdcListenerDeclaration() throws Exception {
+        // PostgreSQL CDC: a single required databaseName (TEXT, not a set), schemas ->
+        // database.includedSchemas, port 5432, listener type postgresql:CdcListener, and a fourth
+        // Truncate operation flag (deselected here alongside Update/Delete).
+        Path creationPath = resource("connector_models/postgresql_cdc/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertEquals(listener,
+                "listener postgresql:CdcListener postgresqlCdcListener = new (database = {hostname: "
+                        + "\"localhost\", port: 5432, username: \"sa\", password: \"pass\", databaseName: "
+                        + "\"mydb\", includedSchemas: [\"public\"]}, options = {skippedOperations: "
+                        + "[\"u\", \"d\", \"t\"]});");
+    }
+
+    @Test
+    public void testCdcFlagWithoutPathAndUnqualifiedListenerType() throws Exception {
+        // The add-service submission for CDC uses a flat layout where the operation flags carry
+        // CDC_OPERATION_ENABLE with only an originalName (no dotted path), and listenerVarName's type
+        // hint is unqualified ("CdcListener"). The generator must (a) module-prefix the listener type
+        // and (b) still fold the deselected flags into options.skippedOperations by convention.
+        Path creationPath = resource("connector_models/mssql_cdc_flat/resources/service-creation.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
+        Assert.assertTrue(listener.startsWith("listener mssql:CdcListener mssqlCdcListener = new ("),
+                "unqualified listener type must be module-prefixed, got:\n" + listener);
+        Assert.assertTrue(listener.contains("options = {skippedOperations: [\"u\"]}"),
+                "a path-less CDC flag must still fold into options.skippedOperations, got:\n" + listener);
+    }
+
     private Path resource(String name) throws Exception {
         return Paths.get(getClass().getClassLoader().getResource(name).toURI());
     }

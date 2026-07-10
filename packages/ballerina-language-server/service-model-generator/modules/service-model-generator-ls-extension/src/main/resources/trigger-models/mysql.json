@@ -1,14 +1,14 @@
 {
   "schemaVersion": "1.0",
-  "id": "mssql",
-  "displayName": "MSSQL CDC Event Integration",
-  "description": "Capture SQL Server row-level change events (insert, update, delete) via Debezium-based CDC.",
+  "id": "mysql",
+  "displayName": "MySQL CDC Event Integration",
+  "description": "Capture MySQL row-level change events (insert, update, delete) via Debezium-based CDC.",
   "orgName": "ballerinax",
-  "packageName": "mssql",
-  "moduleName": "mssql",
-  "version": "1.18.1",
-  "type": "mssql",
-  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mssql_1.18.1.png",
+  "packageName": "mysql",
+  "moduleName": "mysql",
+  "version": "1.18.0",
+  "type": "mysql",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mysql_1.18.0.png",
   "kind": "event",
   "initProperties": {
     "listener": {
@@ -34,7 +34,7 @@
         {
           "metadata": {
             "label": "Create New Listener",
-            "description": "Define a new SQL Server CDC listener in the project."
+            "description": "Define a new MySQL CDC listener in the project."
           },
           "enabled": true,
           "editable": true,
@@ -50,7 +50,7 @@
             "listenerConfig": {
               "metadata": {
                 "label": "Listener Configurations",
-                "description": "Configure the SQL Server CDC listener."
+                "description": "Configure the MySQL CDC listener."
               },
               "enabled": true,
               "editable": true,
@@ -68,7 +68,7 @@
                     "label": "Listener Name",
                     "description": "Provide a name for the listener being created."
                   },
-                  "value": "mssqlCdcListener",
+                  "value": "mysqlCdcListener",
                   "enabled": true,
                   "editable": true,
                   "optional": false,
@@ -77,7 +77,7 @@
                     {
                       "fieldType": "IDENTIFIER",
                       "selected": true,
-                      "ballerinaType": "mssql:CdcListener"
+                      "ballerinaType": "mysql:CdcListener"
                     }
                   ],
                   "codedata": {
@@ -96,7 +96,7 @@
                 "hostname": {
                   "metadata": {
                     "label": "Hostname",
-                    "description": "The hostname of the MSSQL server."
+                    "description": "The hostname of the MySQL server."
                   },
                   "placeholder": "localhost",
                   "value": "\"localhost\"",
@@ -124,10 +124,10 @@
                 "port": {
                   "metadata": {
                     "label": "Port",
-                    "description": "The port number of the MSSQL server."
+                    "description": "The port number of the MySQL server."
                   },
-                  "placeholder": "1433",
-                  "value": "1433",
+                  "placeholder": "3306",
+                  "value": "3306",
                   "enabled": true,
                   "editable": true,
                   "optional": true,
@@ -214,37 +214,7 @@
                 "databases": {
                   "metadata": {
                     "label": "Databases",
-                    "description": "A list of database names to capture changes from."
-                  },
-                  "placeholder": "mydb",
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false,
-                  "types": [
-                    {
-                      "fieldType": "TEXT_SET",
-                      "ballerinaType": "string",
-                      "minItems": 1,
-                      "defaultItems": 1,
-                      "pattern": "^string `.+`$|^\".+\"$",
-                      "patternErrorMessage": "Database name cannot be empty"
-                    }
-                  ],
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                    "path": "database.databaseNames"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ]
-                },
-                "schemas": {
-                  "metadata": {
-                    "label": "Schemas",
-                    "description": "A list of regular expressions that match names of schemas to capture changes from."
+                    "description": "A list of database names to capture changes from. If not specified, events from all databases will be captured."
                   },
                   "enabled": true,
                   "editable": true,
@@ -260,33 +230,7 @@
                   ],
                   "codedata": {
                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                    "path": "database.includedSchemas"
-                  }
-                },
-                "databaseInstance": {
-                  "metadata": {
-                    "label": "Database Instance",
-                    "description": "The name of the database instance."
-                  },
-                  "enabled": true,
-                  "editable": true,
-                  "optional": true,
-                  "advanced": true,
-                  "types": [
-                    {
-                      "fieldType": "TEXT",
-                      "selected": true,
-                      "ballerinaType": "string"
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "selected": false,
-                      "ballerinaType": "string"
-                    }
-                  ],
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                    "path": "database.databaseInstance"
+                    "path": "database.includedDatabases"
                   }
                 },
                 "secureSocket": {
@@ -394,7 +338,7 @@
                 "options": {
                   "metadata": {
                     "label": "CDC Options",
-                    "description": "SQL Server-specific CDC options for snapshot behavior, filtering, and data type handling."
+                    "description": "MySQL-specific CDC options for snapshot behavior, filtering, and data type handling."
                   },
                   "value": "",
                   "enabled": true,
@@ -638,7 +582,7 @@
                 {
                   "fieldType": "MULTI_SELECT_LISTENER",
                   "selected": true,
-                  "ballerinaType": "mssql:CdcListener"
+                  "ballerinaType": "mysql:CdcListener"
                 }
               ],
               "codedata": {
@@ -653,15 +597,15 @@
     "table": {
       "metadata": {
         "label": "Table",
-        "description": "The fully-qualified table name to capture events from. Format: `<database>.<schema>.<table>`"
+        "description": "The fully-qualified table name to capture events from. Format: `<database>.<table>`"
       },
       "types": [
         {
           "fieldType": "TEXT",
           "ballerinaType": "string",
           "selected": true,
-          "pattern": "^$|^\"\"$|^string `(|([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\]))`$|^\"([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\])\"$",
-          "patternErrorMessage": "Table must be in the format: <database>.<schema>.<table>. Use square brackets for names with dots (e.g., db.[schema.name].table)"
+          "pattern": "^$|^\\\"\\\"$|^string `(|([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\]))`$|^\\\"([^.\\[\\]]+|\\[[^\\]]+\\])\\.([^.\\[\\]]+|\\[[^\\]]+\\])\\\"$",
+          "patternErrorMessage": "Table must be in the format: <database>.<table>. Use square brackets for names with dots (e.g., db.[schema.name].table)"
         },
         {
           "fieldType": "EXPRESSION",
@@ -693,7 +637,7 @@
     {
       "metadata": {
         "label": "CDC Service",
-        "description": "Handles SQL Server change-data-capture events (row reads, inserts, updates, deletes) delivered by the attached MSSQL CDC listener."
+        "description": "Handles MySQL change-data-capture events (row reads, inserts, updates, deletes) delivered by the attached MySQL CDC listener."
       },
       "name": "cdc:Service",
       "description": "A CDC service is a distinct service object that defines remote methods to handle database change events. Handler methods (onRead/onCreate/onUpdate/onDelete/onError) are recognised by convention, not declared on the type.",
@@ -1457,6 +1401,6 @@
   ],
   "importStatements": [
     "ballerinax/cdc",
-    "ballerinax/mssql.cdc.driver as _"
+    "ballerinax/mysql.cdc.driver as _"
   ]
 }

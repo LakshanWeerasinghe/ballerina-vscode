@@ -244,6 +244,72 @@
                     "\"db1\"",
                     "\"db2\""
                   ]
+                },
+                "enableCreate": {
+                  "metadata": {
+                    "label": "Insert events",
+                    "description": "When enabled, the CDC listener will capture INSERT events."
+                  },
+                  "value": "true",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false,
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "selected": true
+                    }
+                  ],
+                  "codedata": {
+                    "argType": "CDC_OPERATION_ENABLE",
+                    "originalName": "c",
+                    "path": "options.skippedOperations"
+                  }
+                },
+                "enableUpdate": {
+                  "metadata": {
+                    "label": "Update events",
+                    "description": "When enabled, the CDC listener will capture UPDATE events."
+                  },
+                  "value": "false",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false,
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "selected": true
+                    }
+                  ],
+                  "codedata": {
+                    "argType": "CDC_OPERATION_ENABLE",
+                    "originalName": "u",
+                    "path": "options.skippedOperations"
+                  }
+                },
+                "enableDelete": {
+                  "metadata": {
+                    "label": "Delete events",
+                    "description": "When enabled, the CDC listener will capture DELETE events."
+                  },
+                  "value": "false",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false,
+                  "types": [
+                    {
+                      "fieldType": "FLAG",
+                      "selected": true
+                    }
+                  ],
+                  "codedata": {
+                    "argType": "CDC_OPERATION_ENABLE",
+                    "originalName": "d",
+                    "path": "options.skippedOperations"
+                  }
                 }
               }
             }

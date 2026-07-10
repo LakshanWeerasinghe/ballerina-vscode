@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel.KEY_EXISTING_LISTENER;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_CDC_OPERATION_ENABLE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_INCLUDED_FIELD;
@@ -93,6 +94,10 @@ public final class SchemaDrivenSourceGenerator {
     private static final String NEW = "new";
     private static final String ERROR = "error";
     private static final String LISTENER_VAR_NAME_KIND = "LISTENER_VAR_NAME";
+    // Default target for a CDC operation flag authored without an explicit dotted `path`: the op-code
+    // of each deselected flag joins the listener's `options.skippedOperations` list (the cdc convention).
+    private static final String CDC_OPTIONS_FIELD = "options";
+    private static final String CDC_SKIPPED_OPERATIONS_FIELD = "skippedOperations";
 
     private SchemaDrivenSourceGenerator() {
     }
@@ -463,8 +468,15 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     private static String renderListenerDeclaration(String protocol, ListenerArgs args) {
-        String listenerType = args.listenerType != null && !args.listenerType.isBlank()
-                ? args.listenerType : protocol + COLON + LISTENER_TYPE;
+        String listenerType;
+        if (args.listenerType != null && !args.listenerType.isBlank()) {
+            // An unqualified type hint (e.g. `CdcListener`) is module-prefixed with the protocol so the
+            // declaration is valid; an already-qualified hint (`mssql:CdcListener`) is used verbatim.
+            listenerType = args.listenerType.contains(COLON)
+                    ? args.listenerType : protocol + COLON + args.listenerType;
+        } else {
+            listenerType = protocol + COLON + LISTENER_TYPE;
+        }
         return String.format("%s %s %s = %s (%s);", LISTENER, listenerType, args.varName, NEW, args.render());
     }
 
@@ -512,12 +524,44 @@ public final class SchemaDrivenSourceGenerator {
                 }
                 continue;
             }
+            if (isCdcOperationFlag(codedata)) {
+                collectCdcOperationFlag(field, codedata, args);
+                continue;
+            }
             if (isGroup(field)) {
                 collectGroup(entry.getKey(), field, args);
                 continue;
             }
             placeLeaf(entry.getKey(), field, codedata, args);
         }
+    }
+
+    private static boolean isCdcOperationFlag(Codedata codedata) {
+        return codedata != null && ARG_TYPE_CDC_OPERATION_ENABLE.equals(codedata.getArgType());
+    }
+
+    /**
+     * A CDC operation checkbox (e.g. MSSQL's "Insert events") is not emitted as its own listener
+     * argument: instead it toggles membership of a record-field list. Deselecting it (value
+     * {@code false}) adds its {@code originalName} op-code (e.g. {@code "c"}) to that list; a selected
+     * flag contributes nothing. The target list is the flag's dotted {@code path}
+     * ({@code <recordField>.<listField>}, e.g. {@code options.skippedOperations}) when authored, and
+     * defaults to {@code options.skippedOperations} otherwise. The collected codes are folded into the
+     * target record arg at render time ({@link ListenerArgs#render()}).
+     */
+    private static void collectCdcOperationFlag(Value field, Codedata codedata, ListenerArgs args) {
+        boolean enabled = !"false".equalsIgnoreCase(value(field));
+        if (enabled) {
+            return;
+        }
+        String code = codedata.getOriginalName();
+        if (code == null || code.isBlank()) {
+            return;
+        }
+        List<String> segments = dottedPathSegments(codedata);
+        String recordField = segments.size() >= 2 ? segments.get(0) : CDC_OPTIONS_FIELD;
+        String listField = segments.size() >= 2 ? segments.get(1) : CDC_SKIPPED_OPERATIONS_FIELD;
+        args.addSkippedOperation(recordField, listField, "\"" + code + "\"");
     }
 
     /**
@@ -779,8 +823,15 @@ public final class SchemaDrivenSourceGenerator {
         private final List<String> included = new ArrayList<>();
         private final List<String> looseConfig = new ArrayList<>();
         private final Map<String, Object> includedTree = new LinkedHashMap<>();
+        // Aggregated CDC-style skip lists, keyed by the record-field arg they merge into (e.g.
+        // "options") -> its list field (e.g. "skippedOperations") + the collected op-code literals.
+        private final Map<String, SkipList> skipLists = new LinkedHashMap<>();
         private String varName = "";
         private String listenerType;
+
+        private void addSkippedOperation(String recordField, String listField, String code) {
+            skipLists.computeIfAbsent(recordField, ignored -> new SkipList(listField)).codes.add(code);
+        }
 
         private void addPositional(Integer position, String rendered) {
             if (position != null) {
@@ -835,7 +886,8 @@ public final class SchemaDrivenSourceGenerator {
 
         private boolean hasArgs() {
             return !byPosition.isEmpty() || !configFieldsByPosition.isEmpty() || !noPosition.isEmpty()
-                    || !included.isEmpty() || !looseConfig.isEmpty() || !includedTree.isEmpty();
+                    || !included.isEmpty() || !looseConfig.isEmpty() || !includedTree.isEmpty()
+                    || skipLists.values().stream().anyMatch(skip -> !skip.codes.isEmpty());
         }
 
         private String render() {
@@ -848,11 +900,88 @@ public final class SchemaDrivenSourceGenerator {
             if (!looseConfig.isEmpty()) {
                 args.add("{" + String.join(", ", looseConfig) + "}");
             }
-            args.addAll(included);
+            // User-provided included args (with any skip list merged in place) come first, then the
+            // record args from dotted paths (e.g. `database = {...}`), then freshly-created skip-list
+            // args (e.g. `options = {skippedOperations: [...]}`) last — mirroring the hand-written CDC
+            // builder's `database` first / `options` last ordering.
+            List<String> newSkipArgs = new ArrayList<>();
+            args.addAll(mergeSkipLists(newSkipArgs));
             for (Map.Entry<String, Object> entry : includedTree.entrySet()) {
                 args.add(entry.getKey() + " = " + renderIncludedValue(entry.getValue()));
             }
+            args.addAll(newSkipArgs);
             return String.join(", ", args);
+        }
+
+        /**
+         * Folds each aggregated skip list into the matching included record argument. When that
+         * record arg is already present (the user filled it, e.g. {@code options = {snapshotMode:
+         * "no_data"}}) the list field is inserted/replaced inside it in place; otherwise a fresh
+         * {@code <record> = {<listField>: [...]}} argument is collected into {@code newSkipArgs} for
+         * the caller to append last. Returns the user-provided included args with in-place merges
+         * applied.
+         */
+        private List<String> mergeSkipLists(List<String> newSkipArgs) {
+            List<String> result = new ArrayList<>(included);
+            for (Map.Entry<String, SkipList> entry : skipLists.entrySet()) {
+                SkipList skip = entry.getValue();
+                if (skip.codes.isEmpty()) {
+                    continue;
+                }
+                String recordField = entry.getKey();
+                String listAssignment = skip.listField + ": [" + String.join(", ", skip.codes) + "]";
+                int index = indexOfIncludedArg(result, recordField);
+                if (index < 0) {
+                    newSkipArgs.add(recordField + " = {" + listAssignment + "}");
+                } else {
+                    result.set(index, insertListField(result.get(index), skip.listField, listAssignment));
+                }
+            }
+            return result;
+        }
+
+        /** Index of the {@code <recordField> = ...} entry in a rendered included-arg list, or -1. */
+        private static int indexOfIncludedArg(List<String> args, String recordField) {
+            String prefix = recordField + " = ";
+            for (int i = 0; i < args.size(); i++) {
+                if (args.get(i).startsWith(prefix)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        /**
+         * Inserts (or replaces) {@code <listField>: [...]} inside an existing
+         * {@code <recordField> = {...}} record argument. Falls back to leaving the argument untouched
+         * when its value is not a record literal (a variable reference or expression the user typed).
+         */
+        private static String insertListField(String recordArg, String listField, String listAssignment) {
+            int brace = recordArg.indexOf('{');
+            if (brace < 0 || !recordArg.trim().endsWith("}")) {
+                return recordArg;
+            }
+            String existing = recordArg.replaceAll(
+                    java.util.regex.Pattern.quote(listField) + "\\s*:\\s*\\[[^\\]]*\\]",
+                    java.util.regex.Matcher.quoteReplacement(listAssignment));
+            if (!existing.equals(recordArg)) {
+                return existing;
+            }
+            int close = recordArg.lastIndexOf('}');
+            String head = recordArg.substring(0, close).stripTrailing();
+            String inner = head.substring(brace + 1).trim();
+            String separator = inner.isEmpty() ? "" : ", ";
+            return head + separator + listAssignment + "}";
+        }
+    }
+
+    /** A record field's aggregated skip list: the list field name plus its collected literal codes. */
+    private static final class SkipList {
+        private final String listField;
+        private final List<String> codes = new ArrayList<>();
+
+        private SkipList(String listField) {
+            this.listField = listField;
         }
     }
 }

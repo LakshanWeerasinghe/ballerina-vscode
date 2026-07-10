@@ -72,17 +72,19 @@ public class ConnectorModelReader {
      * fixtures, and the test classpath merges main + test resources, so reusing that root would let a
      * test fixture masquerade as a bundled production schema.
      */
-    private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = Map.of(
-            Constants.FTP, "trigger-models/ftp.json",
-            Constants.KAFKA, "trigger-models/kafka.json",
-            Constants.RABBITMQ, "trigger-models/rabbitmq.json",
-            Constants.MQTT, "trigger-models/mqtt.json",
-            Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json",
-            Constants.ASB, "trigger-models/asb.json",
-            Constants.SF, "trigger-models/salesforce.json",
-            Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json",
-            Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json",
-            Constants.MSSQL, "trigger-models/mssql.json"
+    private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = Map.ofEntries(
+            Map.entry(Constants.FTP, "trigger-models/ftp.json"),
+            Map.entry(Constants.KAFKA, "trigger-models/kafka.json"),
+            Map.entry(Constants.RABBITMQ, "trigger-models/rabbitmq.json"),
+            Map.entry(Constants.MQTT, "trigger-models/mqtt.json"),
+            Map.entry(Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json"),
+            Map.entry(Constants.ASB, "trigger-models/asb.json"),
+            Map.entry(Constants.SF, "trigger-models/salesforce.json"),
+            Map.entry(Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json"),
+            Map.entry(Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json"),
+            Map.entry(Constants.MSSQL, "trigger-models/mssql.json"),
+            Map.entry(Constants.MYSQL, "trigger-models/mysql.json"),
+            Map.entry(Constants.POSTGRESQL, "trigger-models/postgresql.json")
     );
 
     private final Gson gson = new Gson();
