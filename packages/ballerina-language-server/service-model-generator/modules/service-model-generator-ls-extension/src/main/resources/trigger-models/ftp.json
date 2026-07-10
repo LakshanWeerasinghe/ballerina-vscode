@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "12",
-  "displayName": "FTP / SFTP",
-  "description": "Create a service to monitor a directory on an FTP/SFTP server for file events (create, delete). Supports content-specific handlers for CSV, JSON, XML, text and raw binary files, with data binding to custom record types and streaming for large files.",
+  "displayName": "FTP Integration",
+  "description": "Create a service to listen for file actions on a remote server",
   "orgName": "ballerina",
   "packageName": "ftp",
   "moduleName": "ftp",
@@ -145,7 +145,12 @@
                         {
                           "label": "SFTP",
                           "value": "SFTP",
-                          "helperText": "SFTP over SSH with private-key authentication (default port 22)."
+                          "helperText": "SFTP over SSH with private-key or basic-auth authentication (default port 22)."
+                        },
+                        {
+                          "label": "FTPS",
+                          "value": "FTPS",
+                          "helperText": "FTP over implicit/explicit TLS with basic-auth credentials (default port 21)."
                         }
                       ]
                     }
@@ -222,12 +227,12 @@
                         },
                         "auth": {
                           "metadata": {
-                            "label": "Credentials",
-                            "description": "Basic-auth username and password for the FTP server."
+                            "label": "Authentication",
+                            "description": "Select the authentication method for the FTP server."
                           },
                           "types": [
                             {
-                              "fieldType": "GROUP_SECTION",
+                              "fieldType": "CHOICE",
                               "selected": true
                             }
                           ],
@@ -236,78 +241,110 @@
                           "editable": true,
                           "optional": true,
                           "advanced": false,
-                          "codedata": {
-                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "auth"
-                          },
-                          "properties": {
-                            "username": {
+                          "choices": [
+                            {
                               "metadata": {
-                                "label": "Username",
-                                "description": "Remote server username for basic authentication."
+                                "label": "No Authentication",
+                                "description": "Connect without providing authentication credentials."
                               },
                               "types": [
                                 {
-                                  "fieldType": "TEXT",
-                                  "ballerinaType": "string",
+                                  "fieldType": "FORM",
                                   "selected": true
-                                },
-                                {
-                                  "fieldType": "EXPRESSION",
-                                  "ballerinaType": "string",
-                                  "selected": false
                                 }
                               ],
-                              "value": "\"user\"",
+                              "value": "true",
                               "enabled": true,
                               "editable": true,
                               "optional": false,
-                              "advanced": false,
-                              "codedata": {
-                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                "path": "auth.credentials.username"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required"
-                                }
-                              ]
+                              "advanced": false
                             },
-                            "password": {
+                            {
                               "metadata": {
-                                "label": "Password",
-                                "description": "Remote server password for basic authentication."
+                                "label": "Basic Authentication",
+                                "description": "Authenticate using a username and password."
                               },
                               "types": [
                                 {
-                                  "fieldType": "TEXT",
-                                  "ballerinaType": "string",
+                                  "fieldType": "FORM",
                                   "selected": true
-                                },
-                                {
-                                  "fieldType": "EXPRESSION",
-                                  "ballerinaType": "string",
-                                  "selected": false
                                 }
                               ],
-                              "value": "\"password\"",
-                              "enabled": true,
+                              "value": "true",
+                              "enabled": false,
                               "editable": true,
-                              "optional": true,
+                              "optional": false,
                               "advanced": false,
-                              "codedata": {
-                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                "path": "auth.credentials.password"
+                              "properties": {
+                                "username": {
+                                  "metadata": {
+                                    "label": "Username",
+                                    "description": "Remote server username for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"user\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.username"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
+                                "password": {
+                                  "metadata": {
+                                    "label": "Password",
+                                    "description": "Remote server password for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"password\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": true,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.password"
+                                  }
+                                }
                               }
                             }
-                          }
+                          ]
                         }
                       }
                     },
                     {
                       "metadata": {
                         "label": "SFTP",
-                        "description": "SFTP over SSH with private-key authentication."
+                        "description": "SFTP over SSH with private-key or basic-auth authentication."
                       },
                       "types": [
                         {
@@ -365,12 +402,12 @@
                         },
                         "auth": {
                           "metadata": {
-                            "label": "Private Key",
-                            "description": "SSH private-key authentication for the SFTP server."
+                            "label": "Authentication",
+                            "description": "Select the authentication method for the SFTP server."
                           },
                           "types": [
                             {
-                              "fieldType": "GROUP_SECTION",
+                              "fieldType": "CHOICE",
                               "selected": true
                             }
                           ],
@@ -379,103 +416,424 @@
                           "editable": true,
                           "optional": true,
                           "advanced": false,
-                          "codedata": {
-                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "auth"
-                          },
-                          "properties": {
-                            "username": {
+                          "choices": [
+                            {
                               "metadata": {
-                                "label": "Username",
-                                "description": "Remote server username for key-based authentication."
+                                "label": "No Authentication",
+                                "description": "Connect without providing authentication credentials."
                               },
                               "types": [
                                 {
-                                  "fieldType": "TEXT",
-                                  "ballerinaType": "string",
+                                  "fieldType": "FORM",
                                   "selected": true
-                                },
-                                {
-                                  "fieldType": "EXPRESSION",
-                                  "ballerinaType": "string",
-                                  "selected": false
                                 }
                               ],
-                              "value": "\"user\"",
+                              "value": "true",
                               "enabled": true,
                               "editable": true,
                               "optional": false,
-                              "advanced": false,
-                              "codedata": {
-                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                "path": "auth.credentials.username"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required"
-                                }
-                              ]
+                              "advanced": false
                             },
-                            "privateKeyPath": {
+                            {
                               "metadata": {
-                                "label": "Private Key Path",
-                                "description": "Path to the SSH private key file used to authenticate."
+                                "label": "Basic Authentication",
+                                "description": "Authenticate using a username and password."
                               },
                               "types": [
                                 {
-                                  "fieldType": "TEXT",
-                                  "ballerinaType": "string",
+                                  "fieldType": "FORM",
                                   "selected": true
-                                },
-                                {
-                                  "fieldType": "EXPRESSION",
-                                  "ballerinaType": "string",
-                                  "selected": false
                                 }
                               ],
-                              "value": "\"/path/to/private.key\"",
-                              "placeholder": "/path/to/private.key",
-                              "enabled": true,
+                              "value": "true",
+                              "enabled": false,
                               "editable": true,
                               "optional": false,
                               "advanced": false,
-                              "codedata": {
-                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                "path": "auth.privateKey.path"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required"
+                              "properties": {
+                                "username": {
+                                  "metadata": {
+                                    "label": "Username",
+                                    "description": "Remote server username for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"user\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.username"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
+                                "password": {
+                                  "metadata": {
+                                    "label": "Password",
+                                    "description": "Remote server password for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"password\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": true,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.password"
+                                  }
                                 }
-                              ]
+                              }
                             },
-                            "passphrase": {
+                            {
                               "metadata": {
-                                "label": "Passphrase",
-                                "description": "Optional passphrase protecting the private key."
+                                "label": "Certificate Based Authentication",
+                                "description": "SSH private-key authentication for the SFTP server."
                               },
                               "types": [
                                 {
-                                  "fieldType": "TEXT",
-                                  "ballerinaType": "string",
+                                  "fieldType": "FORM",
                                   "selected": true
-                                },
-                                {
-                                  "fieldType": "EXPRESSION",
-                                  "ballerinaType": "string",
-                                  "selected": false
                                 }
                               ],
-                              "value": "",
-                              "enabled": true,
+                              "value": "true",
+                              "enabled": false,
                               "editable": true,
-                              "optional": true,
-                              "advanced": true,
-                              "codedata": {
-                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                "path": "auth.privateKey.password"
+                              "optional": false,
+                              "advanced": false,
+                              "properties": {
+                                "username": {
+                                  "metadata": {
+                                    "label": "Username",
+                                    "description": "Remote server username for key-based authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"user\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.username"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
+                                "privateKeyPath": {
+                                  "metadata": {
+                                    "label": "Private Key Path",
+                                    "description": "Path to the SSH private key file used to authenticate."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"/path/to/private.key\"",
+                                  "placeholder": "/path/to/private.key",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.privateKey.path"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
+                                "passphrase": {
+                                  "metadata": {
+                                    "label": "Passphrase",
+                                    "description": "Optional passphrase protecting the private key."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": true,
+                                  "advanced": true,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.privateKey.password"
+                                  }
+                                }
                               }
                             }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "metadata": {
+                        "label": "FTPS",
+                        "description": "FTP over implicit/explicit TLS with basic-auth credentials."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "FORM",
+                          "selected": true
+                        }
+                      ],
+                      "value": "FTPS",
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "ENUM_VALUE",
+                        "valueQualifier": "ftp"
+                      },
+                      "properties": {
+                        "port": {
+                          "metadata": {
+                            "label": "Port",
+                            "description": "Port to connect on."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "NUMBER",
+                              "ballerinaType": "int",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "int",
+                              "selected": false
+                            }
+                          ],
+                          "value": "21",
+                          "placeholder": "21",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                            "path": "port"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.number.range",
+                              "args": {
+                                "min": 1,
+                                "max": 65535
+                              },
+                              "message": "Port must be between 1 and 65535"
+                            }
+                          ]
+                        },
+                        "auth": {
+                          "metadata": {
+                            "label": "Authentication",
+                            "description": "Select the authentication method for the FTPS server."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "CHOICE",
+                              "selected": true
+                            }
+                          ],
+                          "value": "",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": false,
+                          "choices": [
+                            {
+                              "metadata": {
+                                "label": "No Authentication",
+                                "description": "Connect without providing authentication credentials."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "FORM",
+                                  "selected": true
+                                }
+                              ],
+                              "value": "true",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false
+                            },
+                            {
+                              "metadata": {
+                                "label": "Basic Authentication",
+                                "description": "Authenticate using a username and password."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "FORM",
+                                  "selected": true
+                                }
+                              ],
+                              "value": "true",
+                              "enabled": false,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "properties": {
+                                "username": {
+                                  "metadata": {
+                                    "label": "Username",
+                                    "description": "Remote server username for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"user\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.username"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
+                                "password": {
+                                  "metadata": {
+                                    "label": "Password",
+                                    "description": "Remote server password for basic authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"password\"",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": true,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.credentials.password"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "secureSocket": {
+                          "metadata": {
+                            "label": "Secure Socket (SecureSocket)",
+                            "description": "Configure SSL/TLS configuration for secure connection."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "RECORD_MAP_EXPRESSION",
+                              "ballerinaType": "ftp:SecureSocket",
+                              "typeMembers": [
+                                {
+                                  "type": "SecureSocket",
+                                  "packageInfo": "ballerina:ftp:2.19.0",
+                                  "packageName": "ftp",
+                                  "kind": "RECORD_TYPE",
+                                  "selected": true
+                                }
+                              ],
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "ftp:SecureSocket",
+                              "selected": false
+                            }
+                          ],
+                          "value": "",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                            "path": "secureSocket"
                           }
                         }
                       }
@@ -531,28 +889,41 @@
         }
       ]
     },
-    "serviceType": {
+    "path": {
       "metadata": {
-        "label": "Service Type",
-        "description": "The name of the service contract type."
+        "label": "Monitoring Path",
+        "description": "The folder on the remote server to monitor for file actions (e.g., /uploads or /incoming)"
       },
       "types": [
         {
           "fieldType": "TEXT",
-          "selected": true,
-          "ballerinaType": "ftp:Service"
+          "ballerinaType": "string",
+          "selected": true
+        },
+        {
+          "fieldType": "EXPRESSION",
+          "ballerinaType": "string",
+          "selected": false
         }
       ],
-      "value": "ftp:Service",
+      "value": "\"/\"",
+      "placeholder": "/",
       "enabled": true,
-      "editable": false,
-      "optional": true,
-      "advanced": true,
+      "editable": true,
+      "optional": false,
+      "advanced": false,
       "codedata": {
-        "type": "SERVICE_TYPE_DESCRIPTOR",
+        "type": "SERVICE_ANNOTATION",
+        "path": "path",
         "moduleName": "ftp",
-        "originalName": "Service"
-      }
+        "originalName": "ServiceConfig"
+      },
+      "validations": [
+        {
+          "rule": "common.validate.required",
+          "message": "Queue name is required"
+        }
+      ]
     }
   },
   "serviceTypes": [
@@ -572,14 +943,23 @@
       },
       "properties": {
         "serviceConfig": {
-          "$comment": "SERVICE-LEVEL annotation @ftp:ServiceConfig, emitted above the `service` declaration. path + fileNamePattern merge into a single record literal via codedata.path (ANNOTATION_FIELD).",
           "metadata": {
             "label": "Service Configuration",
-            "description": "@ftp:ServiceConfig \u2014 configures the monitored directory and file filter."
+            "description": "Advanced configuration for the FTP service"
           },
           "types": [
             {
-              "fieldType": "GROUP_SECTION",
+              "fieldType": "RECORD_MAP_EXPRESSION",
+              "ballerinaType": "ftp:ServiceConfig",
+              "typeMembers": [
+                {
+                  "type": "ServiceConfiguration",
+                  "packageInfo": "ballerina:ftp:2.19.0",
+                  "packageName": "ftp",
+                  "kind": "RECORD_TYPE",
+                  "selected": true
+                }
+              ],
               "selected": true
             }
           ],
@@ -592,71 +972,7 @@
             "type": "SERVICE_ANNOTATION",
             "originalName": "ServiceConfig",
             "moduleName": "ftp",
-            "path": ""
-          },
-          "properties": {
-            "path": {
-              "metadata": {
-                "label": "Monitored Path",
-                "description": "Directory on the remote server to monitor for file actions (e.g. /home/in)."
-              },
-              "types": [
-                {
-                  "fieldType": "TEXT",
-                  "ballerinaType": "string",
-                  "selected": true
-                },
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "string",
-                  "selected": false
-                }
-              ],
-              "value": "\"/home/in\"",
-              "placeholder": "/home/in",
-              "enabled": true,
-              "editable": true,
-              "optional": false,
-              "advanced": false,
-              "codedata": {
-                "type": "ANNOTATION_FIELD",
-                "path": "path"
-              },
-              "validations": [
-                {
-                  "rule": "common.validate.required",
-                  "message": "Monitored path is required"
-                }
-              ]
-            },
-            "fileNamePattern": {
-              "metadata": {
-                "label": "File Name Pattern",
-                "description": "Optional regex the file name must match to trigger the service."
-              },
-              "types": [
-                {
-                  "fieldType": "TEXT",
-                  "ballerinaType": "string",
-                  "selected": true
-                },
-                {
-                  "fieldType": "EXPRESSION",
-                  "ballerinaType": "string",
-                  "selected": false
-                }
-              ],
-              "value": "\".*\\\\.csv\"",
-              "placeholder": "(.*).csv",
-              "enabled": true,
-              "editable": true,
-              "optional": true,
-              "advanced": true,
-              "codedata": {
-                "type": "ANNOTATION_FIELD",
-                "path": "fileNamePattern"
-              }
-            }
+            "path": "path"
           }
         }
       },

@@ -20,6 +20,7 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 
 import com.google.gson.Gson;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
+import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 
 /**
  * Verifies the schema-driven source generator's listener-argument collection (CHOICE + GROUP_SECTION
@@ -169,6 +171,84 @@ public class SchemaDrivenSourceGeneratorTest {
                 "unqualified listener type must be module-prefixed, got:\n" + listener);
         Assert.assertTrue(listener.contains("options = {skippedOperations: [\"u\"]}"),
                 "a path-less CDC flag must still fold into options.skippedOperations, got:\n" + listener);
+    }
+
+    @Test
+    public void testFtpProtocolChoiceEmitsOwnValueAsListenerArg() {
+        // FTP's `protocol` field is itself a CHOICE (FTP/SFTP/FTPS), unlike a structural CHOICE such
+        // as ASB's entityConfig whose real value comes entirely from its children's own dotted paths.
+        // A CHOICE branch tagged ENUM_VALUE (see ftp.json) means the parent's own selected value is a
+        // real listener arg that must be emitted, not just a branch selector.
+        ServiceInitModel model = ConnectorModelReader.getInstance().getBundledServiceInitModel("ftp").orElseThrow();
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(model);
+        Assert.assertTrue(listener.contains("protocol = ftp:FTP"),
+                "the default-selected FTP branch must emit `protocol = ftp:FTP`, got:\n" + listener);
+        Assert.assertFalse(listener.contains("auth ="),
+                "No Authentication (the default) must not emit an `auth` arg, got:\n" + listener);
+    }
+
+    @Test
+    public void testFtpsProtocolChoiceAndSecureSocket() {
+        // FTPS was missing from the schema-driven model entirely (ftp_init.json's hardcoded-builder
+        // era supported it). Selecting it must emit `protocol = ftp:FTPS` plus the advanced
+        // `secureSocket` field.
+        ServiceInitModel model = ConnectorModelReader.getInstance().getBundledServiceInitModel("ftp").orElseThrow();
+        Value protocol = listenerConfigProperties(model).get("protocol");
+        selectChoiceByValue(protocol, "FTPS");
+        Value ftps = selectedChoice(protocol);
+        ftps.getProperties().get("secureSocket").setValue("{cert: \"/path/to/cert.crt\"}");
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(model);
+        Assert.assertTrue(listener.contains("protocol = ftp:FTPS"),
+                "selecting FTPS must emit `protocol = ftp:FTPS`, got:\n" + listener);
+        Assert.assertTrue(listener.contains("secureSocket = {cert: \"/path/to/cert.crt\"}"),
+                "FTPS's secureSocket must be emitted, got:\n" + listener);
+    }
+
+    @Test
+    public void testSftpSupportsBasicAuthenticationAlongsideCertificateAuth() {
+        // ftp_init.json's SFTP branch offered No Auth / Basic Auth / Certificate Auth as alternatives;
+        // the schema-driven model previously hardcoded private-key auth as the only option. Selecting
+        // Basic Authentication for SFTP must fold into `auth.credentials.{username,password}`.
+        ServiceInitModel model = ConnectorModelReader.getInstance().getBundledServiceInitModel("ftp").orElseThrow();
+        Value protocol = listenerConfigProperties(model).get("protocol");
+        selectChoiceByValue(protocol, "SFTP");
+        Value sftp = selectedChoice(protocol);
+        Value auth = sftp.getProperties().get("auth");
+        selectChoiceByLabel(auth, "Basic Authentication");
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(model);
+        Assert.assertTrue(listener.contains("protocol = ftp:SFTP"),
+                "selecting SFTP must emit `protocol = ftp:SFTP`, got:\n" + listener);
+        Assert.assertTrue(listener.contains("auth = {credentials: {username: \"user\", password: \"password\"}}"),
+                "SFTP's Basic Authentication choice must render auth.credentials, got:\n" + listener);
+    }
+
+    /** Drills into the FTP model's `listener` -> create-new -> `listenerConfig` properties map. */
+    private static Map<String, Value> listenerConfigProperties(ServiceInitModel model) {
+        Value listener = model.getProperties().get("listener");
+        Value createNew = listener.getChoices().getFirst();
+        return createNew.getProperties().get("listenerConfig").getProperties();
+    }
+
+    private static void selectChoiceByValue(Value choiceField, String value) {
+        // The rendered arg comes from the CHOICE field's own `value` (see
+        // SchemaDrivenSourceGenerator#isEnumValueChoice), not the selected branch's — both must move
+        // together to mirror what the UI does when a radio option is picked.
+        choiceField.setValue(value);
+        for (Value choice : choiceField.getChoices()) {
+            choice.setEnabled(value.equals(choice.getValue()));
+        }
+    }
+
+    private static void selectChoiceByLabel(Value choiceField, String label) {
+        for (Value choice : choiceField.getChoices()) {
+            choice.setEnabled(label.equals(choice.getMetadata().label()));
+        }
+    }
+
+    private static Value selectedChoice(Value choiceField) {
+        return choiceField.getChoices().stream().filter(Value::isEnabled).findFirst().orElseThrow();
     }
 
     private Path resource(String name) throws Exception {

@@ -94,6 +94,11 @@ public final class SchemaDrivenSourceGenerator {
     private static final String NEW = "new";
     private static final String ERROR = "error";
     private static final String LISTENER_VAR_NAME_KIND = "LISTENER_VAR_NAME";
+    // A CHOICE branch tagged ENUM_VALUE is a plain enum-literal selector (e.g. ftp's protocol:
+    // FTP/SFTP/FTPS) whose parent field's own value must be emitted as a leaf arg, unlike a branch
+    // that shapes a nested record purely through its children's own dotted paths (e.g. ASB's
+    // entityConfig, where the branch and its children already carry the real path).
+    private static final String CD_TYPE_ENUM_VALUE = "ENUM_VALUE";
     // Default target for a CDC operation flag authored without an explicit dotted `path`: the op-code
     // of each deselected flag joins the listener's `options.skippedOperations` list (the cdc convention).
     private static final String CDC_OPTIONS_FIELD = "options";
@@ -498,6 +503,12 @@ public final class SchemaDrivenSourceGenerator {
             Value field = entry.getValue();
             if (isChoice(field)) {
                 Value branch = enabledOrFirstChoice(field.getChoices());
+                if (branch != null && isEnumValueChoice(branch)) {
+                    // The branch is a literal enum value (not a record-shaping sub-form): the
+                    // CHOICE's own selected value is the real arg (e.g. `protocol: ftp:FTP`) and
+                    // must be placed itself, since no descendant path will ever recreate it.
+                    placeLeaf(entry.getKey(), field, field.getCodedata(), args);
+                }
                 if (branch != null) {
                     collect(branch.getProperties(), args);
                 }
@@ -735,6 +746,11 @@ public final class SchemaDrivenSourceGenerator {
             }
         }
         return null;
+    }
+
+    private static boolean isEnumValueChoice(Value branch) {
+        Codedata branchCodedata = branch.getCodedata();
+        return branchCodedata != null && CD_TYPE_ENUM_VALUE.equals(branchCodedata.getType());
     }
 
     private static Value enabledOrFirstChoice(List<Value> choices) {
