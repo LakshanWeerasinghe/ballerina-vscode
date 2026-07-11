@@ -504,10 +504,16 @@ public final class SchemaDrivenSourceGenerator {
             if (isChoice(field)) {
                 Value branch = enabledOrFirstChoice(field.getChoices());
                 if (branch != null && isEnumValueChoice(branch)) {
-                    // The branch is a literal enum value (not a record-shaping sub-form): the
-                    // CHOICE's own selected value is the real arg (e.g. `protocol: ftp:FTP`) and
-                    // must be placed itself, since no descendant path will ever recreate it.
-                    placeLeaf(entry.getKey(), field, field.getCodedata(), args);
+                    // The branch is a literal enum value (not a record-shaping sub-form): the selected
+                    // value is the real arg (e.g. `protocol = ftp:FTP`) and must be placed itself, since
+                    // no descendant path will ever recreate it. The selection is carried by the enabled
+                    // branch's own `value`/`valueQualifier` (what the UI toggles), not the parent field's
+                    // `value` — which the front end does not always echo back on submit — so render from
+                    // the branch but place it at the parent CHOICE's arg slot (its argType/path).
+                    String rendered = qualifiedValue(branch);
+                    if (!rendered.isEmpty()) {
+                        placeArg(field.getCodedata(), entry.getKey(), rendered, args);
+                    }
                 }
                 if (branch != null) {
                     collect(branch.getProperties(), args);

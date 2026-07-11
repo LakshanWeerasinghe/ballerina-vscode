@@ -10,6 +10,7 @@
   "type": "kafka",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_kafka_4.5.0.png",
   "kind": "event",
+  "listenerKind": "SINGLE_SELECT_LISTENER",
   "initProperties": {
     "listenerVarName": {
       "metadata": {

@@ -91,7 +91,7 @@ public final class TriggerServiceAdapter {
                 .setFunctions(new ArrayList<>())
                 .build();
 
-        properties.put(PROP_KEY_LISTENER, getListenersProperty(protocol, Value.FieldType.SINGLE_SELECT_LISTENER));
+        properties.put(PROP_KEY_LISTENER, getListenersProperty(protocol, listenerKind(model)));
         properties.put(PROP_KEY_SERVICE_TYPE, serviceTypeProperty(descriptor, type));
         addServiceTypeProperties(properties, type.properties());
 
@@ -106,6 +106,23 @@ public final class TriggerServiceAdapter {
         addWireFunctions(service.getSchemaFunctions(), type.schemaFunctions(),
                 orgName, packageName, moduleName, model.version());
         return service;
+    }
+
+    /**
+     * The listener property's widget, from the model's {@code listenerKind} (a {@code Value.FieldType}
+     * name). Falls back to {@code SINGLE_SELECT_LISTENER} when absent or unrecognized, preserving the
+     * behavior for models authored before the field existed.
+     */
+    private static Value.FieldType listenerKind(TriggerModel model) {
+        String kind = model.listenerKind();
+        if (kind != null && !kind.isBlank()) {
+            try {
+                return Value.FieldType.valueOf(kind.trim());
+            } catch (IllegalArgumentException ignored) {
+                // Unknown widget name -> fall through to the default.
+            }
+        }
+        return Value.FieldType.SINGLE_SELECT_LISTENER;
     }
 
     private static void addWireFunctions(List<Function> target, List<TriggerModel.FunctionModel> functions,

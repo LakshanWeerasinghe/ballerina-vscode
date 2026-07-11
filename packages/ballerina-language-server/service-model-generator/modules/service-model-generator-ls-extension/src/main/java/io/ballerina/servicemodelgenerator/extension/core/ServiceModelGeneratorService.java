@@ -249,9 +249,10 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 return ListenerUtil.getListenerModelByName(request.codedata(), semanticModel.get(), moduleInfo,
                                 removeDeprecated)
                         .map(listenerModel -> {
-                            if (FTP.equals(request.codedata().getModuleName()) && request.removeDeprecated() != null) {
+                            if (FTP.equals(request.codedata().getModuleName())
+                                    && request.removeDeprecated() != null && request.removeDeprecated()) {
                                 FTPListenerUtil.adjustFtpListenerModelForDeprecatedMode(
-                                        listenerModel, request.removeDeprecated(), semanticModel.get(), document);
+                                        listenerModel, true, semanticModel.get(), document);
                             }
                             return new ListenerModelResponse(listenerModel);
                         })

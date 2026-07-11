@@ -99,6 +99,102 @@ public class ExistingListenerResolverTest {
         Assert.assertTrue(selector.isEditable(), "must be editable so DropdownChoiceForm is used");
     }
 
+    @Test
+    public void testFtpBasicAuthResolvesNestedAuthChoice() {
+        Map<String, Value> template = createNewProperties("ftp");
+
+        // new (protocol = ftp:FTP, host = "localhost", port = 21,
+        //      auth = {credentials: {username: "user", password: "password"}})
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("protocol", "ftp:FTP");
+        named.put("host", "\"localhost\"");
+        named.put("port", "21");
+        named.put("auth", record("credentials",
+                record("username", "\"user\"", "password", "\"password\"")));
+
+        Map<String, Value> fields = ExistingListenerResolver.resolveIncludedFields(template, named);
+
+        Assert.assertEquals(fields.get("host").getValue(), "\"localhost\"", "host resolved read-only");
+        Assert.assertEquals(fields.get("port").getValue(), "21", "port resolved from the FTP branch");
+        Assert.assertFalse(fields.containsKey("protocol"), "the enum selector itself is not shown as a field");
+        Assert.assertFalse(fields.containsKey("listenerVarName"), "the var name is the dropdown, not a config field");
+
+        Value auth = fields.get("auth");
+        Assert.assertNotNull(auth, "the auth record is rebuilt as a CHOICE, not a raw blob");
+        Assert.assertFalse(auth.isEditable(), "resolved auth is read-only");
+        Value selected = enabledChoice(auth);
+        Assert.assertEquals(selected.getMetadata().label(), "Basic Authentication");
+        Assert.assertEquals(selected.getProperties().get("username").getValue(), "\"user\"");
+        Assert.assertEquals(selected.getProperties().get("password").getValue(), "\"password\"");
+    }
+
+    @Test
+    public void testFtpNoAuthArgumentSelectsNoAuthenticationBranch() {
+        Map<String, Value> template = createNewProperties("ftp");
+
+        // new (protocol = ftp:FTP, host = "localhost", port = 21) — no auth argument at all.
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("protocol", "ftp:FTP");
+        named.put("host", "\"localhost\"");
+        named.put("port", "21");
+
+        Map<String, Value> fields = ExistingListenerResolver.resolveIncludedFields(template, named);
+
+        Value auth = fields.get("auth");
+        Assert.assertNotNull(auth);
+        Assert.assertEquals(enabledChoice(auth).getMetadata().label(), "No Authentication",
+                "with no auth argument the empty branch is selected");
+    }
+
+    @Test
+    public void testCdcDottedPathsResolveAndFlagsAreDropped() {
+        Map<String, Value> template = createNewProperties("mysql");
+
+        // new (database = {hostname: "localhost", port: 3306, username: "root", password: "pass"},
+        //      options = {snapshotMode: "initial"}, livenessInterval = 10)
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("database", record("hostname", "\"localhost\"", "port", "3306",
+                "username", "\"root\"", "password", "\"pass\""));
+        named.put("options", record("snapshotMode", "\"initial\""));
+        named.put("livenessInterval", "10");
+
+        Map<String, Value> fields = ExistingListenerResolver.resolveIncludedFields(template, named);
+
+        Assert.assertEquals(fields.get("hostname").getValue(), "\"localhost\"", "database.hostname resolved");
+        Assert.assertEquals(fields.get("port").getValue(), "3306", "database.port resolved");
+        Assert.assertEquals(fields.get("username").getValue(), "\"root\"", "database.username resolved");
+        Assert.assertEquals(fields.get("password").getValue(), "\"pass\"", "database.password resolved");
+        Assert.assertEquals(fields.get("options").getValue(), "{snapshotMode: \"initial\"}",
+                "a whole record-typed included field is rendered back as a record literal");
+        Assert.assertEquals(fields.get("livenessInterval").getValue(), "10");
+
+        // Values that cannot be resolved from the source are dropped, not shown empty.
+        Assert.assertFalse(fields.containsKey("secureSocket"), "absent optional field is dropped");
+        Assert.assertFalse(fields.containsKey("internalSchemaStorage"), "absent optional field is dropped");
+        // CDC operation flags map to a derived skip-list, not an exact value -> dropped.
+        Assert.assertFalse(fields.containsKey("enableCreate"), "CDC operation flags are dropped");
+        Assert.assertFalse(fields.containsKey("enableUpdate"), "CDC operation flags are dropped");
+    }
+
+    private static LinkedHashMap<String, Object> record(Object... keyValues) {
+        LinkedHashMap<String, Object> record = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            record.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        return record;
+    }
+
+    private static Value enabledChoice(Value choice) {
+        return choice.getChoices().stream().filter(Value::isEnabled).findFirst().orElseThrow();
+    }
+
+    /** The create-new branch's config fields for a bundled trigger model (choices[0] of the listener CHOICE). */
+    private static Map<String, Value> createNewProperties(String moduleName) {
+        ServiceInitModel model = ConnectorModelReader.getInstance()
+                .getBundledServiceInitModel(moduleName).orElseThrow();
+        return model.getProperties().get("listener").getChoices().getFirst().getProperties();
+    }
+
     private ServiceInitModel loadHubspotCreationModel() throws Exception {
         Path path = Paths.get(getClass().getClassLoader()
                 .getResource("connector_models/hubspot/resources/service-creation.json").toURI());

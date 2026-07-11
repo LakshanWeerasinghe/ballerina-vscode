@@ -10,6 +10,7 @@
   "type": "ftp",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.19.0.png",
   "kind": "file",
+  "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {
     "listener": {
       "metadata": {

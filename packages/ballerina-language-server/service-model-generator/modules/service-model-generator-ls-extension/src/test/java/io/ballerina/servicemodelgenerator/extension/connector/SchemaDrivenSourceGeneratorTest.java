@@ -224,6 +224,23 @@ public class SchemaDrivenSourceGeneratorTest {
                 "SFTP's Basic Authentication choice must render auth.credentials, got:\n" + listener);
     }
 
+    @Test
+    public void testProtocolEmittedFromEnabledBranchWhenParentValueCleared() {
+        // Regression: on submit the front end signals a picked radio via the enabled branch's own value,
+        // and does not always echo the parent CHOICE's `value` back. Clearing the parent value (leaving
+        // only the enabled SFTP branch) must still emit `protocol = ftp:SFTP`.
+        ServiceInitModel model = ConnectorModelReader.getInstance().getBundledServiceInitModel("ftp").orElseThrow();
+        Value protocol = listenerConfigProperties(model).get("protocol");
+        protocol.setValue("");
+        for (Value branch : protocol.getChoices()) {
+            branch.setEnabled("SFTP".equals(branch.getValue()));
+        }
+
+        String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(model);
+        Assert.assertTrue(listener.contains("protocol = ftp:SFTP"),
+                "protocol must come from the enabled branch even when the parent value is blank, got:\n" + listener);
+    }
+
     /** Drills into the FTP model's `listener` -> create-new -> `listenerConfig` properties map. */
     private static Map<String, Value> listenerConfigProperties(ServiceInitModel model) {
         Value listener = model.getProperties().get("listener");
@@ -232,9 +249,9 @@ public class SchemaDrivenSourceGeneratorTest {
     }
 
     private static void selectChoiceByValue(Value choiceField, String value) {
-        // The rendered arg comes from the CHOICE field's own `value` (see
-        // SchemaDrivenSourceGenerator#isEnumValueChoice), not the selected branch's — both must move
-        // together to mirror what the UI does when a radio option is picked.
+        // Mirrors the UI picking a radio: the enabled branch carries the selection (its own value is what
+        // gets emitted). The parent `value` is set too for good measure, but the generator reads the
+        // enabled branch (see testProtocolEmittedFromEnabledBranchWhenParentValueCleared).
         choiceField.setValue(value);
         for (Value choice : choiceField.getChoices()) {
             choice.setEnabled(value.equals(choice.getValue()));

@@ -10,6 +10,7 @@
   "type": "postgresql",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_postgresql_1.18.0.png",
   "kind": "event",
+  "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {
     "listener": {
       "metadata": {

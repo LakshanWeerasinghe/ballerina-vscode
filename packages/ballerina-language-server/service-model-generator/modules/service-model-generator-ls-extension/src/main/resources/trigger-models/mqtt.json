@@ -10,6 +10,7 @@
   "type": "mqtt",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_mqtt_1.4.1.png",
   "kind": "event",
+  "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {
     "listener": {
       "metadata": {

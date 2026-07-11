@@ -22,6 +22,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSer
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
+import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -88,5 +89,25 @@ public class TriggerServiceAdapterTest {
         // The connector identity is stamped so addFunction routes back to the schema-driven builder.
         Assert.assertNotNull(onConsumerRecord.getCodedata());
         Assert.assertEquals(onConsumerRecord.getCodedata().getModuleName(), "kafka");
+    }
+
+    @Test
+    public void testListenerPropertyWidgetFollowsListenerKind() throws Exception {
+        // The model's `listenerKind` drives the listener property's widget in the wire template.
+        Service github = TriggerServiceAdapter.toServiceTemplate(
+                model("github"), "github:IssuesService", "ballerinax", "github", "github");
+        Assert.assertEquals(github.getProperties().get("listener").getTypes().getFirst().fieldType(),
+                Value.FieldType.MULTIPLE_SELECT_LISTENER,
+                "github declares listenerKind MULTIPLE_SELECT_LISTENER");
+    }
+
+    @Test
+    public void testListenerPropertyDefaultsToSingleSelectWhenListenerKindAbsent() throws Exception {
+        // The kafka fixture omits listenerKind, so the widget falls back to SINGLE_SELECT_LISTENER.
+        Service kafka = TriggerServiceAdapter.toServiceTemplate(
+                model("kafka"), "Service", "ballerinax", "kafka", "kafka");
+        Assert.assertEquals(kafka.getProperties().get("listener").getTypes().getFirst().fieldType(),
+                Value.FieldType.SINGLE_SELECT_LISTENER,
+                "a model without listenerKind defaults to SINGLE_SELECT_LISTENER");
     }
 }

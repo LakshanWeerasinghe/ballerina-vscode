@@ -58,6 +58,10 @@ public record TriggerModel(
         String type,
         String icon,
         String kind,
+        // The listener property's widget in the designer (a Value.FieldType name, e.g.
+        // SINGLE_SELECT_LISTENER / MULTIPLE_SELECT_LISTENER): whether a service may bind one or several
+        // listeners of this connector's type. Defaults to SINGLE_SELECT_LISTENER when a model omits it.
+        String listenerKind,
         Map<String, Property> initProperties,
         List<ServiceTypeModel> serviceTypes,
         List<ReadOnlyMetadata> readOnlyMetadata,

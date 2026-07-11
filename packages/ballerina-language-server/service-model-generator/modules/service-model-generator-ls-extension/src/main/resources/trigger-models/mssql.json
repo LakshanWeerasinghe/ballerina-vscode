@@ -10,6 +10,7 @@
   "type": "mssql",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mssql_1.18.1.png",
   "kind": "event",
+  "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {
     "listener": {
       "metadata": {

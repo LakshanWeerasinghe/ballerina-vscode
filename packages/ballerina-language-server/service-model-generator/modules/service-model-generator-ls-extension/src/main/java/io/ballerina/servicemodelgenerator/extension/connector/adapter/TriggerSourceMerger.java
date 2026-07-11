@@ -160,7 +160,13 @@ public final class TriggerSourceMerger {
     private static void enrich(Function template, Function source) {
         template.setEnabled(true);
         template.setEditable(true);
-        template.setOptional(false);
+        // `optional` (whether the trash icon may remove this handler) is authored per-handler on the
+        // schema (e.g. ftp's onFileDelete/onError: optional=true; kafka's onConsumerRecord,
+        // rabbitmq's onMessage: optional=false, since the compiler mandates them) and carried onto the
+        // template by TriggerFunctionAdapter — it must NOT be forced here. Forcing it to `false`
+        // wiped out that distinction for every present handler, silently disabling deletion for
+        // otherwise-removable handlers (kafka/rabbitmq/ftp etc.); it only looked correct for
+        // github/twilio because every one of their handlers is already `optional: false` in the schema.
         if (template.getCodedata() == null) {
             template.setCodedata(source.getCodedata());
         } else if (source.getCodedata() != null) {

@@ -10,6 +10,7 @@
   "type": "twilio",
   "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.twilio_0.10.0.png",
   "kind": "event",
+  "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {
     "listenerVarName": {
       "metadata": {
