@@ -68,7 +68,7 @@
                 "listenerVarName": {
                   "metadata": {
                     "label": "Listener Name",
-                    "description": "Provide a name for the listener being created."
+                    "description": "Provide a name for the listener being created"
                   },
                   "types": [
                     {
@@ -97,8 +97,8 @@
                 },
                 "listenOn": {
                   "metadata": {
-                    "label": "Listen On",
-                    "description": "The port to listen on, or an existing http:Listener to attach the webhook to."
+                    "label": "Webhook Listener Port",
+                    "description": "The port on which the webhook listener accepts incoming HTTP requests"
                   },
                   "placeholder": "8090",
                   "value": "8090",
@@ -137,7 +137,7 @@
                 "webhookSecret": {
                   "metadata": {
                     "label": "Webhook Secret",
-                    "description": "Secret specified when adding the GitHub webhook; used to verify incoming payloads."
+                    "description": "Secret used to validate incoming GitHub webhook requests"
                   },
                   "placeholder": "github:DEFAULT_SECRET",
                   "value": "",
@@ -215,7 +215,7 @@
     "serviceType": {
       "metadata": {
         "label": "Event Channel",
-        "description": "The type of GitHub event this service listens for. Selecting a channel determines the available handler functions."
+        "description": "The type of GitHub event to listen for"
       },
       "types": [
         {

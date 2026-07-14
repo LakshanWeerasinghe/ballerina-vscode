@@ -13,8 +13,8 @@
   "initProperties": {
     "listener": {
       "metadata": {
-        "label": "Listener",
-        "description": "Attach the service to a new or existing RabbitMQ listener. A service may attach to only one RabbitMQ listener at a time."
+        "label": "Configure RabbitMQ Listener",
+        "description": "Select an existing RabbitMQ listener or create a new one"
       },
       "types": [
         {
@@ -34,8 +34,8 @@
       "choices": [
         {
           "metadata": {
-            "label": "Create New Listener",
-            "description": "Define a new RabbitMQ listener in the project."
+            "label": "Create new",
+            "description": "Create a new RabbitMQ listener"
           },
           "types": [
             {
@@ -51,7 +51,7 @@
             "listenerConfig": {
               "metadata": {
                 "label": "Listener Configurations",
-                "description": "Configure the RabbitMQ listener."
+                "description": "Configure the RabbitMQ listener"
               },
               "types": [
                 {
@@ -67,7 +67,7 @@
                 "listenerVarName": {
                   "metadata": {
                     "label": "Listener Name",
-                    "description": "Provide a name for the listener being created."
+                    "description": "Provide a name for the listener being created"
                   },
                   "types": [
                     {
@@ -97,7 +97,7 @@
                 "host": {
                   "metadata": {
                     "label": "Host",
-                    "description": "Hostname or IP address of the RabbitMQ broker."
+                    "description": "The host used for establishing the connection"
                   },
                   "placeholder": "localhost",
                   "value": "\"localhost\"",
@@ -130,7 +130,7 @@
                 "port": {
                   "metadata": {
                     "label": "Port",
-                    "description": "Port used to connect to the RabbitMQ broker."
+                    "description": "The port used for establishing the connection"
                   },
                   "placeholder": "5672",
                   "value": "5672",
@@ -174,8 +174,8 @@
         },
         {
           "metadata": {
-            "label": "Use Existing Listener",
-            "description": "Attach to a RabbitMQ listener already declared in the project."
+            "label": "Use existing",
+            "description": "Select an existing RabbitMQ listener"
           },
           "types": [
             {
@@ -219,7 +219,7 @@
     "queueName": {
       "metadata": {
         "label": "Queue Name",
-        "description": "Name of the RabbitMQ queue to subscribe to."
+        "description": "The name of the queue to listen to"
       },
       "types": [
         {

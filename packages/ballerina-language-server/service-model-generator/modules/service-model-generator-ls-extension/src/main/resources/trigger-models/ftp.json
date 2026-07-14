@@ -14,8 +14,8 @@
   "initProperties": {
     "listener": {
       "metadata": {
-        "label": "Listener",
-        "description": "Attach the service to a new or existing FTP/SFTP listener."
+        "label": "Configure FTP Listener",
+        "description": "Select an existing FTP listener or create a new one"
       },
       "types": [
         {
@@ -34,8 +34,8 @@
       "choices": [
         {
           "metadata": {
-            "label": "Create New Listener",
-            "description": "Define a new FTP/SFTP listener in the project."
+            "label": "Create new",
+            "description": "Create a new FTP listener"
           },
           "types": [
             {
@@ -50,8 +50,8 @@
           "properties": {
             "listenerConfig": {
               "metadata": {
-                "label": "Listener Configurations",
-                "description": "Configure the FTP/SFTP listener."
+                "label": "Listener Configuration",
+                "description": "Configure the FTP listener"
               },
               "types": [
                 {
@@ -67,7 +67,7 @@
                 "listenerVarName": {
                   "metadata": {
                     "label": "Listener Name",
-                    "description": "Provide a name for the listener being created."
+                    "description": "Unique name for this FTP listener"
                   },
                   "types": [
                     {
@@ -97,7 +97,7 @@
                 "host": {
                   "metadata": {
                     "label": "Host",
-                    "description": "Hostname or IP address of the remote FTP/SFTP server."
+                    "description": "Hostname or IP address of the remote server (e.g., ftp.example.com)"
                   },
                   "placeholder": "localhost",
                   "value": "\"localhost\"",
@@ -130,7 +130,7 @@
                 "protocol": {
                   "metadata": {
                     "label": "Protocol",
-                    "description": "Connection protocol for the remote server. Selecting a protocol swaps the port default and the authentication shape."
+                    "description": "Select the protocol for the remote server connection"
                   },
                   "types": [
                     {
@@ -229,7 +229,7 @@
                         "auth": {
                           "metadata": {
                             "label": "Authentication",
-                            "description": "Select the authentication method for the FTP server."
+                            "description": "Select the authentication method"
                           },
                           "types": [
                             {
@@ -280,7 +280,7 @@
                                 "username": {
                                   "metadata": {
                                     "label": "Username",
-                                    "description": "Remote server username for basic authentication."
+                                    "description": "Remote server username for authentication"
                                   },
                                   "types": [
                                     {
@@ -312,7 +312,7 @@
                                 "password": {
                                   "metadata": {
                                     "label": "Password",
-                                    "description": "Remote server password for basic authentication."
+                                    "description": "Remote server password for authentication"
                                   },
                                   "types": [
                                     {
@@ -404,7 +404,7 @@
                         "auth": {
                           "metadata": {
                             "label": "Authentication",
-                            "description": "Select the authentication method for the SFTP server."
+                            "description": "Select the authentication method"
                           },
                           "types": [
                             {
@@ -455,7 +455,7 @@
                                 "username": {
                                   "metadata": {
                                     "label": "Username",
-                                    "description": "Remote server username for basic authentication."
+                                    "description": "Remote server username for authentication"
                                   },
                                   "types": [
                                     {
@@ -487,7 +487,7 @@
                                 "password": {
                                   "metadata": {
                                     "label": "Password",
-                                    "description": "Remote server password for basic authentication."
+                                    "description": "Remote server password for authentication"
                                   },
                                   "types": [
                                     {
@@ -533,7 +533,7 @@
                                 "username": {
                                   "metadata": {
                                     "label": "Username",
-                                    "description": "Remote server username for key-based authentication."
+                                    "description": "Remote server username for key-based authentication"
                                   },
                                   "types": [
                                     {
@@ -690,7 +690,7 @@
                         "auth": {
                           "metadata": {
                             "label": "Authentication",
-                            "description": "Select the authentication method for the FTPS server."
+                            "description": "Select the authentication method"
                           },
                           "types": [
                             {
@@ -741,7 +741,7 @@
                                 "username": {
                                   "metadata": {
                                     "label": "Username",
-                                    "description": "Remote server username for basic authentication."
+                                    "description": "Remote server username for authentication"
                                   },
                                   "types": [
                                     {
@@ -773,7 +773,7 @@
                                 "password": {
                                   "metadata": {
                                     "label": "Password",
-                                    "description": "Remote server password for basic authentication."
+                                    "description": "Remote server password for authentication"
                                   },
                                   "types": [
                                     {
@@ -847,8 +847,8 @@
         },
         {
           "metadata": {
-            "label": "Use Existing Listener",
-            "description": "Attach to an FTP/SFTP listener already declared in the project."
+            "label": "Use existing",
+            "description": "Select an existing FTP listener"
           },
           "types": [
             {

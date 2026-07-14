@@ -14,8 +14,8 @@
   "initProperties": {
     "listener": {
       "metadata": {
-        "label": "Listener",
-        "description": "Attach the service to a new or existing listener."
+        "label": "Configure PostgreSQL CDC Listener",
+        "description": "Select an existing PostgreSQL CDC listener or create a new one"
       },
       "value": "createNew",
       "enabled": true,
@@ -34,8 +34,8 @@
       "choices": [
         {
           "metadata": {
-            "label": "Create New Listener",
-            "description": "Define a new PostgreSQL CDC listener in the project."
+            "label": "Create new",
+            "description": "Create a new PostgreSQL CDC listener"
           },
           "enabled": true,
           "editable": true,
@@ -51,7 +51,7 @@
             "listenerConfig": {
               "metadata": {
                 "label": "Listener Configurations",
-                "description": "Configure the PostgreSQL CDC listener."
+                "description": "Configure the PostgreSQL CDC listener"
               },
               "enabled": true,
               "editable": true,
@@ -67,7 +67,7 @@
                 "listenerVarName": {
                   "metadata": {
                     "label": "Listener Name",
-                    "description": "Provide a name for the listener being created."
+                    "description": "Provide a name for the listener being created"
                   },
                   "value": "postgresqlCdcListener",
                   "enabled": true,
@@ -96,8 +96,8 @@
                 },
                 "hostname": {
                   "metadata": {
-                    "label": "Hostname",
-                    "description": "The hostname of the PostgreSQL server."
+                    "label": "Host",
+                    "description": "The hostname of the PostgreSQL Server"
                   },
                   "placeholder": "localhost",
                   "value": "\"localhost\"",
@@ -125,7 +125,7 @@
                 "port": {
                   "metadata": {
                     "label": "Port",
-                    "description": "The port number of the PostgreSQL server."
+                    "description": "The port number of the PostgreSQL Server"
                   },
                   "placeholder": "5432",
                   "value": "5432",
@@ -153,7 +153,7 @@
                 "username": {
                   "metadata": {
                     "label": "Username",
-                    "description": "Database username for authentication."
+                    "description": "The username for the PostgreSQL Server connection"
                   },
                   "enabled": true,
                   "editable": true,
@@ -184,7 +184,7 @@
                 "password": {
                   "metadata": {
                     "label": "Password",
-                    "description": "Database password for authentication."
+                    "description": "The password for the PostgreSQL Server connection"
                   },
                   "enabled": true,
                   "editable": true,
@@ -215,7 +215,7 @@
                 "database": {
                   "metadata": {
                     "label": "Database",
-                    "description": "The PostgreSQL database name to capture changes from."
+                    "description": "The PostgreSQL database name to capture changes from"
                   },
                   "placeholder": "mydb",
                   "enabled": true,
@@ -247,7 +247,7 @@
                 "schemas": {
                   "metadata": {
                     "label": "Schemas",
-                    "description": "A list of regular expressions that match names of schemas to capture changes from."
+                    "description": "A list of regular expressions that match names of schemas to capture changes from"
                   },
                   "enabled": true,
                   "editable": true,
@@ -268,8 +268,8 @@
                 },
                 "secureSocket": {
                   "metadata": {
-                    "label": "Secure Connection",
-                    "description": "SSL/TLS configuration for the database connection."
+                    "label": "Secure Socket",
+                    "description": "Configure SSL/TLS configuration for secure connection"
                   },
                   "value": "",
                   "enabled": true,
@@ -305,7 +305,7 @@
                 "enableCreate": {
                   "metadata": {
                     "label": "Insert events",
-                    "description": "When enabled, the CDC listener will capture INSERT events."
+                    "description": "When enabled, the CDC listener will capture INSERT events"
                   },
                   "value": "true",
                   "enabled": true,
@@ -327,7 +327,7 @@
                 "enableUpdate": {
                   "metadata": {
                     "label": "Update events",
-                    "description": "When enabled, the CDC listener will capture UPDATE events."
+                    "description": "When enabled, the CDC listener will capture UPDATE events"
                   },
                   "value": "true",
                   "enabled": true,
@@ -349,7 +349,7 @@
                 "enableDelete": {
                   "metadata": {
                     "label": "Delete events",
-                    "description": "When enabled, the CDC listener will capture DELETE events."
+                    "description": "When enabled, the CDC listener will capture DELETE events"
                   },
                   "value": "true",
                   "enabled": true,
@@ -371,7 +371,7 @@
                 "enableTruncate": {
                   "metadata": {
                     "label": "Truncate events",
-                    "description": "When enabled, the CDC listener will capture TRUNCATE events."
+                    "description": "When enabled, the CDC listener will capture TRUNCATE events"
                   },
                   "value": "true",
                   "enabled": true,
@@ -392,8 +392,8 @@
                 },
                 "options": {
                   "metadata": {
-                    "label": "CDC Options",
-                    "description": "PostgreSQL-specific CDC options for snapshot behavior, filtering, and data type handling."
+                    "label": "Options",
+                    "description": "Additional options for the CDC engine"
                   },
                   "value": "",
                   "enabled": true,
@@ -428,8 +428,8 @@
                 },
                 "livenessInterval": {
                   "metadata": {
-                    "label": "Liveness Interval (s)",
-                    "description": "Interval in seconds for checking CDC listener liveness."
+                    "label": "Liveness Interval",
+                    "description": "Interval in seconds for the CDC engine liveness check"
                   },
                   "placeholder": "60.0",
                   "value": "",
@@ -457,7 +457,7 @@
                 "internalSchemaStorage": {
                   "metadata": {
                     "label": "Internal Schema Storage",
-                    "description": "Schema history storage backend (file, Kafka, memory, JDBC, Redis, S3, Azure Blob, or RocketMQ)."
+                    "description": "Storage configuration for the internal schema history"
                   },
                   "value": "",
                   "enabled": true,
@@ -542,7 +542,7 @@
                 "offsetStorage": {
                   "metadata": {
                     "label": "Offset Storage",
-                    "description": "Offset storage backend (file, Kafka, memory, JDBC, or Redis)."
+                    "description": "Storage configuration for CDC offsets"
                   },
                   "value": "",
                   "enabled": true,
@@ -609,8 +609,8 @@
         },
         {
           "metadata": {
-            "label": "Use Existing Listener",
-            "description": "Attach to one or more listeners already declared in the project."
+            "label": "Use existing",
+            "description": "Select an existing PostgreSQL CDC listener"
           },
           "enabled": false,
           "editable": false,
