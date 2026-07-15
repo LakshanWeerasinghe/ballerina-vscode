@@ -286,7 +286,8 @@ public final class SchemaDrivenSourceGenerator {
         if (serviceType != null) {
             TriggerModel.Codedata cd = serviceType.codedata();
             if (cd != null && cd.originalName() != null && !cd.originalName().isBlank()) {
-                String module = cd.moduleName() != null && !cd.moduleName().isBlank() ? cd.moduleName() : protocol;
+                String module = cd.moduleName() != null && !cd.moduleName().isBlank()
+                        ? aliasOf(cd.moduleName()) : protocol;
                 return module + COLON + cd.originalName();
             }
             if (serviceType.name() != null && !serviceType.name().isBlank()) {
@@ -297,7 +298,27 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     private static String qualify(String typeName, String protocol) {
-        return typeName.contains(COLON) ? typeName : protocol + COLON + typeName;
+        if (!typeName.contains(COLON)) {
+            return protocol + COLON + typeName;
+        }
+        // Already qualified: normalize the module qualifier to its import alias (last dot-segment) so a
+        // full dotted module name (e.g. `trigger.google.mail:GmailService`) becomes `mail:GmailService`.
+        return aliasOf(typeName.substring(0, typeName.indexOf(COLON))) + COLON + simpleName(typeName);
+    }
+
+    /** The simple (unqualified) type name — strips any {@code module:} prefix. */
+    private static String simpleName(String typeName) {
+        int colon = typeName.indexOf(COLON);
+        return colon < 0 ? typeName : typeName.substring(colon + 1);
+    }
+
+    /**
+     * The import alias of a (possibly dotted) module name — its last {@code .}-separated segment. A
+     * module imported as {@code ballerinax/trigger.google.mail} is referenced by the alias {@code mail}.
+     */
+    private static String aliasOf(String moduleName) {
+        int lastDot = moduleName.lastIndexOf('.');
+        return lastDot < 0 ? moduleName : moduleName.substring(lastDot + 1);
     }
 
     /** Picks the service type matching the init-form selection; else the enabled one; else the first. */
@@ -475,10 +496,12 @@ public final class SchemaDrivenSourceGenerator {
     private static String renderListenerDeclaration(String protocol, ListenerArgs args) {
         String listenerType;
         if (args.listenerType != null && !args.listenerType.isBlank()) {
-            // An unqualified type hint (e.g. `CdcListener`) is module-prefixed with the protocol so the
-            // declaration is valid; an already-qualified hint (`mssql:CdcListener`) is used verbatim.
-            listenerType = args.listenerType.contains(COLON)
-                    ? args.listenerType : protocol + COLON + args.listenerType;
+            // The hint carries the listener's type name (e.g. `CdcListener`), which is not always
+            // `Listener`. The type always lives in the connector's own module, so it is prefixed with the
+            // import alias (`protocol`). A hint that arrives already qualified may carry the full dotted
+            // module name (e.g. a `trigger.google.mail:Listener` type signature); only its simple name is
+            // kept so the emitted prefix is the import alias (`mail`), not the full module path.
+            listenerType = protocol + COLON + simpleName(args.listenerType);
         } else {
             listenerType = protocol + COLON + LISTENER_TYPE;
         }
