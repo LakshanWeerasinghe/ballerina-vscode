@@ -81,6 +81,7 @@ export interface AddFilesToProjectRequest {
 export interface FileChanges {
     filePath: string;
     content: string;
+    deleted?: boolean;
 }
 
 export interface ProjectImports {
@@ -758,4 +759,3 @@ export interface AgentsMdFileInfoDTO {
     isEmpty?: boolean;
     hasWorkspace: boolean;
 }
-
