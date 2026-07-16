@@ -1,0 +1,10 @@
+{
+  "displayName": "CDC MSSQL Service",
+  "icon": {
+    "glyph": "bi-mssql",
+    "kind": "event"
+  },
+  "labelFields": [
+    "tables"
+  ]
+}

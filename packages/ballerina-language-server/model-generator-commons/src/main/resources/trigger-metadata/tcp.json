@@ -1,0 +1,7 @@
+{
+  "displayName": "TCP Service",
+  "icon": {
+    "glyph": "bi-tcp",
+    "kind": "listener"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "displayName": "AI Agent Services",
+  "icon": {
+    "glyph": "bi-ai-agent",
+    "kind": "ai"
+  }
+}

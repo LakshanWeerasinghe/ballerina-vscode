@@ -1963,6 +1963,32 @@ export interface WorkspaceDeploymentRequest {
 
 // 2201.12.3 -> New Project Component Artifacts Tree
 
+/**
+ * A structured, multi-representation icon descriptor resolved by the Language Server (Phase-6 icon
+ * architecture). The LS fills `url`/`kind`/`source` and any connector-declared `glyph`/`color`; the IDE
+ * completes missing `glyph`/`color` from its brand-icon registry and applies the `kind` default.
+ */
+export interface IconDescriptor {
+    url?: string;
+    glyph?: string;
+    color?: string;
+    kind?: string;
+    source?: string;
+    light?: string; // theme-specific image (data: URI) for light themes; paired with `dark`
+    dark?: string;  // dark-theme counterpart of `light`
+}
+
+/**
+ * Normalizes a wire icon value into an {@link IconDescriptor}. Accepts a bare string (legacy: a plain
+ * URL) for backward compatibility, reading it as `{ url }`.
+ */
+export function toIconDescriptor(icon?: string | IconDescriptor): IconDescriptor | undefined {
+    if (icon === undefined || icon === null) {
+        return undefined;
+    }
+    return typeof icon === "string" ? { url: icon } : icon;
+}
+
 export interface BaseArtifact<T = any> {
     id: string;
     location: {
@@ -1981,7 +2007,7 @@ export interface BaseArtifact<T = any> {
     module?: string;
     scope: string;
     visibility?: VISIBILITY;
-    icon?: string; // Optional for those that have an icon
+    icon?: IconDescriptor | string; // Resolved icon descriptor; a bare string (legacy URL) is accepted
     children?: Record<string, BaseArtifact>; // To allow nested structures
     accessor?: string; // Specific to Entry Points
     value?: T; // Generic value property to hold different types

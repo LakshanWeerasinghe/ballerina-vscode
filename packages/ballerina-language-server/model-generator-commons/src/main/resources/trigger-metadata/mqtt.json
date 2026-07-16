@@ -1,0 +1,7 @@
+{
+  "displayName": "MQTT Event Integration",
+  "icon": {
+    "glyph": "bi-mqtt",
+    "kind": "event"
+  }
+}

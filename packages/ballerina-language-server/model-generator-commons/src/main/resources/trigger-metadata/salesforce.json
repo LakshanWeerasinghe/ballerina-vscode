@@ -1,0 +1,7 @@
+{
+  "displayName": "Salesforce Event Integration",
+  "icon": {
+    "glyph": "bi-salesforce",
+    "kind": "event"
+  }
+}

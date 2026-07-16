@@ -1,0 +1,11 @@
+{
+  "displayName": "RabbitMQ Event Integration",
+  "icon": {
+    "glyph": "bi-rabbitmq",
+    "color": "#f60",
+    "kind": "event"
+  },
+  "labelFields": [
+    "queueName"
+  ]
+}

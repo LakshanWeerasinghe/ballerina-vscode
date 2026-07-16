@@ -1,0 +1,6 @@
+{
+  "displayName": "HTTP Service",
+  "icon": {
+    "kind": "http"
+  }
+}

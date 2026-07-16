@@ -1,0 +1,10 @@
+{
+  "displayName": "CDC PostgreSQL Service",
+  "icon": {
+    "glyph": "bi-postgresql",
+    "kind": "event"
+  },
+  "labelFields": [
+    "tables"
+  ]
+}

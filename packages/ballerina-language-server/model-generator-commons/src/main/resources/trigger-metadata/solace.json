@@ -1,0 +1,11 @@
+{
+  "displayName": "Solace Event Integration",
+  "icon": {
+    "glyph": "bi-solace",
+    "kind": "event"
+  },
+  "labelFields": [
+    "queueName",
+    "topicName"
+  ]
+}

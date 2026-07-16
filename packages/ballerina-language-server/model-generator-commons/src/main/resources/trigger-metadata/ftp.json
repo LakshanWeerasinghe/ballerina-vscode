@@ -1,0 +1,10 @@
+{
+  "displayName": "FTP Integration",
+  "icon": {
+    "glyph": "bi-ftp",
+    "kind": "file"
+  },
+  "labelFields": [
+    "path"
+  ]
+}

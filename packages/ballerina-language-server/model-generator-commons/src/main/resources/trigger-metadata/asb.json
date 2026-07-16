@@ -1,0 +1,7 @@
+{
+  "displayName": "Azure Service Bus Event Integration",
+  "icon": {
+    "glyph": "bi-asb",
+    "kind": "event"
+  }
+}

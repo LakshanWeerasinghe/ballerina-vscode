@@ -40,6 +40,7 @@ import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.ParenthesizedArgList;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
 import io.ballerina.modelgenerator.commons.FunctionData;
 import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
@@ -300,8 +301,8 @@ public class ListenerUtil {
     public static Listener createBaseListenerModel(FunctionData functionData) {
         Map<String, Value> properties = new LinkedHashMap<>();
         String formattedModuleName = upperCaseFirstLetter(functionData.packageName());
-        String icon = CommonUtils.generateIcon(functionData.org(), functionData.packageName(),
-                functionData.version());
+        String icon = TriggerMetadataResolver.resolveIcon(functionData.org(), functionData.packageName(),
+                functionData.packageName(), functionData.version()).url();
 
         Listener.ListenerBuilder listenerBuilder = new Listener.ListenerBuilder();
         listenerBuilder

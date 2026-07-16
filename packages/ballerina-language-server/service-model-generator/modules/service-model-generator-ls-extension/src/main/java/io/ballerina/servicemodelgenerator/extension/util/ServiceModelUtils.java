@@ -34,7 +34,7 @@ import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.compiler.syntax.tree.TypeDescriptorNode;
 import io.ballerina.modelgenerator.commons.AnnotationAttachment;
-import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
 import io.ballerina.modelgenerator.commons.ReadOnlyMetaData;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
@@ -738,7 +738,8 @@ public class ServiceModelUtils {
                 .setPackageName(context.packageName())
                 .setModuleName(context.moduleName())
                 .setListenerProtocol(protocol)
-                .setIcon(CommonUtils.generateIcon(context.orgName(), context.packageName(), context.version()))
+                .setIcon(TriggerMetadataResolver.resolveIcon(context.orgName(), context.packageName(),
+                        context.moduleName(), context.version()).url())
                 .setDocumentation(getServiceDocumentation(ServiceClassUtil.ServiceClassContext.SERVICE_DIAGRAM))
                 .setCodedata(codedata)
                 .setProperties(properties)

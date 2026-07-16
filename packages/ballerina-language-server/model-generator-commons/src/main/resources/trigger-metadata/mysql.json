@@ -1,0 +1,10 @@
+{
+  "displayName": "CDC MySQL Service",
+  "icon": {
+    "glyph": "bi-mysql",
+    "kind": "event"
+  },
+  "labelFields": [
+    "tables"
+  ]
+}

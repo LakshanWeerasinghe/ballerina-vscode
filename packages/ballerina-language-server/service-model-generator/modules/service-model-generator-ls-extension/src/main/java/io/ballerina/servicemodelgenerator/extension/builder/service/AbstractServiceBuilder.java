@@ -24,7 +24,7 @@ import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.NodeList;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.modelgenerator.commons.AnnotationAttachment;
-import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
 import io.ballerina.modelgenerator.commons.ServiceInitInfo;
@@ -309,7 +309,8 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
                 .setPackageName(pkg.name())
                 .setModuleName(context.moduleName())
                 .setType(context.moduleName())
-                .setIcon(CommonUtils.generateIcon(pkg.org(), pkg.name(), pkg.version()))
+                .setIcon(TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
+                        pkg.version()).url())
                 .build();
 
         for (ServiceInitProperty property : initInfo.properties()) {
@@ -352,7 +353,8 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
 
         String label = serviceTemplate.displayName();
         Value documentation = getServiceDocumentation(ServiceClassUtil.ServiceClassContext.SERVICE_DIAGRAM);
-        String icon = CommonUtils.generateIcon(pkg.org(), pkg.name(), pkg.version());
+        String icon = TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
+                pkg.version()).url();
 
         Map<String, Value> properties = new LinkedHashMap<>();
 

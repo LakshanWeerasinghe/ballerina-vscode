@@ -414,6 +414,9 @@ export interface ProjectStructureArtifactResponse {
     path: string;
     type: string;
     icon?: string;
+    iconColor?: string; // optional tint for a monochrome brand glyph (e.g. "#f60")
+    iconLight?: string; // theme-specific image (data: URI / path) for light themes; paired with iconDark
+    iconDark?: string;  // dark-theme counterpart of iconLight
     context?: string;
     moduleName?: string;
     position?: NodePosition;

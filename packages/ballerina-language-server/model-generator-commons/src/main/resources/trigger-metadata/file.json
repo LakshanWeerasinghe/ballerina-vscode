@@ -1,0 +1,7 @@
+{
+  "displayName": "Local Files",
+  "icon": {
+    "glyph": "bi-file",
+    "kind": "file"
+  }
+}

@@ -33,7 +33,7 @@ import io.ballerina.compiler.syntax.tree.ObjectFieldNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
-import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
@@ -1036,7 +1036,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         ServiceDeclaration.Package pkg = serviceTemplate.packageInfo();
         String protocol = getProtocol(name);
         String label = serviceTemplate.displayName();
-        String icon = CommonUtils.generateIcon(pkg.org(), pkg.name(), pkg.version());
+        String icon = TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), pkg.name(), pkg.version()).url();
         TriggerBasicInfo triggerBasicInfo = new TriggerBasicInfo(pkg.packageId(),
                 label, pkg.org(), pkg.name(), pkg.name(),
                 pkg.version(), serviceTemplate.kind(), label, "",

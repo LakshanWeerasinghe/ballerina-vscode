@@ -1,0 +1,6 @@
+{
+  "displayName": "Twilio Event Integration",
+  "icon": {
+    "kind": "event"
+  }
+}
