@@ -39,3 +39,24 @@ export function findDevantScopeByModule(moduleName: string): DevantScopes | unde
         return DevantScopes.FILE_INTEGRATION;
     }
 }
+
+/** Connector-declared semantic `kind` -> Devant scope (mirrors {@link findDevantScopeByModule}). */
+const KIND_TO_DEVANT_SCOPE: Record<string, DevantScopes> = {
+    event: DevantScopes.EVENT_INTEGRATION,
+    file: DevantScopes.FILE_INTEGRATION,
+    http: DevantScopes.INTEGRATION_AS_API,
+    graphql: DevantScopes.INTEGRATION_AS_API,
+    ai: DevantScopes.AI_AGENT,
+    mcp: DevantScopes.MCP,
+};
+
+/**
+ * Resolves a Devant scope, preferring the connector-declared `kind` and falling back to the (legacy)
+ * module allow-lists for connectors that ship no kind.
+ */
+export function findDevantScope(kind: string | undefined, moduleName: string): DevantScopes | undefined {
+    if (kind && KIND_TO_DEVANT_SCOPE[kind]) {
+        return KIND_TO_DEVANT_SCOPE[kind];
+    }
+    return findDevantScopeByModule(moduleName);
+}

@@ -413,6 +413,7 @@ export interface ProjectStructureArtifactResponse {
     name: string;
     path: string;
     type: string;
+    kind?: string; // semantic integration kind (event/file/http/graphql/ai) from the trigger metadata
     icon?: string;
     iconColor?: string; // optional tint for a monochrome brand glyph (e.g. "#f60")
     iconLight?: string; // theme-specific image (data: URI / path) for light themes; paired with iconDark

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { BI_COMMANDS, DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, SCOPE, findScopeByModule } from "@wso2/ballerina-core";
+import { BI_COMMANDS, DIRECTORY_MAP, EVENT_TYPE, MACHINE_VIEW, SCOPE, findScope } from "@wso2/ballerina-core";
 import {
     WICommandIds,
     ICommitAndPushCmdParams,
@@ -82,7 +82,7 @@ const handleComponentPushToDevant = async () => {
 
         if (services) {
             services.find((svc) => {
-                const scope = findScopeByModule(svc?.moduleName);
+                const scope = findScope(svc?.kind, svc?.moduleName);
                 if (scope) {
                     scopeSet.add(scope);
                 }

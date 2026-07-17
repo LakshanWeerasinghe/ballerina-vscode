@@ -57,6 +57,31 @@ export function findScopeByModule(moduleName: string): SCOPE {
     }
 }
 
+/**
+ * Maps a connector's declared semantic `kind` (from its trigger metadata) to a project {@link SCOPE}.
+ * This is the connector-agnostic classifier: any trigger that declares `kind: "event"` (GitHub, or a
+ * new webhook connector) is an Event Integration with no per-module entry and no release.
+ */
+const KIND_TO_SCOPE: Record<string, SCOPE> = {
+    event: SCOPE.EVENT_INTEGRATION,
+    file: SCOPE.FILE_INTEGRATION,
+    http: SCOPE.INTEGRATION_AS_API,
+    graphql: SCOPE.INTEGRATION_AS_API,
+    ai: SCOPE.AI_AGENT,
+    mcp: SCOPE.MCP,
+};
+
+/**
+ * Resolves a project scope, preferring the connector-declared `kind` and falling back to the (legacy)
+ * module allow-lists in {@link findScopeByModule} for connectors that ship no kind.
+ */
+export function findScope(kind: string | undefined, moduleName: string | undefined): SCOPE | undefined {
+    if (kind && KIND_TO_SCOPE[kind]) {
+        return KIND_TO_SCOPE[kind];
+    }
+    return moduleName ? findScopeByModule(moduleName) : undefined;
+}
+
 export function getAllVariablesForAiFrmProjectComponents(projectComponents: BallerinaProjectComponents): { [key: string]: any } {
     const variableCollection: { [key: string]: any } = {};
     projectComponents.packages?.forEach((packageSummary) => {

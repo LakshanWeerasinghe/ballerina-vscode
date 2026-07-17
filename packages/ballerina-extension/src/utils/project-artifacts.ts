@@ -240,6 +240,7 @@ async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: 
             entryValue.iconColor = resolveEntryColor(serviceIcon, artifact.module);
             entryValue.iconLight = serviceIcon?.light;
             entryValue.iconDark = serviceIcon?.dark;
+            entryValue.kind = serviceIcon?.kind;
             if (artifact.module === "ai") {
                 entryValue.resources = [];
                 const aiResourceLocation = Object.values(artifact.children).find(child => child.type === DIRECTORY_MAP.RESOURCE)?.location;
@@ -272,6 +273,7 @@ async function getEntryValue(artifact: BaseArtifact, projectPath: string, icon: 
             entryValue.iconColor = resolveEntryColor(listenerIcon, artifact.module);
             entryValue.iconLight = listenerIcon?.light;
             entryValue.iconDark = listenerIcon?.dark;
+            entryValue.kind = listenerIcon?.kind;
             break;
         case DIRECTORY_MAP.CONNECTION:
             entryValue.icon = icon;
