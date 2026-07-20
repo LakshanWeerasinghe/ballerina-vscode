@@ -24,11 +24,12 @@ import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelRead
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
+import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerReadOnlyMetadataAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
-import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
@@ -53,6 +54,7 @@ import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitMode
 import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel.KEY_EXISTING_LISTENER;
 import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel.KEY_LISTENER_VAR_NAME;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.LISTENER_VAR_NAME;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_READONLY_METADATA_KEY;
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getProtocol;
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getServiceTypeIdentifier;
 
@@ -148,6 +150,14 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         // Included-record payloads: the textual merge above only sees the generated wrapper's name
         // (e.g. KafkaAnydataConsumer1[]); resolve its payload field so the UI shows the bound type.
         IncludedRecordBinder.overlayFromSource(serviceModel, context);
+
+        // Read-only summary chips (e.g. "Monitored Path", "Queue Name") resolved from the source, using
+        // the trigger model's readOnlyMetadata definitions. Absent when the model ships none.
+        Value readOnlyMetadata = TriggerReadOnlyMetadataAdapter.build(triggerModel.get().readOnlyMetadata(),
+                serviceModel, (ServiceDeclarationNode) context.node(), context);
+        if (readOnlyMetadata != null) {
+            serviceModel.getProperties().put(PROP_READONLY_METADATA_KEY, readOnlyMetadata);
+        }
         return serviceModel;
     }
 

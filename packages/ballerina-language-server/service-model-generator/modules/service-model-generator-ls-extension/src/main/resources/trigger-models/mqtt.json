@@ -435,21 +435,6 @@
       ]
     }
   ],
-  "readOnlyMetadata": [
-    {
-      "key": "serverUri",
-      "displayName": "Server URI",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "REQUIRED",
-      "path": "serverUri"
-    },
-    {
-      "key": "subscriptions",
-      "displayName": "Subscriptions",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "REQUIRED",
-      "path": "subscriptions"
-    }
-  ],
+  "readOnlyMetadata": [],
   "importStatements": []
 }

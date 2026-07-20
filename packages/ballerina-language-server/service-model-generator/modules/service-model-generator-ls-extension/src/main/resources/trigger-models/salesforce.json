@@ -957,14 +957,13 @@
   "readOnlyMetadata": [
     {
       "key": "serviceType",
-      "displayName": "Service Type",
+      "displayName": "Event Type",
       "kind": "SERVICE_DESCRIPTION"
     },
     {
       "key": "basePath",
-      "displayName": "EventChannel",
-      "kind": "SERVICE_DESCRIPTION",
-      "path": "basePath"
+      "displayName": "Event Channel",
+      "kind": "SERVICE_BASE_PATH"
     }
   ]
 }

@@ -858,7 +858,12 @@
       "key": "queueName",
       "displayName": "Queue Name",
       "kind": "SERVICE_ANNOTATION",
-      "path": "queueName"
+      "path": "ServiceConfig.queueName"
+    },
+    {
+      "key": "queueName",
+      "displayName": "Queue Name",
+      "kind": "STRING_LITERAL"
     }
   ],
   "importStatements": []

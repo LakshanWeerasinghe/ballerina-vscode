@@ -1761,13 +1761,6 @@
       "key": "serviceType",
       "displayName": "Event Channel",
       "kind": "SERVICE_DESCRIPTION"
-    },
-    {
-      "key": "listenOn",
-      "displayName": "Port",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "REQUIRED",
-      "path": "listenOn"
     }
   ]
 }

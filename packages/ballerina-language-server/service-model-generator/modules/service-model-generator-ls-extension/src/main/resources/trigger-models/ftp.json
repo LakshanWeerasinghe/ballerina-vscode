@@ -4006,24 +4006,10 @@
   ],
   "readOnlyMetadata": [
     {
-      "key": "protocol",
-      "displayName": "Protocol",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "INCLUDED_FIELD",
-      "path": "protocol"
-    },
-    {
-      "key": "host",
-      "displayName": "Host",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "INCLUDED_FIELD",
-      "path": "host"
-    },
-    {
       "key": "path",
       "displayName": "Monitored Path",
-      "kind": "ANNOTATION",
-      "path": "serviceConfig.path"
+      "kind": "SERVICE_ANNOTATION",
+      "path": "ServiceConfig.path"
     }
   ]
 }
