@@ -82,16 +82,7 @@
                   "advanced": false,
                   "codedata": {
                     "type": "LISTENER_VAR_NAME"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ]
+                  }
                 },
                 "apiSecretKey": {
                   "metadata": {
@@ -119,11 +110,6 @@
                       "fieldType": "EXPRESSION",
                       "selected": false,
                       "ballerinaType": "string"
-                    }
-                  ],
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
                     }
                   ]
                 },
@@ -153,16 +139,6 @@
                       "fieldType": "EXPRESSION",
                       "selected": false,
                       "ballerinaType": "int|http:Listener"
-                    }
-                  ],
-                  "validations": [
-                    {
-                      "rule": "common.validate.port",
-                      "args": {
-                        "min": 1,
-                        "max": 65535
-                      },
-                      "severity": "WARNING"
                     }
                   ]
                 }
@@ -254,12 +230,7 @@
       "codedata": {
         "type": "SERVICE_TYPE_DESCRIPTOR",
         "moduleName": "shopify"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required"
-        }
-      ]
+      }
     }
   },
   "serviceTypes": [

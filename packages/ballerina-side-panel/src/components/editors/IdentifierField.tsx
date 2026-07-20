@@ -22,6 +22,7 @@ import { debounce } from "lodash";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { useFormContext } from "../../context";
 import { buildRequiredRule, capitalize, getPropertyFromFormField, mapDiagnosticsServerityToFormSeverity } from "./utils";
+import { buildValidate } from "../Form/validationRules";
 import { FormField } from "../Form/types";
 export interface IdentifierFieldProps {
     field: FormField;
@@ -97,7 +98,8 @@ export function IdentifierField(props: IdentifierFieldProps) {
 
     const registerField = register(field.key, {
         required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
-        value: field.value
+        value: field.value,
+        validate: buildValidate(field)
     })
     const { onChange } = registerField;
 

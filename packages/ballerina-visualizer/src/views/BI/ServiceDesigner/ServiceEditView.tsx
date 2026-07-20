@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { ServiceModel, NodePosition, LineRange, ListenerModel, EVENT_TYPE } from '@wso2/ballerina-core';
+import { ServiceModel, NodePosition, LineRange, ListenerModel, EVENT_TYPE, ValidationResult, hasBlockingValidationErrors } from '@wso2/ballerina-core';
 import { Typography, ProgressRing, View, ViewContent } from '@wso2/ui-toolkit';
 import styled from '@emotion/styled';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
@@ -95,6 +95,7 @@ export function ServiceEditView(props: ServiceEditViewProps) {
     const [serviceModel, setServiceModel] = useState<ServiceModel>(undefined);
 
     const [saving, setSaving] = useState<boolean>(false);
+    const [serverValidationErrors, setServerValidationErrors] = useState<ValidationResult[]>([]);
     const [step, setStep] = useState<number>(1);
 
     useEffect(() => {
@@ -107,12 +108,22 @@ export function ServiceEditView(props: ServiceEditViewProps) {
     const onSubmit = async (value: ServiceModel) => {
         setSaving(true);
         const res = await rpcClient.getServiceDesignerRpcClient().updateServiceSourceCode({ filePath, service: value });
+        // Refused by the language server's save-time gate — nothing was written, so keep the form
+        // open with the failures on their fields instead of hanging on "Saving". A WARNING is not a
+        // rejection and must not trap the form.
+        if (hasBlockingValidationErrors(res.validationErrors)) {
+            setServerValidationErrors(res.validationErrors);
+            setSaving(false);
+            return;
+        }
+        setServerValidationErrors([]);
         const updatedArtifact = res.artifacts.at(0);
         if (updatedArtifact) {
             rpcClient.getVisualizerRpcClient().openView({ type: EVENT_TYPE.OPEN_VIEW, location: { documentUri: updatedArtifact.path, position: updatedArtifact.position } });
             setSaving(false);
             return;
         }
+        setSaving(false);
     }
 
     const handleServiceChange = async (data: ServiceModel) => {
@@ -151,7 +162,7 @@ export function ServiceEditView(props: ServiceEditViewProps) {
 
     return (
         <>
-            {serviceModel && <ServiceConfigForm serviceModel={serviceModel} onSubmit={onSubmit} formSubmitText={saving ? "Saving..." : "Save"} isSaving={saving} onChange={handleServiceChange} onDirtyChange={handleServiceDirtyChange} onValidityChange={onValidityChange} />}
+            {serviceModel && <ServiceConfigForm serviceModel={serviceModel} onSubmit={onSubmit} formSubmitText={saving ? "Saving..." : "Save"} isSaving={saving} onChange={handleServiceChange} onDirtyChange={handleServiceDirtyChange} onValidityChange={onValidityChange} serverValidationErrors={serverValidationErrors} />}
         </>
     );
 };

@@ -25,6 +25,7 @@ import {
     Codicon,
     Divider,
     Dropdown,
+    ErrorBanner,
     LinkButton,
     ProgressIndicator,
     SidePanelBody,
@@ -40,6 +41,7 @@ import {
     PropertyModel,
     ServiceModel,
     Type,
+    ValidationResult,
 } from "@wso2/ballerina-core";
 import { cloneDeep } from "lodash";
 import WarningPopup from "@wso2/ballerina-side-panel/lib/components/WarningPopup";
@@ -123,6 +125,12 @@ export interface TriggerHandlerFormProps {
     filePath?: string;
     /** The handler group being added (set by the catalog picker in add mode). */
     selectedGroup?: string;
+    /**
+     * Rule failures from the language server's save-time gate. This form renders its leaves itself
+     * (rather than through the shared `Form`), so they are shown as a form-level banner with the
+     * field label the server interpolated into each message.
+     */
+    serverValidationErrors?: ValidationResult[];
 }
 
 /**
@@ -139,7 +147,7 @@ export interface TriggerHandlerFormProps {
  * - function annotations — properties with codedata.type COMPLEX_FUNCTION_ANNOTATION.
  */
 export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
-    const { serviceModel, isSaving, onSave, onClose, isNew, selectedGroup } = props;
+    const { serviceModel, isSaving, onSave, onClose, isNew, selectedGroup, serverValidationErrors } = props;
 
     const [functionModel, setFunctionModel] = useState<FunctionModel | null>(null);
     // The payload param (by name) the type-creator modal is open for — a handler can expose several
@@ -414,6 +422,12 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                 {infoBannerText}
                             </Typography>
                         </InfoBanner>
+                    )}
+
+                    {serverValidationErrors?.length > 0 && (
+                        <ErrorBanner
+                            errorMsg={serverValidationErrors.map((error) => error.message).join("\n")}
+                        />
                     )}
 
                     {/* Variant selection — sibling functions of the same group */}

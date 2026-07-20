@@ -56,6 +56,7 @@ import {
     Imports,
     getSecondaryInputType,
     DIRECTORY_MAP,
+    ValidationResult,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { FormContext, Provider, FormFieldLoadingProvider, useFormFieldLoadingContext } from "../../context";
@@ -67,7 +68,10 @@ import {
     isPrioritizedField,
     hasRequiredParameters,
     hasOptionalParameters,
+    collectFieldKeys,
+    resolveValidationFieldKey,
 } from "./utils";
+import { DiagnosticsStoreProvider } from "./DiagnosticsStore";
 import FormDescription from "./FormDescription";
 import MarkdownDescription from "./MarkdownDescription";
 import TypeHelperText from "./TypeHelperText";
@@ -338,6 +342,9 @@ export interface FormProps {
     }
     formDiagnostics?: { message: string; severity: "ERROR" | "WARNING" | "INFO" }[];
     formDiagnosticsAction?: React.ReactNode;
+    // Rule failures returned by the language server's save-time gate. Each is rendered on the field
+    // its `propertyPath` resolves to; anything unresolvable falls back to the form-level banner.
+    serverValidationErrors?: ValidationResult[];
     preserveOrder?: boolean;
     handleSelectedTypeChange?: (type: string | CompletionItem) => void;
     scopeFieldAddon?: React.ReactNode;
@@ -384,6 +391,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         popupManager,
         formDiagnostics,
         formDiagnosticsAction,
+        serverValidationErrors,
         compact = false,
         isInferredReturnType,
         concertRequired = true,
@@ -425,6 +433,37 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         }
         rpcClient.getBIDiagramRpcClient().formDirtyDidChange({ filePath: fileName, isDirty });
     }, [isDirty, fileName, rpcClient]);
+
+    // Failures the language server's save-time gate produced. They arrive after submit, so they are
+    // pushed onto their fields here rather than through the per-keystroke validate rules.
+    const [unmappedValidationErrors, setUnmappedValidationErrors] = useState<ValidationResult[]>([]);
+    // `formFields` is read inside the effect but deliberately kept out of its dependencies: several
+    // callers pass a freshly-built array (e.g. `formFields={[formField]}` in FormArrayEditor), whose
+    // identity changes every render. Depending on it here would re-run the effect on every render,
+    // and the state writes below would re-render again — a loop that never converges. A ref gives
+    // the effect the current fields without making them a trigger.
+    const formFieldsRef = useRef(formFields);
+    formFieldsRef.current = formFields;
+    useEffect(() => {
+        if (!serverValidationErrors?.length) {
+            // Keep the existing (already empty) array rather than allocating a new one, so this is
+            // a genuine no-op instead of a re-render.
+            setUnmappedValidationErrors((previous) => (previous.length === 0 ? previous : []));
+            return;
+        }
+        const fieldKeys = collectFieldKeys(formFieldsRef.current);
+        const unmapped: ValidationResult[] = [];
+        serverValidationErrors.forEach((validationError) => {
+            const key = resolveValidationFieldKey(validationError.propertyPath, fieldKeys);
+            if (key) {
+                setError(key, { type: "server_validation", message: validationError.message });
+            } else {
+                unmapped.push(validationError);
+            }
+        });
+        setUnmappedValidationErrors((previous) =>
+            previous.length === 0 && unmapped.length === 0 ? previous : unmapped);
+    }, [serverValidationErrors, setError]);
 
     const [showAdvancedOptions, setShowAdvancedOptions] = useState(props.defaultExpandAdvanced ?? false);
     const [activeFormField, setActiveFormField] = useState<string | undefined>(undefined);
@@ -1041,6 +1080,11 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                     )}
                 </S.FormDiagnosticsContainer>
             )}
+            {unmappedValidationErrors.length > 0 && (
+                <S.FormDiagnosticsContainer>
+                    <ErrorBanner errorMsg={unmappedValidationErrors.map((error) => error.message).join("\n")} />
+                </S.FormDiagnosticsContainer>
+            )}
 
             {/*
                  * Two rendering modes based on preserveOrder prop:
@@ -1306,6 +1350,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
     );
 
     return (
+        <DiagnosticsStoreProvider>
         <FormFieldLoadingProvider
             loadingFields={loadingFields}
             registerLoading={registerLoading}
@@ -1397,6 +1442,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                 </S.Container>
             </Provider>
         </FormFieldLoadingProvider>
+        </DiagnosticsStoreProvider>
     );
 });
 

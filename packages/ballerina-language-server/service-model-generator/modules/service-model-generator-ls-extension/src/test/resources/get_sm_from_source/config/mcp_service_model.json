@@ -213,7 +213,8 @@
       {
         "metadata": {
           "label": "",
-          "description": ""
+          "description": "",
+          "badge": "Tool"
         },
         "kind": "REMOTE",
         "accessor": {
@@ -462,7 +463,8 @@
       {
         "metadata": {
           "label": "",
-          "description": ""
+          "description": "",
+          "badge": "Tool"
         },
         "kind": "REMOTE",
         "accessor": {

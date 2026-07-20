@@ -54,6 +54,9 @@ import {
     TriggerModelsRequest,
     TriggerModelsResponse,
     UpdatedArtifactsResponse,
+    ValidatePropertyRequest,
+    ValidatePropertyResponse,
+    ValidationResult,
     VisibleTypesResponse
 } from "@wso2/ballerina-core";
 import * as fs from 'fs';
@@ -65,6 +68,23 @@ import { StateMachine } from "../../stateMachine";
 import { writeBallerinaFileDidOpen } from "../../utils/modification";
 import { updateSourceCode } from "../../utils/source-utils";
 import { generateExamplePayload } from "../../features/ai/payload-generator/payload_json";
+
+/**
+ * The ERROR-severity subset of a save-time validation response. Only these mean the language server
+ * refused to generate source; WARNINGs accompany a successful generation and must not block it.
+ */
+function getBlockingValidationErrors(validationErrors?: ValidationResult[]): ValidationResult[] {
+    return (validationErrors ?? []).filter((error) => error.severity === "ERROR");
+}
+
+/**
+ * WARNING-severity findings the save-time gate returned alongside a successful generation. They do
+ * not block the save, but the form still renders them, so they must ride on the success response
+ * rather than being dropped once the ERROR check passes.
+ */
+function getValidationWarnings(validationErrors?: ValidationResult[]): ValidationResult[] {
+    return (validationErrors ?? []).filter((error) => error.severity !== "ERROR");
+}
 
 export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
 
@@ -265,9 +285,15 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                     }
                 }
                 const res: ListenerSourceCodeResponse = await context.langClient.updateServiceSourceCode(params);
+                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+                if (blockingErrors.length > 0) {
+                    resolve({ artifacts: [], validationErrors: blockingErrors });
+                    return;
+                }
                 const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: { artifactType: DIRECTORY_MAP.SERVICE }, description: params.service.name + ' Update' });
                 const result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts
+                    artifacts: artifacts,
+                    validationErrors: getValidationWarnings(res.validationErrors)
                 };
                 // Find the correct artifact by checking the position
                 const lineRange = params.service.codedata.lineRange;
@@ -335,9 +361,15 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
             const context = StateMachine.context();
             try {
                 const res: ResourceSourceCodeResponse = await context.langClient.updateResourceSourceCode(params);
+                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+                if (blockingErrors.length > 0) {
+                    resolve({ artifacts: [], validationErrors: blockingErrors });
+                    return;
+                }
                 const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : null, description: 'Resource Update' });
                 const result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts
+                    artifacts: artifacts,
+                    validationErrors: getValidationWarnings(res.validationErrors)
                 };
                 resolve(result);
             } catch (error) {
@@ -363,9 +395,15 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
             const context = StateMachine.context();
             try {
                 const res: ResourceSourceCodeResponse = await context.langClient.addFunctionSourceCode(params);
+                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+                if (blockingErrors.length > 0) {
+                    resolve({ artifacts: [], validationErrors: blockingErrors });
+                    return;
+                }
                 const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : { artifactType: DIRECTORY_MAP.FUNCTION }, description: 'Function Creation' });
                 const result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts
+                    artifacts: artifacts,
+                    validationErrors: getValidationWarnings(res.validationErrors)
                 };
                 resolve(result);
             } catch (error) {
@@ -492,11 +530,20 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                 }
                 const res: SourceEditResponse = await context.langClient.createServiceAndListener(params);
 
+                // The save-time gate refused the model — no source was generated, so surface the
+                // failures instead of reporting an empty success.
+                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+                if (blockingErrors.length > 0) {
+                    resolve({ artifacts: [], validationErrors: blockingErrors });
+                    return;
+                }
+
                 const edits = { textEdits: res.textEdits, resolveMissingDependencies: false };
 
                 const artifacts = await updateSourceCode({ ...edits, artifactData: { artifactType: DIRECTORY_MAP.SERVICE }, description: 'Service and Listener Creation' });
                 let result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts
+                    artifacts: artifacts,
+                    validationErrors: getValidationWarnings(res.validationErrors)
                 };
                 resolve(result);
             } catch (error) {
@@ -504,6 +551,21 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                 reject(error);
             }
         });
+    }
+
+    /**
+     * Live per-field validation. Called on a debounce while the user types, so a failure here is
+     * never surfaced as an error: the caller simply gets no findings and keeps its client-side
+     * rules, and the save-time gate remains the authority.
+     */
+    async validateProperty(params: ValidatePropertyRequest): Promise<ValidatePropertyResponse> {
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.validateProperty(params);
+        } catch (error) {
+            console.log(error);
+            return { propertyPath: params.propertyPath, version: params.version, validationErrors: [] };
+        }
     }
 
     async generateExamplePayloadJson(params: PayloadContext): Promise<object> {

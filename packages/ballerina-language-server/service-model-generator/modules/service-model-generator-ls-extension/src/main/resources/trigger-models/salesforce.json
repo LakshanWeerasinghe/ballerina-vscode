@@ -83,16 +83,7 @@
                   "advanced": false,
                   "codedata": {
                     "type": "LISTENER_VAR_NAME"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ]
+                  }
                 },
                 "authMode": {
                   "metadata": {
@@ -166,12 +157,7 @@
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
                             "path": "baseUrl"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.required"
-                            }
-                          ]
+                          }
                         },
                         "auth": {
                           "metadata": {
@@ -224,12 +210,7 @@
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
                             "path": "auth"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.required"
-                            }
-                          ]
+                          }
                         }
                       }
                     },
@@ -276,12 +257,7 @@
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
                             "path": "auth.username"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.required"
-                            }
-                          ]
+                          }
                         },
                         "password": {
                           "metadata": {
@@ -309,12 +285,7 @@
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
                             "path": "auth.password"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.required"
-                            }
-                          ]
+                          }
                         },
                         "isSandBox": {
                           "metadata": {
@@ -423,12 +394,7 @@
       "codedata": {
         "type": "SERVICE_TYPE_DESCRIPTOR",
         "moduleName": "salesforce"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required"
-        }
-      ]
+      }
     },
     "basePath": {
       "metadata": {
@@ -450,12 +416,7 @@
       "advanced": false,
       "codedata": {
         "type": "SERVICE_BASE_PATH"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required"
-        }
-      ]
+      }
     }
   },
   "serviceTypes": [

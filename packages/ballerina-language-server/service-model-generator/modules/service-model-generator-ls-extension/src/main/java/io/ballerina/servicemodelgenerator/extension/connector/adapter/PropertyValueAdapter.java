@@ -90,17 +90,8 @@ public final class PropertyValueAdapter {
         if (property.items() != null) {
             builder.setItems(new ArrayList<>(property.items()));
         }
-        if (property.validations() != null) {
-            List<ValidationRule> validations = new ArrayList<>();
-            for (TriggerModel.ValidationRule rule : property.validations()) {
-                ValidationRule wireRule = new ValidationRule(rule.rule());
-                wireRule.setArgs(rule.args());
-                wireRule.setMessage(rule.message());
-                wireRule.setSeverity(rule.severity());
-                validations.add(wireRule);
-            }
-            builder.setValidations(validations);
-        }
+        // Validations now live on the type members (see toPropertyType); the property-level slot is
+        // no longer populated by connector models.
         Value value = builder.build();
         if (property.choices() != null) {
             List<Value> choices = new ArrayList<>();
@@ -183,7 +174,23 @@ public final class PropertyValueAdapter {
             }
             builder.typeMembers(typeMembers);
         }
+        if (type.validations() != null) {
+            builder.validations(toWireValidations(type.validations()));
+        }
         return builder.build();
+    }
+
+    /** Converts the model's validation rules into their wire form (passed through untouched). */
+    private static List<ValidationRule> toWireValidations(List<TriggerModel.ValidationRule> modelRules) {
+        List<ValidationRule> validations = new ArrayList<>();
+        for (TriggerModel.ValidationRule rule : modelRules) {
+            ValidationRule wireRule = new ValidationRule(rule.rule());
+            wireRule.setArgs(rule.args());
+            wireRule.setMessage(rule.message());
+            wireRule.setSeverity(rule.severity());
+            validations.add(wireRule);
+        }
+        return validations;
     }
 
     /**

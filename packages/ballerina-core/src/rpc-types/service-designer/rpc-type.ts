@@ -18,7 +18,7 @@
  * THIS FILE INCLUDES AUTO GENERATED CODE
  */
 import { UpdatedArtifactsResponse } from "../../interfaces/bi";
-import { ListenerModelRequest, ListenerModelResponse, ServiceModelRequest, ServiceModelResponse, ServiceModelFromCodeRequest, ServiceModelFromCodeResponse, HttpResourceModelRequest, HttpResourceModelResponse, FunctionSourceCodeRequest, ListenerSourceCodeRequest, ListenersRequest, ListenersResponse, ServiceSourceCodeRequest, ListenerModelFromCodeRequest, ListenerModelFromCodeResponse, TriggerModelsRequest, TriggerModelsResponse, FunctionModelRequest, FunctionModelResponse, ResourceReturnTypesRequest, FunctionFromSourceRequest, FunctionFromSourceResponse, ServiceModelInitResponse, ServiceInitSourceRequest, VisibleTypesResponse } from "../../interfaces/extended-lang-client";
+import { ListenerModelRequest, ListenerModelResponse, ServiceModelRequest, ServiceModelResponse, ServiceModelFromCodeRequest, ServiceModelFromCodeResponse, HttpResourceModelRequest, HttpResourceModelResponse, FunctionSourceCodeRequest, ListenerSourceCodeRequest, ListenersRequest, ListenersResponse, ServiceSourceCodeRequest, ListenerModelFromCodeRequest, ListenerModelFromCodeResponse, TriggerModelsRequest, TriggerModelsResponse, FunctionModelRequest, FunctionModelResponse, ResourceReturnTypesRequest, FunctionFromSourceRequest, FunctionFromSourceResponse, ServiceModelInitResponse, ServiceInitSourceRequest, VisibleTypesResponse, ValidatePropertyRequest, ValidatePropertyResponse } from "../../interfaces/extended-lang-client";
 import { PayloadContext } from "../../interfaces/service";
 import {
     ExportOASRequest,
@@ -52,3 +52,4 @@ export const getServiceInitModel: RequestType<ServiceModelRequest, ServiceModelI
 export const createServiceAndListener: RequestType<ServiceInitSourceRequest, UpdatedArtifactsResponse> = { method: `${_preFix}/createServiceAndListener` };
 export const generateExamplePayloadJson: RequestType<PayloadContext, object> = { method: `${_preFix}/generateExamplePayloadJson` };
 export const getOASSpec: RequestType<GetOASSpecRequest, GetOASSpecResponse> = { method: `${_preFix}/getOASSpec` };
+export const validateProperty: RequestType<ValidatePropertyRequest, ValidatePropertyResponse> = { method: `${_preFix}/validateProperty` };

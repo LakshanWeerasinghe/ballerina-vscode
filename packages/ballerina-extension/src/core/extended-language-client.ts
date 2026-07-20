@@ -257,6 +257,8 @@ import {
     GetMigrationToolsResponse,
     ServiceModelInitResponse,
     ServiceInitSourceRequest,
+    ValidatePropertyRequest,
+    ValidatePropertyResponse,
     DeleteSubMappingRequest,
     DeleteClauseRequest,
     ClearTypeCacheResponse,
@@ -439,6 +441,7 @@ enum EXTENDED_APIS {
     BI_SERVICE_GET_SERVICE = 'serviceDesign/getServiceModel',
     BI_SERVICE_GET_SERVICE_INIT = 'serviceDesign/getServiceInitModel',
     BI_SERVICE_CREATE_SERVICE_AND_LISTENER = 'serviceDesign/addServiceAndListener',
+    BI_SERVICE_VALIDATE_PROPERTY = 'serviceDesign/validateProperty',
     BI_SERVICE_GET_FUNCTION = 'serviceDesign/getFunctionModel',
     BI_SERVICE_ADD_SERVICE = 'serviceDesign/addService',
     BI_SERVICE_UPDATE_SERVICE = 'serviceDesign/updateService',
@@ -1303,6 +1306,10 @@ export class ExtendedLangClient extends LanguageClient implements ExtendedLangCl
 
     async createServiceAndListener(params: ServiceInitSourceRequest): Promise<SourceEditResponse> {
         return this.sendRequest<SourceEditResponse>(EXTENDED_APIS.BI_SERVICE_CREATE_SERVICE_AND_LISTENER, params);
+    }
+
+    async validateProperty(params: ValidatePropertyRequest): Promise<ValidatePropertyResponse> {
+        return this.sendRequest<ValidatePropertyResponse>(EXTENDED_APIS.BI_SERVICE_VALIDATE_PROPERTY, params);
     }
 
     async getFunctionModel(params: FunctionModelRequest): Promise<FunctionModelResponse> {

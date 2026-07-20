@@ -83,16 +83,7 @@
                   "advanced": false,
                   "codedata": {
                     "type": "LISTENER_VAR_NAME"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ]
+                  }
                 },
                 "host": {
                   "metadata": {
@@ -119,11 +110,6 @@
                       "fieldType": "EXPRESSION",
                       "ballerinaType": "string",
                       "selected": false
-                    }
-                  ],
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
                     }
                   ]
                 },
@@ -214,17 +200,7 @@
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
                             "path": "port"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.number.range",
-                              "args": {
-                                "min": 1,
-                                "max": 65535
-                              },
-                              "message": "Port must be between 1 and 65535"
-                            }
-                          ]
+                          }
                         },
                         "auth": {
                           "metadata": {
@@ -302,12 +278,7 @@
                                   "codedata": {
                                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                                     "path": "auth.credentials.username"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
+                                  }
                                 },
                                 "password": {
                                   "metadata": {
@@ -389,17 +360,7 @@
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
                             "path": "port"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.number.range",
-                              "args": {
-                                "min": 1,
-                                "max": 65535
-                              },
-                              "message": "Port must be between 1 and 65535"
-                            }
-                          ]
+                          }
                         },
                         "auth": {
                           "metadata": {
@@ -477,12 +438,7 @@
                                   "codedata": {
                                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                                     "path": "auth.credentials.username"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
+                                  }
                                 },
                                 "password": {
                                   "metadata": {
@@ -556,12 +512,7 @@
                                   "codedata": {
                                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                                     "path": "auth.privateKey.path"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
+                                  }
                                 },
                                 "username": {
                                   "metadata": {
@@ -588,12 +539,7 @@
                                   "codedata": {
                                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                                     "path": "auth.credentials.username"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
+                                  }
                                 }
                               }
                             }
@@ -648,17 +594,7 @@
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
                             "path": "port"
-                          },
-                          "validations": [
-                            {
-                              "rule": "common.validate.number.range",
-                              "args": {
-                                "min": 1,
-                                "max": 65535
-                              },
-                              "message": "Port must be between 1 and 65535"
-                            }
-                          ]
+                          }
                         },
                         "auth": {
                           "metadata": {
@@ -736,12 +672,7 @@
                                   "codedata": {
                                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                                     "path": "auth.credentials.username"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
+                                  }
                                 },
                                 "password": {
                                   "metadata": {
@@ -891,13 +822,7 @@
         "path": "path",
         "moduleName": "ftp",
         "originalName": "ServiceConfig"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required",
-          "message": "Queue name is required"
-        }
-      ]
+      }
     }
   },
   "serviceTypes": [
@@ -1363,13 +1288,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -1501,13 +1420,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -1905,13 +1818,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -2043,13 +1950,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -2447,13 +2348,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -2585,13 +2480,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -2975,13 +2864,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -3113,13 +2996,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -3531,13 +3408,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },
@@ -3669,13 +3540,7 @@
                                 "type": "MAPPING_FIELD",
                                 "field": "moveTo",
                                 "valueKind": "STRING_LITERAL"
-                              },
-                              "validations": [
-                                {
-                                  "rule": "common.validate.required",
-                                  "message": "Move To is required"
-                                }
-                              ]
+                              }
                             }
                           }
                         },

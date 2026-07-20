@@ -27,7 +27,9 @@ import {
     ComponentInfo,
     ServiceModel,
     Protocol,
-    SHARED_COMMANDS
+    SHARED_COMMANDS,
+    ValidationResult,
+    hasBlockingValidationErrors
 } from "@wso2/ballerina-core";
 import { buildBaseUrl } from "./buildHurlString";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -205,6 +207,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     const [serviceModel, setServiceModel] = useState<ServiceModel>(undefined);
     const [functionModel, setFunctionModel] = useState<FunctionModel>(undefined);
     const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [serverValidationErrors, setServerValidationErrors] = useState<ValidationResult[]>([]);
 
     const [isNew, setIsNew] = useState<boolean>(false);
     const [showForm, setShowForm] = useState<boolean>(false);
@@ -782,6 +785,14 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             res = await rpcClient
                 .getServiceDesignerRpcClient()
                 .addFunctionSourceCode({ filePath, codedata: { lineRange }, function: value, artifactType: DIRECTORY_MAP.SERVICE });
+            // Refused by the save-time gate: nothing was written, so leave the form open with the
+            // user's input intact rather than closing it as if the handler had been created.
+            if (hasBlockingValidationErrors(res.validationErrors)) {
+                setServerValidationErrors(res.validationErrors);
+                setIsSaving(false);
+                return;
+            }
+            setServerValidationErrors([]);
             const serviceArtifact = findServiceArtifact(res.artifacts);
             if (serviceArtifact) {
                 if (openDiagram) {
@@ -808,6 +819,12 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             res = await rpcClient
                 .getServiceDesignerRpcClient()
                 .updateResourceSourceCode({ filePath, codedata: { lineRange }, function: value, artifactType: DIRECTORY_MAP.SERVICE });
+            if (hasBlockingValidationErrors(res.validationErrors)) {
+                setServerValidationErrors(res.validationErrors);
+                setIsSaving(false);
+                return;
+            }
+            setServerValidationErrors([]);
             const serviceArtifact = findServiceArtifact(res.artifacts);
             if (serviceArtifact) {
                 fetchService(serviceArtifact.position);
@@ -1622,6 +1639,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                             onClose={handleNewFunctionClose}
                                             isNew={isNew}
                                             selectedGroup={selectedTriggerGroup}
+                                            serverValidationErrors={serverValidationErrors}
                                         />
                                     )}
                                 </PanelContainer>

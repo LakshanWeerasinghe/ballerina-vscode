@@ -26,7 +26,7 @@ import { CodeActionParams, DefinitionParams, DocumentSymbolParams, ExecuteComman
 import { Category, Flow, FlowNode, CodeData, ConfigVariable, FunctionNode, Property, PropertyTypeMemberInfo, DIRECTORY_MAP, Imports, NodeKind, InputType, FormFieldInputType, ProjectStructureArtifactResponse, VISIBILITY } from "./bi";
 import { ConnectorRequest, ConnectorResponse } from "../rpc-types/connector-wizard/interfaces";
 import { SqFlow } from "../rpc-types/sequence-diagram/interfaces";
-import { FieldType, FunctionModel, ListenerModel, ServiceClassModel, ServiceInitModel, ServiceModel } from "./service";
+import { FieldType, FunctionModel, ListenerModel, PropertyModel, ServiceClassModel, ServiceInitModel, ServiceModel, ValidationResult } from "./service";
 import { CDModel } from "./component-diagram";
 import { DMModel, ExpandedDMModel, IntermediateClause, Mapping, VisualizableField, FnMetadata, ResultClauseType, IOType } from "./data-mapper";
 import { ArtifactData, DataMapperMetadata, SCOPE } from "./shared-types";
@@ -1363,6 +1363,7 @@ export interface ListenerSourceCodeResponse {
     textEdits: {
         [key: string]: TextEdit[];
     };
+    validationErrors?: ValidationResult[];
 }
 export interface ServiceModelRequest {
     filePath: string;
@@ -1414,6 +1415,9 @@ export interface SourceEditResponse {
     };
     errorMsg?: string;
     stacktrace?: string;
+    // Rule failures from the language server's save-time gate. An ERROR here means the model was
+    // refused and `textEdits` is empty; WARNINGs accompany a successful generation.
+    validationErrors?: ValidationResult[];
 }
 
 export interface ServiceClassSourceRequest {
@@ -1468,6 +1472,28 @@ export interface ServiceModelInitResponse {
 export interface ServiceInitSourceRequest {
     filePath: string;
     serviceInitModel: ServiceInitModel;
+}
+
+/**
+ * A live validation request for a single form node. `version` is the caller's per-field revision;
+ * it comes back untouched on the response so an answer about a stale value can be discarded.
+ */
+export interface ValidatePropertyRequest {
+    filePath: string;
+    propertyPath: string;
+    property: PropertyModel;
+    moduleName?: string;
+    // Locates the enclosing service, for the rules scoped to one service.
+    codedata?: CodeData;
+    version: number;
+}
+
+export interface ValidatePropertyResponse {
+    propertyPath: string;
+    version: number;
+    validationErrors: ValidationResult[];
+    errorMsg?: string;
+    stacktrace?: string;
 }
 
 // <-------- Type Related ------->
@@ -1747,6 +1773,7 @@ export interface ResourceSourceCodeResponse {
     textEdits: {
         [key: string]: TextEdit[];
     };
+    validationErrors?: ValidationResult[];
 }
 
 export interface ResourceReturnTypesRequest {
@@ -2119,6 +2146,7 @@ export interface BIInterface extends BaseLangClientInterface {
     getResourceReturnTypes: (params: ResourceReturnTypesRequest) => Promise<VisibleTypesResponse>;
     getServiceInitModel: (params: ServiceModelRequest) => Promise<ServiceModelInitResponse>;
     createServiceAndListener: (params: ServiceInitSourceRequest) => Promise<SourceEditResponse>;
+    validateProperty: (params: ValidatePropertyRequest) => Promise<ValidatePropertyResponse>;
 
     // Function APIs
     getFunctionNode: (params: FunctionNodeRequest) => Promise<FunctionNodeResponse>;

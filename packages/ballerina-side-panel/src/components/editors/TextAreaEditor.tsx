@@ -27,6 +27,7 @@ import styled from "@emotion/styled";
 import { ExpandIcon } from "./MultiModeExpressionEditor/ChipExpressionEditor/components/FloatingButtonIcons";
 import { FloatingToggleButton } from "./MultiModeExpressionEditor/ChipExpressionEditor/components/FloatingToggleButton";
 import { buildRequiredRule } from "./utils";
+import { buildValidate } from "../Form/validationRules";
 
 interface TextAreaEditorProps {
     field: FormField;
@@ -84,7 +85,8 @@ export function TextAreaEditor(props: TextAreaEditorProps) {
                     name={field.key}
                     defaultValue={field.value}
                     rules={{
-                        required: buildRequiredRule({ isRequired: !field.optional, label: field.label })
+                        required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
+                        validate: buildValidate(field)
                     }}
                     render={({ field: { name, value, onChange } }) => (
                         <TextAreaContainer>

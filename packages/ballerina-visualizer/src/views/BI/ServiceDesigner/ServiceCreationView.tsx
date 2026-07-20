@@ -23,7 +23,7 @@ import { TitleBar } from "../../../components/TitleBar";
 import { isBetaModule } from "../ComponentListView/componentListUtils";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { FormField, FormImports, FormValues } from "@wso2/ballerina-side-panel";
-import { EVENT_TYPE, getPrimaryInputType, LineRange, Property, PropertyModel, RecordTypeField, ServiceInitModel } from "@wso2/ballerina-core";
+import { EVENT_TYPE, getPrimaryInputType, hasBlockingValidationErrors, LineRange, Property, PropertyModel, RecordTypeField, ServiceInitModel, ValidationResult } from "@wso2/ballerina-core";
 import { FormHeader } from "../../../components/FormHeader";
 import ArtifactForm from "../Forms/ArtifactForm";
 import styled from "@emotion/styled";
@@ -211,6 +211,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
     const [filePath, setFilePath] = useState<string>("");
     const [targetLineRange, setTargetLineRange] = useState<LineRange>();
     const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [serverValidationErrors, setServerValidationErrors] = useState<ValidationResult[]>([]);
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
 
     const MAIN_BALLERINA_FILE = "main.bal";
@@ -523,6 +524,15 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
             .getServiceDesignerRpcClient()
             .createServiceAndListener({ filePath: "", serviceInitModel: updatedModel });
 
+        // The language server refused the model: nothing was written, so keep the form open and
+        // hand the failures to it rather than leaving the user on a stuck "Saving" button. Only an
+        // ERROR blocks — a WARNING rides along with a successful save and must not trap the form.
+        if (hasBlockingValidationErrors(res.validationErrors)) {
+            setServerValidationErrors(res.validationErrors);
+            setIsSaving(false);
+            return;
+        }
+        setServerValidationErrors([]);
 
         const newArtifact = res.artifacts.find(res => res.isNew && model.moduleName === res.moduleName);
         if (newArtifact) {
@@ -530,6 +540,8 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
             setIsSaving(false);
             return;
         }
+        // No artifact came back and nothing was rejected — release the button rather than hanging.
+        setIsSaving(false);
     }
 
     return (
@@ -589,6 +601,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
                                                 nestedForm={true}
                                                 onSubmit={handleOnSubmit}
                                                 onChange={handleOnChange}
+                                                serverValidationErrors={serverValidationErrors}
                                                 preserveFieldOrder={true}
                                                 recordTypeFields={recordTypeFields}
                                                 submitText="Create"

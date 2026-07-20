@@ -255,7 +255,7 @@
             "character": 3
           }
         },
-        "newText": "\nlistener rabbitmq:Listener rabbitmqListener = new (\"localhost\", 5672);\nservice rabbitmq:Service on rabbitmqListener {\n\n}\n"
+        "newText": "\nlistener rabbitmq:Listener rabbitmqListener = new (\"localhost\", 5672);\nservice rabbitmq:Service \"myQueue\" on rabbitmqListener {\n\n}\n"
       }
     ]
   }

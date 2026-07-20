@@ -120,6 +120,25 @@
         "editable": true,
         "optional": false,
         "advanced": false
+      },
+      "readOnlyMetadata": {
+        "codedata": {
+          "type": "READONLY"
+        },
+        "placeholder": "false",
+        "value": {
+          "Monitored Path": []
+        },
+        "types": [
+          {
+            "fieldType": "SINGLE_SELECT",
+            "selected": true
+          }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": false,
+        "advanced": false
       }
     },
     "codedata": {
@@ -375,7 +394,8 @@
       {
         "metadata": {
           "label": "On Create",
-          "description": "Invoked when a file is created in the monitored directory. Comma-separated rows — binds each row to T, emits T[] (or stream<T, error?> for large files)."
+          "description": "Invoked when a file is created in the monitored directory. Comma-separated rows — binds each row to T, emits T[] (or stream<T, error?> for large files).",
+          "badge": "onCreate"
         },
         "kind": "REMOTE",
         "name": {
@@ -649,12 +669,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -785,12 +799,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -888,7 +896,8 @@
       {
         "metadata": {
           "label": "On Create",
-          "description": "Invoked when a file is created in the monitored directory. Binds the file content to json or a custom record type."
+          "description": "Invoked when a file is created in the monitored directory. Binds the file content to json or a custom record type.",
+          "badge": "onCreate"
         },
         "kind": "REMOTE",
         "name": {
@@ -1162,12 +1171,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -1298,12 +1301,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -1401,7 +1398,8 @@
       {
         "metadata": {
           "label": "On Create",
-          "description": "Invoked when a file is created in the monitored directory. Binds the file content to xml or a custom record type."
+          "description": "Invoked when a file is created in the monitored directory. Binds the file content to xml or a custom record type.",
+          "badge": "onCreate"
         },
         "kind": "REMOTE",
         "name": {
@@ -1675,12 +1673,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -1811,12 +1803,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -1914,7 +1900,8 @@
       {
         "metadata": {
           "label": "On Create",
-          "description": "Invoked when a file is created in the monitored directory. Delivers the file content as a plain string."
+          "description": "Invoked when a file is created in the monitored directory. Delivers the file content as a plain string.",
+          "badge": "onCreate"
         },
         "kind": "REMOTE",
         "name": {
@@ -2187,12 +2174,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -2323,12 +2304,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -2426,7 +2401,8 @@
       {
         "metadata": {
           "label": "On Create",
-          "description": "Invoked when a file is created in the monitored directory. Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
+          "description": "Invoked when a file is created in the monitored directory. Delivers the raw file content as byte[] (or stream<byte[], error?> for large files).",
+          "badge": "onCreate"
         },
         "kind": "REMOTE",
         "name": {
@@ -2699,12 +2675,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -2835,12 +2805,6 @@
                                 "selected": false
                               }
                             ],
-                            "validations": [
-                              {
-                                "rule": "common.validate.required",
-                                "message": "Move To is required"
-                              }
-                            ],
                             "enabled": true,
                             "editable": true,
                             "optional": false,
@@ -2938,12 +2902,13 @@
       {
         "metadata": {
           "label": "On Delete",
-          "description": "Invoked when a file is deleted from the monitored directory."
+          "description": "Invoked when a file is deleted from the monitored directory.",
+          "badge": "onDelete"
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "onFileDelete",
+            "label": "On Delete",
             "description": "Invoked when a file is deleted from the monitored directory."
           },
           "placeholder": "onFileDelete",
@@ -3002,8 +2967,8 @@
               "optional": false,
               "advanced": false
             },
-            "enabled": false,
-            "editable": true,
+            "enabled": true,
+            "editable": false,
             "optional": false,
             "advanced": false,
             "hidden": false,
@@ -3090,8 +3055,7 @@
           "version": "2.19.0"
         },
         "properties": {},
-        "group": "onDelete",
-        "variantLabel": "onFileDelete",
+        "group": "onFileDelete",
         "addLabel": "Add On Delete Handler",
         "repeatable": "FALSE",
         "nameEditable": false
@@ -3099,12 +3063,13 @@
       {
         "metadata": {
           "label": "On Error",
-          "description": "Invoked when an error occurs during file processing."
+          "description": "Invoked when an error occurs during file processing.",
+          "badge": "onError"
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "onError",
+            "label": "On Error",
             "description": "Invoked when an error occurs during file processing."
           },
           "placeholder": "onError",
@@ -3163,8 +3128,8 @@
               "optional": false,
               "advanced": false
             },
-            "enabled": false,
-            "editable": true,
+            "enabled": true,
+            "editable": false,
             "optional": false,
             "advanced": false,
             "hidden": false,
@@ -3252,7 +3217,6 @@
         },
         "properties": {},
         "group": "onError",
-        "variantLabel": "onError",
         "addLabel": "Add On Error Handler",
         "repeatable": "FALSE",
         "nameEditable": false

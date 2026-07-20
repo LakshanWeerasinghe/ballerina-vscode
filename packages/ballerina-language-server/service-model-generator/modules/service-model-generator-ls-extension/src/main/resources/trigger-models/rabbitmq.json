@@ -82,16 +82,7 @@
                   "advanced": false,
                   "codedata": {
                     "type": "LISTENER_VAR_NAME"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ]
+                  }
                 },
                 "host": {
                   "metadata": {
@@ -119,11 +110,6 @@
                       "ballerinaType": "string",
                       "selected": false
                     }
-                  ],
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
                   ]
                 },
                 "port": {
@@ -145,25 +131,23 @@
                     {
                       "fieldType": "NUMBER",
                       "ballerinaType": "int",
-                      "selected": true
+                      "selected": true,
+                      "validations": [
+                        {
+                          "rule": "common.validate.port",
+                          "severity": "WARNING",
+                          "args": {
+                            "min": 1,
+                            "max": 65535
+                          },
+                          "message": "Port must be between {min} and {max}"
+                        }
+                      ]
                     },
                     {
                       "fieldType": "EXPRESSION",
                       "ballerinaType": "int",
                       "selected": false
-                    }
-                  ],
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    },
-                    {
-                      "rule": "common.validate.number.range",
-                      "args": {
-                        "min": 1,
-                        "max": 65535
-                      },
-                      "message": "Port must be between 1 and 65535"
                     }
                   ]
                 }
@@ -243,13 +227,7 @@
         "path": "queueName",
         "moduleName": "rabbitmq",
         "originalName": "ServiceConfig"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required",
-          "message": "Queue name is required"
-        }
-      ]
+      }
     }
   },
   "serviceTypes": [

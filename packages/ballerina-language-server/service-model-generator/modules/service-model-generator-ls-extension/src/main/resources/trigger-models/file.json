@@ -31,16 +31,7 @@
       "advanced": true,
       "codedata": {
         "type": "LISTENER_VAR_NAME"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.identifier"
-        },
-        {
-          "rule": "ls.validate.unique.listener.name",
-          "message": "A listener with this name already exists in the project"
-        }
-      ]
+      }
     },
     "path": {
       "metadata": {
@@ -67,11 +58,6 @@
           "fieldType": "EXPRESSION",
           "ballerinaType": "string",
           "selected": false
-        }
-      ],
-      "validations": [
-        {
-          "rule": "common.validate.required"
         }
       ]
     },

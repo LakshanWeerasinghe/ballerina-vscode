@@ -31,16 +31,7 @@
       "advanced": true,
       "codedata": {
         "type": "LISTENER_VAR_NAME"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.identifier"
-        },
-        {
-          "rule": "ls.validate.unique.listener.name",
-          "message": "A listener with this name already exists in the project"
-        }
-      ]
+      }
     },
     "bootstrapServers": {
       "metadata": {
@@ -93,11 +84,6 @@
           "fieldType": "EXPRESSION",
           "ballerinaType": "string|string[]",
           "selected": false
-        }
-      ],
-      "validations": [
-        {
-          "rule": "common.validate.required"
         }
       ]
     },
@@ -152,11 +138,6 @@
           "fieldType": "EXPRESSION",
           "ballerinaType": "string|string[]",
           "selected": false
-        }
-      ],
-      "validations": [
-        {
-          "rule": "common.validate.required"
         }
       ]
     }

@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { FormField, FormImports, FormValues, StringTemplateEditorConfig } from "@wso2/ballerina-side-panel";
-import { getPrimaryInputType, LineRange, Property, RecordTypeField, ServiceModel, SubPanel, SubPanelView } from "@wso2/ballerina-core";
+import { getPrimaryInputType, LineRange, Property, RecordTypeField, ServiceModel, SubPanel, SubPanelView, ValidationResult } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { URI, Utils } from "vscode-uri";
 import { ArtifactForm } from "../../Forms/ArtifactForm";
@@ -70,13 +70,14 @@ interface ServiceConfigFormProps {
     onChange?: (data: ServiceModel) => void;
     onDirtyChange?: (isDirty: boolean) => void;
     onValidityChange?: (isValid: boolean) => void;
+    serverValidationErrors?: ValidationResult[];
 }
 
 export function ServiceConfigForm(props: ServiceConfigFormProps) {
     const { rpcClient } = useRpcContext();
 
     const [serviceFields, setServiceFields] = useState<FormField[]>([]);
-    const { serviceModel, onSubmit, onBack, openListenerForm, formSubmitText = "Next", isSaving, onChange, onDirtyChange, onValidityChange } = props;
+    const { serviceModel, onSubmit, onBack, openListenerForm, formSubmitText = "Next", isSaving, onChange, onDirtyChange, onValidityChange, serverValidationErrors } = props;
     const [filePath, setFilePath] = useState<string>('');
     const [targetLineRange, setTargetLineRange] = useState<LineRange>();
     const [recordTypeFields, setRecordTypeFields] = useState<RecordTypeField[]>([]);
@@ -253,6 +254,7 @@ export function ServiceConfigForm(props: ServiceConfigFormProps) {
                                     onChange={handleServiceChange}
                                     hideSaveButton={onChange ? true : false}
                                     onValidityChange={onValidityChange}
+                                    serverValidationErrors={serverValidationErrors}
                                 />
                             }
                         </FormContainer>

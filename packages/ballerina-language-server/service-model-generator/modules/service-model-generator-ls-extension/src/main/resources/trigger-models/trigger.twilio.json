@@ -31,16 +31,7 @@
       "advanced": true,
       "codedata": {
         "type": "LISTENER_VAR_NAME"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.identifier"
-        },
-        {
-          "rule": "ls.validate.unique.listener.name",
-          "message": "A listener with this name already exists in the project"
-        }
-      ]
+      }
     },
     "listenOn": {
       "metadata": {
@@ -68,16 +59,6 @@
           "fieldType": "EXPRESSION",
           "ballerinaType": "int|http:Listener",
           "selected": false
-        }
-      ],
-      "validations": [
-        {
-          "rule": "common.validate.port",
-          "args": {
-            "min": 1,
-            "max": 65535
-          },
-          "severity": "WARNING"
         }
       ]
     },
@@ -111,12 +92,7 @@
       "codedata": {
         "type": "SERVICE_TYPE_DESCRIPTOR",
         "moduleName": "twilio"
-      },
-      "validations": [
-        {
-          "rule": "common.validate.required"
-        }
-      ]
+      }
     }
   },
   "serviceTypes": [

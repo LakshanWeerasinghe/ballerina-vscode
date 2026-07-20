@@ -140,6 +140,27 @@
         "editable": true,
         "optional": true,
         "advanced": false
+      },
+      "readOnlyMetadata": {
+        "codedata": {
+          "type": "READONLY"
+        },
+        "placeholder": "false",
+        "value": {
+          "Queue Name": [
+            "queueName"
+          ]
+        },
+        "types": [
+          {
+            "fieldType": "SINGLE_SELECT",
+            "selected": true
+          }
+        ],
+        "enabled": true,
+        "editable": true,
+        "optional": false,
+        "advanced": false
       }
     },
     "codedata": {
@@ -349,7 +370,7 @@
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "onError",
+            "label": "On Error",
             "description": "Triggered when an error occurs while dispatching a message to On Message / On Request."
           },
           "placeholder": "onError",
@@ -497,7 +518,6 @@
         },
         "properties": {},
         "group": "onError",
-        "variantLabel": "onError",
         "repeatable": "FALSE",
         "nameEditable": false
       }

@@ -21,6 +21,7 @@ import { LinePosition } from "./common";
 import { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types";
 import { ValueTypeConstraint } from "../rpc-types/ai-agent/interfaces";
 import { Type } from "./extended-lang-client";
+import { ValidationResult, ValidationRule } from "./service";
 
 export type { NodePosition };
 
@@ -183,6 +184,11 @@ export interface BaseType {
     defaultItems?: number; // default number of items for EXPRESSION_SET fields
     pattern?: string; // regex pattern for validation (e.g., for TEXT fields)
     patternErrorMessage?: string; // custom error message when pattern validation fails
+    // Connector-shipped validation rules scoped to THIS type member. A rule runs only while this
+    // member is the active input mode — e.g. a NUMBER member's `port` rule never fires when the
+    // user switches the field to its EXPRESSION member and types a variable reference we cannot
+    // evaluate. Generalises the single `pattern`/`patternErrorMessage` above.
+    validations?: ValidationRule[];
 }
 
 export interface EnumOptions {
@@ -429,6 +435,9 @@ export interface ProjectStructureArtifactResponse {
 export interface UpdatedArtifactsResponse {
     artifacts: ProjectStructureArtifactResponse[];
     error?: string;
+    // Set when the language server's save-time gate refused the model: `artifacts` is empty and no
+    // source was written. The form renders these per field by `propertyPath`.
+    validationErrors?: ValidationResult[];
 }
 
 export type Item = Category | AvailableNode;

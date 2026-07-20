@@ -218,6 +218,44 @@ interface CodeData {
     value?: string;
 }
 
+export type ValidationSeverity = "ERROR" | "WARNING";
+
+/**
+ * A named validation rule carried by an editable form node.
+ *
+ * The rule id's namespace decides where it runs: `common.*` runs both in the webview
+ * (as-you-type) and on the language server (save-time re-check), `vscode.*` runs in the
+ * webview only, `ls.*` on the language server only. The vocabulary is open — an unknown
+ * id is skipped with a dev-console warning so newer connector models stay loadable by
+ * older clients.
+ */
+export interface ValidationRule {
+    rule: string;
+    args?: Record<string, unknown>;
+    // Overrides the rule's default message. Supports {placeholder} interpolation from
+    // `args` plus the built-ins {label} and {value}.
+    message?: string;
+    // Defaults to ERROR. WARNING renders inline but does not block submit.
+    severity?: ValidationSeverity;
+}
+
+/** A rule failure, produced client-side or returned by the LS keyed by property path. */
+export interface ValidationResult {
+    propertyPath: string;
+    rule: string;
+    message: string;
+    severity: ValidationSeverity;
+}
+
+/**
+ * Whether any result blocks source generation. Only ERROR does; a WARNING is returned alongside a
+ * successful save and must not be mistaken for a rejection. Callers deciding whether to navigate
+ * away after a save must gate on this rather than on the list being non-empty.
+ */
+export function hasBlockingValidationErrors(validationErrors?: ValidationResult[]): boolean {
+    return (validationErrors ?? []).some((error) => error.severity === "ERROR");
+}
+
 export interface PropertyModel {
     metadata?: MetaData;
     codedata?: CodeData;

@@ -74,8 +74,13 @@ import io.ballerina.servicemodelgenerator.extension.model.request.ServiceSourceR
 import io.ballerina.servicemodelgenerator.extension.model.request.TriggerListRequest;
 import io.ballerina.servicemodelgenerator.extension.model.request.TriggerRequest;
 import io.ballerina.servicemodelgenerator.extension.model.request.TypesRequest;
+import io.ballerina.servicemodelgenerator.extension.model.request.ValidatePropertyRequest;
 import io.ballerina.servicemodelgenerator.extension.model.response.AddOrGetDefaultListenerResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.CommonSourceResponse;
+import io.ballerina.servicemodelgenerator.extension.validation.SaveTimeValidator;
+import io.ballerina.servicemodelgenerator.extension.validation.ValidationContext;
+import io.ballerina.servicemodelgenerator.extension.validation.ValidationEngine;
+import io.ballerina.servicemodelgenerator.extension.validation.ValidationResult;
 import io.ballerina.servicemodelgenerator.extension.model.response.FunctionFromSourceResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.FunctionModelResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.ListenerDiscoveryResponse;
@@ -87,6 +92,7 @@ import io.ballerina.servicemodelgenerator.extension.model.response.ServiceInitMo
 import io.ballerina.servicemodelgenerator.extension.model.response.ServiceModelResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.TriggerListResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.TriggerResponse;
+import io.ballerina.servicemodelgenerator.extension.model.response.ValidatePropertyResponse;
 import io.ballerina.servicemodelgenerator.extension.util.FTPListenerUtil;
 import io.ballerina.servicemodelgenerator.extension.util.FunctionBadge;
 import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
@@ -148,6 +154,10 @@ import static io.ballerina.servicemodelgenerator.extension.util.Utils.importExis
 @JavaSPIService("org.ballerinalang.langserver.commons.service.spi.ExtendedLanguageServerService")
 @JsonSegment("serviceDesign")
 public class ServiceModelGeneratorService implements ExtendedLanguageServerService {
+
+    // Built once: the registries are immutable, and `validateProperty` runs on a per-keystroke
+    // debounce where rebuilding both catalogs per call is pure waste.
+    private static final ValidationEngine LIVE_VALIDATION_ENGINE = ValidationEngine.withAllRules();
 
     private static final Type propertyMapType = new TypeToken<Map<String, TriggerProperty>>() {
     }.getType();
@@ -670,10 +680,15 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 Codedata codedata = request.function().getCodedata();
                 String moduleName = (codedata != null && codedata.getModuleName() != null) ? codedata.getModuleName() :
                         DEFAULT;
+                List<ValidationResult> validations = validateFunction(request.function(),
+                        new ValidationContext(semanticModelOp.get(), null, document.get(), moduleName, node, null));
+                if (SaveTimeValidator.blocksGeneration(validations)) {
+                    return CommonSourceResponse.validationFailure(validations);
+                }
                 Map<String, List<TextEdit>> textEdits = FunctionBuilderRouter.addFunction(moduleName,
                         request.function(), request.filePath(), semanticModelOp.get(), document.get(), node,
                         this.workspaceManager);
-                return new CommonSourceResponse(textEdits);
+                return new CommonSourceResponse(textEdits, validations);
             } catch (Exception e) {
                 return new CommonSourceResponse(e);
             }
@@ -714,10 +729,16 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                     return new CommonSourceResponse();
                 }
                 String moduleName = codedata.getModuleName() != null ? codedata.getModuleName() : DEFAULT;
+                List<ValidationResult> validations = validateFunction(function,
+                        new ValidationContext(semanticModelOp.get(), project, document.get(), moduleName,
+                                parentNode, functionDefinitionNode.lineRange()));
+                if (SaveTimeValidator.blocksGeneration(validations)) {
+                    return CommonSourceResponse.validationFailure(validations);
+                }
                 Map<String, List<TextEdit>> textEdits = FunctionBuilderRouter.updateFunction(moduleName, function,
                         request.filePath(), document.get(), functionDefinitionNode, semanticModelOp.get(), project,
                         this.workspaceManager);
-                return new CommonSourceResponse(textEdits);
+                return new CommonSourceResponse(textEdits, validations);
             } catch (Throwable e) {
                 return new CommonSourceResponse(e);
             }
@@ -746,10 +767,16 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 if (node.kind() != SyntaxKind.SERVICE_DECLARATION) {
                     return new CommonSourceResponse();
                 }
+                List<ValidationResult> validations = SaveTimeValidator.validate(service.getProperties(),
+                        SaveTimeValidator.context(semanticModel.get(), null, document.get(),
+                                service.getModuleName()));
+                if (SaveTimeValidator.blocksGeneration(validations)) {
+                    return CommonSourceResponse.validationFailure(validations);
+                }
                 Map<String, List<TextEdit>> textEdits = ServiceBuilderRouter.updateService(service,
                         semanticModel.get(), workspaceManager, filePath.toString(), document.get(),
                         (ServiceDeclarationNode) node);
-                return new CommonSourceResponse(textEdits);
+                return new CommonSourceResponse(textEdits, validations);
             } catch (Throwable e) {
                 return new CommonSourceResponse(e);
             }
@@ -1026,14 +1053,80 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 if (document.isEmpty() || semanticModel.isEmpty()) {
                     return new CommonSourceResponse();
                 }
+                // Save-time gate: an ERROR here means no edits are generated at all.
+                List<ValidationResult> validations = SaveTimeValidator.validate(
+                        request.serviceInitModel().getProperties(),
+                        SaveTimeValidator.context(semanticModel.get(), project, document.get(),
+                                request.serviceInitModel().getModuleName()));
+                if (SaveTimeValidator.blocksGeneration(validations)) {
+                    return CommonSourceResponse.validationFailure(validations);
+                }
                 Map<String, List<TextEdit>> textEdits = ServiceBuilderRouter.addServiceInitSource(
                         request.serviceInitModel(), semanticModel.get(), project, workspaceManager,
                         request.filePath(), document.get());
-                return new CommonSourceResponse(textEdits);
+                return new CommonSourceResponse(textEdits, validations);
             } catch (Throwable e) {
                 return new CommonSourceResponse(e);
             }
         });
+    }
+
+    /**
+     * Validates a single form node while the user types.
+     *
+     * <p>Read-only and stateless: it reuses whatever the workspace manager already holds and never
+     * calls {@code loadProject}, because this runs on a debounce per keystroke. If the project is
+     * not loaded yet the call yields no results rather than forcing a load — the save-time gate is
+     * what actually guarantees correctness, so degrading here only costs live feedback.
+     *
+     * @param request Validate property request
+     * @return {@link ValidatePropertyResponse} carrying the failures and the echoed version
+     */
+    @JsonRequest
+    public CompletableFuture<ValidatePropertyResponse> validateProperty(ValidatePropertyRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                if (request.property() == null) {
+                    return new ValidatePropertyResponse(request.propertyPath(), request.version(), List.of());
+                }
+                Path filePath = Path.of(request.filePath());
+                Optional<SemanticModel> semanticModel;
+                Optional<Document> document;
+                try {
+                    semanticModel = this.workspaceManager.semanticModel(filePath);
+                    document = this.workspaceManager.document(filePath);
+                } catch (Throwable e) {
+                    // Not loaded (or mid-reload) — no verdict, and never a hard failure.
+                    return new ValidatePropertyResponse(request.propertyPath(), request.version(), List.of());
+                }
+                if (semanticModel.isEmpty() || document.isEmpty()) {
+                    return new ValidatePropertyResponse(request.propertyPath(), request.version(), List.of());
+                }
+
+                NonTerminalNode serviceNode = null;
+                if (request.codedata() != null && request.codedata().getLineRange() != null) {
+                    NonTerminalNode node = findNonTerminalNode(request.codedata(), document.get());
+                    serviceNode = node instanceof ServiceDeclarationNode ? node : null;
+                }
+                ValidationContext context = new ValidationContext(semanticModel.get(), null, document.get(),
+                        request.moduleName(), serviceNode,
+                        request.codedata() == null ? null : request.codedata().getLineRange());
+                List<ValidationResult> results = LIVE_VALIDATION_ENGINE
+                        .validateNode(request.property(), request.propertyPath(), context);
+                return new ValidatePropertyResponse(request.propertyPath(), request.version(), results);
+            } catch (Throwable e) {
+                return new ValidatePropertyResponse(request.propertyPath(), request.version(), e);
+            }
+        });
+    }
+
+    /**
+     * Runs the save-time gate over a handler function: its property tree plus the name node, which
+     * carries its own rules for {@code nameEditable} handlers.
+     */
+    private static List<ValidationResult> validateFunction(Function function, ValidationContext context) {
+        Map<String, Value> extraNodes = function.getName() == null ? null : Map.of("name", function.getName());
+        return SaveTimeValidator.validate(function.getProperties(), context, extraNodes);
     }
 
     private Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
