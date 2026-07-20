@@ -27,6 +27,7 @@ import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
+import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
@@ -93,9 +94,10 @@ public final class TriggerSourceMerger {
         }
 
         List<Function> merged = new ArrayList<>();
-        // A group whose consumed variant is NOT repeatable (e.g. RabbitMQ's onMessage/onRequest — the
-        // compiler plugin allows exactly one) is mutually exclusive: once one sibling is present, every
-        // other sibling must leave the addable catalog too, not just the matched one.
+        // Groups whose consumed member is ONE_OF_GROUP (e.g. RabbitMQ's onMessage/onRequest — the
+        // compiler plugin allows exactly one): once one sibling is present, every other sibling must
+        // leave the addable catalog too, not just the matched one. ONE_EACH_PER_GROUP (e.g. FTP's
+        // per-format handlers) consumes only the matched member, so its siblings stay addable.
         Set<String> consumedExclusiveGroups = new HashSet<>();
         for (Function source : functionsInSource == null ? List.<Function>of() : functionsInSource) {
             Function template = findTemplate(catalog, source);
@@ -108,11 +110,15 @@ public final class TriggerSourceMerger {
             }
             // A name-editable handler can be added again under another name, so its template stays
             // in the catalog and the source function enriches a copy; a fixed-name variant (the
-            // common case) is consumed — it leaves the addable catalog.
+            // common case) is consumed — it leaves the addable catalog unless it is `TRUE`
+            // (repeat-always).
             Function enriched = Boolean.TRUE.equals(template.getNameEditable()) ? copyOf(template) : template;
             if (enriched == template) {
-                catalog.remove(template);
-                if (template.getGroup() != null && !Boolean.TRUE.equals(template.getRepeatable())) {
+                Repeatable repeatable = Repeatable.orDefault(template.getRepeatable()).effective(template.getGroup());
+                if (!repeatable.staysAddable()) {
+                    catalog.remove(template);
+                }
+                if (repeatable.isGroupExclusive()) {
                     consumedExclusiveGroups.add(template.getGroup());
                 }
             }

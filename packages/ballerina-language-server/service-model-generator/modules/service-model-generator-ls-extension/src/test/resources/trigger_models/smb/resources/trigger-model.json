@@ -885,7 +885,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": true,
+          "repeatable": "ONE_EACH_PER_GROUP",
           "documentation": "Handles an added file. Choose the file format to bind the content and set the emitted handler name; the listener routes files to it automatically by extension.",
           "codedata": {
             "type": "FUNCTION",
@@ -1522,7 +1522,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onError",

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { FunctionModel, ParameterModel, PropertyModel, ServiceModel } from "@wso2/ballerina-core";
+import { FunctionModel, ParameterModel, PropertyModel, RepeatBehavior, ServiceModel } from "@wso2/ballerina-core";
 
 /**
  * Pure helpers for schema-driven trigger handlers (unified TriggerModel wire shape).
@@ -70,6 +70,52 @@ export function catalogFunctionsOf(serviceModel: ServiceModel): FunctionModel[] 
         return serviceModel.schemaFunctions;
     }
     return (serviceModel.functions ?? []).filter((fn) => isSchemaTriggerFunction(fn) && !fn.enabled);
+}
+
+/** The repeat behaviour of a handler, defaulting to FALSE when unset. */
+export function repeatBehaviorOf(fn: FunctionModel): RepeatBehavior {
+    return fn.repeatable ?? RepeatBehavior.FALSE;
+}
+
+/**
+ * The still-addable handler catalog, with the group/repeat rules enforced against the handlers
+ * already present (enabled) in the service. The language server already prunes `schemaFunctions` on
+ * the read path; applying the same rules on the client keeps the catalog correct independently —
+ * e.g. right after a handler is added, before the model is refetched:
+ *
+ *   - a present ONE_OF_GROUP handler hides every sibling of its group (mutually exclusive);
+ *   - a present handler that is not TRUE hides its own (same-name) catalog entry (add-once).
+ *
+ * TRUE (repeat-always) handlers are never hidden. ONE_EACH_PER_GROUP naturally keeps siblings, since
+ * only the same-name entry is removed.
+ */
+export function addableCatalogOf(serviceModel: ServiceModel): FunctionModel[] {
+    const catalog = catalogFunctionsOf(serviceModel);
+    const present = (serviceModel.functions ?? []).filter((fn) => fn.enabled && isSchemaTriggerFunction(fn));
+
+    const exclusiveGroups = new Set<string>();
+    const consumedNames = new Set<string>();
+    for (const fn of present) {
+        const behavior = repeatBehaviorOf(fn);
+        const group = handlerGroupId(fn);
+        if (behavior === RepeatBehavior.ONE_OF_GROUP && group) {
+            exclusiveGroups.add(group);
+        }
+        if (behavior !== RepeatBehavior.TRUE && fn.name?.value) {
+            consumedNames.add(fn.name.value);
+        }
+    }
+
+    return catalog.filter((fn) => {
+        const group = handlerGroupId(fn);
+        if (group && exclusiveGroups.has(group)) {
+            return false;
+        }
+        if (repeatBehaviorOf(fn) !== RepeatBehavior.TRUE && fn.name?.value && consumedNames.has(fn.name.value)) {
+            return false;
+        }
+        return true;
+    });
 }
 
 /** Whether a parameter is a payload (data-binding) parameter. */

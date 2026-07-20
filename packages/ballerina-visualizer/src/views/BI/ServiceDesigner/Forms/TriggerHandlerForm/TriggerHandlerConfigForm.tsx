@@ -23,7 +23,7 @@ import { cloneDeep } from "lodash";
 import ButtonCard from "../../../../../components/ButtonCard";
 
 import { EditorContentColumn } from "../../styles";
-import { catalogFunctionsOf, handlerGroupId, hasConfigurableFields } from "./payloadComposer";
+import { addableCatalogOf, handlerGroupId, hasConfigurableFields } from "./payloadComposer";
 
 interface TriggerHandlerConfigFormProps {
     serviceModel: ServiceModel;
@@ -57,7 +57,7 @@ export function TriggerHandlerConfigForm(props: TriggerHandlerConfigFormProps) {
     const { serviceModel, isSaving, onSubmit, onQuickAdd } = props;
 
     const handlerGroups: HandlerGroup[] = React.useMemo(() => {
-        const catalog = catalogFunctionsOf(serviceModel) as FunctionModel[];
+        const catalog = addableCatalogOf(serviceModel) as FunctionModel[];
         const groups = new Map<string, HandlerGroup>();
         const membersByGroup = new Map<string, FunctionModel[]>();
         for (const fn of catalog) {

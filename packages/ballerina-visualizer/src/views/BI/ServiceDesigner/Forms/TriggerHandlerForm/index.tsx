@@ -53,7 +53,7 @@ import {
     CODEDATA_METADATA_FLAG,
     CODEDATA_PAYLOAD_MODIFIER,
     CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD,
-    catalogFunctionsOf,
+    addableCatalogOf,
     composePayloadType,
     functionSignatureKey,
     handlerGroupId,
@@ -151,13 +151,14 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     const groupId = selectedGroup ?? (props.functionModel ? handlerGroupId(props.functionModel) : undefined);
 
-    // Still-addable sibling variants of this handler group (e.g. CSV/JSON/XML of onFileChange),
-    // from the service's addable catalog — the language server already removed consumed variants.
+    // Still-addable sibling variants of this handler group (e.g. CSV/JSON/XML of onFileChange), from
+    // the service's addable catalog — consumed variants and mutually-exclusive siblings are already
+    // filtered out (by the language server on the read path, and by addableCatalogOf on the client).
     const addableVariants = useMemo(() => {
         if (!groupId) {
             return [];
         }
-        return catalogFunctionsOf(serviceModel).filter((fn) => handlerGroupId(fn) === groupId);
+        return addableCatalogOf(serviceModel).filter((fn) => handlerGroupId(fn) === groupId);
     }, [serviceModel, groupId]);
 
     // Add mode starts from the group's first addable variant; edit mode from the passed model.

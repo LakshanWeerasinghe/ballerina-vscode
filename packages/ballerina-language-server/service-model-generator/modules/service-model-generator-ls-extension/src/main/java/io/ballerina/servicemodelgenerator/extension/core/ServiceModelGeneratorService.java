@@ -88,6 +88,7 @@ import io.ballerina.servicemodelgenerator.extension.model.response.ServiceModelR
 import io.ballerina.servicemodelgenerator.extension.model.response.TriggerListResponse;
 import io.ballerina.servicemodelgenerator.extension.model.response.TriggerResponse;
 import io.ballerina.servicemodelgenerator.extension.util.FTPListenerUtil;
+import io.ballerina.servicemodelgenerator.extension.util.FunctionBadge;
 import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
 import io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil;
 import io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtil;
@@ -541,6 +542,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
             SemanticModel semanticModel = semanticModelOp.get();
             Service service = ServiceBuilderRouter.getServiceFromSource(serviceNode, project, semanticModel,
                     workspaceManager, request.filePath());
+            FunctionBadge.stamp(service);
             return new ServiceFromSourceResponse(service);
         });
     }

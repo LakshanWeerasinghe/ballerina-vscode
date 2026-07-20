@@ -115,6 +115,12 @@
           "moduleName": "grpc"
         },
         "value": "{\n    value: \"GRPC_SERVER_STREAMING_DESC\"\n}",
+        "types": [
+          {
+            "fieldType": "EXPRESSION",
+            "selected": true
+          }
+        ],
         "enabled": true,
         "editable": true,
         "optional": false,

@@ -295,7 +295,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -389,7 +389,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is cancelled.",
           "codedata": {
             "type": "FUNCTION",
@@ -483,7 +483,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is fulfilled.",
           "codedata": {
             "type": "FUNCTION",
@@ -577,7 +577,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is paid.",
           "codedata": {
             "type": "FUNCTION",
@@ -671,7 +671,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is partially fulfilled.",
           "codedata": {
             "type": "FUNCTION",
@@ -765,7 +765,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an order is updated.",
           "codedata": {
             "type": "FUNCTION",
@@ -877,7 +877,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a customer is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -971,7 +971,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a customer is disabled.",
           "codedata": {
             "type": "FUNCTION",
@@ -1065,7 +1065,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a customer is enabled.",
           "codedata": {
             "type": "FUNCTION",
@@ -1159,7 +1159,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a customer is updated.",
           "codedata": {
             "type": "FUNCTION",
@@ -1253,7 +1253,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a customer's marketing consent is updated.",
           "codedata": {
             "type": "FUNCTION",
@@ -1365,7 +1365,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a product is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -1459,7 +1459,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a product is updated.",
           "codedata": {
             "type": "FUNCTION",
@@ -1571,7 +1571,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a fulfillment is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -1665,7 +1665,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a fulfillment is updated.",
           "codedata": {
             "type": "FUNCTION",

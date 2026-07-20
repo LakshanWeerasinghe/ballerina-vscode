@@ -26,6 +26,7 @@ import io.ballerina.servicemodelgenerator.extension.model.FunctionReturnType;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
+import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
 import java.util.ArrayList;
@@ -94,13 +95,14 @@ public final class TriggerFunctionAdapter {
         String label = label(model.metadata(), model.name());
         String description = description(model.metadata());
         String notice = model.metadata() == null ? null : model.metadata().notice();
+        String badge = model.metadata() == null ? null : model.metadata().badge();
         String functionName = variant != null && variant.codedata() != null
                 && notBlank(variant.codedata().originalName())
                         ? variant.codedata().originalName() : model.name();
         String variantLabel = variantLabel(model, variant);
 
         Function.FunctionBuilder builder = new Function.FunctionBuilder()
-                .setMetadata(new MetaData(label, description, notice))
+                .setMetadata(new MetaData(label, description, notice, null, badge))
                 .kind(wireKind(model.kind()))
                 .name(identifierValue(functionName, variantLabel != null ? variantLabel : label, description))
                 .parameters(toParameters(model.parameters(), variantParameter, variant))
@@ -117,7 +119,7 @@ public final class TriggerFunctionAdapter {
         function.setGroup(notBlank(model.group()) ? model.group() : model.name());
         function.setVariantLabel(variantLabel);
         function.setAddLabel(model.metadata() == null ? null : model.metadata().addLabel());
-        function.setRepeatable(model.repeatable());
+        function.setRepeatable(Repeatable.orDefault(model.repeatable()).effective(function.getGroup()));
         function.setNameEditable(model.nameEditable());
         function.setProperties(toWireProperties(model, variant));
         return function;

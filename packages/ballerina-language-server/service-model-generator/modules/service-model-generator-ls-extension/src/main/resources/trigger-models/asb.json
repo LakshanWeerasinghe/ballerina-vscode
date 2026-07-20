@@ -392,7 +392,7 @@
           "editable": true,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onMessage",
@@ -535,7 +535,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onError",

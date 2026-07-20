@@ -265,7 +265,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a company is created.",
           "codedata": {
             "type": "FUNCTION",

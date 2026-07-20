@@ -18,6 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector.model;
 
+import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
+
 import java.util.List;
 import java.util.Map;
 
@@ -140,7 +142,7 @@ public record TriggerModel(
             Boolean editable,
             Boolean optional,
             Boolean canAddParameters,
-            Boolean repeatable,
+            Repeatable repeatable,
             String documentation,
             List<Parameter> parameters,
             Map<String, Property> properties,
@@ -277,6 +279,7 @@ public record TriggerModel(
             String icon,
             String subLabel,
             String addLabel,
-            String groupName) {
+            String groupName,
+            String badge) {
     }
 }

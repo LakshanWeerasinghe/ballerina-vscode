@@ -75,6 +75,23 @@ export interface FieldType extends ParameterModel {
     isFinal: boolean;
 }
 
+/**
+ * How a schema-driven trigger handler may be added to a service, and how consuming one affects the
+ * addable catalog (mirrors the language server's `Repeatable`):
+ * - FALSE: single instance — adding it removes only that handler from the catalog.
+ * - TRUE: may be added repeatedly — never leaves the catalog (pairs with a name-editable handler).
+ * - ONE_OF_GROUP: mutually exclusive within its `group` — adding any member removes every sibling
+ *   (e.g. RabbitMQ onMessage / onRequest).
+ * - ONE_EACH_PER_GROUP: each member of the `group` may be added once — adding one removes only that
+ *   member, siblings stay (e.g. FTP per-file-format handlers).
+ */
+export enum RepeatBehavior {
+    FALSE = "FALSE",
+    TRUE = "TRUE",
+    ONE_OF_GROUP = "ONE_OF_GROUP",
+    ONE_EACH_PER_GROUP = "ONE_EACH_PER_GROUP",
+}
+
 export interface FunctionModel {
     metadata?: MetaData;
     kind: "REMOTE" | "RESOURCE" | "QUERY" | "MUTATION" | "SUBSCRIPTION" | "DEFAULT" | "INIT";
@@ -85,12 +102,13 @@ export interface FunctionModel {
 
     // Handler-catalog fields carried by schema-driven triggers (unified TriggerModel): functions
     // sharing a `group` are format variants of one logical handler (labelled by `variantLabel`,
-    // offered under `addLabel`); `repeatable` allows several instances per service and
-    // `nameEditable: false` locks the emitted function name to the variant's.
+    // offered under `addLabel`); `repeatable` says whether/how the handler may be added more than
+    // once (see RepeatBehavior) and `nameEditable: false` locks the emitted function name to the
+    // variant's.
     group?: string;
     variantLabel?: string;
     addLabel?: string;
-    repeatable?: boolean;
+    repeatable?: RepeatBehavior;
     nameEditable?: boolean;
 
     canAddParameters?: boolean;
@@ -165,6 +183,10 @@ interface MetaData {
     notice?: string;
     groupNo?: number;
     groupName?: string;
+    // A short category tag shown as a chip before the function name in the service designer
+    // (e.g. "Event", "Tool", "GET", "FUNC", "INIT", or a trigger-specific value like "onCreate").
+    // Optional; the designer falls back to "Event" for handlers when absent.
+    badge?: string;
 }
 
 interface CodeData {

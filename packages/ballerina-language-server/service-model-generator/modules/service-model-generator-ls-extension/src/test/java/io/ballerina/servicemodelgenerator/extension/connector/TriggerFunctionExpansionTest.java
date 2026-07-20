@@ -23,6 +23,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSer
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
+import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import io.ballerina.servicemodelgenerator.extension.util.Utils;
@@ -79,7 +80,8 @@ public class TriggerFunctionExpansionTest {
         Assert.assertEquals(csv.getGroup(), "onFileChange", "variants must share the schema group id");
         Assert.assertEquals(csv.getVariantLabel(), "CSV");
         Assert.assertEquals(csv.getAddLabel(), "Add On File Change Handler");
-        Assert.assertEquals(csv.getRepeatable(), Boolean.TRUE);
+        Assert.assertEquals(csv.getRepeatable(), Repeatable.ONE_EACH_PER_GROUP,
+                "grouped file-format variants are each addable once");
         Assert.assertFalse(csv.isEnabled(), "schemaFunction templates ship disabled (addable)");
 
         Function raw = byName(service, "onFile");

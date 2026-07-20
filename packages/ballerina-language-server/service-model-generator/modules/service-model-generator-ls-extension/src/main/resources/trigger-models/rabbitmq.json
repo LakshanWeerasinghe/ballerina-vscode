@@ -343,7 +343,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "ONE_OF_GROUP",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onMessage",
@@ -534,7 +534,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "ONE_OF_GROUP",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onRequest",
@@ -719,18 +719,15 @@
           "qualifiers": [
             "remote"
           ],
-          "group": "onError",
-          "variantLabel": "onError",
           "enabled": false,
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onError",
-            "moduleName": "rabbitmq",
-            "group": "onError"
+            "moduleName": "rabbitmq"
           },
           "parameters": [
             {

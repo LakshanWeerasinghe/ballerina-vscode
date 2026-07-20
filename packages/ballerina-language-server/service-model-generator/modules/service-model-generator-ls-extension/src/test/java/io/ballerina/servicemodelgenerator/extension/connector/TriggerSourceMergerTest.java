@@ -22,6 +22,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSer
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
+import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -74,6 +75,44 @@ public class TriggerSourceMergerTest {
         Assert.assertTrue(onConsumerRecord.isEnabled(), "the merged handler is present/enabled");
         Assert.assertFalse(onConsumerRecord.isOptional(),
                 "a schema-required handler must stay non-deletable once merged from source");
+    }
+
+    @Test
+    public void testOneEachPerGroupConsumesOnlyMatchedVariant() throws Exception {
+        // smb's file-format handlers share the onFileChange group as ONE_EACH_PER_GROUP: adding one
+        // format consumes only that variant, leaving its siblings addable. (The old boolean model
+        // treated any grouped handler as mutually exclusive, wrongly clearing the whole group.)
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                model("smb"), "Service", "ballerinax", "smb", "smb");
+        TriggerSourceMerger.mergeSource(service, List.of(sourceFunction("onFileCsv", "REMOTE")));
+
+        Assert.assertNotNull(findFunction(service, "onFileCsv"), "the added variant is present");
+        List<String> addable = catalogNames(service);
+        Assert.assertFalse(addable.contains("onFileCsv"), "the consumed variant leaves the catalog");
+        Assert.assertTrue(addable.contains("onFileJson"), "sibling variants stay addable");
+        Assert.assertTrue(addable.contains("onFileXml"), "sibling variants stay addable");
+    }
+
+    @Test
+    public void testOneOfGroupConsumesEntireGroup() throws Exception {
+        // Re-tag smb's file-format group as ONE_OF_GROUP (RabbitMQ's onMessage/onRequest shape):
+        // adding any one member must clear every sibling from the addable catalog.
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                model("smb"), "Service", "ballerinax", "smb", "smb");
+        service.getSchemaFunctions().stream()
+                .filter(fn -> "onFileChange".equals(fn.getGroup()))
+                .forEach(fn -> fn.setRepeatable(Repeatable.ONE_OF_GROUP));
+        TriggerSourceMerger.mergeSource(service, List.of(sourceFunction("onFileCsv", "REMOTE")));
+
+        List<String> addable = catalogNames(service);
+        Assert.assertFalse(addable.contains("onFileJson"),
+                "a mutually-exclusive group is fully consumed once one member is added");
+        Assert.assertFalse(addable.contains("onFileXml"), "no sibling of the exclusive group remains");
+    }
+
+    private static List<String> catalogNames(Service service) {
+        return service.getSchemaFunctions() == null ? List.of()
+                : service.getSchemaFunctions().stream().map(fn -> fn.getName().getValue()).toList();
     }
 
     private static Function findFunction(Service service, String name) {

@@ -119,7 +119,7 @@ public final class PropertyValueAdapter {
         }
         TriggerModel.Metadata metadata = value.getMetadata() == null ? null
                 : new TriggerModel.Metadata(value.getMetadata().label(), value.getMetadata().description(),
-                        null, null, null, null, null);
+                        null, null, null, null, null, null);
         List<TriggerModel.PropertyType> types = null;
         if (value.getTypes() != null) {
             types = new ArrayList<>();

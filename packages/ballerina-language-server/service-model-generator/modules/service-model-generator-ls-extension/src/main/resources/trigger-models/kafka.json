@@ -195,7 +195,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onConsumerRecord",
@@ -384,7 +384,7 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onError",

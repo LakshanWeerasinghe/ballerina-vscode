@@ -62,12 +62,13 @@ public class Function {
     private Map<String, Value> properties;
     // Handler-catalog fields carried by the unified TriggerModel (phase6): functions sharing a
     // `group` are format variants of one logical handler (each labelled by `variantLabel`, offered
-    // to the user under `addLabel`); `repeatable` allows several instances per service and
-    // `nameEditable:false` locks the emitted function name to the variant's.
+    // to the user under `addLabel`); `repeatable` says whether/how the handler can be added more
+    // than once (see Repeatable) and `nameEditable:false` locks the emitted function name to the
+    // variant's.
     private String group;
     private String variantLabel;
     private String addLabel;
-    private Boolean repeatable;
+    private Repeatable repeatable;
     private Boolean nameEditable;
 
     public Function(MetaData metadata, List<String> qualifiers, String kind, Value accessor, Value name,
@@ -409,11 +410,11 @@ public class Function {
         this.addLabel = addLabel;
     }
 
-    public Boolean getRepeatable() {
+    public Repeatable getRepeatable() {
         return repeatable;
     }
 
-    public void setRepeatable(Boolean repeatable) {
+    public void setRepeatable(Repeatable repeatable) {
         this.repeatable = repeatable;
     }
 

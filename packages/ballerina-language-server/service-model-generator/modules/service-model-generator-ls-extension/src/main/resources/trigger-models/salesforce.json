@@ -488,7 +488,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers on a new record create event.",
           "codedata": {
             "type": "FUNCTION",
@@ -580,7 +580,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers on a record update event.",
           "codedata": {
             "type": "FUNCTION",
@@ -672,7 +672,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers on a record delete event.",
           "codedata": {
             "type": "FUNCTION",
@@ -764,7 +764,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers on a record restore event.",
           "codedata": {
             "type": "FUNCTION",
@@ -873,7 +873,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when a Platform Event is published on the subscribed channel.",
           "codedata": {
             "type": "FUNCTION",

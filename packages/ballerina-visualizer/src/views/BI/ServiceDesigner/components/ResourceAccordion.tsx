@@ -198,7 +198,7 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
             <AccordionHeader onClick={handleResourceImplement}>
                 <MethodSection>
                     <MethodBox>
-                        {method || "Event"}
+                        {functionModel.metadata?.badge || method || "Event"}
                     </MethodBox>
                     <MethodPath>{functionModel.name.value}</MethodPath>
                 </MethodSection>

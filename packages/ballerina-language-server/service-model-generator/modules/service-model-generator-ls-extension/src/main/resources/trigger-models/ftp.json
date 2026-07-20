@@ -955,12 +955,13 @@
         {
           "metadata": {
             "label": "On Create",
-            "description": "Invoked when a file matching the pattern is created in the monitored directory.",
-            "addLabel": "Add On Create Handler"
+            "description": "Invoked when a file is created in the monitored directory. Comma-separated rows \u2014 binds each row to T, emits T[] (or stream<T, error?> for large files).",
+            "addLabel": "Add On Create Handler (CSV)",
+            "badge": "onCreate"
           },
           "name": "onFileCsv",
           "nameEditable": false,
-          "kind": "COMPLEX_REMOTE_FUNCTION",
+          "kind": "REMOTE",
           "accessor": "",
           "qualifiers": [
             "remote"
@@ -971,8 +972,8 @@
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": true,
-          "documentation": "Handles a newly created file. Choose the file format to bind the content and set the emitted handler name.",
+          "repeatable": "ONE_EACH_PER_GROUP",
+          "documentation": "Handles a newly created file, binding its content using the CSV format.",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onFileCsv",
@@ -982,66 +983,58 @@
           "parameters": [
             {
               "metadata": {
-                "label": "File Format",
-                "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                "label": "Content",
+                "description": "Comma-separated rows \u2014 binds each row to T, emits T[] (or stream<T, error?> for large files)."
               },
-              "kind": "VARIANT",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
-                  "label": "File Format",
-                  "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                  "label": "CSV Content",
+                  "description": "Comma-separated rows \u2014 binds each row to T, emits T[] (or stream<T, error?> for large files)."
                 },
-                "value": "CSV",
+                "value": "",
                 "types": [
                   {
-                    "fieldType": "VARIATION_SELECTOR",
-                    "selected": true,
-                    "options": [
-                      {
-                        "label": "CSV",
-                        "value": "CSV",
-                        "helperText": "Comma-separated rows \u2014 binds each row to T, emits T[] (or stream<T, error?> for large files)."
-                      },
-                      {
-                        "label": "JSON",
-                        "value": "JSON",
-                        "helperText": "Binds the file content to json or a custom record type."
-                      },
-                      {
-                        "label": "XML",
-                        "value": "XML",
-                        "helperText": "Binds the file content to xml or a custom record type."
-                      },
-                      {
-                        "label": "Text",
-                        "value": "TEXT",
-                        "helperText": "Delivers the file content as a plain string."
-                      },
-                      {
-                        "label": "Raw Bytes",
-                        "value": "RAW",
-                        "helperText": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
-                      }
-                    ]
+                    "fieldType": "COMPLEX_PAYLOAD",
+                    "selected": true
                   }
                 ],
                 "enabled": true,
                 "editable": true,
                 "optional": false,
                 "advanced": false,
-                "codedata": {
-                  "type": "VARIANT_SELECTOR"
-                },
                 "properties": {
-                  "CSV": {
+                  "rows": {
                     "metadata": {
-                      "label": "CSV",
-                      "description": "Comma-separated rows \u2014 binds each row to T, emits T[] (or stream<T, error?> for large files)."
+                      "label": "Rows",
+                      "description": "Content Schema contains a row of CSV Row type"
                     },
+                    "value": true,
                     "types": [
                       {
-                        "fieldType": "COMPLEX_PAYLOAD",
+                        "fieldType": "METADATA_FLAG",
                         "selected": true
+                      }
+                    ],
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "METADATA_FLAG"
+                    }
+                  },
+                  "stream": {
+                    "metadata": {
+                      "label": "Stream (Large Files)",
+                      "description": "Process the file content in chunks"
+                    },
+                    "value": false,
+                    "types": [
+                      {
+                        "fieldType": "FLAG",
+                        "selected": true,
+                        "template": "stream<{{type}}, error?>"
                       }
                     ],
                     "enabled": true,
@@ -1049,341 +1042,52 @@
                     "optional": false,
                     "advanced": false,
                     "codedata": {
-                      "type": "VARIANT",
-                      "originalName": "onFileCsv",
-                      "variantLabel": "CSV"
-                    },
-                    "properties": {
-                      "rows": {
-                        "metadata": {
-                          "label": "Rows",
-                          "description": "Content Schema contains a row of CSV Row type"
-                        },
-                        "value": true,
-                        "types": [
-                          {
-                            "fieldType": "METADATA_FLAG",
-                            "selected": true
-                          }
-                        ],
-                        "enabled": true,
-                        "editable": false,
-                        "optional": false,
-                        "advanced": false,
-                        "codedata": {
-                          "type": "METADATA_FLAG"
-                        }
-                      },
-                      "stream": {
-                        "metadata": {
-                          "label": "Stream (Large Files)",
-                          "description": "Process the file content in chunks"
-                        },
-                        "value": false,
-                        "types": [
-                          {
-                            "fieldType": "FLAG",
-                            "selected": true,
-                            "template": "stream<{{type}}, error?>"
-                          }
-                        ],
-                        "enabled": true,
-                        "editable": true,
-                        "optional": false,
-                        "advanced": false,
-                        "codedata": {
-                          "type": "PAYLOAD_MODIFIER",
-                          "modifier": "stream",
-                          "template": "stream<{{type}}, error?>",
-                          "supersedes": [
-                            "base"
-                          ],
-                          "targetParam": "payload"
-                        }
-                      },
-                      "payload": {
-                        "metadata": {
-                          "label": "Define Row Schema",
-                          "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
-                        },
-                        "value": "string[][]",
-                        "enabled": true,
-                        "editable": true,
-                        "optional": false,
-                        "advanced": false,
-                        "types": [
-                          {
-                            "fieldType": "PAYLOAD_TYPE",
-                            "selected": true,
-                            "formats": [
-                              {
-                                "supported": [
-                                  "schema",
-                                  "browse",
-                                  "json",
-                                  "xml"
-                                ],
-                                "defaultFormat": "schema"
-                              }
-                            ],
-                            "ballerinaType": "string[][]",
-                            "template": "{{type}}[]"
-                          }
-                        ],
-                        "codedata": {
-                          "type": "PAYLOAD_TYPE",
-                          "bindable": true,
-                          "boundType": "",
-                          "typeConstraint": "anydata",
-                          "bindingKind": "USER_SELECTED",
-                          "defaultType": "string[]",
-                          "template": "{{type}}[]"
-                        }
-                      }
+                      "type": "PAYLOAD_MODIFIER",
+                      "modifier": "stream",
+                      "template": "stream<{{type}}, error?>",
+                      "supersedes": [
+                        "base"
+                      ],
+                      "targetParam": "payload"
                     }
                   },
-                  "JSON": {
+                  "payload": {
                     "metadata": {
-                      "label": "JSON",
-                      "description": "Binds the file content to json or a custom record type."
+                      "label": "Define Row Schema",
+                      "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
                     },
+                    "value": "string[][]",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
                     "types": [
                       {
                         "fieldType": "PAYLOAD_TYPE",
-                        "selected": false
-                      }
-                    ],
-                    "enabled": false,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false,
-                    "codedata": {
-                      "type": "VARIANT",
-                      "originalName": "onFileJson",
-                      "variantLabel": "JSON"
-                    },
-                    "properties": {
-                      "payload": {
-                        "metadata": {
-                          "label": "Define Content Schema",
-                          "description": "Bound content type (defaults to json)."
-                        },
-                        "value": "json",
-                        "enabled": true,
-                        "editable": true,
-                        "optional": false,
-                        "advanced": false,
-                        "types": [
+                        "selected": true,
+                        "formats": [
                           {
-                            "fieldType": "PAYLOAD_TYPE",
-                            "selected": true,
-                            "ballerinaType": "json",
-                            "formats": [
-                              {
-                                "supported": [
-                                  "json",
-                                  "schema",
-                                  "browse"
-                                ],
-                                "defaultFormat": "json"
-                              }
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
                             ],
-                            "template": "{{type}}"
+                            "defaultFormat": "schema"
                           }
                         ],
-                        "codedata": {
-                          "type": "PAYLOAD_TYPE",
-                          "bindable": true,
-                          "boundType": "",
-                          "typeConstraint": "anydata",
-                          "bindingKind": "USER_SELECTED",
-                          "defaultType": "json",
-                          "template": "{{type}}"
-                        }
-                      }
-                    }
-                  },
-                  "XML": {
-                    "metadata": {
-                      "label": "XML",
-                      "description": "Binds the file content to xml or a custom record type."
-                    },
-                    "types": [
-                      {
-                        "fieldType": "PAYLOAD_TYPE",
-                        "selected": false
+                        "ballerinaType": "string[][]",
+                        "template": "{{type}}[]"
                       }
                     ],
-                    "enabled": false,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false,
                     "codedata": {
-                      "type": "VARIANT",
-                      "originalName": "onFileXml",
-                      "variantLabel": "XML"
-                    },
-                    "properties": {
-                      "payload": {
-                        "metadata": {
-                          "label": "Define Content Schema",
-                          "description": "Bound content type (defaults to xml)."
-                        },
-                        "value": "xml",
-                        "enabled": true,
-                        "editable": true,
-                        "optional": false,
-                        "advanced": false,
-                        "types": [
-                          {
-                            "fieldType": "PAYLOAD_TYPE",
-                            "selected": true,
-                            "ballerinaType": "xml",
-                            "formats": [
-                              {
-                                "supported": [
-                                  "xml",
-                                  "schema",
-                                  "browse"
-                                ],
-                                "defaultFormat": "xml"
-                              }
-                            ],
-                            "template": "{{type}}"
-                          }
-                        ],
-                        "codedata": {
-                          "type": "PAYLOAD_TYPE",
-                          "bindable": true,
-                          "boundType": "",
-                          "typeConstraint": "anydata",
-                          "bindingKind": "USER_SELECTED",
-                          "defaultType": "xml",
-                          "template": "{{type}}"
-                        }
-                      }
-                    }
-                  },
-                  "TEXT": {
-                    "metadata": {
-                      "label": "Text",
-                      "description": "Delivers the file content as a plain string."
-                    },
-                    "types": [
-                      {
-                        "fieldType": "TYPE",
-                        "selected": false
-                      }
-                    ],
-                    "enabled": false,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false,
-                    "codedata": {
-                      "type": "VARIANT",
-                      "originalName": "onFileText",
-                      "variantLabel": "Text"
-                    },
-                    "properties": {
-                      "payload": {
-                        "metadata": {
-                          "label": "Content",
-                          "description": "The text file content as a plain string."
-                        },
-                        "value": "string",
-                        "enabled": false,
-                        "editable": false,
-                        "optional": false,
-                        "advanced": false,
-                        "types": [
-                          {
-                            "fieldType": "TYPE",
-                            "selected": true,
-                            "ballerinaType": "string",
-                            "template": "{{type}}"
-                          }
-                        ],
-                        "codedata": {
-                          "type": "PAYLOAD_TYPE",
-                          "bindable": false,
-                          "defaultType": "string"
-                        }
-                      }
-                    }
-                  },
-                  "RAW": {
-                    "metadata": {
-                      "label": "Raw Bytes",
-                      "description": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
-                    },
-                    "types": [
-                      {
-                        "fieldType": "PAYLOAD_TYPE",
-                        "selected": false
-                      }
-                    ],
-                    "enabled": false,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false,
-                    "codedata": {
-                      "type": "VARIANT",
-                      "originalName": "onFile",
-                      "variantLabel": "Raw Bytes"
-                    },
-                    "properties": {
-                      "stream": {
-                        "metadata": {
-                          "label": "Stream (Large Files)",
-                          "description": "Deliver the content as stream<byte[], error?> to process large binary files in chunks."
-                        },
-                        "value": false,
-                        "types": [
-                          {
-                            "fieldType": "FLAG",
-                            "selected": true,
-                            "template": "stream<{{type}}, error?>"
-                          }
-                        ],
-                        "enabled": true,
-                        "editable": true,
-                        "optional": false,
-                        "advanced": false,
-                        "codedata": {
-                          "type": "PAYLOAD_MODIFIER",
-                          "modifier": "stream",
-                          "template": "stream<{{type}}, error?>",
-                          "supersedes": [
-                            "base"
-                          ],
-                          "targetParam": "payload"
-                        }
-                      },
-                      "payload": {
-                        "metadata": {
-                          "label": "Content",
-                          "description": "Raw file content as byte[], or stream<byte[], error?> when streaming is enabled."
-                        },
-                        "value": "byte[]",
-                        "enabled": true,
-                        "editable": false,
-                        "optional": false,
-                        "advanced": false,
-                        "types": [
-                          {
-                            "fieldType": "PAYLOAD_TYPE",
-                            "selected": true,
-                            "ballerinaType": "byte[]",
-                            "template": "{{type}}"
-                          }
-                        ],
-                        "codedata": {
-                          "type": "PAYLOAD_TYPE",
-                          "bindable": false,
-                          "defaultType": "byte[]",
-                          "template": "{{type}}"
-                        }
-                      }
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "string[]",
+                      "template": "{{type}}[]"
                     }
                   }
                 }
@@ -1839,11 +1543,2179 @@
           }
         },
         {
-          "$comment": "onDelete TEMPLATE \u2014 complete signature. repeatable:false (add-once).",
+          "metadata": {
+            "label": "On Create",
+            "description": "Invoked when a file is created in the monitored directory. Binds the file content to json or a custom record type.",
+            "addLabel": "Add On Create Handler (JSON)",
+            "badge": "onCreate"
+          },
+          "name": "onFileJson",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "group": "onCreate",
+          "variantLabel": "JSON",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": "ONE_EACH_PER_GROUP",
+          "documentation": "Handles a newly created file, binding its content using the JSON format.",
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onFileJson",
+            "moduleName": "ftp",
+            "group": "onCreate"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Content",
+                "description": "Binds the file content to json or a custom record type."
+              },
+              "kind": "DATA_BINDING",
+              "type": {
+                "metadata": {
+                  "label": "JSON Content",
+                  "description": "Binds the file content to json or a custom record type."
+                },
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "COMPLEX_PAYLOAD",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Define Content Schema",
+                      "description": "Bound content type (defaults to json)."
+                    },
+                    "value": "json",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "json",
+                        "formats": [
+                          {
+                            "supported": [
+                              "json",
+                              "schema",
+                              "browse"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ],
+                        "template": "{{type}}"
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "json",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "content",
+                  "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "placeholder": "content",
+                "value": "content",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "File Metadata (fileInfo)",
+                "description": "Additional file properties such as size, modification time and permissions."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include File Metadata (fileInfo)",
+                  "description": "Tick to include the File Metadata (fileInfo) parameter in the handler signature."
+                },
+                "placeholder": "ftp:FileInfo",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:FileInfo"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "fileInfo",
+                  "description": "Additional file properties such as size, modification time and permissions."
+                },
+                "placeholder": "fileInfo",
+                "value": "fileInfo",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "FTP Connection (caller)",
+                "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include FTP Connection (caller)",
+                  "description": "Tick to include the FTP Connection (caller) parameter in the handler signature."
+                },
+                "placeholder": "ftp:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          },
+          "properties": {
+            "afterFileProcessing": {
+              "metadata": {
+                "label": "After File Processing",
+                "description": "@ftp:FunctionConfig \u2014 actions performed on the source file after a handler runs."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "codedata": {
+                "type": "COMPLEX_FUNCTION_ANNOTATION",
+                "originalName": "FunctionConfig",
+                "moduleName": "ftp"
+              },
+              "properties": {
+                "afterProcess": {
+                  "metadata": {
+                    "label": "On Success",
+                    "description": "Action when the handler completes without returning an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterProcess",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the processed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/processed",
+                              "placeholder": "/home/processed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the processed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "afterError": {
+                  "metadata": {
+                    "label": "On Error",
+                    "description": "Action when the handler returns an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterError",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the failed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/failed",
+                              "placeholder": "/home/failed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the failed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "On Create",
+            "description": "Invoked when a file is created in the monitored directory. Binds the file content to xml or a custom record type.",
+            "addLabel": "Add On Create Handler (XML)",
+            "badge": "onCreate"
+          },
+          "name": "onFileXml",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "group": "onCreate",
+          "variantLabel": "XML",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": "ONE_EACH_PER_GROUP",
+          "documentation": "Handles a newly created file, binding its content using the XML format.",
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onFileXml",
+            "moduleName": "ftp",
+            "group": "onCreate"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Content",
+                "description": "Binds the file content to xml or a custom record type."
+              },
+              "kind": "DATA_BINDING",
+              "type": {
+                "metadata": {
+                  "label": "XML Content",
+                  "description": "Binds the file content to xml or a custom record type."
+                },
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "COMPLEX_PAYLOAD",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Define Content Schema",
+                      "description": "Bound content type (defaults to xml)."
+                    },
+                    "value": "xml",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "xml",
+                        "formats": [
+                          {
+                            "supported": [
+                              "xml",
+                              "schema",
+                              "browse"
+                            ],
+                            "defaultFormat": "xml"
+                          }
+                        ],
+                        "template": "{{type}}"
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "xml",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "content",
+                  "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "placeholder": "content",
+                "value": "content",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "File Metadata (fileInfo)",
+                "description": "Additional file properties such as size, modification time and permissions."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include File Metadata (fileInfo)",
+                  "description": "Tick to include the File Metadata (fileInfo) parameter in the handler signature."
+                },
+                "placeholder": "ftp:FileInfo",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:FileInfo"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "fileInfo",
+                  "description": "Additional file properties such as size, modification time and permissions."
+                },
+                "placeholder": "fileInfo",
+                "value": "fileInfo",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "FTP Connection (caller)",
+                "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include FTP Connection (caller)",
+                  "description": "Tick to include the FTP Connection (caller) parameter in the handler signature."
+                },
+                "placeholder": "ftp:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          },
+          "properties": {
+            "afterFileProcessing": {
+              "metadata": {
+                "label": "After File Processing",
+                "description": "@ftp:FunctionConfig \u2014 actions performed on the source file after a handler runs."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "codedata": {
+                "type": "COMPLEX_FUNCTION_ANNOTATION",
+                "originalName": "FunctionConfig",
+                "moduleName": "ftp"
+              },
+              "properties": {
+                "afterProcess": {
+                  "metadata": {
+                    "label": "On Success",
+                    "description": "Action when the handler completes without returning an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterProcess",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the processed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/processed",
+                              "placeholder": "/home/processed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the processed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "afterError": {
+                  "metadata": {
+                    "label": "On Error",
+                    "description": "Action when the handler returns an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterError",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the failed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/failed",
+                              "placeholder": "/home/failed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the failed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "On Create",
+            "description": "Invoked when a file is created in the monitored directory. Delivers the file content as a plain string.",
+            "addLabel": "Add On Create Handler (Text)",
+            "badge": "onCreate"
+          },
+          "name": "onFileText",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "group": "onCreate",
+          "variantLabel": "Text",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": "ONE_EACH_PER_GROUP",
+          "documentation": "Handles a newly created file, binding its content using the Text format.",
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onFileText",
+            "moduleName": "ftp",
+            "group": "onCreate"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Content",
+                "description": "Delivers the file content as a plain string."
+              },
+              "kind": "DATA_BINDING",
+              "type": {
+                "metadata": {
+                  "label": "Text Content",
+                  "description": "Delivers the file content as a plain string."
+                },
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "COMPLEX_PAYLOAD",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Content",
+                      "description": "The text file content as a plain string."
+                    },
+                    "value": "string",
+                    "enabled": false,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "TYPE",
+                        "selected": true,
+                        "ballerinaType": "string",
+                        "template": "{{type}}"
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": false,
+                      "defaultType": "string"
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "content",
+                  "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "placeholder": "content",
+                "value": "content",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "File Metadata (fileInfo)",
+                "description": "Additional file properties such as size, modification time and permissions."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include File Metadata (fileInfo)",
+                  "description": "Tick to include the File Metadata (fileInfo) parameter in the handler signature."
+                },
+                "placeholder": "ftp:FileInfo",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:FileInfo"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "fileInfo",
+                  "description": "Additional file properties such as size, modification time and permissions."
+                },
+                "placeholder": "fileInfo",
+                "value": "fileInfo",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "FTP Connection (caller)",
+                "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include FTP Connection (caller)",
+                  "description": "Tick to include the FTP Connection (caller) parameter in the handler signature."
+                },
+                "placeholder": "ftp:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          },
+          "properties": {
+            "afterFileProcessing": {
+              "metadata": {
+                "label": "After File Processing",
+                "description": "@ftp:FunctionConfig \u2014 actions performed on the source file after a handler runs."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "codedata": {
+                "type": "COMPLEX_FUNCTION_ANNOTATION",
+                "originalName": "FunctionConfig",
+                "moduleName": "ftp"
+              },
+              "properties": {
+                "afterProcess": {
+                  "metadata": {
+                    "label": "On Success",
+                    "description": "Action when the handler completes without returning an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterProcess",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the processed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/processed",
+                              "placeholder": "/home/processed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the processed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "afterError": {
+                  "metadata": {
+                    "label": "On Error",
+                    "description": "Action when the handler returns an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterError",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the failed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/failed",
+                              "placeholder": "/home/failed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the failed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "metadata": {
+            "label": "On Create",
+            "description": "Invoked when a file is created in the monitored directory. Delivers the raw file content as byte[] (or stream<byte[], error?> for large files).",
+            "addLabel": "Add On Create Handler (Raw Bytes)",
+            "badge": "onCreate"
+          },
+          "name": "onFile",
+          "nameEditable": false,
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "group": "onCreate",
+          "variantLabel": "Raw Bytes",
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": false,
+          "repeatable": "ONE_EACH_PER_GROUP",
+          "documentation": "Handles a newly created file, binding its content using the Raw Bytes format.",
+          "codedata": {
+            "type": "FUNCTION",
+            "originalName": "onFile",
+            "moduleName": "ftp",
+            "group": "onCreate"
+          },
+          "parameters": [
+            {
+              "metadata": {
+                "label": "Content",
+                "description": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
+              },
+              "kind": "DATA_BINDING",
+              "type": {
+                "metadata": {
+                  "label": "Raw Bytes Content",
+                  "description": "Delivers the raw file content as byte[] (or stream<byte[], error?> for large files)."
+                },
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "COMPLEX_PAYLOAD",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "properties": {
+                  "stream": {
+                    "metadata": {
+                      "label": "Stream (Large Files)",
+                      "description": "Deliver the content as stream<byte[], error?> to process large binary files in chunks."
+                    },
+                    "value": false,
+                    "types": [
+                      {
+                        "fieldType": "FLAG",
+                        "selected": true,
+                        "template": "stream<{{type}}, error?>"
+                      }
+                    ],
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "PAYLOAD_MODIFIER",
+                      "modifier": "stream",
+                      "template": "stream<{{type}}, error?>",
+                      "supersedes": [
+                        "base"
+                      ],
+                      "targetParam": "payload"
+                    }
+                  },
+                  "payload": {
+                    "metadata": {
+                      "label": "Content",
+                      "description": "Raw file content as byte[], or stream<byte[], error?> when streaming is enabled."
+                    },
+                    "value": "byte[]",
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "byte[]",
+                        "template": "{{type}}"
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": false,
+                      "defaultType": "byte[]",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "content",
+                  "description": "The format the created file's content is bound to. Selecting a format changes the content type and the emitted handler function name."
+                },
+                "placeholder": "content",
+                "value": "content",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": false,
+              "advanced": false,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "File Metadata (fileInfo)",
+                "description": "Additional file properties such as size, modification time and permissions."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include File Metadata (fileInfo)",
+                  "description": "Tick to include the File Metadata (fileInfo) parameter in the handler signature."
+                },
+                "placeholder": "ftp:FileInfo",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:FileInfo"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "fileInfo",
+                  "description": "Additional file properties such as size, modification time and permissions."
+                },
+                "placeholder": "fileInfo",
+                "value": "fileInfo",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            },
+            {
+              "metadata": {
+                "label": "FTP Connection (caller)",
+                "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Include FTP Connection (caller)",
+                  "description": "Tick to include the FTP Connection (caller) parameter in the handler signature."
+                },
+                "placeholder": "ftp:Caller",
+                "value": false,
+                "types": [
+                  {
+                    "fieldType": "FLAG",
+                    "selected": true,
+                    "ballerinaType": "ftp:Caller"
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "caller",
+                  "description": "FTP connection handle for performing additional file operations (move, delete) within the handler."
+                },
+                "placeholder": "caller",
+                "value": "caller",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "type": "error?",
+            "typeEditable": false,
+            "enabled": true,
+            "editable": false,
+            "optional": true,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          },
+          "properties": {
+            "afterFileProcessing": {
+              "metadata": {
+                "label": "After File Processing",
+                "description": "@ftp:FunctionConfig \u2014 actions performed on the source file after a handler runs."
+              },
+              "types": [
+                {
+                  "fieldType": "GROUP_SECTION",
+                  "selected": true
+                }
+              ],
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "codedata": {
+                "type": "COMPLEX_FUNCTION_ANNOTATION",
+                "originalName": "FunctionConfig",
+                "moduleName": "ftp"
+              },
+              "properties": {
+                "afterProcess": {
+                  "metadata": {
+                    "label": "On Success",
+                    "description": "Action when the handler completes without returning an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterProcess",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the processed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/processed",
+                              "placeholder": "/home/processed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the processed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "afterError": {
+                  "metadata": {
+                    "label": "On Error",
+                    "description": "Action when the handler returns an error."
+                  },
+                  "types": [
+                    {
+                      "fieldType": "OPTIONAL_FIELD",
+                      "selected": true
+                    }
+                  ],
+                  "value": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": false,
+                  "codedata": {
+                    "type": "MAPPING_FIELD",
+                    "field": "afterError",
+                    "optional": true
+                  },
+                  "properties": {
+                    "action": {
+                      "metadata": {
+                        "label": "Action",
+                        "description": "Move the file to another directory, or delete it."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "CHOICE",
+                          "selected": true,
+                          "ballerinaType": "ftp:Action",
+                          "options": [
+                            {
+                              "label": "Move",
+                              "value": "MOVE"
+                            },
+                            {
+                              "label": "Delete",
+                              "value": "DELETE"
+                            }
+                          ]
+                        }
+                      ],
+                      "value": "MOVE",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "codedata": {
+                        "type": "FIELD_VALUE_CHOICE"
+                      },
+                      "choices": [
+                        {
+                          "metadata": {
+                            "label": "Move",
+                            "description": "Move the failed file to a destination directory."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "FORM",
+                              "selected": true
+                            }
+                          ],
+                          "value": "MOVE",
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "MAPPING_CONSTRUCTOR"
+                          },
+                          "properties": {
+                            "moveTo": {
+                              "metadata": {
+                                "label": "Move To",
+                                "subLabel": "Destination path",
+                                "description": "Directory to move the file to."
+                              },
+                              "types": [
+                                {
+                                  "fieldType": "TEXT",
+                                  "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
+                                  "ballerinaType": "string"
+                                }
+                              ],
+                              "value": "/home/failed",
+                              "placeholder": "/home/failed",
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false,
+                              "codedata": {
+                                "type": "MAPPING_FIELD",
+                                "field": "moveTo",
+                                "valueKind": "STRING_LITERAL"
+                              },
+                              "validations": [
+                                {
+                                  "rule": "common.validate.required",
+                                  "message": "Move To is required"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "metadata": {
+                            "label": "Delete",
+                            "description": "Delete the failed file."
+                          },
+                          "types": [
+                            {
+                              "fieldType": "ENUM",
+                              "selected": true,
+                              "ballerinaType": "ftp:Action"
+                            }
+                          ],
+                          "value": "DELETE",
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "type": "ENUM_LITERAL",
+                            "value": "DELETE",
+                            "valueQualifier": "ftp"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
           "metadata": {
             "label": "On Delete",
             "description": "Invoked when a file is deleted from the monitored directory.",
-            "addLabel": "Add On Delete Handler"
+            "addLabel": "Add On Delete Handler",
+            "badge": "onDelete"
           },
           "name": "onFileDelete",
           "nameEditable": false,
@@ -1852,18 +3724,15 @@
           "qualifiers": [
             "remote"
           ],
-          "group": "onDelete",
-          "variantLabel": "onFileDelete",
           "enabled": false,
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onFileDelete",
-            "moduleName": "ftp",
-            "group": "onDelete"
+            "moduleName": "ftp"
           },
           "parameters": [
             {
@@ -1988,11 +3857,11 @@
           }
         },
         {
-          "$comment": "onError TEMPLATE \u2014 complete signature. repeatable:false (add-once).",
           "metadata": {
             "label": "On Error",
             "description": "Invoked when an error occurs during file processing.",
-            "addLabel": "Add On Error Handler"
+            "addLabel": "Add On Error Handler",
+            "badge": "onError"
           },
           "name": "onError",
           "nameEditable": false,
@@ -2001,19 +3870,15 @@
           "qualifiers": [
             "remote"
           ],
-          "group": "onError",
-          "variantLabel": "onError",
           "enabled": false,
           "editable": true,
           "optional": true,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "codedata": {
             "type": "FUNCTION",
             "originalName": "onError",
-            "moduleName": "ftp",
-            "group": "onError"
-          },
+            "moduleName": "ftp"          },
           "parameters": [
             {
               "metadata": {

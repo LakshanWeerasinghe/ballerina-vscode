@@ -152,7 +152,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers on a call is ready and waiting in line before going out.",
           "codedata": {
             "type": "FUNCTION",
@@ -246,7 +246,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call is currently ringing.",
           "codedata": {
             "type": "FUNCTION",
@@ -340,7 +340,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call is answered and is actively in progress.",
           "codedata": {
             "type": "FUNCTION",
@@ -434,7 +434,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call is answered and has ended normally.",
           "codedata": {
             "type": "FUNCTION",
@@ -528,7 +528,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the caller received a busy signal.",
           "codedata": {
             "type": "FUNCTION",
@@ -622,7 +622,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call could not be completed as dialed.",
           "codedata": {
             "type": "FUNCTION",
@@ -716,7 +716,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call ended without being answered.",
           "codedata": {
             "type": "FUNCTION",
@@ -810,7 +810,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the call got cancelled via the REST API while queued or ringing.",
           "codedata": {
             "type": "FUNCTION",
@@ -922,7 +922,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when Twilio has received the message request.",
           "codedata": {
             "type": "FUNCTION",
@@ -1016,7 +1016,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the API request to send a message was successful the message is queued to sent out.",
           "codedata": {
             "type": "FUNCTION",
@@ -1110,7 +1110,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when Twilio is in the process of dispatching the message.",
           "codedata": {
             "type": "FUNCTION",
@@ -1204,7 +1204,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the nearest upstream carrier accepted the message.",
           "codedata": {
             "type": "FUNCTION",
@@ -1298,7 +1298,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the message could not be sent.",
           "codedata": {
             "type": "FUNCTION",
@@ -1392,7 +1392,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when Twilio has received the confirmation of message delivery from the upstream carrier.",
           "codedata": {
             "type": "FUNCTION",
@@ -1486,7 +1486,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when Twilio received a delivery receipt indicating that message was not delivered.",
           "codedata": {
             "type": "FUNCTION",
@@ -1580,7 +1580,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the inbound message has been received by Twilio and is currently being processed.",
           "codedata": {
             "type": "FUNCTION",
@@ -1674,7 +1674,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggers when the inbound message was received by one of your Twilio numbers.",
           "codedata": {
             "type": "FUNCTION",

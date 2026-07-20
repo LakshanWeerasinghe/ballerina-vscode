@@ -315,7 +315,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is opened.",
           "codedata": {
             "type": "FUNCTION",
@@ -409,7 +409,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is closed.",
           "codedata": {
             "type": "FUNCTION",
@@ -503,7 +503,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is reopened.",
           "codedata": {
             "type": "FUNCTION",
@@ -597,7 +597,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is assigned to someone.",
           "codedata": {
             "type": "FUNCTION",
@@ -691,7 +691,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is unassigned.",
           "codedata": {
             "type": "FUNCTION",
@@ -785,7 +785,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is labeled.",
           "codedata": {
             "type": "FUNCTION",
@@ -879,7 +879,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue is unlabeled.",
           "codedata": {
             "type": "FUNCTION",
@@ -991,7 +991,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue comment is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -1085,7 +1085,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue comment is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -1179,7 +1179,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when an issue comment is deleted.",
           "codedata": {
             "type": "FUNCTION",
@@ -1291,7 +1291,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is opened.",
           "codedata": {
             "type": "FUNCTION",
@@ -1385,7 +1385,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is closed.",
           "codedata": {
             "type": "FUNCTION",
@@ -1479,7 +1479,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is reopened.",
           "codedata": {
             "type": "FUNCTION",
@@ -1573,7 +1573,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is assigned to someone.",
           "codedata": {
             "type": "FUNCTION",
@@ -1667,7 +1667,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is unassigned.",
           "codedata": {
             "type": "FUNCTION",
@@ -1761,7 +1761,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review is requested.",
           "codedata": {
             "type": "FUNCTION",
@@ -1855,7 +1855,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review request is removed.",
           "codedata": {
             "type": "FUNCTION",
@@ -1949,7 +1949,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is labeled.",
           "codedata": {
             "type": "FUNCTION",
@@ -2043,7 +2043,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is unlabeled.",
           "codedata": {
             "type": "FUNCTION",
@@ -2137,7 +2137,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -2249,7 +2249,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review is submitted.",
           "codedata": {
             "type": "FUNCTION",
@@ -2343,7 +2343,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -2437,7 +2437,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review is dismissed.",
           "codedata": {
             "type": "FUNCTION",
@@ -2549,7 +2549,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review comment is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -2643,7 +2643,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review comment is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -2737,7 +2737,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a pull request review comment is deleted.",
           "codedata": {
             "type": "FUNCTION",
@@ -2849,7 +2849,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is published.",
           "codedata": {
             "type": "FUNCTION",
@@ -2943,7 +2943,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is unpublished.",
           "codedata": {
             "type": "FUNCTION",
@@ -3037,7 +3037,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -3131,7 +3131,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -3225,7 +3225,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is deleted.",
           "codedata": {
             "type": "FUNCTION",
@@ -3319,7 +3319,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is pre-released.",
           "codedata": {
             "type": "FUNCTION",
@@ -3413,7 +3413,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a release is released.",
           "codedata": {
             "type": "FUNCTION",
@@ -3525,7 +3525,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a label is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -3619,7 +3619,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a label is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -3713,7 +3713,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a label is deleted.",
           "codedata": {
             "type": "FUNCTION",
@@ -3825,7 +3825,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a milestone is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -3919,7 +3919,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a milestone is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -4013,7 +4013,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a milestone is deleted.",
           "codedata": {
             "type": "FUNCTION",
@@ -4107,7 +4107,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a milestone is closed.",
           "codedata": {
             "type": "FUNCTION",
@@ -4201,7 +4201,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a milestone is opened.",
           "codedata": {
             "type": "FUNCTION",
@@ -4313,7 +4313,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a commit is pushed to the repository.",
           "codedata": {
             "type": "FUNCTION",
@@ -4425,7 +4425,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a project card is created.",
           "codedata": {
             "type": "FUNCTION",
@@ -4519,7 +4519,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a project card is edited.",
           "codedata": {
             "type": "FUNCTION",
@@ -4613,7 +4613,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a project card is moved.",
           "codedata": {
             "type": "FUNCTION",
@@ -4707,7 +4707,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a project card is converted to an issue.",
           "codedata": {
             "type": "FUNCTION",
@@ -4801,7 +4801,7 @@
           "editable": false,
           "optional": false,
           "canAddParameters": false,
-          "repeatable": false,
+          "repeatable": "FALSE",
           "documentation": "Triggered when a project card is deleted.",
           "codedata": {
             "type": "FUNCTION",

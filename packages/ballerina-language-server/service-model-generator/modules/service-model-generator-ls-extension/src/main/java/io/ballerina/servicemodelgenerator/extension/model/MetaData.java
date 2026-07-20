@@ -18,13 +18,23 @@
 
 package io.ballerina.servicemodelgenerator.extension.model;
 
-public record MetaData(String label, String description, String notice, String icon) {
+/**
+ * @param badge a short category tag rendered as a chip before the function name in the service
+ *              designer (e.g. {@code "Event"}, {@code "Tool"}, {@code "GET"}, {@code "FUNC"},
+ *              {@code "INIT"}, or a trigger-specific value such as {@code "onCreate"}). Optional;
+ *              when absent the front end falls back to its default ({@code "Event"} for handlers).
+ */
+public record MetaData(String label, String description, String notice, String icon, String badge) {
 
     public MetaData(String label, String description) {
-        this(label, description, null, null);
+        this(label, description, null, null, null);
     }
 
     public MetaData(String label, String description, String notice) {
-        this(label, description, notice, null);
+        this(label, description, notice, null, null);
+    }
+
+    public MetaData(String label, String description, String notice, String icon) {
+        this(label, description, notice, icon, null);
     }
 }
