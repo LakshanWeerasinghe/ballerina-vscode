@@ -40,6 +40,7 @@ public class Constants {
     public static final String TWO_NEW_LINES = NEW_LINE + NEW_LINE;
     public static final String NEW_LINE_WITH_TAB = NEW_LINE + TAB;
     public static final String IMPORT_STMT_TEMPLATE = "%nimport %s/%s;%n";
+    public static final String IMPORT_STMT_TEMPLATE_WITH_ALIAS = "%nimport %s/%s as %s;%n";
     public static final String AT = "@";
     public static final String COLON = ":";
     public static final String COMMA = ",";

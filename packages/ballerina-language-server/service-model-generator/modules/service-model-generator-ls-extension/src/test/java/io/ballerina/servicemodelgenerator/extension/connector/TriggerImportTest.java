@@ -46,6 +46,126 @@ public class TriggerImportTest {
         return (ModulePartNode) SyntaxTree.from(TextDocuments.from("\n")).rootNode();
     }
 
+    private ModulePartNode rootOf(String source) {
+        return (ModulePartNode) SyntaxTree.from(TextDocuments.from(source)).rootNode();
+    }
+
+    /** An init form + trigger model for a connector, parameterised by org/module and service type. */
+    private ServiceInitModel initFor(String org, String module) {
+        return gson.fromJson(("""
+                { "moduleName":"%s","orgName":"%s","type":"t",
+                  "properties":{"listenerVarName":{"enabled":true,"editable":true,"optional":false,
+                    "advanced":false,"value":"evtListener",
+                    "types":[{"fieldType":"IDENTIFIER","selected":true}],
+                    "codedata":{"type":"LISTENER_VAR_NAME"}},
+                    "listenOn":{"enabled":true,"editable":true,"optional":false,"advanced":false,
+                      "value":"8090","types":[{"fieldType":"NUMBER","selected":true}],
+                      "codedata":{"argType":"LISTENER_PARAM_REQUIRED","originalName":"listenOn",
+                        "position":1}}}}""").formatted(module, org),
+                ServiceInitModel.class);
+    }
+
+    private TriggerModel triggerFor(String org, String module, String qualifiedServiceType,
+                                    String qualifiedParamType) {
+        return gson.fromJson(("""
+                { "schemaVersion":"1.0","displayName":"T","description":"d","orgName":"%s",
+                  "packageName":"%s","moduleName":"%s","version":"1.0.0","type":"t","icon":"i",
+                  "serviceTypes":[{"name":"%s","enabled":true,"schemaFunctions":[],
+                    "codedata":{"type":"SERVICE_TYPE_DESCRIPTOR"},
+                    "functions":[{"name":"onEvent","kind":"REMOTE","enabled":true,"optional":false,
+                      "qualifiers":["remote"],
+                      "codedata":{"type":"FUNCTION","originalName":"onEvent"},
+                      "parameters":[{"kind":"REQUIRED",
+                        "type":{"value":"%s","types":[{"fieldType":"TYPE","selected":true}],
+                          "enabled":true,"editable":false,"optional":true,"advanced":false},
+                        "name":{"value":"event","types":[{"fieldType":"IDENTIFIER","selected":true}],
+                          "enabled":true,"editable":false,"optional":false,"advanced":false},
+                        "enabled":true,"editable":false,"optional":false,"advanced":false}],
+                      "returnType":{"type":"error?","enabled":true,"hasError":true,"optional":true}}]}]}""")
+                .formatted(org, module, module, qualifiedServiceType, qualifiedParamType),
+                TriggerModel.class);
+    }
+
+    private String generate(ModulePartNode root, String org, String module, String serviceType,
+                            String paramType) {
+        Map<String, List<TextEdit>> edits = SchemaDrivenSourceGenerator.buildAddServiceEditsForTrigger(
+                initFor(org, module), triggerFor(org, module, serviceType, paramType), root, "svc.bal");
+        return edits.get("svc.bal").stream().map(TextEdit::getNewText).reduce("", String::concat);
+    }
+
+    @Test
+    public void testDottedModuleIsAliasedAndAllSelfReferencesRewritten() {
+        // `ballerinax/trigger.twilio` would default to the prefix `twilio`, clashing with a base
+        // `ballerinax/twilio` client already in the file. It must import under a generated alias and
+        // reference EVERY self-module symbol through it: listener type, service descriptor, and the
+        // handler's parameter type (which the model authored as `twilio:...`).
+        String src = generate(rootOf("import ballerinax/twilio;\n"), "ballerinax", "trigger.twilio",
+                "twilio:CallStatusService", "twilio:CallStatusEventWrapper");
+
+        Assert.assertTrue(src.contains("import ballerinax/trigger.twilio as triggerTwilio;"),
+                "dotted module must be imported under a safe alias: " + src);
+        Assert.assertTrue(src.contains("listener triggerTwilio:Listener"),
+                "listener type must use the alias: " + src);
+        Assert.assertTrue(src.contains("service triggerTwilio:CallStatusService on "),
+                "service descriptor must use the alias: " + src);
+        Assert.assertTrue(src.contains("onEvent(triggerTwilio:CallStatusEventWrapper event)"),
+                "handler param type baked into the model must be re-qualified onto the alias: " + src);
+        Assert.assertFalse(src.contains("twilio:CallStatusEventWrapper event"),
+                "no self-reference may keep the clashing bare prefix: " + src);
+    }
+
+    @Test
+    public void testDottedModuleAliasIsNotTriggerSpecific() {
+        // The alias is a camelCase join of the module's segments, not a "trigger" special case:
+        // `ballerinax/solace.jms` (prefix `jms`) clashes with `ballerina/jms` and aliases to `solaceJms`.
+        String src = generate(rootOf("import ballerina/jms;\n"), "ballerinax", "solace.jms",
+                "jms:MessageService", "jms:Message");
+
+        Assert.assertTrue(src.contains("import ballerinax/solace.jms as solaceJms;"),
+                "camelCase join of all segments: " + src);
+        Assert.assertTrue(src.contains("service solaceJms:MessageService on "), "descriptor: " + src);
+        Assert.assertTrue(src.contains("onEvent(solaceJms:Message event)"), "param type: " + src);
+    }
+
+    @Test
+    public void testAliasIsSuffixedWhenAlreadyClaimed() {
+        // The generated alias itself can be taken by an unrelated import -> disambiguate numerically
+        // rather than emitting a second import that re-clashes.
+        String src = generate(rootOf("import ballerinax/twilio;\nimport foo/bar as triggerTwilio;\n"),
+                "ballerinax", "trigger.twilio", "twilio:CallStatusService", "twilio:CallStatusEventWrapper");
+
+        Assert.assertTrue(src.contains("import ballerinax/trigger.twilio as triggerTwilio2;"),
+                "claimed alias must be suffixed: " + src);
+        Assert.assertTrue(src.contains("service triggerTwilio2:CallStatusService on "),
+                "references must follow the suffixed alias: " + src);
+    }
+
+    @Test
+    public void testExistingImportAliasIsReused() {
+        // Adding a second service for a module already imported must reuse that import's prefix (here a
+        // hand-edited one) instead of minting a new alias the existing import would not match.
+        String src = generate(rootOf("import ballerinax/trigger.twilio as tw;\n"),
+                "ballerinax", "trigger.twilio", "twilio:CallStatusService", "twilio:CallStatusEventWrapper");
+
+        Assert.assertFalse(src.contains("import ballerinax/trigger.twilio"),
+                "module already imported -> no second import: " + src);
+        Assert.assertTrue(src.contains("service tw:CallStatusService on "),
+                "references must reuse the existing import's alias: " + src);
+        Assert.assertTrue(src.contains("onEvent(tw:CallStatusEventWrapper event)"),
+                "param types must reuse the existing import's alias too: " + src);
+    }
+
+    @Test
+    public void testSingleSegmentModuleIsNotAliased() {
+        // Regression guard: a plain module has no clash risk and must keep its unaliased import and
+        // bare prefix, so existing connectors' output is unchanged.
+        String src = generate(emptyRoot(), "ballerinax", "kafka", "kafka:Service", "kafka:Message");
+
+        Assert.assertTrue(src.contains("import ballerinax/kafka;"), "plain import: " + src);
+        Assert.assertFalse(src.contains(" as "), "no alias clause for a single-segment module: " + src);
+        Assert.assertTrue(src.contains("service kafka:Service on "), "bare prefix retained: " + src);
+    }
+
     @Test
     public void testConnectorAndAdditionalImportsEmitted() {
         String initJson = """

@@ -67,7 +67,12 @@ public record TriggerModel(
         Map<String, Property> initProperties,
         List<ServiceTypeModel> serviceTypes,
         List<ReadOnlyMetadata> readOnlyMetadata,
-        List<String> importStatements) {
+        List<String> importStatements,
+        // Optional override for the import prefix the connector's own module is referenced under in
+        // generated source. Absent/blank -> the generator computes one (a camelCase join of a dotted
+        // module name, e.g. `trigger.twilio` -> `triggerTwilio`, so it cannot clash with a base
+        // `ballerinax/twilio` import; a single-segment module keeps its natural prefix, unaliased).
+        String importPrefix) {
 
     /**
      * A service-object type and its handler functions. {@code functions} are present/locked

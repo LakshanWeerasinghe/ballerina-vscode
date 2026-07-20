@@ -123,6 +123,29 @@ public class TriggerSourceGenerationTest {
     }
 
     @Test
+    public void testEnumValueQualifierFollowsTheAliasedModulePrefix() throws Exception {
+        // Regression test for the reported FTP breakage: with `import ballerina/file as ftp;` already in
+        // the file, `ballerina/ftp` must be imported as `ftp2` and EVERY reference has to follow —
+        // including the enum literal carried by `codedata.valueQualifier` on the selected branch of the
+        // protocol choice. Emitting the authored `protocol = ftp:FTP` resolves against ballerina/file,
+        // which has no such member. Types and annotations were already handled; the qualifier was not.
+        String baseline = SchemaDrivenSourceGenerator.buildListenerDeclaration(initForm("ftp"));
+        Assert.assertTrue(baseline.contains("protocol = ftp:FTP"),
+                "unaliased baseline: the natural prefix stands when nothing shadows it: " + baseline);
+
+        // A fresh parse (the pre-pass mutates the model in place), generated for a file where the
+        // natural `ftp` prefix is already bound to another module.
+        String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(
+                initForm("ftp"), triggerModel("ftp"), "ftp2");
+        Assert.assertTrue(block.contains("protocol = ftp2:FTP"),
+                "the enum literal's qualifier must follow the emitted alias: " + block);
+        Assert.assertFalse(block.contains("ftp:FTP"),
+                "no reference may keep the shadowed prefix: " + block);
+        Assert.assertTrue(block.contains("listener ftp2:Listener"),
+                "listener type must use the alias too: " + block);
+    }
+
+    @Test
     public void testMultipleExistingListenersAttach() throws Exception {
         // Use-existing branch with a MULTIPLE_SELECT_LISTENER holding several selected names ->
         // the service attaches to all of them and declares no new listener.

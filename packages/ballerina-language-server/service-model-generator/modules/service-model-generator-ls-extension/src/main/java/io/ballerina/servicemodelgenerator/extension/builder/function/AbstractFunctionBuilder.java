@@ -210,12 +210,13 @@ public abstract class AbstractFunctionBuilder implements NodeBuilder<Function> {
             functionLineRange = members.get(members.size() - 1).lineRange();
         }
         Map<String, String> imports = new HashMap<>();
+        ModulePartNode rootNode = context.document().syntaxTree().rootNode();
+        // Pass the file so annotation module prefixes resolve to what it actually imports.
         String functionNode = NEW_LINE_WITH_TAB + generateFunctionDefSource(context.function(), List.of(),
-                Utils.FunctionAddContext.FUNCTION_ADD, FUNCTION_ADD, imports)
+                Utils.FunctionAddContext.FUNCTION_ADD, FUNCTION_ADD, imports, rootNode)
                 .replace(NEW_LINE, NEW_LINE_WITH_TAB);
 
         List<String> importStmts = new ArrayList<>();
-        ModulePartNode rootNode = context.document().syntaxTree().rootNode();
         imports.values().forEach(moduleId -> {
             String[] importParts = moduleId.split("/");
             String orgName = importParts[0];

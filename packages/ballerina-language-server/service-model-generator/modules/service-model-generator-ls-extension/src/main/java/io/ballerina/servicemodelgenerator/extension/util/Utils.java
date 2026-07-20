@@ -34,6 +34,7 @@ import io.ballerina.compiler.syntax.tree.ExpressionNode;
 import io.ballerina.compiler.syntax.tree.FunctionDefinitionNode;
 import io.ballerina.compiler.syntax.tree.FunctionSignatureNode;
 import io.ballerina.compiler.syntax.tree.IdentifierToken;
+import io.ballerina.compiler.syntax.tree.ImportDeclarationNode;
 import io.ballerina.compiler.syntax.tree.IncludedRecordParameterNode;
 import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
 import io.ballerina.compiler.syntax.tree.MarkdownDocumentationLineNode;
@@ -94,6 +95,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -127,7 +129,6 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.RESOUR
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SPACE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SUBSCRIBE;
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil.ServiceClassContext.SERVICE_DIAGRAM;
-import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getProtocol;
 
 /**
  * Common utility functions used in the project.
@@ -529,11 +530,20 @@ public final class Utils {
             return;
         }
 
+        ModulePartNode rootNode = serviceNode.syntaxTree().rootNode() instanceof ModulePartNode root
+                ? root : null;
         metadata.get().annotations().forEach(annotationNode -> {
             String annotName = annotationNode.annotReference().toString().trim();
             String[] split = annotName.split(":");
-            String moduleName = split.length > 1 ? split[0] : "";
+            String prefix = split.length > 1 ? split[0] : "";
             annotName = split[split.length - 1];
+            // What source carries is a PREFIX, while the model declares a MODULE — comparing them
+            // directly fails the moment the module is imported under an alias (`@ftp2:ServiceConfig`
+            // against a container declaring `ftp`), which silently produced a second, duplicate
+            // `annot<Name>` property alongside the real one. Resolve the prefix through the file's
+            // imports so the two are compared as the same kind of thing.
+            String moduleName = prefix.isEmpty() ? ""
+                    : Utils.moduleNameForPrefix(rootNode, prefix).orElse(prefix);
 
             // A schema-driven SERVICE_ANNOTATION container (e.g. RabbitMQ's `serviceConfig`, keyed by
             // its own schema key, not `annot<Name>`) is matched by module/name wherever it sits in the
@@ -550,6 +560,8 @@ public final class Utils {
                 Value property = service.getProperties().get(propertyName);
                 property.setValue(getAnnotationValue(annotationNode));
             } else {
+                // The resolved module name, not the source prefix: a prefix stored here would be read
+                // back as a module identity by everything downstream (and re-emitted as one).
                 Codedata codedata = new Codedata.Builder()
                         .setType(CD_TYPE_ANNOTATION_ATTACHMENT)
                         .setOriginalName(annotName)
@@ -575,6 +587,21 @@ public final class Utils {
      * properties tree (a schema-driven template keys it by its own schema key, e.g. {@code
      * serviceConfig}, not by a fixed convention).
      */
+    /**
+     * Whether a module name resolved from source names the same module a model declares. Models are
+     * inconsistent about this: some declare the full module ({@code trigger.google.mail}), others only
+     * its last segment ({@code mail}). Both are accepted, so tightening the source side to a real module
+     * name does not strand manifests written the other way.
+     */
+    private static boolean sameModule(String resolved, String declared) {
+        if (declared == null || declared.isBlank()) {
+            return false;
+        }
+        return resolved.equals(declared)
+                || ModuleAliasResolver.selfPrefix(resolved).equals(declared)
+                || resolved.equals(ModuleAliasResolver.selfPrefix(declared));
+    }
+
     private static Value findServiceAnnotationContainer(Map<String, Value> properties, String moduleName,
                                                         String originalName) {
         if (properties == null) {
@@ -584,7 +611,7 @@ public final class Utils {
             Codedata cd = value.getCodedata();
             if (cd != null && CD_TYPE_SERVICE_ANNOTATION.equals(cd.getType())
                     && originalName.equals(cd.getOriginalName())
-                    && (moduleName.isEmpty() || moduleName.equals(cd.getModuleName()))) {
+                    && (moduleName.isEmpty() || sameModule(moduleName, cd.getModuleName()))) {
                 return value;
             }
             Value nested = findServiceAnnotationContainer(value.getProperties(), moduleName, originalName);
@@ -812,6 +839,21 @@ public final class Utils {
     }
 
     public static List<String> getAnnotationEdits(Service service) {
+        return getAnnotationEdits(service, null);
+    }
+
+    /**
+     * Renders the service's annotation attachments. When {@code rootNode} is supplied, each annotation's
+     * module is resolved to the prefix that file actually binds it to; without it the module's natural
+     * prefix is used.
+     *
+     * <p>The model stores a module <i>identity</i> ({@code ftp}) while source needs a <i>prefix</i>,
+     * and the two diverge whenever the module is imported under an alias. Emitting the identity produced
+     * {@code @ftp:ServiceConfig} in a file where {@code ftp} is bound to {@code ballerina/file} and the
+     * annotation's own module is bound to {@code ftp2}. Resolving here, at render time, keeps the model
+     * holding real identities rather than storing a prefix back into {@code moduleName}.
+     */
+    public static List<String> getAnnotationEdits(Service service, ModulePartNode rootNode) {
         Map<String, Value> properties = service.getProperties();
         List<String> annots = new ArrayList<>();
         for (Map.Entry<String, Value> property : properties.entrySet()) {
@@ -829,7 +871,8 @@ public final class Utils {
             // `@module:Name {...}` attachment from source on every save.
             if (CD_TYPE_ANNOTATION_ATTACHMENT.equals(codedata.getType())
                     || CD_TYPE_SERVICE_ANNOTATION.equals(codedata.getType())) {
-                String ref = getAnnotationModule(codedata, service.getModuleName()) + ":" + codedata.getOriginalName();
+                String ref = getAnnotationModule(codedata, service.getModuleName(), rootNode)
+                        + ":" + codedata.getOriginalName();
                 String annotTemplate = "@%s%s".formatted(ref, value.getValue());
                 annots.add(annotTemplate);
             }
@@ -837,18 +880,60 @@ public final class Utils {
         return annots;
     }
 
-    private static String getAnnotationModule(Codedata codedata, String module) {
-        if (codedata == null || codedata.getModuleName() == null || codedata.getModuleName().isEmpty()) {
-            return getProtocol(module);
+    private static String getAnnotationModule(Codedata codedata, String module, ModulePartNode rootNode) {
+        String moduleName = codedata != null && codedata.getModuleName() != null
+                && !codedata.getModuleName().isEmpty() ? codedata.getModuleName() : module;
+        String org = codedata == null ? null : codedata.getOrgName();
+        return resolveModulePrefix(rootNode, org, moduleName);
+    }
+
+    /**
+     * The prefix {@code org/module} is bound to in this file, falling back to the module's natural
+     * prefix. Unlike allocating a prefix for a new import, this never invents one: an annotation's module
+     * is necessarily already imported, so an unmatched module means the model named it loosely rather
+     * than that a new import is needed.
+     */
+    private static String resolveModulePrefix(ModulePartNode rootNode, String org, String moduleName) {
+        String natural = ModuleAliasResolver.selfPrefix(moduleName == null ? "" : moduleName);
+        if (rootNode == null || moduleName == null || moduleName.isBlank()) {
+            return natural;
         }
-        return getProtocol(codedata.getModuleName());
+        Optional<String> exact = existingImportPrefix(rootNode, org, moduleName);
+        if (exact.isPresent()) {
+            return exact.get();
+        }
+        // Models are inconsistent: some name the module by its last segment (`mail` for
+        // `trigger.google.mail`), so fall back to matching an import by natural prefix.
+        for (ImportDeclarationNode importDeclarationNode : rootNode.imports()) {
+            String imported = importDeclarationNode.moduleName().stream()
+                    .map(IdentifierToken::text)
+                    .collect(Collectors.joining("."));
+            if (natural.equals(ModuleAliasResolver.selfPrefix(imported))) {
+                return importPrefixOf(importDeclarationNode, imported);
+            }
+        }
+        return natural;
     }
 
     public static List<String> getAnnotationEdits(Function function, Map<String, String> imports) {
-        return getAnnotationEdits(function.getProperties(), imports);
+        return getAnnotationEdits(function.getProperties(), imports, null);
+    }
+
+    /**
+     * As {@link #getAnnotationEdits(Function, Map)}, resolving each annotation's module to the prefix
+     * {@code rootNode}'s file binds it to. See {@link #getAnnotationEdits(Service, ModulePartNode)}.
+     */
+    public static List<String> getAnnotationEdits(Function function, Map<String, String> imports,
+                                                  ModulePartNode rootNode) {
+        return getAnnotationEdits(function.getProperties(), imports, rootNode);
     }
 
     public static List<String> getAnnotationEdits(Map<String, Value> properties, Map<String, String> imports) {
+        return getAnnotationEdits(properties, imports, null);
+    }
+
+    public static List<String> getAnnotationEdits(Map<String, Value> properties, Map<String, String> imports,
+                                                  ModulePartNode rootNode) {
         return properties.values().stream()
                 .filter(Utils::isAnnotationProperty)
                 .peek(value -> {
@@ -856,14 +941,17 @@ public final class Utils {
                         imports.putAll(value.getImports());
                     }
                 })
-                .map(value -> "@%s%s".formatted(getAnnotationReference(value.getCodedata()), value.getValue()))
+                .map(value -> "@%s%s".formatted(getAnnotationReference(value.getCodedata(), rootNode),
+                        value.getValue()))
                 .collect(Collectors.toList());
     }
 
-    private static String getAnnotationReference(Codedata codedata) {
+    private static String getAnnotationReference(Codedata codedata, ModulePartNode rootNode) {
         String ref = "";
         if (Objects.nonNull(codedata.getModuleName()) && !codedata.getModuleName().isEmpty()) {
-            ref = getProtocol(codedata.getModuleName()) + COLON;
+            // `moduleName` holds a module IDENTITY; the prefix it is emitted under is a property of the
+            // target file, resolved here rather than written back into the model.
+            ref = resolveModulePrefix(rootNode, codedata.getOrgName(), codedata.getModuleName()) + COLON;
         }
         ref += codedata.getOriginalName();
         return ref;
@@ -932,7 +1020,10 @@ public final class Utils {
                                                      List<TextEdit> edits) {
         Token serviceKeyword = serviceNode.serviceKeyword();
 
-        List<String> annots = getAnnotationEdits(service);
+        // Resolve annotation module prefixes against the file being edited, so a rewrite cannot replace
+        // a working `@ftp2:ServiceConfig` with the model's unresolved `@ftp:ServiceConfig`.
+        List<String> annots = getAnnotationEdits(service,
+                serviceNode.syntaxTree().rootNode() instanceof ModulePartNode root ? root : null);
         String annotEdit = String.join(System.lineSeparator(), annots);
 
         Optional<MetadataNode> metadata = serviceNode.metadata();
@@ -1000,7 +1091,10 @@ public final class Utils {
         Token firstToken = functionDef.qualifierList().isEmpty() ? functionDef.functionKeyword()
                 : functionDef.qualifierList().get(0);
 
-        List<String> annots = getAnnotationEdits(function, imports);
+        // Resolve against the file being edited, so rewriting a function's annotations cannot downgrade
+        // a working aliased prefix to the model's unresolved module name.
+        List<String> annots = getAnnotationEdits(function, imports,
+                functionDef.syntaxTree().rootNode() instanceof ModulePartNode root ? root : null);
         String annotEdit = String.join(System.lineSeparator(), annots);
 
         Optional<MetadataNode> metadata = functionDef.metadata();
@@ -1090,13 +1184,24 @@ public final class Utils {
                                                    FunctionAddContext addContext,
                                                    FunctionSignatureContext signatureContext,
                                                    Map<String, String> imports) {
+        return generateFunctionDefSource(function, statusCodeResponses, addContext, signatureContext, imports, null);
+    }
+
+    /**
+     * As above, resolving the function's annotation module prefixes against {@code rootNode}'s file.
+     * A null {@code rootNode} falls back to each module's natural prefix (the historical behaviour).
+     */
+    public static String generateFunctionDefSource(Function function, List<String> statusCodeResponses,
+                                                   FunctionAddContext addContext,
+                                                   FunctionSignatureContext signatureContext,
+                                                   Map<String, String> imports, ModulePartNode rootNode) {
         StringBuilder builder = new StringBuilder();
         String documentation = getDocumentationEdits(function);
         if (!documentation.isEmpty()) {
             builder.append(documentation).append(NEW_LINE);
         }
 
-        List<String> functionAnnotations = getAnnotationEdits(function, imports);
+        List<String> functionAnnotations = getAnnotationEdits(function, imports, rootNode);
         if (!functionAnnotations.isEmpty()) {
             builder.append(String.join(NEW_LINE, functionAnnotations)).append(NEW_LINE);
         }
@@ -1248,6 +1353,75 @@ public final class Utils {
     }
 
     /**
+     * The effective import prefix an {@code org/module} is already imported under in this file, if any —
+     * its explicit {@code as <alias>} clause when present, otherwise the module's last dot-segment
+     * (the natural prefix). Lets the generator reuse whatever alias a prior add-service already
+     * committed for the same module, so a second service block stays consistent with the existing import.
+     * A null/blank {@code org} matches any organization, for callers that only know the module name.
+     */
+    public static Optional<String> existingImportPrefix(ModulePartNode node, String org, String module) {
+        boolean anyOrg = org == null || org.isBlank();
+        for (ImportDeclarationNode importDeclarationNode : node.imports()) {
+            String moduleName = importDeclarationNode.moduleName().stream()
+                    .map(IdentifierToken::text)
+                    .collect(Collectors.joining("."));
+            if (!module.equals(moduleName)) {
+                continue;
+            }
+            if (anyOrg || (importDeclarationNode.orgName().isPresent()
+                    && org.equals(importDeclarationNode.orgName().get().orgName().text()))) {
+                return Optional.of(importPrefixOf(importDeclarationNode, moduleName));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The module a prefix is bound to in this file — the inverse of {@link #existingImportPrefix}.
+     *
+     * <p>A prefix read out of source ({@code @ftp2:ServiceConfig}) identifies a module only relative to
+     * the file's imports, and is <b>not</b> interchangeable with a module name: {@code ballerina/ftp} and
+     * {@code ballerina/abc.ftp} both present as {@code ftp} by default, and an alias can bind any prefix
+     * to any module. Resolving through the imports is the only way to recover the real identity.
+     *
+     * @return the imported module name (e.g. {@code abc.ftp}), or empty when nothing binds the prefix
+     */
+    public static Optional<String> moduleNameForPrefix(ModulePartNode node, String prefix) {
+        if (node == null || prefix == null || prefix.isBlank()) {
+            return Optional.empty();
+        }
+        for (ImportDeclarationNode importDeclarationNode : node.imports()) {
+            String moduleName = importDeclarationNode.moduleName().stream()
+                    .map(IdentifierToken::text)
+                    .collect(Collectors.joining("."));
+            if (prefix.equals(importPrefixOf(importDeclarationNode, moduleName))) {
+                return Optional.of(moduleName);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The effective prefixes of every import in the file (explicit alias, else module last segment). */
+    public static Set<String> importedPrefixes(ModulePartNode node) {
+        Set<String> prefixes = new HashSet<>();
+        for (ImportDeclarationNode importDeclarationNode : node.imports()) {
+            String moduleName = importDeclarationNode.moduleName().stream()
+                    .map(IdentifierToken::text)
+                    .collect(Collectors.joining("."));
+            prefixes.add(importPrefixOf(importDeclarationNode, moduleName));
+        }
+        return prefixes;
+    }
+
+    private static String importPrefixOf(ImportDeclarationNode importDeclarationNode, String moduleName) {
+        if (importDeclarationNode.prefix().isPresent()) {
+            return importDeclarationNode.prefix().get().prefix().text();
+        }
+        int lastDot = moduleName.lastIndexOf('.');
+        return lastDot < 0 ? moduleName : moduleName.substring(lastDot + 1);
+    }
+
+    /**
      * Generates the import statement for the given organization and module.
      *
      * @param org    organization name
@@ -1256,6 +1430,27 @@ public final class Utils {
      */
     public static String getImportStmt(String org, String module) {
         return String.format(Constants.IMPORT_STMT_TEMPLATE, org, module);
+    }
+
+    /**
+     * Generates the import statement, adding an {@code as <alias>} clause only when {@code alias} is a
+     * genuine rename (non-blank and different from the module's natural last-segment prefix). A dotted
+     * module such as {@code trigger.twilio} — whose natural prefix {@code twilio} clashes with the base
+     * {@code ballerinax/twilio} client — is thus imported as {@code import ballerinax/trigger.twilio as
+     * triggerTwilio;}, while a plain module keeps its unaliased import.
+     *
+     * @param org    organization name
+     * @param module module name
+     * @param alias  the prefix to emit; null/blank or equal to the natural prefix yields a plain import
+     * @return generated import statement
+     */
+    public static String getImportStmt(String org, String module, String alias) {
+        int lastDot = module.lastIndexOf('.');
+        String naturalPrefix = lastDot < 0 ? module : module.substring(lastDot + 1);
+        if (alias == null || alias.isBlank() || alias.equals(naturalPrefix)) {
+            return getImportStmt(org, module);
+        }
+        return String.format(Constants.IMPORT_STMT_TEMPLATE_WITH_ALIAS, org, module, alias);
     }
 
     public static boolean filterTriggers(TriggerProperty triggerProperty, TriggerListRequest request) {

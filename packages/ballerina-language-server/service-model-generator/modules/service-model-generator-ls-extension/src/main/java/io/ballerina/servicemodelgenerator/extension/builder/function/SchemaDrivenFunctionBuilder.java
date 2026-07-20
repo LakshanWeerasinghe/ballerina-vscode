@@ -18,6 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.builder.function;
 
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.projects.Document;
 import io.ballerina.servicemodelgenerator.extension.connector.AnnotationEmitter;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
@@ -31,6 +33,7 @@ import io.ballerina.servicemodelgenerator.extension.model.Value;
 import io.ballerina.servicemodelgenerator.extension.model.context.AddModelContext;
 import io.ballerina.servicemodelgenerator.extension.model.context.ModelFromSourceContext;
 import io.ballerina.servicemodelgenerator.extension.model.context.UpdateModelContext;
+import io.ballerina.servicemodelgenerator.extension.util.ModulePrefixContext;
 import org.eclipse.lsp4j.TextEdit;
 
 import java.util.ArrayList;
@@ -71,6 +74,10 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
 
     @Override
     public Map<String, List<TextEdit>> addModel(AddModelContext context) throws Exception {
+        // Strictly before renderComplexAnnotations: that collapses the annotation tree into a rendered
+        // `{...}` string, baking in each enum literal's qualifier, so the qualifiers must already be
+        // resolved by then.
+        requalifyModuleReferences(context.function(), context.document());
         renderComplexAnnotations(context.function());
         // Must run before the emitter: it rewrites the payload param's type to the generated wrapper.
         Map<String, List<TextEdit>> typeEdits = IncludedRecordBinder.forAdd(context);
@@ -79,9 +86,112 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
 
     @Override
     public Map<String, List<TextEdit>> updateModel(UpdateModelContext context) {
+        requalifyModuleReferences(context.function(), context.document());
         renderComplexAnnotations(context.function());
         Map<String, List<TextEdit>> typeEdits = IncludedRecordBinder.forUpdate(context);
         return mergeEdits(super.updateModel(context), typeEdits);
+    }
+
+    /**
+     * Re-qualifies every module reference a function emits — parameter types, return type, and the
+     * module qualifier of its annotation attachments — onto the prefixes the target file actually binds.
+     *
+     * <p>The trigger model authors all of these against a module's natural prefix (e.g.
+     * {@code twilio:CallStatusEventWrapper}, {@code @ftp:FunctionConfig}). That prefix is not always in
+     * scope: the file may import the module under an alias, either because the natural one collides with
+     * a sibling package ({@code ballerinax/trigger.twilio} vs {@code ballerinax/twilio}) or because
+     * something else already bound it ({@code import ballerina/file as ftp;}). The file's own imports are
+     * authoritative — an added function must line up with what the service block already committed to.
+     *
+     * <p>Prefixes are resolved once into a {@link ModulePrefixContext} and reused for all three sites, so
+     * they cannot drift apart. The function's own module and each annotation's module are registered,
+     * since a function may reference several (MSSQL CDC spans {@code mssql} and {@code cdc}).
+     */
+    private static void requalifyModuleReferences(Function function, Document document) {
+        Codedata codedata = function == null ? null : function.getCodedata();
+        if (codedata == null || document == null
+                || !(document.syntaxTree().rootNode() instanceof ModulePartNode rootNode)) {
+            return;
+        }
+        String module = codedata.getModuleName();
+        if (module == null || module.isBlank()) {
+            return;
+        }
+        ModulePrefixContext prefixes = ModulePrefixContext.from(rootNode);
+        // Register the function's own module first so it wins any natural-prefix tie.
+        prefixes.prefixFor(codedata.getOrgName(), module);
+        requalifyProperties(function.getProperties(), prefixes);
+        if (!prefixes.hasAliases()) {
+            return;
+        }
+        if (function.getParameters() != null) {
+            for (Parameter parameter : function.getParameters()) {
+                requalify(parameter.getType(), prefixes);
+            }
+        }
+        requalify(function.getReturnType(), prefixes);
+    }
+
+    /**
+     * Resolves the {@code valueQualifier} of every enum literal in a property tree, in place, to the
+     * prefix its module is bound to ({@code afterProcess: ftp:DELETE} &rarr; {@code ftp2:DELETE}).
+     *
+     * <p>Unlike {@code moduleName} — a module <i>identity</i>, which is resolved at render time and
+     * deliberately never overwritten here — {@code valueQualifier} <i>is</i> a prefix by definition (it
+     * renders verbatim as {@code <qualifier>:<value>}), so resolving it in place stores the right kind of
+     * thing. It has to happen here rather than at render time because {@code renderComplexAnnotations}
+     * collapses the tree into a rendered string well before any emitter sees it.
+     *
+     * <p>Registers each property's declared module so the qualifier resolves by identity where the model
+     * provides one; a qualifier naming an unregistered or ambiguous module is left untouched rather than
+     * guessed at. Recurses through nested properties and choice branches, since an enum literal's
+     * qualifier lives on the selected branch of a nested choice.
+     */
+    private static void requalifyProperties(Map<String, Value> properties, ModulePrefixContext prefixes) {
+        if (properties == null) {
+            return;
+        }
+        for (Value property : properties.values()) {
+            requalifyProperty(property, prefixes);
+        }
+    }
+
+    private static void requalifyProperty(Value property, ModulePrefixContext prefixes) {
+        if (property == null) {
+            return;
+        }
+        Codedata codedata = property.getCodedata();
+        if (codedata != null) {
+            // Register (never overwrite) the declared module, so an identity-carrying qualifier below
+            // can be resolved precisely instead of by bare prefix.
+            if (codedata.getModuleName() != null && !codedata.getModuleName().isBlank()) {
+                prefixes.prefixFor(codedata.getOrgName(), codedata.getModuleName());
+            }
+            if (codedata.getValueQualifier() != null && !codedata.getValueQualifier().isBlank()) {
+                codedata.setValueQualifier(prefixes.prefixForQualifier(
+                        codedata.getOrgName(), codedata.getModuleName(), codedata.getValueQualifier()));
+            }
+        }
+        requalifyProperties(property.getProperties(), prefixes);
+        if (property.getChoices() != null) {
+            for (Value choice : property.getChoices()) {
+                requalifyProperty(choice, prefixes);
+            }
+        }
+    }
+
+    private static void requalify(Value type, ModulePrefixContext prefixes) {
+        if (type == null) {
+            return;
+        }
+        String current = type.getValue();
+        if (current == null || current.isEmpty()) {
+            return;
+        }
+        String rewritten = prefixes.requalify(current);
+        if (!rewritten.equals(current)) {
+            type.setValue(rewritten);
+        }
     }
 
     /** Merges the types.bal edits of an included-record binding into the emitter's edit map. */

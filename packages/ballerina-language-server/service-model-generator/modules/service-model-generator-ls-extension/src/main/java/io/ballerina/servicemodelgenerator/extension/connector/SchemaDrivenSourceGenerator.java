@@ -25,6 +25,7 @@ import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import io.ballerina.servicemodelgenerator.extension.util.Constants;
+import io.ballerina.servicemodelgenerator.extension.util.ModuleAliasResolver;
 import io.ballerina.servicemodelgenerator.extension.util.Utils;
 import org.eclipse.lsp4j.TextEdit;
 
@@ -116,13 +117,19 @@ public final class SchemaDrivenSourceGenerator {
      * creation model (CHOICE/GROUP_SECTION aware).
      */
     public static String buildListenerDeclaration(ServiceInitModel creationModel) {
-        return renderListenerDeclaration(getProtocol(creationModel.getModuleName()),
-                collectListenerArgs(creationModel));
+        String emitAlias = defaultEmitAlias(creationModel.getModuleName());
+        requalifyValueQualifiers(creationModel.getProperties(),
+                getProtocol(creationModel.getModuleName()), emitAlias);
+        return renderListenerDeclaration(emitAlias, collectListenerArgs(creationModel));
     }
 
-    /** The {@code \nimport <org>/<module>;\n} statement for the connector. */
+    /**
+     * The {@code \nimport <org>/<module>;\n} statement for the connector, aliased when its natural
+     * prefix would be collision-prone (see {@link #defaultEmitAlias}).
+     */
     public static String buildImport(ServiceInitModel creationModel) {
-        return Utils.getImportStmt(creationModel.getOrgName(), creationModel.getModuleName());
+        return Utils.getImportStmt(creationModel.getOrgName(), creationModel.getModuleName(),
+                defaultEmitAlias(creationModel.getModuleName()));
     }
 
     // ==================================================================
@@ -135,12 +142,15 @@ public final class SchemaDrivenSourceGenerator {
                                                                    TriggerModel triggerModel,
                                                                    ModulePartNode rootNode, String filePath) {
         List<TextEdit> edits = new ArrayList<>();
-        String imports = buildImports(filledInitForm, triggerModel, rootNode);
+        // The connector module's emitted import prefix, resolved against the file so the service block
+        // and the import agree on the same (possibly aliased, collision-free) prefix.
+        String emitAlias = resolveEmitAlias(rootNode, filledInitForm, triggerModel);
+        String imports = buildImports(filledInitForm, triggerModel, rootNode, emitAlias);
         if (!imports.isEmpty()) {
             edits.add(new TextEdit(Utils.toRange(rootNode.lineRange().startLine()), imports));
         }
         edits.add(new TextEdit(Utils.toRange(rootNode.lineRange().endLine()),
-                buildServiceBlockForTrigger(filledInitForm, triggerModel)));
+                buildServiceBlockForTrigger(filledInitForm, triggerModel, emitAlias)));
         return Map.of(filePath, edits);
     }
 
@@ -150,10 +160,13 @@ public final class SchemaDrivenSourceGenerator {
      * as {@code ballerina/http}). Each is emitted only when not already present in the file.
      */
     private static String buildImports(ServiceInitModel filledInitForm, TriggerModel triggerModel,
-                                       ModulePartNode rootNode) {
+                                       ModulePartNode rootNode, String emitAlias) {
         StringBuilder imports = new StringBuilder();
         if (!Utils.importExists(rootNode, filledInitForm.getOrgName(), filledInitForm.getModuleName())) {
-            imports.append(buildImport(filledInitForm));
+            // Aliased (`... as triggerTwilio;`) only when the natural prefix would clash — see
+            // Utils.getImportStmt(org, module, alias).
+            imports.append(Utils.getImportStmt(filledInitForm.getOrgName(), filledInitForm.getModuleName(),
+                    emitAlias));
         }
         if (triggerModel != null && triggerModel.importStatements() != null) {
             for (String moduleRef : triggerModel.importStatements()) {
@@ -180,17 +193,38 @@ public final class SchemaDrivenSourceGenerator {
      * two-model {@code buildServiceBlock} so a {@code null} second argument stays unambiguous.
      */
     public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel) {
-        String protocol = getProtocol(filledInitForm.getModuleName());
+        return buildServiceBlockForTrigger(filledInitForm, triggerModel,
+                modelAliasOrDefault(triggerModel, filledInitForm.getModuleName()));
+    }
+
+    /**
+     * As {@link #buildServiceBlockForTrigger(ServiceInitModel, TriggerModel)}, but referencing the
+     * connector's own module under {@code emitAlias} — the prefix its import is (or will be) bound to.
+     * For a dotted module whose natural prefix clashes with a base client (e.g. {@code trigger.twilio}
+     * vs {@code ballerinax/twilio}) this is the safe alias {@code triggerTwilio}, and every self-module
+     * reference — listener type, service descriptor, handler parameter/return types, annotations — is
+     * emitted under it. For a single-segment module the alias equals the natural prefix and every
+     * rewrite below is a no-op, so output is byte-identical to before.
+     */
+    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+                                                     String emitAlias) {
+        // The prefix the model's own strings are authored with (module's last dot-segment): the source
+        // token that self-module references are rewritten FROM.
+        String selfPrefix = getProtocol(filledInitForm.getModuleName());
+        // Enum literals carry their module as a bare `valueQualifier` (e.g. ftp's `protocol = ftp:FTP`).
+        // Resolved up front, in place, so the arg/annotation walks below emit it already correct rather
+        // than each having to thread the alias down to every leaf.
+        requalifyValueQualifiers(filledInitForm.getProperties(), selfPrefix, emitAlias);
         ListenerArgs collected = collectListenerArgs(filledInitForm);
-        String descriptor = resolveServiceDescriptor(filledInitForm, triggerModel, protocol);
+        String descriptor = resolveServiceDescriptor(filledInitForm, triggerModel, selfPrefix, emitAlias);
         String basePath = resolveBasePath(filledInitForm);
-        List<String> functions = buildRequiredFunctionSources(filledInitForm, triggerModel);
+        List<String> functions = buildRequiredFunctionSources(filledInitForm, triggerModel, selfPrefix, emitAlias);
 
         StringBuilder builder = new StringBuilder(NEW_LINE);
         if (collected.hasArgs()) {
-            builder.append(renderListenerDeclaration(protocol, collected)).append(NEW_LINE);
+            builder.append(renderListenerDeclaration(emitAlias, collected)).append(NEW_LINE);
         }
-        for (String annotation : buildServiceAnnotations(filledInitForm)) {
+        for (String annotation : buildServiceAnnotations(filledInitForm, selfPrefix, emitAlias)) {
             builder.append(annotation).append(NEW_LINE);
         }
         builder.append(SERVICE).append(SPACE).append(descriptor).append(SPACE);
@@ -215,13 +249,14 @@ public final class SchemaDrivenSourceGenerator {
      * ({@code moduleName}/{@code originalName}), so several init-form fields belonging to the same
      * annotation are merged into one {@code @module:Name {...}} attachment.
      */
-    private static List<String> buildServiceAnnotations(ServiceInitModel filledInitForm) {
+    private static List<String> buildServiceAnnotations(ServiceInitModel filledInitForm, String selfPrefix,
+                                                        String emitAlias) {
         Map<String, AnnotationFields> byAnnotation = new LinkedHashMap<>();
         collectAnnotationFields(filledInitForm.getProperties(), byAnnotation);
         List<String> annotations = new ArrayList<>();
         for (AnnotationFields annotation : byAnnotation.values()) {
             if (!annotation.fields.isEmpty()) {
-                annotations.add(annotation.render());
+                annotations.add(annotation.render(selfPrefix, emitAlias));
             }
         }
         return annotations;
@@ -274,9 +309,11 @@ public final class SchemaDrivenSourceGenerator {
             this.originalName = originalName;
         }
 
-        private String render() {
-            String prefix = moduleName == null || moduleName.isBlank()
-                    ? "@" + originalName : "@" + moduleName + COLON + originalName;
+        /** Renders the attachment, mapping a self-module qualifier onto the emitted import alias. */
+        private String render(String selfPrefix, String emitAlias) {
+            String qualifier = selfPrefix.equals(moduleName) ? emitAlias : moduleName;
+            String prefix = qualifier == null || qualifier.isBlank()
+                    ? "@" + originalName : "@" + qualifier + COLON + originalName;
             return prefix + " {" + String.join(", ", fields) + "}";
         }
     }
@@ -287,39 +324,45 @@ public final class SchemaDrivenSourceGenerator {
      * {@code serviceTypes[]} entry (kafka carries the descriptor on the type, not the init form).
      */
     private static String resolveServiceDescriptor(ServiceInitModel filledInitForm, TriggerModel triggerModel,
-                                                   String protocol) {
+                                                   String selfPrefix, String emitAlias) {
         String fromForm = findServiceType(filledInitForm.getProperties());
         if (fromForm != null && !fromForm.isEmpty()) {
-            return qualify(fromForm, protocol);
+            return qualify(fromForm, selfPrefix, emitAlias);
         }
         TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType != null) {
             TriggerModel.Codedata cd = serviceType.codedata();
             if (cd != null && cd.originalName() != null && !cd.originalName().isBlank()) {
                 String module = cd.moduleName() != null && !cd.moduleName().isBlank()
-                        ? aliasOf(cd.moduleName()) : protocol;
-                return module + COLON + cd.originalName();
+                        ? aliasOf(cd.moduleName()) : selfPrefix;
+                return mapSelfModule(module, selfPrefix, emitAlias) + COLON + cd.originalName();
             }
             if (serviceType.name() != null && !serviceType.name().isBlank()) {
-                return qualify(serviceType.name(), protocol);
+                return qualify(serviceType.name(), selfPrefix, emitAlias);
             }
         }
-        return protocol + COLON + TYPE_SERVICE;
+        return emitAlias + COLON + TYPE_SERVICE;
     }
 
-    private static String qualify(String typeName, String protocol) {
+    /**
+     * Qualifies a service type. An unqualified name is the connector's own type and takes the emitted
+     * import alias; an already-qualified one keeps its declared module — normalized to that module's
+     * import alias (its last dot-segment, so {@code trigger.google.mail:GmailService} becomes
+     * {@code mail:GmailService}) — because the type need NOT live in the connector's own module: the
+     * CDC connectors (mssql/mysql/postgresql) declare theirs in the separate {@code ballerinax/cdc}
+     * module and must stay {@code cdc:Service}. Only a self-module qualifier is remapped onto the alias.
+     */
+    private static String qualify(String typeName, String selfPrefix, String emitAlias) {
         if (!typeName.contains(COLON)) {
-            return protocol + COLON + typeName;
+            return emitAlias + COLON + typeName;
         }
-        // Already qualified: normalize the module qualifier to its import alias (last dot-segment) so a
-        // full dotted module name (e.g. `trigger.google.mail:GmailService`) becomes `mail:GmailService`.
-        return aliasOf(typeName.substring(0, typeName.indexOf(COLON))) + COLON + simpleName(typeName);
+        String module = aliasOf(typeName.substring(0, typeName.indexOf(COLON)));
+        return mapSelfModule(module, selfPrefix, emitAlias) + COLON + simpleName(typeName);
     }
 
-    /** The simple (unqualified) type name — strips any {@code module:} prefix. */
-    private static String simpleName(String typeName) {
-        int colon = typeName.indexOf(COLON);
-        return colon < 0 ? typeName : typeName.substring(colon + 1);
+    /** The prefix to emit for a module alias: the connector's own becomes its (possibly aliased) import prefix. */
+    private static String mapSelfModule(String module, String selfPrefix, String emitAlias) {
+        return selfPrefix.equals(module) ? emitAlias : module;
     }
 
     /**
@@ -329,6 +372,96 @@ public final class SchemaDrivenSourceGenerator {
     private static String aliasOf(String moduleName) {
         int lastDot = moduleName.lastIndexOf('.');
         return lastDot < 0 ? moduleName : moduleName.substring(lastDot + 1);
+    }
+
+    /** The simple (unqualified) type name — strips any {@code module:} prefix. */
+    private static String simpleName(String typeName) {
+        int colon = typeName.indexOf(COLON);
+        return colon < 0 ? typeName : typeName.substring(colon + 1);
+    }
+
+    // ------------------------------------------------------------------
+    // Self-module import alias
+    //
+    // A dotted module is imported under its LAST segment by default, which collides whenever the
+    // project also imports a same-named sibling package — `ballerinax/trigger.twilio` and
+    // `ballerinax/twilio` both want the prefix `twilio`, as do `ballerinax/solace.jms` and
+    // `ballerina/jms`. Such a module is therefore imported under a generated alias
+    // (`import ballerinax/trigger.twilio as triggerTwilio;`) and every reference to its own types is
+    // emitted under that alias. A single-segment module has no such risk and keeps its natural prefix,
+    // which makes the alias equal to it and all the rewriting below a no-op.
+    // ------------------------------------------------------------------
+
+    /**
+     * The alias the connector's module is referenced under: {@code TriggerModel.importPrefix} when the
+     * model pins one, else the generated default.
+     */
+    private static String modelAliasOrDefault(TriggerModel triggerModel, String moduleName) {
+        if (triggerModel != null && triggerModel.importPrefix() != null
+                && !triggerModel.importPrefix().isBlank()) {
+            return triggerModel.importPrefix();
+        }
+        return defaultEmitAlias(moduleName);
+    }
+
+    /** @see ModuleAliasResolver#defaultAlias(String) */
+    private static String defaultEmitAlias(String moduleName) {
+        return ModuleAliasResolver.defaultAlias(moduleName);
+    }
+
+    /**
+     * The alias to emit for the connector's module in the context of an actual file — an existing
+     * import's prefix, else the model/default alias disambiguated against the prefixes the file has
+     * already claimed. See {@link ModuleAliasResolver#resolve}.
+     */
+    private static String resolveEmitAlias(ModulePartNode rootNode, ServiceInitModel filledInitForm,
+                                           TriggerModel triggerModel) {
+        String moduleName = filledInitForm.getModuleName();
+        String override = triggerModel != null && triggerModel.importPrefix() != null
+                && !triggerModel.importPrefix().isBlank() ? triggerModel.importPrefix() : null;
+        return ModuleAliasResolver.resolve(rootNode, filledInitForm.getOrgName(), moduleName, override);
+    }
+
+    /** @see ModuleAliasResolver#rewriteSelfPrefix(String, String, String) */
+    private static String rewriteSelfPrefix(String typeText, String selfPrefix, String emitAlias) {
+        return ModuleAliasResolver.rewriteSelfPrefix(typeText, selfPrefix, emitAlias);
+    }
+
+    /**
+     * Rewrites, in place, every {@code valueQualifier} naming the connector's own module onto the prefix
+     * it is emitted under. A {@code valueQualifier} qualifies an enum literal — ftp's
+     * {@code protocol = ftp:FTP} listener argument and its {@code afterProcess: ftp:DELETE} annotation
+     * field — and names its module by bare prefix, so it is matched against the natural prefix rather
+     * than resolved as an {@code org/module} pair. Qualifiers naming any other module are left alone.
+     *
+     * <p>Recurses through nested properties and choice branches: the qualifier lives on the selected
+     * branch of a choice (ftp's protocol selector), not on the field itself. A no-op when the connector
+     * is not aliased.
+     */
+    private static void requalifyValueQualifiers(Map<String, Value> properties, String selfPrefix,
+                                                 String emitAlias) {
+        if (properties == null || selfPrefix == null || selfPrefix.equals(emitAlias)) {
+            return;
+        }
+        for (Value field : properties.values()) {
+            requalifyValueQualifier(field, selfPrefix, emitAlias);
+        }
+    }
+
+    private static void requalifyValueQualifier(Value field, String selfPrefix, String emitAlias) {
+        if (field == null) {
+            return;
+        }
+        Codedata codedata = field.getCodedata();
+        if (codedata != null && selfPrefix.equals(codedata.getValueQualifier())) {
+            codedata.setValueQualifier(emitAlias);
+        }
+        requalifyValueQualifiers(field.getProperties(), selfPrefix, emitAlias);
+        if (field.getChoices() != null) {
+            for (Value choice : field.getChoices()) {
+                requalifyValueQualifier(choice, selfPrefix, emitAlias);
+            }
+        }
     }
 
     /** Picks the service type matching the init-form selection; else the enabled one; else the first. */
@@ -356,7 +489,8 @@ public final class SchemaDrivenSourceGenerator {
 
     /** Emits the present (enabled, non-optional) handlers of the selected service type. */
     private static List<String> buildRequiredFunctionSources(ServiceInitModel filledInitForm,
-                                                             TriggerModel triggerModel) {
+                                                             TriggerModel triggerModel, String selfPrefix,
+                                                             String emitAlias) {
         List<String> functions = new ArrayList<>();
         TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType == null || serviceType.functions() == null) {
@@ -364,14 +498,24 @@ public final class SchemaDrivenSourceGenerator {
         }
         for (TriggerModel.FunctionModel function : serviceType.functions()) {
             if (function.enabled() && !Boolean.TRUE.equals(function.optional())) {
-                functions.add(TAB + buildFunctionSource(function).replace(NEW_LINE, NEW_LINE_WITH_TAB));
+                functions.add(TAB + buildFunctionSource(function, selfPrefix, emitAlias)
+                        .replace(NEW_LINE, NEW_LINE_WITH_TAB));
             }
         }
         return functions;
     }
 
-    /** Renders one handler from the unified {@code FunctionModel} (params carry type/name as Property). */
+    /** Renders one handler, leaving module-qualified types exactly as the model authored them. */
     static String buildFunctionSource(TriggerModel.FunctionModel function) {
+        return buildFunctionSource(function, "", "");
+    }
+
+    /**
+     * Renders one handler from the unified {@code FunctionModel} (params carry type/name as Property),
+     * re-qualifying self-module references in parameter and return types onto {@code emitAlias}.
+     */
+    private static String buildFunctionSource(TriggerModel.FunctionModel function, String selfPrefix,
+                                              String emitAlias) {
         StringBuilder builder = new StringBuilder();
         // Function-level annotations (COMPLEX_FUNCTION_ANNOTATION) sit above the function.
         for (String annotation : AnnotationEmitter.annotationsOf(function.properties())) {
@@ -382,8 +526,9 @@ public final class SchemaDrivenSourceGenerator {
                 && !function.accessor().isBlank()) {
             builder.append(function.accessor()).append(SPACE);
         }
-        builder.append(effectiveFunctionName(function)).append("(").append(buildParameterList(function)).append(")");
-        String returnClause = buildReturnType(function.returnType());
+        builder.append(effectiveFunctionName(function)).append("(")
+                .append(buildParameterList(function, selfPrefix, emitAlias)).append(")");
+        String returnClause = buildReturnType(function.returnType(), selfPrefix, emitAlias);
         if (!returnClause.isEmpty()) {
             builder.append(SPACE).append(returnClause);
         }
@@ -449,7 +594,8 @@ public final class SchemaDrivenSourceGenerator {
         };
     }
 
-    private static String buildParameterList(TriggerModel.FunctionModel function) {
+    private static String buildParameterList(TriggerModel.FunctionModel function, String selfPrefix,
+                                             String emitAlias) {
         if (function.parameters() == null) {
             return "";
         }
@@ -466,7 +612,7 @@ public final class SchemaDrivenSourceGenerator {
                 // emission gate — a schemaFunction template ships its core param as enabled:false.)
                 continue;
             }
-            String type = PayloadComposer.effectiveType(parameter.type());
+            String type = rewriteSelfPrefix(PayloadComposer.effectiveType(parameter.type()), selfPrefix, emitAlias);
             String name = paramName(parameter);
             if (!type.isEmpty() && !name.isEmpty()) {
                 params.add(type + SPACE + name);
@@ -488,12 +634,12 @@ public final class SchemaDrivenSourceGenerator {
         return String.valueOf(nameProp.value());
     }
 
-    private static String buildReturnType(TriggerModel.ReturnType returnType) {
+    private static String buildReturnType(TriggerModel.ReturnType returnType, String selfPrefix, String emitAlias) {
         if (returnType == null || !returnType.enabled() || returnType.type() == null
                 || returnType.type().isBlank()) {
             return "";
         }
-        String type = returnType.type();
+        String type = rewriteSelfPrefix(returnType.type(), selfPrefix, emitAlias);
         if (Boolean.TRUE.equals(returnType.hasError()) && !type.contains(ERROR)) {
             type = type + "|" + ERROR;
         }
@@ -503,17 +649,17 @@ public final class SchemaDrivenSourceGenerator {
         return "returns" + SPACE + type;
     }
 
-    private static String renderListenerDeclaration(String protocol, ListenerArgs args) {
+    private static String renderListenerDeclaration(String emitAlias, ListenerArgs args) {
         String listenerType;
         if (args.listenerType != null && !args.listenerType.isBlank()) {
             // The hint carries the listener's type name (e.g. `CdcListener`), which is not always
             // `Listener`. The type always lives in the connector's own module, so it is prefixed with the
-            // import alias (`protocol`). A hint that arrives already qualified may carry the full dotted
+            // emitted import alias. A hint that arrives already qualified may carry the full dotted
             // module name (e.g. a `trigger.google.mail:Listener` type signature); only its simple name is
-            // kept so the emitted prefix is the import alias (`mail`), not the full module path.
-            listenerType = protocol + COLON + simpleName(args.listenerType);
+            // kept so the emitted prefix is the import alias, not the full module path.
+            listenerType = emitAlias + COLON + simpleName(args.listenerType);
         } else {
-            listenerType = protocol + COLON + LISTENER_TYPE;
+            listenerType = emitAlias + COLON + LISTENER_TYPE;
         }
         return String.format("%s %s %s = %s (%s);", LISTENER, listenerType, args.varName, NEW, args.render());
     }

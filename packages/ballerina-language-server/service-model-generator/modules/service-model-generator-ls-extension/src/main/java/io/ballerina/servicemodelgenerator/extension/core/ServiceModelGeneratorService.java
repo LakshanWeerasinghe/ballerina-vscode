@@ -90,6 +90,7 @@ import io.ballerina.servicemodelgenerator.extension.model.response.TriggerRespon
 import io.ballerina.servicemodelgenerator.extension.util.FTPListenerUtil;
 import io.ballerina.servicemodelgenerator.extension.util.FunctionBadge;
 import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
+import io.ballerina.servicemodelgenerator.extension.util.ModulePrefixContext;
 import io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil;
 import io.ballerina.servicemodelgenerator.extension.util.TriggerSearchUtil;
 import io.ballerina.servicemodelgenerator.extension.util.TypeCompletionGenerator;
@@ -780,13 +781,21 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 }
 
                 LineRange lineRange = listener.getCodedata().getLineRange();
+                ModulePartNode modulePartNode = document.get().syntaxTree().rootNode();
+                // The protocol is derived from the package name (the module's natural prefix), which is
+                // not what the file binds the module to when it is imported under an alias. Regenerating
+                // the declaration with the natural prefix would rewrite a working `triggerTwilio:Listener`
+                // into an out-of-scope `twilio:Listener`, so re-resolve it against the file first.
+                if (listener.getModuleName() != null && !listener.getModuleName().isBlank()) {
+                    listener.setListenerProtocol(ModulePrefixContext.from(modulePartNode)
+                            .prefixFor(listener.getOrgName(), listener.getModuleName()));
+                }
                 String listenerDeclaration = listener.getListenerDefinition();
 
                 List<TextEdit> edits = new ArrayList<>();
                 edits.add(new TextEdit(Utils.toRange(lineRange), listenerDeclaration));
 
                 // Add imports required by the FTP coordination config type cast
-                ModulePartNode modulePartNode = document.get().syntaxTree().rootNode();
                 FTPListenerUtil.addCoordinationConfigImports(listenerDeclaration, modulePartNode, edits);
 
                 return new CommonSourceResponse(Map.of(request.filePath(), edits));
