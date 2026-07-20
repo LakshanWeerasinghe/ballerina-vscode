@@ -42,6 +42,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TY
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_INCLUDED_FIELD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_REQUIRED;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_VAR_NAME;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_SERVICE_BASE_PATH;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_SERVICE_TYPE_DESCRIPTOR;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CLOSE_BRACE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.COLON;
@@ -103,6 +104,9 @@ public final class SchemaDrivenSourceGenerator {
     // of each deselected flag joins the listener's `options.skippedOperations` list (the cdc convention).
     private static final String CDC_OPTIONS_FIELD = "options";
     private static final String CDC_SKIPPED_OPERATIONS_FIELD = "skippedOperations";
+    // A base path may be modeled either as a SERVICE_BASE_PATH field or as a STRING_LITERAL attach
+    // point (a quoted service path) — both occupy the same slot between the descriptor and `on`.
+    private static final String CD_TYPE_STRING_LITERAL = "STRING_LITERAL";
 
     private SchemaDrivenSourceGenerator() {
     }
@@ -179,6 +183,7 @@ public final class SchemaDrivenSourceGenerator {
         String protocol = getProtocol(filledInitForm.getModuleName());
         ListenerArgs collected = collectListenerArgs(filledInitForm);
         String descriptor = resolveServiceDescriptor(filledInitForm, triggerModel, protocol);
+        String basePath = resolveBasePath(filledInitForm);
         List<String> functions = buildRequiredFunctionSources(filledInitForm, triggerModel);
 
         StringBuilder builder = new StringBuilder(NEW_LINE);
@@ -188,7 +193,12 @@ public final class SchemaDrivenSourceGenerator {
         for (String annotation : buildServiceAnnotations(filledInitForm)) {
             builder.append(annotation).append(NEW_LINE);
         }
-        builder.append(SERVICE).append(SPACE).append(descriptor).append(SPACE).append(ON).append(SPACE)
+        builder.append(SERVICE).append(SPACE).append(descriptor).append(SPACE);
+        if (!basePath.isEmpty()) {
+            // e.g. Salesforce's event channel: `service salesforce:CdcService /data/ChangeEvents on ...`.
+            builder.append(basePath).append(SPACE);
+        }
+        builder.append(ON).append(SPACE)
                 .append(collected.varName).append(SPACE).append(OPEN_BRACE)
                 .append(NEW_LINE)
                 .append(String.join(TWO_NEW_LINES, functions)).append(NEW_LINE)
@@ -733,6 +743,47 @@ public final class SchemaDrivenSourceGenerator {
             }
         }
         return null;
+    }
+
+    /**
+     * The service base path (e.g. Salesforce's event channel {@code /data/ChangeEvents}) — the value
+     * of a {@code SERVICE_BASE_PATH} or {@code STRING_LITERAL} field anywhere in the filled init form,
+     * emitted verbatim between the service descriptor and {@code on} (matching the DB-backed builders'
+     * {@code service <type> <basePath> on ...} shape). Empty when the model ships no base-path field.
+     */
+    private static String resolveBasePath(ServiceInitModel filledInitForm) {
+        return findBasePath(filledInitForm.getProperties());
+    }
+
+    private static String findBasePath(Map<String, Value> properties) {
+        if (properties == null) {
+            return "";
+        }
+        for (Value field : properties.values()) {
+            if (isChoice(field)) {
+                Value branch = enabledOrFirstChoice(field.getChoices());
+                String nested = branch == null ? "" : findBasePath(branch.getProperties());
+                if (!nested.isEmpty()) {
+                    return nested;
+                }
+                continue;
+            }
+            Codedata codedata = field.getCodedata();
+            if (codedata != null && field.isEnabledWithValue()
+                    && (ARG_TYPE_SERVICE_BASE_PATH.equals(codedata.getType())
+                        || ARG_TYPE_SERVICE_BASE_PATH.equals(codedata.getArgType())
+                        || CD_TYPE_STRING_LITERAL.equals(codedata.getType())
+                        || CD_TYPE_STRING_LITERAL.equals(codedata.getArgType()))) {
+                return value(field);
+            }
+            if (isGroup(field)) {
+                String nested = findBasePath(field.getProperties());
+                if (!nested.isEmpty()) {
+                    return nested;
+                }
+            }
+        }
+        return "";
     }
 
     // ------------------------------------------------------------------

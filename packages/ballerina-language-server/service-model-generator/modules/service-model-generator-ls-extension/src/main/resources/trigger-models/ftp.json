@@ -3777,11 +3777,11 @@
                 "optional": false,
                 "advanced": false
               },
-              "enabled": false,
-              "editable": true,
+              "enabled": true,
+              "editable": false,
               "optional": false,
               "advanced": false,
-              "hidden": false,
+              "hidden": true,
               "codedata": {
                 "type": "FUNCTION_PARAM"
               }
@@ -3922,11 +3922,11 @@
                 "optional": false,
                 "advanced": false
               },
-              "enabled": false,
-              "editable": true,
+              "enabled": true,
+              "editable": false,
               "optional": false,
               "advanced": false,
-              "hidden": false,
+              "hidden": true,
               "codedata": {
                 "type": "FUNCTION_PARAM"
               }
