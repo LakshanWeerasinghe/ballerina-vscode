@@ -48,307 +48,305 @@
           "advanced": false,
           "properties": {
             "listenerConfig": {
-      "metadata": {
-        "label": "Listener Configurations",
-        "description": "Configure the Salesforce Streaming API (CometD) listener."
-      },
-      "types": [
-        {
-          "fieldType": "GROUP_SECTION",
-          "selected": true
-        }
-      ],
-      "value": "",
-      "enabled": true,
-      "editable": true,
-      "optional": false,
-      "advanced": false,
-      "properties": {
-        "listenerVarName": {
-          "metadata": {
-            "label": "Listener Name",
-            "description": "Provide a name for the listener being created."
-          },
-          "types": [
-            {
-              "fieldType": "IDENTIFIER",
-              "selected": true,
-              "ballerinaType": "salesforce:Listener"
-            }
-          ],
-          "value": "salesforceListener",
-          "enabled": true,
-          "editable": true,
-          "optional": false,
-          "advanced": false,
-          "codedata": {
-            "type": "LISTENER_VAR_NAME"
-          },
-          "validations": [
-            {
-              "rule": "common.validate.identifier"
-            },
-            {
-              "rule": "ls.validate.unique.listener.name",
-              "message": "A listener with this name already exists in the project"
-            }
-          ]
-        },
-        "authMode": {
-          "metadata": {
-            "label": "Authentication Mode",
-            "description": "How the listener authenticates with Salesforce. OAuth2 (REST) talks to the modern REST-based Streaming endpoint; Username & Password (SOAP) authenticates against the legacy SOAP endpoint."
-          },
-          "types": [
-            {
-              "fieldType": "CHOICE",
-              "selected": true,
-              "ballerinaType": "salesforce:ListenerConfig",
-              "options": [
-                {
-                  "label": "OAuth2 (REST API)",
-                  "value": "REST",
-                  "helperText": "Recommended. Authenticates with an OAuth2 bearer/password/refresh-token/client-credentials grant."
-                },
-                {
-                  "label": "Username & Password (SOAP API)",
-                  "value": "SOAP",
-                  "helperText": "Legacy username + password (with security token) authentication."
-                }
-              ]
-            }
-          ],
-          "value": "REST",
-          "enabled": true,
-          "editable": true,
-          "optional": false,
-          "advanced": false,
-          "choices": [
-            {
               "metadata": {
-                "label": "OAuth2 (REST API)",
-                "description": "Authenticate against the Salesforce REST-based Streaming API using OAuth2."
+                "label": "Listener Configurations",
+                "description": "Configure the Salesforce Streaming API (CometD) listener."
               },
               "types": [
                 {
-                  "fieldType": "FORM",
+                  "fieldType": "GROUP_SECTION",
                   "selected": true
                 }
               ],
-              "value": "REST",
+              "value": "",
               "enabled": true,
               "editable": true,
               "optional": false,
               "advanced": false,
               "properties": {
-                "baseUrl": {
+                "listenerVarName": {
                   "metadata": {
-                    "label": "Base URL",
-                    "description": "The base URL of the Salesforce instance."
+                    "label": "Listener Name",
+                    "description": "Provide a name for the listener being created."
                   },
-                  "placeholder": "https://mydomain.my.salesforce.com",
-                  "value": "",
                   "types": [
                     {
-                      "fieldType": "TEXT",
-                      "ballerinaType": "string",
-                      "selected": true
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "ballerinaType": "string",
-                      "selected": false
+                      "fieldType": "IDENTIFIER",
+                      "selected": true,
+                      "ballerinaType": "salesforce:Listener"
                     }
                   ],
+                  "value": "salesforceListener",
                   "enabled": true,
                   "editable": true,
                   "optional": false,
                   "advanced": false,
                   "codedata": {
-                    "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "position": 1,
-                    "path": "baseUrl"
+                    "type": "LISTENER_VAR_NAME"
                   },
                   "validations": [
                     {
-                      "rule": "common.validate.required"
+                      "rule": "common.validate.identifier"
+                    },
+                    {
+                      "rule": "ls.validate.unique.listener.name",
+                      "message": "A listener with this name already exists in the project"
                     }
                   ]
                 },
-                "auth": {
+                "authMode": {
                   "metadata": {
-                    "label": "OAuth2 Configuration",
-                    "description": "OAuth2 credentials used to authenticate with Salesforce (bearer token, password grant, refresh-token grant, or client-credentials grant)."
+                    "label": "Authentication Mode",
+                    "description": "The authentication mode to use for the Salesforce listener."
                   },
-                  "value": "",
                   "types": [
                     {
-                      "fieldType": "RECORD_MAP_EXPRESSION",
+                      "fieldType": "CHOICE",
                       "selected": true,
-                      "ballerinaType": "http:BearerTokenConfig|oauth2:PasswordGrantConfig|oauth2:RefreshTokenGrantConfig|oauth2:ClientCredentialsGrantConfig",
-                      "typeMembers": [
+                      "ballerinaType": "salesforce:ListenerConfig",
+                      "options": [
                         {
-                          "type": "BearerTokenConfig",
-                          "packageInfo": "ballerina:http:2.14.11",
-                          "packageName": "http",
-                          "kind": "RECORD_TYPE",
-                          "selected": false
+                          "label": "OAuth2 (REST API)",
+                          "value": "REST"
                         },
                         {
-                          "type": "PasswordGrantConfig",
-                          "packageInfo": "ballerina:oauth2:2.14.1",
-                          "packageName": "oauth2",
-                          "kind": "RECORD_TYPE",
-                          "selected": false
-                        },
-                        {
-                          "type": "RefreshTokenGrantConfig",
-                          "packageInfo": "ballerina:oauth2:2.14.1",
-                          "packageName": "oauth2",
-                          "kind": "RECORD_TYPE",
-                          "selected": true
-                        },
-                        {
-                          "type": "ClientCredentialsGrantConfig",
-                          "packageInfo": "ballerina:oauth2:2.14.1",
-                          "packageName": "oauth2",
-                          "kind": "RECORD_TYPE",
-                          "selected": false
+                          "label": "Username & Password (SOAP API)",
+                          "value": "SOAP"
                         }
                       ]
                     }
                   ],
+                  "value": "REST",
                   "enabled": true,
                   "editable": true,
                   "optional": false,
                   "advanced": false,
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "position": 1,
-                    "path": "auth"
-                  },
-                  "validations": [
+                  "choices": [
                     {
-                      "rule": "common.validate.required"
+                      "metadata": {
+                        "label": "OAuth2 (REST API)",
+                        "description": "Authenticate against the Salesforce REST-based Streaming API using OAuth2."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "FORM",
+                          "selected": true
+                        }
+                      ],
+                      "value": "REST",
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "properties": {
+                        "baseUrl": {
+                          "metadata": {
+                            "label": "Base URL",
+                            "description": "The base URL of the Salesforce instance."
+                          },
+                          "placeholder": "https://mydomain.my.salesforce.com",
+                          "value": "",
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "baseUrl"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "auth": {
+                          "metadata": {
+                            "label": "OAuth2 Configuration",
+                            "description": "OAuth2 credentials used to authenticate with Salesforce (bearer token, password grant, refresh-token grant, or client-credentials grant)."
+                          },
+                          "value": "",
+                          "types": [
+                            {
+                              "fieldType": "RECORD_MAP_EXPRESSION",
+                              "selected": true,
+                              "ballerinaType": "http:BearerTokenConfig|oauth2:PasswordGrantConfig|oauth2:RefreshTokenGrantConfig|oauth2:ClientCredentialsGrantConfig",
+                              "typeMembers": [
+                                {
+                                  "type": "BearerTokenConfig",
+                                  "packageInfo": "ballerina:http:2.14.11",
+                                  "packageName": "http",
+                                  "kind": "RECORD_TYPE",
+                                  "selected": false
+                                },
+                                {
+                                  "type": "PasswordGrantConfig",
+                                  "packageInfo": "ballerina:oauth2:2.14.1",
+                                  "packageName": "oauth2",
+                                  "kind": "RECORD_TYPE",
+                                  "selected": false
+                                },
+                                {
+                                  "type": "RefreshTokenGrantConfig",
+                                  "packageInfo": "ballerina:oauth2:2.14.1",
+                                  "packageName": "oauth2",
+                                  "kind": "RECORD_TYPE",
+                                  "selected": true
+                                },
+                                {
+                                  "type": "ClientCredentialsGrantConfig",
+                                  "packageInfo": "ballerina:oauth2:2.14.1",
+                                  "packageName": "oauth2",
+                                  "kind": "RECORD_TYPE",
+                                  "selected": false
+                                }
+                              ]
+                            }
+                          ],
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "auth"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "metadata": {
+                        "label": "Username & Password (SOAP API)",
+                        "description": "Authenticate against the legacy Salesforce SOAP API with a username and password."
+                      },
+                      "types": [
+                        {
+                          "fieldType": "FORM",
+                          "selected": true
+                        }
+                      ],
+                      "value": "SOAP",
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false,
+                      "properties": {
+                        "username": {
+                          "metadata": {
+                            "label": "Username",
+                            "description": "Salesforce login username."
+                          },
+                          "value": "",
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "auth.username"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "password": {
+                          "metadata": {
+                            "label": "Password",
+                            "description": "Salesforce login password appended with the security token (<password><security token>)."
+                          },
+                          "value": "",
+                          "types": [
+                            {
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
+                              "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
+                            }
+                          ],
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "auth.password"
+                          },
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ]
+                        },
+                        "isSandBox": {
+                          "metadata": {
+                            "label": "Sandbox Environment",
+                            "description": "Whether the target Salesforce environment is a sandbox."
+                          },
+                          "value": false,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": false,
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "isSandBox"
+                          }
+                        }
+                      }
                     }
                   ]
                 }
               }
-            },
-            {
-              "metadata": {
-                "label": "Username & Password (SOAP API)",
-                "description": "Authenticate against the legacy Salesforce SOAP API with a username and password."
-              },
-              "types": [
-                {
-                  "fieldType": "FORM",
-                  "selected": true
-                }
-              ],
-              "value": "SOAP",
-              "enabled": false,
-              "editable": true,
-              "optional": false,
-              "advanced": false,
-              "properties": {
-                "username": {
-                  "metadata": {
-                    "label": "Username",
-                    "description": "Salesforce login username."
-                  },
-                  "value": "",
-                  "types": [
-                    {
-                      "fieldType": "TEXT",
-                      "ballerinaType": "string",
-                      "selected": true
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "ballerinaType": "string",
-                      "selected": false
                     }
-                  ],
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false,
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "position": 1,
-                    "path": "auth.username"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ]
-                },
-                "password": {
-                  "metadata": {
-                    "label": "Password",
-                    "description": "Salesforce login password appended with the security token (<password><security token>)."
-                  },
-                  "value": "",
-                  "types": [
-                    {
-                      "fieldType": "TEXT",
-                      "ballerinaType": "string",
-                      "selected": true
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "ballerinaType": "string",
-                      "selected": false
-                    }
-                  ],
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false,
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "position": 1,
-                    "path": "auth.password"
-                  },
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ]
-                },
-                "isSandBox": {
-                  "metadata": {
-                    "label": "Sandbox Environment",
-                    "description": "Whether the target Salesforce environment is a sandbox."
-                  },
-                  "value": false,
-                  "types": [
-                    {
-                      "fieldType": "FLAG",
-                      "ballerinaType": "boolean",
-                      "selected": true
-                    }
-                  ],
-                  "enabled": true,
-                  "editable": true,
-                  "optional": true,
-                  "advanced": false,
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                    "position": 1,
-                    "path": "isSandBox"
                   }
-                }
-              }
-            }
-          ]
-        }
-      }
-            }
-          }
-        },
+                },
         {
           "metadata": {
             "label": "Use Existing Listener",
@@ -435,7 +433,7 @@
     "basePath": {
       "metadata": {
         "label": "EventChannel",
-        "description": "The Salesforce channel path to subscribe to, e.g. /data/ChangeEvents or /data/AccountChangeEvent for Change Data Capture, or /event/My_Event__e for a Platform Event."
+        "description": "The Salesforce channel path to subscribe to."
       },
       "types": [
         {

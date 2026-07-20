@@ -72,13 +72,25 @@ export function catalogFunctionsOf(serviceModel: ServiceModel): FunctionModel[] 
     return (serviceModel.functions ?? []).filter((fn) => isSchemaTriggerFunction(fn) && !fn.enabled);
 }
 
-/** The payload (data-binding) parameter of an expanded variant, if any. */
+/** Whether a parameter is a payload (data-binding) parameter. */
+export function isPayloadParameter(p: ParameterModel): boolean {
+    return p.kind === "DATA_BINDING"
+        || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE
+        || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD;
+}
+
+/** The first payload (data-binding) parameter of an expanded variant, if any. */
 export function payloadParameterOf(fn: FunctionModel): ParameterModel | undefined {
-    return fn.parameters?.find(
-        (p) => p.kind === "DATA_BINDING"
-            || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE
-            || p.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD
-    );
+    return fn.parameters?.find(isPayloadParameter);
+}
+
+/**
+ * All payload (data-binding) parameters of an expanded variant. A handler may expose more than one —
+ * e.g. a CDC `onUpdate(record {} before, record {} after)` binds both the before- and after-images —
+ * each configured independently in the form.
+ */
+export function payloadParametersOf(fn: FunctionModel): ParameterModel[] {
+    return fn.parameters?.filter(isPayloadParameter) ?? [];
 }
 
 /** Properties of a given codedata role, keyed as shipped. */

@@ -29,6 +29,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSou
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
@@ -135,7 +136,15 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         }
         serviceModel.getServiceType().setValue(serviceType);
         serviceModel.getServiceType().setEditable(false);
+        serviceModel.getServiceType().setEnabled(triggerModel.get().serviceTypes().size() > 1);
         populateServiceModelFromSource(serviceModel, (ServiceDeclarationNode) context.node(), context);
+
+        Value stringLiteralProperty = serviceModel.getStringLiteralProperty();
+        if (stringLiteralProperty != null) {
+            String stringLiteral = stringLiteralProperty.getValue();
+            stringLiteralProperty.setEnabled(!stringLiteralProperty.isOptional() || !stringLiteral.isEmpty());
+        }
+
         // Included-record payloads: the textual merge above only sees the generated wrapper's name
         // (e.g. KafkaAnydataConsumer1[]); resolve its payload field so the UI shows the bound type.
         IncludedRecordBinder.overlayFromSource(serviceModel, context);
@@ -180,6 +189,11 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
             // template) + the source (its new(...) args), like the FTP/RabbitMQ builders do.
             selector = ExistingListenerResolver.buildSelector(createNewBranch, new ArrayList<>(listeners),
                     context.semanticModel(), context.project(), getProtocol(context.moduleName()));
+        } else {
+            int useExistingIndex = indexOfCreateNewBranch(choices) == 0 ? 1 : 0;
+            Value useExistingBranch = choices.get(useExistingIndex);
+            useExistingBranch.setMetadata(new MetaData("Use existing (none available)",
+                    "No compatible listener of this type is present in the project."));
         }
         applyListenerChoiceSelection(configureListener, selector);
     }

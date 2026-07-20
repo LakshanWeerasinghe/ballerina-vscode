@@ -182,8 +182,7 @@
         {
           "metadata": {
             "label": "onConsumerRecord",
-            "description": "The `onConsumerRecord` remote method is triggered when a batch of messages is received from the subscribed Kafka topic(s).",
-            "addLabel": "Add On Consumer Record Handler"
+            "description": "The `onConsumerRecord` remote method is triggered when a batch of messages is received from the subscribed Kafka topic(s)."
           },
           "name": "onConsumerRecord",
           "nameEditable": false,
@@ -194,7 +193,7 @@
           ],
           "enabled": false,
           "editable": true,
-          "optional": false,
+          "optional": true,
           "canAddParameters": false,
           "repeatable": false,
           "codedata": {
@@ -301,7 +300,7 @@
             {
               "metadata": {
                 "label": "Caller",
-                "description": "The Kafka caller object used to commit offsets manually."
+                "description": "Enable this to access the Kafka caller in your service for manual offset management and partition operations."
               },
               "kind": "OPTIONAL",
               "type": {

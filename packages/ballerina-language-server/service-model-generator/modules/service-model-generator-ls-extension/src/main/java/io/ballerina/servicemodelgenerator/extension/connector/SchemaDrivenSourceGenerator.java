@@ -619,7 +619,7 @@ public final class SchemaDrivenSourceGenerator {
         Codedata groupCodedata = group.getCodedata();
         boolean groupHasSlot = groupCodedata != null
                 && ARG_TYPE_LISTENER_PARAM_REQUIRED.equals(groupCodedata.getArgType());
-        List<String> recordFields = new ArrayList<>();
+        Map<String, Object> recordFields = new LinkedHashMap<>();
         Map<String, Value> rest = new LinkedHashMap<>();
         if (group.getProperties() != null) {
             for (Map.Entry<String, Value> child : group.getProperties().entrySet()) {
@@ -630,11 +630,12 @@ public final class SchemaDrivenSourceGenerator {
                     if (rendered.isEmpty()) {
                         continue;
                     }
-                    String assignment = fieldName(childCodedata, child.getKey()) + ": " + rendered;
+                    List<String> segments = fieldNameSegments(childCodedata, child.getKey());
                     if (groupHasSlot) {
-                        recordFields.add(assignment);
+                        // Merge into the one record literal this group occupies, nesting dotted paths.
+                        ListenerArgs.insertNested(recordFields, segments, rendered);
                     } else {
-                        args.addConfigField(childCodedata.getPosition(), assignment);
+                        args.addConfigField(childCodedata.getPosition(), segments, rendered);
                     }
                 } else {
                     rest.put(child.getKey(), child.getValue());
@@ -642,7 +643,7 @@ public final class SchemaDrivenSourceGenerator {
             }
         }
         if (groupHasSlot && !recordFields.isEmpty()) {
-            args.addPositional(groupCodedata.getPosition(), "{" + String.join(", ", recordFields) + "}");
+            args.addPositional(groupCodedata.getPosition(), ListenerArgs.renderIncludedValue(recordFields));
         }
         // Non-config children: nested positional params (e.g. listenOn), the var name, nested groups.
         collect(rest, args);
@@ -660,8 +661,9 @@ public final class SchemaDrivenSourceGenerator {
         if (ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD.equals(argType)) {
             // A config field with no enclosing GROUP_SECTION: fields sharing the same `position`
             // (the record param's own positional slot) are merged into one record-literal argument
-            // at that slot; a field with no `position` falls back to a trailing loose record.
-            args.addConfigField(codedata.getPosition(), fieldName(codedata, key) + ": " + rendered);
+            // at that slot; a field with no `position` falls back to a trailing loose record. A
+            // dotted `path` (e.g. `auth.username`) nests into a record at its top-level segment.
+            args.addConfigField(codedata.getPosition(), fieldNameSegments(codedata, key), rendered);
             return;
         }
         placeArg(codedata, key, rendered, args);
@@ -685,7 +687,7 @@ public final class SchemaDrivenSourceGenerator {
                 args.included.add(argName(codedata, key) + " = " + rendered);
             }
         } else if (ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD.equals(argType)) {
-            args.addConfigField(codedata.getPosition(), fieldName(codedata, key) + ": " + rendered);
+            args.addConfigField(codedata.getPosition(), fieldNameSegments(codedata, key), rendered);
         }
         // SERVICE_TYPE_DESCRIPTOR / unknown -> not a listener argument.
     }
@@ -799,6 +801,15 @@ public final class SchemaDrivenSourceGenerator {
         return key;
     }
 
+    /**
+     * The record-field name split into its dotted segments, so a config field whose {@code path}
+     * crosses into a nested record (e.g. {@code auth.username}) nests instead of emitting a flat
+     * {@code auth.username: ...} key. A plain name yields a single segment.
+     */
+    private static List<String> fieldNameSegments(Codedata codedata, String key) {
+        return List.of(fieldName(codedata, key).split("\\."));
+    }
+
     private static String argName(Codedata codedata, String key) {
         if (codedata != null && codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
             return codedata.getOriginalName();
@@ -863,10 +874,10 @@ public final class SchemaDrivenSourceGenerator {
     /** Accumulates listener arguments: positional (by position, then unordered), included, loose config. */
     private static final class ListenerArgs {
         private final TreeMap<Integer, String> byPosition = new TreeMap<>();
-        private final TreeMap<Integer, List<String>> configFieldsByPosition = new TreeMap<>();
+        private final TreeMap<Integer, Map<String, Object>> configFieldsByPosition = new TreeMap<>();
         private final List<String> noPosition = new ArrayList<>();
         private final List<String> included = new ArrayList<>();
-        private final List<String> looseConfig = new ArrayList<>();
+        private final Map<String, Object> looseConfig = new LinkedHashMap<>();
         private final Map<String, Object> includedTree = new LinkedHashMap<>();
         // Aggregated CDC-style skip lists, keyed by the record-field arg they merge into (e.g.
         // "options") -> its list field (e.g. "skippedOperations") + the collected op-code literals.
@@ -891,13 +902,17 @@ public final class SchemaDrivenSourceGenerator {
          * sharing the same {@code position} are merged into one record literal at that positional
          * slot — this is how a record-typed listener param's fields are laid out (see
          * {@link #collect}). A field with no {@code position} falls back to a trailing loose record
-         * for backward compatibility with older manifests.
+         * for backward compatibility with older manifests. A dotted {@code path} (e.g. a nested
+         * record field such as {@code auth.username}) nests into a record literal at its top-level
+         * segment, so the sibling {@code auth.password} lands in the same {@code auth: {...}} record
+         * rather than emitting bogus flat {@code auth.username: ...} keys.
          */
-        private void addConfigField(Integer position, String fieldAssignment) {
+        private void addConfigField(Integer position, List<String> pathSegments, String rendered) {
             if (position != null) {
-                configFieldsByPosition.computeIfAbsent(position, ignored -> new ArrayList<>()).add(fieldAssignment);
+                insertNested(configFieldsByPosition.computeIfAbsent(position, ignored -> new LinkedHashMap<>()),
+                        pathSegments, rendered);
             } else {
-                looseConfig.add(fieldAssignment);
+                insertNested(looseConfig, pathSegments, rendered);
             }
         }
 
@@ -907,9 +922,17 @@ public final class SchemaDrivenSourceGenerator {
          * so the top-level segment ({@code auth}) renders as one named arg: {@code auth = {credentials:
          * {username: "...", password: "..."}}}.
          */
-        @SuppressWarnings("unchecked")
         private void addIncludedPath(List<String> segments, String renderedValue) {
-            Map<String, Object> node = includedTree;
+            insertNested(includedTree, segments, renderedValue);
+        }
+
+        /**
+         * Merges a rendered value into a nested-record tree at a dotted path — intermediate segments
+         * become nested record literals (shared by included args and dotted config fields).
+         */
+        @SuppressWarnings("unchecked")
+        private static void insertNested(Map<String, Object> tree, List<String> segments, String renderedValue) {
+            Map<String, Object> node = tree;
             for (int i = 0; i < segments.size() - 1; i++) {
                 node = (Map<String, Object>) node.computeIfAbsent(segments.get(i), ignored -> new LinkedHashMap<>());
             }
@@ -937,13 +960,13 @@ public final class SchemaDrivenSourceGenerator {
 
         private String render() {
             TreeMap<Integer, String> positional = new TreeMap<>(byPosition);
-            for (Map.Entry<Integer, List<String>> entry : configFieldsByPosition.entrySet()) {
-                positional.put(entry.getKey(), "{" + String.join(", ", entry.getValue()) + "}");
+            for (Map.Entry<Integer, Map<String, Object>> entry : configFieldsByPosition.entrySet()) {
+                positional.put(entry.getKey(), renderIncludedValue(entry.getValue()));
             }
             List<String> args = new ArrayList<>(positional.values());
             args.addAll(noPosition);
             if (!looseConfig.isEmpty()) {
-                args.add("{" + String.join(", ", looseConfig) + "}");
+                args.add(renderIncludedValue(looseConfig));
             }
             // User-provided included args (with any skip list merged in place) come first, then the
             // record args from dotted paths (e.g. `database = {...}`), then freshly-created skip-list

@@ -546,6 +546,10 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     // so the generic TriggerHandlerForm applies — no module gate.
     const isSchemaTriggerService = checkSchemaTriggerService(serviceModel);
 
+    // A "file" kind trigger (ftp/file) surfaces File Handlers rather than Event Handlers.
+    const isFileService = serviceModel?.moduleName === "ftp" || serviceModel?.moduleName === "file";
+    const handlerNoun = isFileService ? "file" : "event";
+
     const handleNewTriggerHandler = (group: string) => {
         setSelectedTriggerGroup(group);
         setFunctionModel(undefined);
@@ -1343,7 +1347,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
 
                                 <>
                                     <SectionHeader
-                                        title="Event Handlers"
+                                        title={isFileService ? "File Handlers" : "Event Handlers"}
                                         subtitle={enabledHandlers.length === 0 ? "" : `Define how the service responds to events`}
                                     >
                                         <ActionGroup>
@@ -1368,7 +1372,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onEditResource={handleFunctionEdit}
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={handleOpenDiagram}
-                                                    deletionTypeLabel="event handler"
+                                                    deletionTypeLabel={`${handlerNoun} handler`}
                                                     editDisabled={editDisabled}
                                                 />
                                             );
@@ -1378,7 +1382,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     {enabledHandlers.length === 0 && (
                                         <EmptyReadmeContainer>
                                             <Description variant="body2">
-                                                No event handlers found. Add a new event handler.
+                                                {`No ${handlerNoun} handlers found. Add a new ${handlerNoun} handler.`}
                                             </Description>
                                             <Button
                                                 appearance="primary"

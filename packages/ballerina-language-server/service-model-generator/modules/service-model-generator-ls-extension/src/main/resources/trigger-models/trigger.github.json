@@ -139,7 +139,7 @@
                     "label": "Webhook Secret",
                     "description": "Secret used to validate incoming GitHub webhook requests"
                   },
-                  "placeholder": "github:DEFAULT_SECRET",
+                  "placeholder": "",
                   "value": "",
                   "enabled": true,
                   "editable": true,

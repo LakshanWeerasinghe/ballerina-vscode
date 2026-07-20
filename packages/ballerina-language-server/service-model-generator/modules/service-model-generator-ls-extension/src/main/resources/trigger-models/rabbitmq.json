@@ -30,7 +30,6 @@
       "codedata": {
         "type": "LISTENER_CONFIG"
       },
-      "$comment": "CURATE ASSUMPTION: qosSettings (a nilable positional record param, kind=DEFAULTABLE) is kept as a single opaque TYPE/EXPRESSION field rather than flattened into its record fields (prefetchCount/prefetchSize/global) — the introspector does not enumerate fields for a plain DEFAULTABLE record param (only for INCLUDED_RECORD/RECORD_FIELD kinds), so those child names are not tool-verified facts. connectionData's secureSocket, auth (redundant with the top-level username/password already modeled) and failoverAddresses fields were left out of the init form entirely as rarely-configured/advanced TLS+failover concerns — flagged for developer review.",
       "choices": [
         {
           "metadata": {
@@ -270,7 +269,6 @@
       },
       "properties": {
         "serviceConfig": {
-          "$comment": "SERVICE-LEVEL annotation @rabbitmq:ServiceConfig, emitted above the `service` declaration. queueName is collected in the init form (initProperties.queueName) and merges into this same annotation literal via matching codedata.moduleName/originalName.",
           "metadata": {
             "label": "Service Configuration",
             "description": "Queue name and other advance configurations for the RabbitMQ service."
@@ -301,6 +299,28 @@
             "originalName": "ServiceConfig",
             "moduleName": "rabbitmq"
           }
+        },
+        "stringLiteral": {
+          "metadata": {
+            "label": "Queue Name",
+            "description": "The name of the queue"
+          },
+          "codedata": {
+            "type": "STRING_LITERAL"
+          },
+          "placeholder": "\"QueueName\"",
+          "value": "",
+          "values": [],
+          "types": [
+            {
+              "fieldType": "SERVICE_PATH",
+              "selected": true
+            }
+          ],
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": false
         }
       },
       "functions": [],
@@ -321,7 +341,7 @@
           "variantLabel": "On Message",
           "enabled": false,
           "editable": true,
-          "optional": false,
+          "optional": true,
           "canAddParameters": false,
           "repeatable": false,
           "codedata": {
@@ -675,7 +695,7 @@
               "label": "Reply Value",
               "description": "The value published back to the message's replyTo queue, or a rabbitmq:Error."
             },
-            "type": "anydata|rabbitmq:Error?",
+            "type": "anydata|error",
             "typeEditable": true,
             "enabled": true,
             "editable": true,
@@ -821,7 +841,7 @@
               "label": "Return Type",
               "description": "The return type of the function."
             },
-            "type": "rabbitmq:Error?",
+            "type": "error?",
             "typeEditable": false,
             "enabled": true,
             "editable": false,
@@ -838,16 +858,9 @@
   ],
   "readOnlyMetadata": [
     {
-      "key": "host",
-      "displayName": "Host",
-      "kind": "LISTENER_PARAM",
-      "paramKind": "REQUIRED",
-      "path": "host"
-    },
-    {
       "key": "queueName",
-      "displayName": "Queue",
-      "kind": "ANNOTATION",
+      "displayName": "Queue Name",
+      "kind": "SERVICE_ANNOTATION",
       "path": "queueName"
     }
   ],

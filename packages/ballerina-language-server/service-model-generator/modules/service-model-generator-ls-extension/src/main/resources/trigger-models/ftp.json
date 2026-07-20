@@ -530,6 +530,39 @@
                               "optional": false,
                               "advanced": false,
                               "properties": {
+                                "privateKeyPath": {
+                                  "metadata": {
+                                    "label": "Private Key",
+                                    "description": "Private key configuration for SSH-based authentication."
+                                  },
+                                  "types": [
+                                    {
+                                      "fieldType": "TEXT",
+                                      "ballerinaType": "string",
+                                      "selected": true
+                                    },
+                                    {
+                                      "fieldType": "EXPRESSION",
+                                      "ballerinaType": "string",
+                                      "selected": false
+                                    }
+                                  ],
+                                  "value": "\"/path/to/private.key\"",
+                                  "placeholder": "/path/to/private.key",
+                                  "enabled": true,
+                                  "editable": true,
+                                  "optional": false,
+                                  "advanced": false,
+                                  "codedata": {
+                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                    "path": "auth.privateKey.path"
+                                  },
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.required"
+                                    }
+                                  ]
+                                },
                                 "username": {
                                   "metadata": {
                                     "label": "Username",
@@ -561,66 +594,6 @@
                                       "rule": "common.validate.required"
                                     }
                                   ]
-                                },
-                                "privateKeyPath": {
-                                  "metadata": {
-                                    "label": "Private Key Path",
-                                    "description": "Path to the SSH private key file used to authenticate."
-                                  },
-                                  "types": [
-                                    {
-                                      "fieldType": "TEXT",
-                                      "ballerinaType": "string",
-                                      "selected": true
-                                    },
-                                    {
-                                      "fieldType": "EXPRESSION",
-                                      "ballerinaType": "string",
-                                      "selected": false
-                                    }
-                                  ],
-                                  "value": "\"/path/to/private.key\"",
-                                  "placeholder": "/path/to/private.key",
-                                  "enabled": true,
-                                  "editable": true,
-                                  "optional": false,
-                                  "advanced": false,
-                                  "codedata": {
-                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                    "path": "auth.privateKey.path"
-                                  },
-                                  "validations": [
-                                    {
-                                      "rule": "common.validate.required"
-                                    }
-                                  ]
-                                },
-                                "passphrase": {
-                                  "metadata": {
-                                    "label": "Passphrase",
-                                    "description": "Optional passphrase protecting the private key."
-                                  },
-                                  "types": [
-                                    {
-                                      "fieldType": "TEXT",
-                                      "ballerinaType": "string",
-                                      "selected": true
-                                    },
-                                    {
-                                      "fieldType": "EXPRESSION",
-                                      "ballerinaType": "string",
-                                      "selected": false
-                                    }
-                                  ],
-                                  "value": "",
-                                  "enabled": true,
-                                  "editable": true,
-                                  "optional": true,
-                                  "advanced": true,
-                                  "codedata": {
-                                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                                    "path": "auth.privateKey.password"
-                                  }
                                 }
                               }
                             }
@@ -980,7 +953,6 @@
       "functions": [],
       "schemaFunctions": [
         {
-          "$comment": "onCreate TEMPLATE \u2014 the complete add-handler dialog. repeatable:true (one instance per file format). The content parameter is kind=VARIANT: selecting a format swaps the whole content sub-form and the emitted function name (functionName). CSV/JSON/XML support data binding + streaming via PayloadShape modifiers; TEXT is plain string; RAW is byte[] streamable. fileInfo and caller are optional advanced params gated by emitWhen.",
           "metadata": {
             "label": "On Create",
             "description": "Invoked when a file matching the pattern is created in the monitored directory.",
@@ -1667,13 +1639,18 @@
                               },
                               "types": [
                                 {
-                                  "fieldType": "EXPRESSION",
+                                  "fieldType": "TEXT",
                                   "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
                                   "ballerinaType": "string"
                                 }
                               ],
                               "value": "/home/processed",
-                              "placeholder": "/path/to/dir",
+                              "placeholder": "/home/processed",
                               "enabled": true,
                               "editable": true,
                               "optional": false,
@@ -1800,13 +1777,18 @@
                               },
                               "types": [
                                 {
-                                  "fieldType": "EXPRESSION",
+                                  "fieldType": "TEXT",
                                   "selected": true,
+                                  "ballerinaType": "string"
+                                },
+                                {
+                                  "fieldType": "EXPRESSION",
+                                  "selected": false,
                                   "ballerinaType": "string"
                                 }
                               ],
                               "value": "/home/failed",
-                              "placeholder": "/path/to/dir",
+                              "placeholder": "/home/failed",
                               "enabled": true,
                               "editable": true,
                               "optional": false,

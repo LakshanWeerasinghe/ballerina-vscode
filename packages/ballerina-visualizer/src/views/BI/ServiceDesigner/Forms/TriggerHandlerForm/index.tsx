@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import {
     ActionButtons,
@@ -59,7 +59,8 @@ import {
     handlerGroupId,
     hasDefaultPayload,
     isModifierActive,
-    payloadParameterOf,
+    isPayloadParameter,
+    payloadParametersOf,
     propertiesOfRole,
 } from "./payloadComposer";
 
@@ -141,7 +142,9 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const { serviceModel, isSaving, onSave, onClose, isNew, selectedGroup } = props;
 
     const [functionModel, setFunctionModel] = useState<FunctionModel | null>(null);
-    const [isTypeEditorOpen, setIsTypeEditorOpen] = useState<boolean>(false);
+    // The payload param (by name) the type-creator modal is open for — a handler can expose several
+    // bindable payloads (e.g. CDC onUpdate's before/after), so we track which one is being defined.
+    const [typeEditorParamName, setTypeEditorParamName] = useState<string | null>(null);
     const [isSignatureWarningOpen, setIsSignatureWarningOpen] = useState<boolean>(false);
     const [isAdvancedExpanded, setIsAdvancedExpanded] = useState<boolean>(false);
     const initialSignatureKeyRef = useRef<string | null>(null);
@@ -190,17 +193,18 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     const metadataFlags = functionModel ? propertiesOfRole(functionModel, CODEDATA_METADATA_FLAG) : [];
     const modifierFlags = functionModel ? propertiesOfRole(functionModel, CODEDATA_PAYLOAD_MODIFIER) : [];
-    const payloadParam = functionModel ? payloadParameterOf(functionModel) : undefined;
+    // All bindable payload params — a handler may expose more than one (e.g. CDC onUpdate's
+    // before/after), each configured independently below.
+    const payloadParams = functionModel ? payloadParametersOf(functionModel) : [];
+    // The first payload param still drives shared UI bits (e.g. the variant dropdown's label).
+    const payloadParam = payloadParams[0];
 
-    /** Recomposes the payload param's rendered type after a modifier/schema change. */
+    /** Recomposes every payload param's rendered type after a modifier/schema change. */
     const withRecomposedPayload = (fn: FunctionModel): FunctionModel => {
-        const param = payloadParameterOf(fn);
-        if (!param?.type?.codedata) {
-            return fn;
-        }
-        const recomposed = composePayloadType(fn, param);
         const parameters = fn.parameters.map((p) =>
-            p === param ? { ...p, type: { ...p.type, value: recomposed } } : p
+            isPayloadParameter(p) && p.type?.codedata
+                ? { ...p, type: { ...p.type, value: composePayloadType(fn, p) } }
+                : p
         );
         return { ...fn, parameters };
     };
@@ -220,24 +224,34 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     // ----- payload schema binding -----
 
-    const payloadLabel = payloadParam?.metadata?.label || "Content Schema";
-    const isPayloadBindable = payloadParam?.type?.codedata?.bindable === true;
+    const labelOfPayload = (param?: ParameterModel) => param?.metadata?.label || "Content Schema";
+    // When a handler exposes more than one payload (e.g. CDC onUpdate's before/after), the shared
+    // metadata label ("Database Entry") no longer tells them apart — append the param's own name
+    // (the identifier used in the generated signature, e.g. `before`) so the user can tell which is
+    // which. A single-payload handler keeps the plain label.
+    const displayLabelOf = (param?: ParameterModel) => {
+        const base = labelOfPayload(param);
+        return payloadParams.length > 1 && param?.name?.value ? `${base} (${param.name.value})` : base;
+    };
+    // The payload param the type-creator modal is currently open for (by name).
+    const typeEditorParam = payloadParams.find((p) => p.name?.value === typeEditorParamName);
     // An included-record databind (e.g. kafka's message shape) defaults the type creator to the
     // import tab — the schema's payload format is sample-driven (JSON) rather than built by hand.
     const typeCreatorDefaultTab =
-        payloadParam?.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD
+        typeEditorParam?.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD
             ? "import"
             : "create-from-scratch";
 
     const handleTypeCreated = (type: Type | string, imports?: Imports) => {
-        setIsTypeEditorOpen(false);
-        if (!functionModel || !payloadParam) {
+        const targetName = typeEditorParamName;
+        setTypeEditorParamName(null);
+        if (!functionModel || !targetName) {
             return;
         }
         const typeName = typeof type === "string" ? type : type.name;
         // The parameter keeps its schema-shipped name — only the bound shape changes.
         const parameters = functionModel.parameters.map((p) => {
-            if (p !== payloadParam) {
+            if (!isPayloadParameter(p) || p.name?.value !== targetName) {
                 return p;
             }
             const updatedType: PropertyModel = {
@@ -252,12 +266,12 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         setFunctionModel(withRecomposedPayload({ ...functionModel, parameters }));
     };
 
-    const handleDeletePayloadSchema = () => {
-        if (!functionModel || !payloadParam) {
+    const handleDeletePayloadSchema = (target: ParameterModel) => {
+        if (!functionModel) {
             return;
         }
         const parameters = functionModel.parameters.map((p) =>
-            p === payloadParam
+            isPayloadParameter(p) && p.name?.value === target.name?.value
                 ? { ...p, type: { ...p.type, codedata: { ...p.type.codedata, boundType: undefined } } }
                 : p
         );
@@ -445,70 +459,80 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                         </FlagsColumn>
                     )}
 
-                    {/* Payload schema — bindable DATA_BINDING param */}
-                    {payloadParam && isPayloadBindable && (
-                        hasDefaultPayload(payloadParam) ? (
-                            <AddButtonWrapper>
-                                <Tooltip
-                                    content={`Define ${payloadLabel} for easier access in the flow diagram`}
-                                    position="bottom"
-                                >
-                                    <LinkButton onClick={() => setIsTypeEditorOpen(true)}>
-                                        <Codicon name="add" />
-                                        Define {payloadLabel}
-                                    </LinkButton>
-                                </Tooltip>
-                            </AddButtonWrapper>
-                        ) : (
-                            <div style={{ marginTop: 16 }}>
-                                <Typography variant="body2" sx={{ marginBottom: 8 }}>
-                                    {payloadLabel}
-                                </Typography>
-                                {/* The card presents the bound shape only (no name, no array/wrapper
-                                    composition); an edit flows back as the new bound element and the
-                                    stored composed type is derived from it. */}
-                                <Parameters
-                                    parameters={[{
-                                        ...payloadParam,
-                                        type: {
-                                            ...payloadParam.type,
-                                            value: payloadParam.type?.codedata?.boundType
-                                                || payloadParam.type?.value,
-                                        },
-                                    }]}
-                                    hideName={true}
-                                    onChange={(edited) => {
-                                        if (edited.length === 0) {
-                                            handleDeletePayloadSchema();
-                                            return;
-                                        }
-                                        const [editedPayload] = edited;
-                                        const editedElement = editedPayload.type?.value ?? "";
-                                        const parameters = functionModel.parameters.map((p) =>
-                                            p === payloadParam
-                                                ? {
-                                                    ...p,
+                    {/* Payload schema — one section per bindable DATA_BINDING param (a handler such
+                        as CDC onUpdate exposes both a before- and an after-image). */}
+                    {payloadParams
+                        .filter((param) => param.type?.codedata?.bindable === true)
+                        .map((param) => {
+                            const label = displayLabelOf(param);
+                            return (
+                                <Fragment key={param.name?.value ?? label}>
+                                    {hasDefaultPayload(param) ? (
+                                        <AddButtonWrapper>
+                                            <Tooltip
+                                                content={`Define ${label} for easier access in the flow diagram`}
+                                                position="bottom"
+                                            >
+                                                <LinkButton onClick={() => setTypeEditorParamName(param.name?.value ?? null)}>
+                                                    <Codicon name="add" />
+                                                    Define {label}
+                                                </LinkButton>
+                                            </Tooltip>
+                                        </AddButtonWrapper>
+                                    ) : (
+                                        <div style={{ marginTop: 16 }}>
+                                            <Typography variant="body2" sx={{ marginBottom: 8 }}>
+                                                {label}
+                                            </Typography>
+                                            {/* The card presents the bound shape only (no name, no array/wrapper
+                                                composition); an edit flows back as the new bound element and the
+                                                stored composed type is derived from it. A bindable payload is
+                                                always editable, so force it on regardless of the shipped flag. */}
+                                            <Parameters
+                                                parameters={[{
+                                                    ...param,
+                                                    editable: true,
                                                     type: {
-                                                        ...p.type,
-                                                        imports: editedPayload.type?.imports ?? p.type?.imports,
-                                                        codedata: {
-                                                            ...p.type?.codedata,
-                                                            boundType: editedElement,
-                                                        },
+                                                        ...param.type,
+                                                        value: param.type?.codedata?.boundType
+                                                            || param.type?.value,
                                                     },
-                                                    enabled: true,
-                                                }
-                                                : p
-                                        );
-                                        setFunctionModel(
-                                            withRecomposedPayload({ ...functionModel, parameters }));
-                                    }}
-                                    showPayload={true}
-                                    typeLabel={payloadLabel}
-                                />
-                            </div>
-                        )
-                    )}
+                                                }]}
+                                                hideName={true}
+                                                onChange={(edited) => {
+                                                    if (edited.length === 0) {
+                                                        handleDeletePayloadSchema(param);
+                                                        return;
+                                                    }
+                                                    const [editedPayload] = edited;
+                                                    const editedElement = editedPayload.type?.value ?? "";
+                                                    const parameters = functionModel.parameters.map((p) =>
+                                                        isPayloadParameter(p) && p.name?.value === param.name?.value
+                                                            ? {
+                                                                ...p,
+                                                                type: {
+                                                                    ...p.type,
+                                                                    imports: editedPayload.type?.imports ?? p.type?.imports,
+                                                                    codedata: {
+                                                                        ...p.type?.codedata,
+                                                                        boundType: editedElement,
+                                                                    },
+                                                                },
+                                                                enabled: true,
+                                                            }
+                                                            : p
+                                                    );
+                                                    setFunctionModel(
+                                                        withRecomposedPayload({ ...functionModel, parameters }));
+                                                }}
+                                                showPayload={true}
+                                                typeLabel={label}
+                                            />
+                                        </div>
+                                    )}
+                                </Fragment>
+                            );
+                        })}
 
                     {/* Function annotations — schema-shipped granular trees */}
                     {annotations.length > 0 && (
@@ -586,11 +610,11 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
             />
 
             <EntryPointTypeCreator
-                isOpen={isTypeEditorOpen}
-                onClose={() => setIsTypeEditorOpen(false)}
+                isOpen={!!typeEditorParam}
+                onClose={() => setTypeEditorParamName(null)}
                 onTypeCreate={handleTypeCreated}
                 initialTypeName={"Content"}
-                modalTitle={`Define ${payloadLabel}`}
+                modalTitle={`Define ${displayLabelOf(typeEditorParam)}`}
                 payloadContext={payloadContext}
                 defaultTab={typeCreatorDefaultTab}
                 modalWidth={650}

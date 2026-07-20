@@ -14,8 +14,8 @@
   "initProperties": {
     "listener": {
       "metadata": {
-        "label": "Listener",
-        "description": "Attach the service to a new MQTT listener, or to one or more MQTT listeners already declared in the project."
+        "label": "Configure MQTT Listener",
+        "description": "Select an existing MQTT listener or create a new one"
       },
       "types": [
         {
@@ -34,8 +34,8 @@
       "choices": [
         {
           "metadata": {
-            "label": "Create New Listener",
-            "description": "Define a new MQTT listener in the project."
+            "label": "Create new",
+            "description": "Create a new MQTT listener"
           },
           "types": [
             {
@@ -97,7 +97,7 @@
                 "serverUri": {
                   "metadata": {
                     "label": "Server URI",
-                    "description": "URI of the remote MQTT broker, e.g. tcp://localhost:1883 or ssl://broker.example.com:8883."
+                    "description": "The URI of the remote MQTT broker."
                   },
                   "placeholder": "tcp://localhost:1883",
                   "value": "\"tcp://localhost:1883\"",
@@ -130,7 +130,7 @@
                 "clientId": {
                   "metadata": {
                     "label": "Client ID",
-                    "description": "Unique client identifier used to identify this listener connection to the broker."
+                    "description": "A unique identifier to identify by the MQTT broker."
                   },
                   "placeholder": "mqtt-listener-1",
                   "value": "\"mqtt-listener-1\"",
@@ -225,8 +225,8 @@
         },
         {
           "metadata": {
-            "label": "Use Existing Listener",
-            "description": "Attach to one or more MQTT listeners already declared in the project."
+            "label": "Use existing",
+            "description": "Select an existing MQTT listener"
           },
           "types": [
             {

@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "id": "mssql",
-  "displayName": "MSSQL CDC Event Integration",
-  "description": "Capture SQL Server row-level change events (insert, update, delete) via Debezium-based CDC.",
+  "displayName": "Microsoft SQL Server CDC",
+  "description": "Create a service to capture data changes from a Microsoft SQL Server database using CDC",
   "orgName": "ballerinax",
   "packageName": "mssql",
   "moduleName": "mssql",
@@ -217,7 +217,7 @@
                     "label": "Databases",
                     "description": "List of databases to capture changes from"
                   },
-                  "placeholder": "mydb",
+                  "placeholder": "",
                   "enabled": true,
                   "editable": true,
                   "optional": false,
@@ -262,68 +262,6 @@
                   "codedata": {
                     "argType": "LISTENER_PARAM_INCLUDED_FIELD",
                     "path": "database.includedSchemas"
-                  }
-                },
-                "databaseInstance": {
-                  "metadata": {
-                    "label": "Database Instance",
-                    "description": "Microsoft SQL Server instance name"
-                  },
-                  "enabled": true,
-                  "editable": true,
-                  "optional": true,
-                  "advanced": true,
-                  "types": [
-                    {
-                      "fieldType": "TEXT",
-                      "selected": true,
-                      "ballerinaType": "string"
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "selected": false,
-                      "ballerinaType": "string"
-                    }
-                  ],
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                    "path": "database.databaseInstance"
-                  }
-                },
-                "secureSocket": {
-                  "metadata": {
-                    "label": "Secure Socket",
-                    "description": "Configure SSL/TLS configuration for secure connection"
-                  },
-                  "value": "",
-                  "enabled": true,
-                  "editable": true,
-                  "optional": true,
-                  "advanced": true,
-                  "types": [
-                    {
-                      "fieldType": "RECORD_MAP_EXPRESSION",
-                      "ballerinaType": "cdc:SecureDatabaseConnection",
-                      "typeMembers": [
-                        {
-                          "type": "SecureDatabaseConnection",
-                          "packageInfo": "ballerinax:cdc:1.3.0",
-                          "packageName": "cdc",
-                          "kind": "RECORD_TYPE",
-                          "selected": false
-                        }
-                      ],
-                      "selected": true
-                    },
-                    {
-                      "fieldType": "EXPRESSION",
-                      "ballerinaType": "cdc:SecureDatabaseConnection",
-                      "selected": false
-                    }
-                  ],
-                  "codedata": {
-                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                    "path": "database.secure"
                   }
                 },
                 "enableCreate": {
@@ -390,6 +328,68 @@
                     "argType": "CDC_OPERATION_ENABLE",
                     "originalName": "d",
                     "path": "options.skippedOperations"
+                  }
+                },
+                "databaseInstance": {
+                  "metadata": {
+                    "label": "Database Instance",
+                    "description": "Microsoft SQL Server instance name"
+                  },
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "types": [
+                    {
+                      "fieldType": "TEXT",
+                      "selected": true,
+                      "ballerinaType": "string"
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "selected": false,
+                      "ballerinaType": "string"
+                    }
+                  ],
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                    "path": "database.databaseInstance"
+                  }
+                },
+                "secureSocket": {
+                  "metadata": {
+                    "label": "Secure Socket",
+                    "description": "Configure SSL/TLS configuration for secure connection"
+                  },
+                  "value": "",
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true,
+                  "advanced": true,
+                  "types": [
+                    {
+                      "fieldType": "RECORD_MAP_EXPRESSION",
+                      "ballerinaType": "cdc:SecureDatabaseConnection",
+                      "typeMembers": [
+                        {
+                          "type": "SecureDatabaseConnection",
+                          "packageInfo": "ballerinax:cdc:1.3.0",
+                          "packageName": "cdc",
+                          "kind": "RECORD_TYPE",
+                          "selected": false
+                        }
+                      ],
+                      "selected": true
+                    },
+                    {
+                      "fieldType": "EXPRESSION",
+                      "ballerinaType": "cdc:SecureDatabaseConnection",
+                      "selected": false
+                    }
+                  ],
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                    "path": "database.secure"
                   }
                 },
                 "options": {
@@ -762,26 +762,67 @@
           "parameters": [
             {
               "metadata": {
-                "label": "after",
+                "label": "Database Entry",
                 "description": "The row data after the read."
               },
-              "kind": "REQUIRED",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "record {}",
+                "value": "",
                 "enabled": true,
-                "editable": false,
+                "editable": true,
                 "optional": true,
                 "advanced": false,
                 "types": [
                   {
-                    "fieldType": "TYPE",
+                    "fieldType": "DATA_BINDING",
                     "selected": true
                   }
-                ]
+                ],
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the database row bound to this parameter."
+                    },
+                    "value": "record {}",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "record {}",
+                        "template": "{{type}}",
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "record {}",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
               },
               "name": {
                 "metadata": {
@@ -802,7 +843,7 @@
                 ]
               },
               "enabled": true,
-              "editable": false,
+              "editable": true,
               "optional": false,
               "advanced": false,
               "hidden": false,
@@ -904,26 +945,67 @@
           "parameters": [
             {
               "metadata": {
-                "label": "after",
+                "label": "Database Entry",
                 "description": "The row data after the insert."
               },
-              "kind": "REQUIRED",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "record {}",
+                "value": "",
                 "enabled": true,
-                "editable": false,
+                "editable": true,
                 "optional": true,
                 "advanced": false,
                 "types": [
                   {
-                    "fieldType": "TYPE",
+                    "fieldType": "DATA_BINDING",
                     "selected": true
                   }
-                ]
+                ],
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the database row bound to this parameter."
+                    },
+                    "value": "record {}",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "record {}",
+                        "template": "{{type}}",
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "record {}",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
               },
               "name": {
                 "metadata": {
@@ -944,7 +1026,7 @@
                 ]
               },
               "enabled": true,
-              "editable": false,
+              "editable": true,
               "optional": false,
               "advanced": false,
               "hidden": false,
@@ -1046,26 +1128,67 @@
           "parameters": [
             {
               "metadata": {
-                "label": "before",
+                "label": "Database Entry",
                 "description": "The row data before the update."
               },
-              "kind": "REQUIRED",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "record {}",
+                "value": "",
                 "enabled": true,
-                "editable": false,
+                "editable": true,
                 "optional": true,
                 "advanced": false,
                 "types": [
                   {
-                    "fieldType": "TYPE",
+                    "fieldType": "DATA_BINDING",
                     "selected": true
                   }
-                ]
+                ],
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the database row bound to this parameter."
+                    },
+                    "value": "record {}",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "record {}",
+                        "template": "{{type}}",
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "record {}",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
               },
               "name": {
                 "metadata": {
@@ -1086,7 +1209,7 @@
                 ]
               },
               "enabled": true,
-              "editable": false,
+              "editable": true,
               "optional": false,
               "advanced": false,
               "hidden": false,
@@ -1096,26 +1219,67 @@
             },
             {
               "metadata": {
-                "label": "after",
+                "label": "Database Entry",
                 "description": "The row data after the update."
               },
-              "kind": "REQUIRED",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "record {}",
+                "value": "",
                 "enabled": true,
-                "editable": false,
+                "editable": true,
                 "optional": true,
                 "advanced": false,
                 "types": [
                   {
-                    "fieldType": "TYPE",
+                    "fieldType": "DATA_BINDING",
                     "selected": true
                   }
-                ]
+                ],
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the database row bound to this parameter."
+                    },
+                    "value": "record {}",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "record {}",
+                        "template": "{{type}}",
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "record {}",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
               },
               "name": {
                 "metadata": {
@@ -1136,7 +1300,7 @@
                 ]
               },
               "enabled": true,
-              "editable": false,
+              "editable": true,
               "optional": false,
               "advanced": false,
               "hidden": false,
@@ -1238,26 +1402,67 @@
           "parameters": [
             {
               "metadata": {
-                "label": "before",
+                "label": "Database Entry",
                 "description": "The row data before the delete."
               },
-              "kind": "REQUIRED",
+              "kind": "DATA_BINDING",
               "type": {
                 "metadata": {
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "value": "record {}",
+                "value": "",
                 "enabled": true,
-                "editable": false,
+                "editable": true,
                 "optional": true,
                 "advanced": false,
                 "types": [
                   {
-                    "fieldType": "TYPE",
+                    "fieldType": "DATA_BINDING",
                     "selected": true
                   }
-                ]
+                ],
+                "properties": {
+                  "payload": {
+                    "metadata": {
+                      "label": "Message Configuration",
+                      "description": "Define the shape of the database row bound to this parameter."
+                    },
+                    "value": "record {}",
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      {
+                        "fieldType": "PAYLOAD_TYPE",
+                        "selected": true,
+                        "ballerinaType": "record {}",
+                        "template": "{{type}}",
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "json"
+                          }
+                        ]
+                      }
+                    ],
+                    "codedata": {
+                      "type": "PAYLOAD_TYPE",
+                      "bindable": true,
+                      "boundType": "",
+                      "typeConstraint": "anydata",
+                      "bindingKind": "USER_SELECTED",
+                      "defaultType": "record {}",
+                      "template": "{{type}}"
+                    }
+                  }
+                }
               },
               "name": {
                 "metadata": {
@@ -1278,7 +1483,7 @@
                 ]
               },
               "enabled": true,
-              "editable": false,
+              "editable": true,
               "optional": false,
               "advanced": false,
               "hidden": false,

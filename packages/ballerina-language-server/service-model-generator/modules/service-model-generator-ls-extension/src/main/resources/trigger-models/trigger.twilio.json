@@ -45,7 +45,7 @@
     "listenOn": {
       "metadata": {
         "label": "Listen On",
-        "description": "The port to listen on, or an existing http:Listener to attach the webhook service to."
+        "description": "The port to listen on."
       },
       "placeholder": "8090",
       "value": "8090",
@@ -84,7 +84,7 @@
     "serviceType": {
       "metadata": {
         "label": "Event Channel",
-        "description": "The type of Twilio status event this service listens for. Selecting a channel determines the available handler functions."
+        "description": "Select the Twilio event channel to listen for events."
       },
       "types": [
         {

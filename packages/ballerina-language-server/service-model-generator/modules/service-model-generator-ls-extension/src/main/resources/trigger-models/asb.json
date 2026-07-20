@@ -13,8 +13,8 @@
   "initProperties": {
     "listener": {
       "metadata": {
-        "label": "Listener",
-        "description": "Attach the service to a new or existing Azure Service Bus listener. A service may attach to more than one listener."
+        "label": "Configure RabbitMQ Listener",
+        "description": "Select an existing Azure Service Bus listener or create a new one"
       },
       "types": [
         {
@@ -33,8 +33,8 @@
       "choices": [
         {
           "metadata": {
-            "label": "Create New Listener",
-            "description": "Define a new Azure Service Bus listener in the project."
+            "label": "Create new",
+            "description": "Create a new RabbitMQ listener"
           },
           "types": [
             {
@@ -96,10 +96,10 @@
                 "connectionString": {
                   "metadata": {
                     "label": "Connection String",
-                    "description": "Azure Service Bus connection string with Shared Access Signatures. Prefer binding this to a configurable variable rather than a literal."
+                    "description": "The connection string to connect to the Azure Service Bus namespace."
                   },
                   "placeholder": "Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>",
-                  "value": "\"\"",
+                  "value": "\"Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>\"",
                   "enabled": true,
                   "editable": true,
                   "optional": false,
@@ -313,8 +313,8 @@
         },
         {
           "metadata": {
-            "label": "Use Existing Listener",
-            "description": "Attach to one or more Azure Service Bus listeners already declared in the project."
+            "label": "Use existing",
+            "description": "Select an existing RabbitMQ listener"
           },
           "types": [
             {
