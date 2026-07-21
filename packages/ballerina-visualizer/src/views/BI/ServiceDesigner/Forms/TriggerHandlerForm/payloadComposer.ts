@@ -84,7 +84,11 @@ export function repeatBehaviorOf(fn: FunctionModel): RepeatBehavior {
  * e.g. right after a handler is added, before the model is refetched:
  *
  *   - a present ONE_OF_GROUP handler hides every sibling of its group (mutually exclusive);
- *   - a present handler that is not TRUE hides its own (same-name) catalog entry (add-once).
+ *   - a present handler that is not TRUE hides its own (same-name) catalog entry (add-once);
+ *   - a present LEGACY handler hides every NON-LEGACY catalog entry, ignoring group (mutually
+ *     incompatible with the "modern" catalog, not just its own group);
+ *   - distinct LEGACY entries are independent of each other: none is hidden by another being
+ *     present/absent — hidden only while NO LEGACY handler is present anywhere in the service yet.
  *
  * TRUE (repeat-always) handlers are never hidden. ONE_EACH_PER_GROUP naturally keeps siblings, since
  * only the same-name entry is removed.
@@ -95,11 +99,15 @@ export function addableCatalogOf(serviceModel: ServiceModel): FunctionModel[] {
 
     const exclusiveGroups = new Set<string>();
     const consumedNames = new Set<string>();
+    let legacyHandlerPresent = false;
     for (const fn of present) {
         const behavior = repeatBehaviorOf(fn);
         const group = handlerGroupId(fn);
         if (behavior === RepeatBehavior.ONE_OF_GROUP && group) {
             exclusiveGroups.add(group);
+        }
+        if (behavior === RepeatBehavior.LEGACY) {
+            legacyHandlerPresent = true;
         }
         if (behavior !== RepeatBehavior.TRUE && fn.name?.value) {
             consumedNames.add(fn.name.value);
@@ -107,11 +115,21 @@ export function addableCatalogOf(serviceModel: ServiceModel): FunctionModel[] {
     }
 
     return catalog.filter((fn) => {
+        const behavior = repeatBehaviorOf(fn);
+        if (behavior === RepeatBehavior.LEGACY) {
+            // Distinct LEGACY entries are independent of each other: consuming one never displaces
+            // another, but once any one of them is present the rest stop being hidden by the
+            // "not present yet" default too (the service is already committed to the legacy surface).
+            return legacyHandlerPresent;
+        }
+        if (legacyHandlerPresent) {
+            return false;
+        }
         const group = handlerGroupId(fn);
         if (group && exclusiveGroups.has(group)) {
             return false;
         }
-        if (repeatBehaviorOf(fn) !== RepeatBehavior.TRUE && fn.name?.value && consumedNames.has(fn.name.value)) {
+        if (behavior !== RepeatBehavior.TRUE && fn.name?.value && consumedNames.has(fn.name.value)) {
             return false;
         }
         return true;

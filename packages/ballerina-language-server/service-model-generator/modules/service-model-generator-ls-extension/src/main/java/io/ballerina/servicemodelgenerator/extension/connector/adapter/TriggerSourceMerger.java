@@ -99,6 +99,7 @@ public final class TriggerSourceMerger {
         // leave the addable catalog too, not just the matched one. ONE_EACH_PER_GROUP (e.g. FTP's
         // per-format handlers) consumes only the matched member, so its siblings stay addable.
         Set<String> consumedExclusiveGroups = new HashSet<>();
+        boolean legacyHandlerConsumed = false;
         for (Function source : functionsInSource == null ? List.<Function>of() : functionsInSource) {
             Function template = findTemplate(catalog, source);
             if (template == null) {
@@ -121,6 +122,9 @@ public final class TriggerSourceMerger {
                 if (repeatable.isGroupExclusive()) {
                     consumedExclusiveGroups.add(template.getGroup());
                 }
+                if (repeatable.isLegacy()) {
+                    legacyHandlerConsumed = true;
+                }
             }
             enrich(enriched, source);
             merged.add(enriched);
@@ -128,6 +132,18 @@ public final class TriggerSourceMerger {
 
         if (!consumedExclusiveGroups.isEmpty()) {
             catalog.removeIf(fn -> fn.getGroup() != null && consumedExclusiveGroups.contains(fn.getGroup()));
+        }
+        // A LEGACY handler that is actually present displaces every other NON-legacy schema function
+        // (not just its own group) — it and the rest of the "modern" catalog are mutually incompatible
+        // ways of handling the same surface. Other LEGACY siblings are independent of one another: once
+        // any one of them is in use, the rest are no longer hidden either (each still needs its own
+        // presence check to actually be added, same as any other handler). A LEGACY handler that is NOT
+        // present, and no sibling is either, never surfaces as an addable option: it exists only to keep
+        // recognising pre-existing source, never to be offered for new development.
+        if (legacyHandlerConsumed) {
+            catalog.removeIf(fn -> !Repeatable.orDefault(fn.getRepeatable()).isLegacy());
+        } else {
+            catalog.removeIf(fn -> Repeatable.orDefault(fn.getRepeatable()).isLegacy());
         }
 
         for (Function remaining : catalog) {
@@ -244,11 +260,33 @@ public final class TriggerSourceMerger {
             return null;
         }
         for (int i = 0; i < sourceParams.size(); i++) {
-            if (typeText.equals(typeOf(sourceParams.get(i)))) {
+            if (typesMatch(typeText, typeOf(sourceParams.get(i)))) {
                 return sourceParams.remove(i);
             }
         }
         return null;
+    }
+
+    /**
+     * A framework parameter's declared type matches its source counterpart exactly, or up to a
+     * {@code & readonly} intersection on either side — a connector's compiler plugin sometimes accepts
+     * a type both with and without it (e.g. ftp's deprecated {@code onFileChange(WatchEvent)} /
+     * {@code onFileChange(WatchEvent & readonly)}), and the two are the same declared parameter either
+     * way.
+     */
+    private static boolean typesMatch(String templateType, String actualType) {
+        if (templateType == null || actualType == null) {
+            return false;
+        }
+        return templateType.equals(actualType) || stripReadonly(templateType).equals(stripReadonly(actualType));
+    }
+
+    private static String stripReadonly(String type) {
+        String normalized = type.trim();
+        String suffix = "& readonly";
+        return normalized.endsWith(suffix)
+                ? normalized.substring(0, normalized.length() - suffix.length()).trim()
+                : normalized;
     }
 
     /**

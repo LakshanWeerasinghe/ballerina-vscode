@@ -35,6 +35,16 @@ package io.ballerina.servicemodelgenerator.extension.model;
  *   <li>{@link #ONE_EACH_PER_GROUP} — each member of the {@code group} may be added once,
  *       independently: adding one removes only that member, its siblings stay addable (e.g. FTP's
  *       per-file-format handlers {@code onFileCsv}/{@code onFileJson}/…).</li>
+ *   <li>{@link #LEGACY} — a deprecated variant the schema keeps recognising for backward
+ *       compatibility only, never for new development: it is absent from the addable catalog by
+ *       default (a service with none of its instances present never offers it), but once the source
+ *       already contains one, every NON-{@code LEGACY} schema function is displaced — the legacy
+ *       handler and the "modern" catalog are mutually incompatible ways of handling the same surface
+ *       (e.g. FTP's {@code onFileChange} vs. its format-specific / delete handlers). Distinct
+ *       {@code LEGACY} handlers are independent of <i>each other</i> — consuming one never displaces
+ *       another, and once any one of them is present the rest stop being hidden by the "not present
+ *       yet" default too (the service is already committed to the legacy surface, so the remaining
+ *       legacy options are no longer withheld). Ignores {@code group}.</li>
  * </ul>
  *
  * <p>{@link #ONE_OF_GROUP} and {@link #ONE_EACH_PER_GROUP} are meaningful only for a grouped handler;
@@ -47,7 +57,8 @@ public enum Repeatable {
     FALSE,
     TRUE,
     ONE_OF_GROUP,
-    ONE_EACH_PER_GROUP;
+    ONE_EACH_PER_GROUP,
+    LEGACY;
 
     /** Null-safe accessor: an absent value is a non-repeatable single handler. */
     public static Repeatable orDefault(Repeatable value) {
@@ -73,5 +84,13 @@ public enum Repeatable {
     /** Whether adding one member consumes (removes) every sibling sharing the group. */
     public boolean isGroupExclusive() {
         return this == ONE_OF_GROUP;
+    }
+
+    /**
+     * Whether this is a deprecated variant hidden from the addable catalog until the source already
+     * contains one, at which point it displaces every OTHER schema function (not just its group).
+     */
+    public boolean isLegacy() {
+        return this == LEGACY;
     }
 }

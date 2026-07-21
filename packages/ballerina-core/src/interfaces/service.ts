@@ -84,12 +84,17 @@ export interface FieldType extends ParameterModel {
  *   (e.g. RabbitMQ onMessage / onRequest).
  * - ONE_EACH_PER_GROUP: each member of the `group` may be added once — adding one removes only that
  *   member, siblings stay (e.g. FTP per-file-format handlers).
+ * - LEGACY: a deprecated variant hidden from the addable catalog by default (never offered for new
+ *   development); once present in the source it displaces every NON-LEGACY schema function, ignoring
+ *   `group` (e.g. FTP's onFileChange vs. its format-specific / delete handlers). Distinct LEGACY
+ *   entries are independent of each other: one being present neither hides nor is hidden by another.
  */
 export enum RepeatBehavior {
     FALSE = "FALSE",
     TRUE = "TRUE",
     ONE_OF_GROUP = "ONE_OF_GROUP",
     ONE_EACH_PER_GROUP = "ONE_EACH_PER_GROUP",
+    LEGACY = "LEGACY",
 }
 
 export interface FunctionModel {

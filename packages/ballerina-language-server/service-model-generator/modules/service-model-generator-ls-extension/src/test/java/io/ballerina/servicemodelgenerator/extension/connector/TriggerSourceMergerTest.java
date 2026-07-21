@@ -22,6 +22,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSer
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
+import io.ballerina.servicemodelgenerator.extension.model.Parameter;
 import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
@@ -110,6 +111,93 @@ public class TriggerSourceMergerTest {
         Assert.assertFalse(addable.contains("onFileXml"), "no sibling of the exclusive group remains");
     }
 
+    @Test
+    public void testLegacyHandlerHiddenFromFreshCatalog() throws Exception {
+        // ftp's onFileChange is LEGACY: a service with no handlers yet (or any handlers other than
+        // onFileChange) must never offer it as something new to add.
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow(),
+                "Service", "ballerina", "ftp", "ftp");
+        TriggerSourceMerger.mergeSource(service, List.of());
+
+        Assert.assertFalse(catalogNames(service).contains("onFileChange"),
+                "a LEGACY handler must not be offered when it is not already present in the source");
+    }
+
+    @Test
+    public void testLegacyHandlerStaysHiddenWhenAnotherHandlerIsPresent() throws Exception {
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow(),
+                "Service", "ballerina", "ftp", "ftp");
+        TriggerSourceMerger.mergeSource(service, List.of(sourceFunction("onFileCsv", "REMOTE")));
+
+        Assert.assertFalse(catalogNames(service).contains("onFileChange"),
+                "a LEGACY handler must stay hidden once a different handler has been added");
+    }
+
+    @Test
+    public void testLegacyHandlerConsumedDisplacesRestOfCatalog() throws Exception {
+        // Once onFileChange is actually present in the source, every other schema function (not just
+        // its own would-be group) must leave the addable catalog — the two are mutually incompatible
+        // ways of handling file events (matches the ftp compiler plugin's MULTIPLE_CONTENT_METHODS
+        // rule, generalised to the whole catalog as requested).
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow(),
+                "Service", "ballerina", "ftp", "ftp");
+        TriggerSourceMerger.mergeSource(service, List.of(sourceFunction("onFileChange", "REMOTE")));
+
+        Function onFileChange = findFunction(service, "onFileChange");
+        Assert.assertTrue(onFileChange.isEnabled(), "onFileChange is present/enabled once matched");
+        Assert.assertTrue(catalogNames(service).isEmpty(),
+                "a consumed LEGACY handler displaces every other schema function from the catalog");
+    }
+
+    @Test
+    public void testDistinctLegacyHandlersAreIndependent() throws Exception {
+        // Re-tag two of smb's format handlers as LEGACY (synthetic — smb ships none for real): they
+        // must not displace each other, and once either is present, the other stops being hidden by
+        // the "not present yet" default too (independent of one another, per user request).
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                model("smb"), "Service", "ballerinax", "smb", "smb");
+        service.getSchemaFunctions().stream()
+                .filter(fn -> "onFileCsv".equals(fn.getName().getValue())
+                        || "onFileJson".equals(fn.getName().getValue()))
+                .forEach(fn -> fn.setRepeatable(Repeatable.LEGACY));
+        TriggerSourceMerger.mergeSource(service, List.of(sourceFunction("onFileCsv", "REMOTE")));
+
+        List<String> addable = catalogNames(service);
+        Assert.assertTrue(addable.contains("onFileJson"),
+                "a distinct LEGACY sibling stays addable once any LEGACY handler is present");
+        Assert.assertFalse(addable.contains("onFileXml"),
+                "a present LEGACY handler still displaces non-legacy schema functions");
+    }
+
+    @Test
+    public void testLegacyHandlerParameterKeepsMatchingAcrossReadonlyIntersection() throws Exception {
+        // ftp's onFileChange declares its watch-event parameter as `ftp:WatchEvent & readonly` (the
+        // module's own recommended shape), but the compiler plugin also accepts the plain
+        // `ftp:WatchEvent` (no readonly). Both must reconcile to the same matched, renamed parameter —
+        // not fall through to a stray, unmatched "extra" parameter.
+        Service service = TriggerServiceAdapter.toServiceTemplate(
+                ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow(),
+                "Service", "ballerina", "ftp", "ftp");
+        Parameter plainWatchEvent = new Parameter.Builder()
+                .kind("REQUIRED")
+                .type(new Value.ValueBuilder().value("ftp:WatchEvent").build())
+                .name(new Value.ValueBuilder().value("fileEvent").build())
+                .build();
+        TriggerSourceMerger.mergeSource(service,
+                List.of(sourceFunctionWithParams("onFileChange", "REMOTE", List.of(plainWatchEvent))));
+
+        Function onFileChange = findFunction(service, "onFileChange");
+        Assert.assertEquals(onFileChange.getParameters().size(), 2,
+                "the plain WatchEvent parameter must be claimed by the template, not appended as an extra");
+        Parameter event = onFileChange.getParameters().get(0);
+        Assert.assertTrue(event.isEnabled(), "the watch-event parameter is matched despite the readonly gap");
+        Assert.assertEquals(event.getName().getValue(), "fileEvent",
+                "the matched parameter takes the source's actual identifier");
+    }
+
     private static List<String> catalogNames(Service service) {
         return service.getSchemaFunctions() == null ? List.of()
                 : service.getSchemaFunctions().stream().map(fn -> fn.getName().getValue()).toList();
@@ -123,10 +211,15 @@ public class TriggerSourceMergerTest {
 
     /** A minimal parsed-from-source Function: just enough for {@code findTemplate} to match by name/kind. */
     private static Function sourceFunction(String name, String kind) {
+        return sourceFunctionWithParams(name, kind, List.of());
+    }
+
+    private static Function sourceFunctionWithParams(String name, String kind, List<Parameter> parameters) {
         return new Function.FunctionBuilder()
                 .kind(kind)
                 .name(new Value.ValueBuilder().value(name).build())
                 .accessor(new Value.ValueBuilder().value("").build())
+                .parameters(parameters)
                 .build();
     }
 }
