@@ -380,7 +380,7 @@
                 "description": "Define the shape of the database row bound to this parameter."
               },
               "placeholder": "before",
-              "value": "before",
+              "value": "beforeEntry",
               "types": [
                 {
                   "fieldType": "IDENTIFIER",
@@ -414,7 +414,7 @@
                 "type": "PAYLOAD_TYPE",
                 "template": "{{type}}",
                 "defaultType": "record {}",
-                "boundType": "record{}",
+                "boundType": "",
                 "bindable": true,
                 "nameEditable": false
               },
@@ -437,7 +437,7 @@
                 "description": "Define the shape of the database row bound to this parameter."
               },
               "placeholder": "after",
-              "value": "beforeEntry",
+              "value": "afterEntry",
               "types": [
                 {
                   "fieldType": "IDENTIFIER",
@@ -502,85 +502,6 @@
             "editable": true,
             "optional": true,
             "advanced": true,
-            "hidden": false,
-            "isGraphqlId": false
-          },
-          {
-            "metadata": {
-              "label": "afterEntry",
-              "description": "afterEntry"
-            },
-            "kind": "REQUIRED",
-            "type": {
-              "metadata": {
-                "label": "Parameter Type",
-                "description": "The type of the parameter"
-              },
-              "value": "record {}",
-              "types": [
-                {
-                  "fieldType": "TYPE",
-                  "selected": true
-                }
-              ],
-              "enabled": true,
-              "editable": true,
-              "optional": false,
-              "advanced": false
-            },
-            "name": {
-              "metadata": {
-                "label": "Parameter Name",
-                "description": "The name of the parameter"
-              },
-              "value": "afterEntry",
-              "types": [
-                {
-                  "fieldType": "IDENTIFIER",
-                  "selected": true
-                }
-              ],
-              "enabled": true,
-              "editable": true,
-              "optional": false,
-              "advanced": false
-            },
-            "defaultValue": {
-              "metadata": {
-                "label": "Default Value",
-                "description": "The default value of the parameter"
-              },
-              "types": [
-                {
-                  "fieldType": "EXPRESSION",
-                  "selected": true
-                }
-              ],
-              "enabled": true,
-              "editable": true,
-              "optional": true,
-              "advanced": false
-            },
-            "documentation": {
-              "metadata": {
-                "label": "Description",
-                "description": "The description of the parameter"
-              },
-              "types": [
-                {
-                  "fieldType": "TEXT",
-                  "selected": true
-                }
-              ],
-              "enabled": true,
-              "editable": true,
-              "optional": true,
-              "advanced": false
-            },
-            "enabled": true,
-            "editable": false,
-            "optional": false,
-            "advanced": false,
             "hidden": false,
             "isGraphqlId": false
           }

@@ -205,8 +205,11 @@ public class SchemaDrivenSourceGeneratorTest {
         String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(model);
         Assert.assertTrue(listener.contains("protocol = ftp:FTPS"),
                 "selecting FTPS must emit `protocol = ftp:FTPS`, got:\n" + listener);
-        Assert.assertTrue(listener.contains("secureSocket = {cert: \"/path/to/cert.crt\"}"),
-                "FTPS's secureSocket must be emitted, got:\n" + listener);
+        // ftp:AuthConfiguration nests secureSocket under `auth` (see module-ballerina-ftp's
+        // commons.bal) — it is not a top-level ListenerConfiguration field, so the correct emission
+        // folds it into the `auth` record rather than emitting a standalone `secureSocket = {...}` arg.
+        Assert.assertTrue(listener.contains("auth = {secureSocket: {cert: \"/path/to/cert.crt\"}}"),
+                "FTPS's secureSocket must be emitted under `auth`, got:\n" + listener);
     }
 
     @Test

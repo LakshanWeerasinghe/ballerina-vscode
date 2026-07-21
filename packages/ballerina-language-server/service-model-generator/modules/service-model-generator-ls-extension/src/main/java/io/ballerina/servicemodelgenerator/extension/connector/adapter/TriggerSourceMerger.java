@@ -193,17 +193,18 @@ public final class TriggerSourceMerger {
     /**
      * Reconciles the template's parameters with the source signature. Framework parameters (fixed
      * types like {@code smb:FileInfo}/{@code smb:Caller}) match by type text and toggle their
-     * include state; the payload parameter takes the first unclaimed source parameter and is
-     * reverse-composed. Unknown extra source parameters are appended read-only.
+     * include state; payload parameters (there may be more than one — e.g. CDC's {@code before}/
+     * {@code after}) claim the remaining unclaimed source parameters positionally, in declaration
+     * order, and are each reverse-composed. Unknown extra source parameters are appended read-only.
      */
     private static void reconcileParameters(Function template, Function source) {
         List<Parameter> sourceParams = source.getParameters() == null
                 ? new ArrayList<>() : new ArrayList<>(source.getParameters());
-        Parameter payloadTemplate = null;
+        List<Parameter> payloadTemplates = new ArrayList<>();
         for (Parameter templateParam : template.getParameters() == null
                 ? List.<Parameter>of() : template.getParameters()) {
             if (isPayloadParameter(templateParam)) {
-                payloadTemplate = templateParam;
+                payloadTemplates.add(templateParam);
                 continue;
             }
             Parameter match = claimByType(sourceParams, typeOf(templateParam));
@@ -216,7 +217,7 @@ public final class TriggerSourceMerger {
                 templateParam.getName().setValue(match.getName().getValue());
             }
         }
-        if (payloadTemplate != null) {
+        for (Parameter payloadTemplate : payloadTemplates) {
             if (sourceParams.isEmpty()) {
                 payloadTemplate.setEnabled(false);
             } else {
@@ -277,7 +278,8 @@ public final class TriggerSourceMerger {
         if (element == null && typeCodedata != null) {
             element = elementOf(typeCodedata.getTemplate(), actualType);
         }
-        if (typeCodedata != null && element != null && !element.equals(typeCodedata.getDefaultType())) {
+        if (typeCodedata != null && element != null
+                && !element.equals(normalizeWhitespace(typeCodedata.getDefaultType()))) {
             typeCodedata.setBoundType(element);
         }
         if (payloadParam.getType() != null && actualType != null) {
@@ -297,8 +299,8 @@ public final class TriggerSourceMerger {
         if (template == null || actualType == null || !template.contains(TYPE_PLACEHOLDER)) {
             return null;
         }
-        String normalizedTemplate = template.replaceAll("\\s+", "");
-        String normalizedActual = actualType.replaceAll("\\s+", "");
+        String normalizedTemplate = normalizeWhitespace(template);
+        String normalizedActual = normalizeWhitespace(actualType);
         int placeholder = normalizedTemplate.indexOf(TYPE_PLACEHOLDER);
         String prefix = normalizedTemplate.substring(0, placeholder);
         String suffix = normalizedTemplate.substring(placeholder + TYPE_PLACEHOLDER.length());
@@ -492,5 +494,9 @@ public final class TriggerSourceMerger {
             return null;
         }
         return parameter.getType().getValue().trim();
+    }
+
+    private static String normalizeWhitespace(String text) {
+        return text == null ? null : text.replaceAll("\\s+", "");
     }
 }
