@@ -26,14 +26,10 @@ import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
-import io.ballerina.servicemodelgenerator.extension.builder.function.CdcFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.DefaultFunctionBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.function.FTPFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.GraphqlFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.HttpFunctionBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.function.KafkaFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.McpFunctionBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.function.RabbitMQFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SchemaDrivenFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SolaceFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
@@ -54,16 +50,10 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DEFAULT;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.FTP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.KAFKA;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.MCP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MSSQL;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MYSQL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.OBJECT_METHOD;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.POSTGRESQL;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.RABBITMQ;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SOLACE;
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.deriveServiceType;
 
@@ -73,17 +63,16 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
  * @since 1.2.0
  */
 public class FunctionBuilderRouter {
+    // FTP/KAFKA/RABBITMQ/MSSQL/POSTGRESQL/MYSQL are deliberately absent: each now ships a bundled
+    // TriggerModel schema (see ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so
+    // useSchemaDrivenPath always routes them to SchemaDrivenFunctionBuilder before this map is
+    // consulted — a hardcoded entry here would be dead code. HTTP/GRAPHQL/MCP/SOLACE are not
+    // (yet) schema-driven and keep their dedicated builders.
     private static final Map<String, Supplier<? extends NodeBuilder<Function>>> CONSTRUCTOR_MAP = new HashMap<>() {{
         put(HTTP, HttpFunctionBuilder::new);
         put(GRAPHQL, GraphqlFunctionBuilder::new);
-        put(RABBITMQ, RabbitMQFunctionBuilder::new);
         put(MCP, McpFunctionBuilder::new);
-        put(KAFKA, KafkaFunctionBuilder::new);
         put(SOLACE, SolaceFunctionBuilder::new);
-        put(MSSQL, () -> new CdcFunctionBuilder(MSSQL));
-        put(POSTGRESQL, () -> new CdcFunctionBuilder(POSTGRESQL));
-        put(MYSQL, () -> new CdcFunctionBuilder(MYSQL));
-        put(FTP, FTPFunctionBuilder::new);
     }};
 
     private static NodeBuilder<Function> getFunctionBuilder(String protocol) {
@@ -110,7 +99,13 @@ public class FunctionBuilderRouter {
     }
 
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
-        NodeBuilder<Function> functionBuilder = getFunctionBuilder(moduleName);
+        // No org/package/version identity available at this call site — only the bundled-resource
+        // check in useSchemaDrivenPath (which needs just the module name) can fire here; a connector
+        // resolved solely via an external .bala schema falls through to the hardcoded/default builder,
+        // same as before this method learned about the schema-driven path at all.
+        NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(null, null, moduleName, null)
+                ? new SchemaDrivenFunctionBuilder()
+                : getFunctionBuilder(moduleName);
         GetModelContext context = GetModelContext.fromServiceAndFunctionType(moduleName, functionType);
         return functionBuilder.getModelTemplate(context);
     }

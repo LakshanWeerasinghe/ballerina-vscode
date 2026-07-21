@@ -61,7 +61,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TY
 /**
  * Builds the "use existing" listener selector for the schema-driven path, resolving each existing
  * listener's configuration from <b>both the model and the source</b> — the generic equivalent of the
- * per-connector extraction in {@code RabbitMQServiceBuilder}/{@code FTPServiceBuilder}.
+ * per-connector extraction the (now-removed) hardcoded RabbitMQ/FTP service builders used to do.
  *
  * <p>The create-new branch's listener params define the field <i>template</i> (labels, types, and the
  * {@code codedata} position/path that says where each value sits in {@code new(...)}). For each listener

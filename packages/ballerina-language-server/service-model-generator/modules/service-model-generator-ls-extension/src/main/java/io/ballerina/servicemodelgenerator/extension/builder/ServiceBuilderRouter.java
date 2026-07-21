@@ -26,19 +26,10 @@ import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.service.AiChatServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.AsbServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.DefaultServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.FTPServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.GithubTriggerServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.GraphqlServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.HttpServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.KafkaServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.McpServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.MssqlCdcServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.MysqlCdcServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.PostgresqlCdcServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.RabbitMQServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.ShopifyTriggerServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SolaceServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.TCPServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
@@ -64,20 +55,11 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.AI;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.ASB;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.FTP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.KAFKA;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.MCP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MSSQL;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MYSQL;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.POSTGRESQL;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.RABBITMQ;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SOLACE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.TCP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGER_GITHUB;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGER_SHOPIFY;
 
 /**
  * ServiceBuilderRouter is responsible for routing service building requests to the appropriate service builder
@@ -87,22 +69,19 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGE
  */
 public class ServiceBuilderRouter {
 
+    // RABBITMQ/KAFKA/MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY (and ASB, never
+    // registered here) are deliberately absent: each now ships a bundled TriggerModel schema (see
+    // ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so useSchemaDrivenPath always routes
+    // them to SchemaDrivenServiceBuilder before this map is consulted — a hardcoded entry here
+    // would be dead code. HTTP/AI/TCP/GRAPHQL/MCP/SOLACE are not (yet) schema-driven and keep their
+    // dedicated builders.
     private static final Map<String, Supplier<? extends ServiceNodeBuilder>> CONSTRUCTOR_MAP = new HashMap<>() {{
         put(HTTP, HttpServiceBuilder::new);
         put(AI, AiChatServiceBuilder::new);
         put(TCP, TCPServiceBuilder::new);
-        put(RABBITMQ, RabbitMQServiceBuilder::new);
         put(GRAPHQL, GraphqlServiceBuilder::new);
         put(MCP, McpServiceBuilder::new);
-        put(KAFKA, KafkaServiceBuilder::new);
-//        put(ASB, AsbServiceBuilder::new);
         put(SOLACE, SolaceServiceBuilder::new);
-        put(MSSQL, MssqlCdcServiceBuilder::new);
-        put(POSTGRESQL, PostgresqlCdcServiceBuilder::new);
-        put(MYSQL, MysqlCdcServiceBuilder::new);
-        put(FTP, FTPServiceBuilder::new);
-        put(TRIGGER_GITHUB, GithubTriggerServiceBuilder::new);
-        put(TRIGGER_SHOPIFY, ShopifyTriggerServiceBuilder::new);
     }};
 
     public static ServiceNodeBuilder getServiceBuilder(String protocol) {
@@ -127,7 +106,13 @@ public class ServiceBuilderRouter {
     }
 
     public static Optional<Service> getModelTemplate(String orgName, String moduleName) {
-        NodeBuilder<?> serviceBuilder = getServiceBuilder(moduleName);
+        // No package/version identity available at this call site — only the bundled-resource check
+        // in useSchemaDrivenPath (which needs just the module name) can fire here; a connector
+        // resolved solely via an external .bala schema falls through to the hardcoded/default
+        // builder, same as before this method learned about the schema-driven path at all.
+        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(orgName, null, moduleName, null)
+                ? new SchemaDrivenServiceBuilder()
+                : getServiceBuilder(moduleName);
         GetModelContext context = GetModelContext.fromOrgAndModule(orgName, moduleName);
         Optional<?> modelTemplate = serviceBuilder.getModelTemplate(context);
         if (modelTemplate.isEmpty() || !(modelTemplate.get() instanceof Service)) {
