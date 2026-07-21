@@ -94,7 +94,9 @@
         },
         "placeholder": "false",
         "value": {
-          "Event Channel": []
+          "Event Channel": [
+            "IssuesService"
+          ]
         },
         "types": [
           {

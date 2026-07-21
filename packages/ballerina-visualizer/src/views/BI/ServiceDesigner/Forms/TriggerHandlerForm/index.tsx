@@ -517,7 +517,15 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                                 that composed result back to the bound element (so recomposition
                                                 doesn't compound the wrapper), and let the name follow the editor. A
                                                 bindable payload is always editable, so force it on regardless of the
-                                                shipped flag. */}
+                                                shipped flag. Some connectors (kafka, rabbitmq, the SQL CDC triggers)
+                                                bind to a fixed, structural identifier (records/message/before/after)
+                                                that the user never renames — those ship the payload's own
+                                                codedata.nameEditable:false (a PAYLOAD_TYPE-scoped flag, distinct
+                                                from the generic Parameter.name.editable used elsewhere for plain
+                                                identifier renaming), so we drop the Name field from both the card
+                                                and the editor and only let the bound type change. FTP's content
+                                                param leaves nameEditable unset (defaults true) and keeps the full
+                                                name+type editor. */}
                                             <Parameters
                                                 parameters={[{
                                                     ...param,
@@ -527,6 +535,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                                         value: composePayloadType(functionModel, param),
                                                     },
                                                 }]}
+                                                hideName={param.type?.codedata?.nameEditable === false}
                                                 onChange={(edited) => {
                                                     if (edited.length === 0) {
                                                         handleDeletePayloadSchema(param);

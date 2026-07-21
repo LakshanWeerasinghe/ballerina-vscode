@@ -182,6 +182,13 @@ export function isModifierActive(prop: PropertyModel): boolean {
 /**
  * Composes the rendered payload type from a parameter's codedata and the function's modifier flags.
  * An active modifier's template supersedes the base template (matching the LS PayloadComposer).
+ *
+ * An included-record payload (kafka's AnydataConsumerRecord, rabbitmq's AnydataMessage) binds the
+ * user's type inside a connector-generated wrapper record rather than emitting it directly — the
+ * template describes that wrapper's shape (e.g. an array of the wrapper), not the user's type, so
+ * applying it here would show a fabricated signature type instead of the type the user actually
+ * chose. FTP-style direct bindings have no such wrapper, so the composed (and, once a modifier like
+ * Stream is toggled, re-composed) type is the true signature type and is shown as-is.
  */
 export function composePayloadType(fn: FunctionModel, param: ParameterModel): string {
     const codedata = param.type?.codedata;
@@ -189,6 +196,9 @@ export function composePayloadType(fn: FunctionModel, param: ParameterModel): st
         return param.type?.value ?? "";
     }
     const element = codedata.boundType || codedata.defaultType || "";
+    if (codedata.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD) {
+        return element;
+    }
     const activeModifier = propertiesOfRole(fn, CODEDATA_PAYLOAD_MODIFIER)
         .map(([, prop]) => prop)
         .find((prop) => isModifierActive(prop) && !!prop.codedata?.template);
@@ -215,8 +225,13 @@ export function activeTemplateOf(fn: FunctionModel, param: ParameterModel): stri
  * string to recover the bound element (e.g. `stream<Order, error?>` or `Order[]` -> `Order`). Used
  * when an edit hands back the composed type so the recovered element can be re-stored as boundType
  * without the wrapper compounding. Returns the input unchanged when it lacks the expected wrapper.
+ * An included-record payload never showed a wrapped type to begin with (see composePayloadType), so
+ * the edited value is already the bare element.
  */
 export function decomposePayloadType(fn: FunctionModel, param: ParameterModel, composed: string): string {
+    if (param.type?.codedata?.type === CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD) {
+        return composed;
+    }
     const template = activeTemplateOf(fn, param);
     if (!template || !template.includes(TYPE_PLACEHOLDER)) {
         return composed;

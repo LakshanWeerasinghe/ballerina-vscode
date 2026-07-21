@@ -180,7 +180,8 @@
                 "template": "{{type}}",
                 "defaultType": "record {}",
                 "boundType": "AfterEntrySchema",
-                "bindable": true
+                "bindable": true,
+                "nameEditable": false
               },
               "placeholder": "record {}",
               "value": "AfterEntrySchema",
@@ -357,7 +358,8 @@
                 "template": "{{type}}",
                 "defaultType": "record {}",
                 "boundType": "",
-                "bindable": true
+                "bindable": true,
+                "nameEditable": false
               },
               "placeholder": "record {}",
               "value": "record {}",
@@ -413,7 +415,8 @@
                 "template": "{{type}}",
                 "defaultType": "record {}",
                 "boundType": "record{}",
-                "bindable": true
+                "bindable": true,
+                "nameEditable": false
               },
               "placeholder": "record {}",
               "value": "record {}",
@@ -671,7 +674,8 @@
                 "template": "{{type}}",
                 "defaultType": "record {}",
                 "boundType": "",
-                "bindable": true
+                "bindable": true,
+                "nameEditable": false
               },
               "placeholder": "record {}",
               "value": "record {}",
@@ -837,7 +841,8 @@
                 "template": "{{type}}",
                 "defaultType": "record {}",
                 "boundType": "",
-                "bindable": true
+                "bindable": true,
+                "nameEditable": false
               },
               "placeholder": "record {}",
               "value": "record {}",

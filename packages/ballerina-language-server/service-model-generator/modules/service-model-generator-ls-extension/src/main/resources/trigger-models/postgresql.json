@@ -783,6 +783,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
@@ -966,6 +967,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
@@ -1149,6 +1151,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
@@ -1240,6 +1243,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
@@ -1423,6 +1427,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",

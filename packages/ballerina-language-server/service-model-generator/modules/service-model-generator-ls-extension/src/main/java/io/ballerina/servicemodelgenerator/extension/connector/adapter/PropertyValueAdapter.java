@@ -244,7 +244,7 @@ public final class PropertyValueAdapter {
                 cd.getOrgName(), cd.getPackageName(), cd.getPosition(), cd.getPath(), cd.getDefaultType(),
                 cd.getBoundType(), cd.getBindable(), null, null, cd.getTemplate(), cd.getModifier(), null,
                 cd.getTargetParam(), null, cd.getField(), cd.getOptional(), cd.getValue(),
-                cd.getValueQualifier(), null, null);
+                cd.getValueQualifier(), null, null, null);
     }
 
     /**

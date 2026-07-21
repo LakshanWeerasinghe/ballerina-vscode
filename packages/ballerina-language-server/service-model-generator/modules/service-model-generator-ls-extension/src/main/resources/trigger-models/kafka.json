@@ -236,6 +236,7 @@
                     "codedata": {
                       "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
                       "bindable": true,
+                      "nameEditable": false,
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",

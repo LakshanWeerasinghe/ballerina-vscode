@@ -89,9 +89,24 @@ public class ModuleAliasResolverTest {
 
     @Test
     public void testClaimedAliasIsSuffixed() {
+        // Both the natural prefix (claimed by an unrelated import) and the generated fallback alias
+        // (also claimed) are already taken, so only the final numeric-suffix step is left.
         Assert.assertEquals(ModuleAliasResolver.resolve(
-                rootOf("import foo/bar as triggerTwilio;\n"), "ballerinax", "trigger.twilio", null),
+                rootOf("import foo/bar as twilio;\nimport baz/qux as triggerTwilio;\n"),
+                "ballerinax", "trigger.twilio", null),
                 "triggerTwilio2");
+    }
+
+    @Test
+    public void testUnclaimedNaturalPrefixNeedsNoFallbackAlias() {
+        // The reported default-behaviour bug: a dotted module (trigger.github) must import and reference
+        // itself under its bare natural prefix (github) when nothing in the file claims it, not under
+        // the generated alias (triggerGithub) — that alias is a fallback for an actual collision, not
+        // the default.
+        Assert.assertEquals(ModuleAliasResolver.resolve(rootOf("\n"), "ballerinax", "trigger.github", null),
+                "github");
+        Assert.assertEquals(ModuleAliasResolver.resolve(rootOf("import ballerina/io;\n"),
+                "ballerinax", "trigger.github", null), "github");
     }
 
     @Test

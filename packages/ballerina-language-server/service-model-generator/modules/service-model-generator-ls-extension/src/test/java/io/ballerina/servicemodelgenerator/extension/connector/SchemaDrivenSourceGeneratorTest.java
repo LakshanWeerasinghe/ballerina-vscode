@@ -50,17 +50,18 @@ public class SchemaDrivenSourceGeneratorTest {
         ServiceInitModel creation = gson.fromJson(
                 Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
 
-        // The prefix is `triggerHubspot`, not `hubspot`: the module is the dotted `trigger.hubspot`,
-        // whose natural last-segment prefix would clash with a base `ballerinax/hubspot` import, so it
-        // is imported (and referenced) under a generated alias.
+        // The prefix is `hubspot`, the module's natural last-segment: this overload has no target file
+        // to check for a collision against (e.g. a base `ballerinax/hubspot` import already bound to
+        // `hubspot`), so it emits the plain, unaliased prefix — the generated alias is a fallback the
+        // file-aware path takes only once it actually observes that collision.
         String listener = SchemaDrivenSourceGenerator.buildListenerDeclaration(creation);
         Assert.assertEquals(listener,
-                "listener triggerHubspot:Listener hubspotListener = "
+                "listener hubspot:Listener hubspotListener = "
                         + "new ({clientSecret: clientSecretValue, callbackURL: callbackUrlValue}, 8090);",
                 "config record must be positional arg 1 (from the group) and listenOn positional arg 2");
 
         String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(creation, null);
-        Assert.assertTrue(block.contains("service triggerHubspot:CompanyService on hubspotListener {"),
+        Assert.assertTrue(block.contains("service hubspot:CompanyService on hubspotListener {"),
                 "service descriptor must come from the SERVICE_TYPE_DESCRIPTOR field, got:\n" + block);
     }
 
@@ -73,9 +74,9 @@ public class SchemaDrivenSourceGeneratorTest {
                 Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
 
         String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(creation, null);
-        Assert.assertFalse(block.contains("listener triggerHubspot:Listener"),
+        Assert.assertFalse(block.contains("listener hubspot:Listener"),
                 "no new listener should be declared when attaching to an existing one, got:\n" + block);
-        Assert.assertTrue(block.contains("service triggerHubspot:ContactService on myHubspotListener {"),
+        Assert.assertTrue(block.contains("service hubspot:ContactService on myHubspotListener {"),
                 "service must attach to the selected existing listener, got:\n" + block);
     }
 

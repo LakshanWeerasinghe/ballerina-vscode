@@ -124,8 +124,9 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /**
-     * The {@code \nimport <org>/<module>;\n} statement for the connector, aliased when its natural
-     * prefix would be collision-prone (see {@link #defaultEmitAlias}).
+     * The {@code \nimport <org>/<module>;\n} statement for the connector, under its natural prefix (see
+     * {@link #defaultEmitAlias}) — this overload has no target file to check for a collision against, so
+     * it never generates a fallback alias.
      */
     public static String buildImport(ServiceInitModel creationModel) {
         return Utils.getImportStmt(creationModel.getOrgName(), creationModel.getModuleName(),
@@ -383,13 +384,14 @@ public final class SchemaDrivenSourceGenerator {
     // ------------------------------------------------------------------
     // Self-module import alias
     //
-    // A dotted module is imported under its LAST segment by default, which collides whenever the
-    // project also imports a same-named sibling package — `ballerinax/trigger.twilio` and
-    // `ballerinax/twilio` both want the prefix `twilio`, as do `ballerinax/solace.jms` and
-    // `ballerina/jms`. Such a module is therefore imported under a generated alias
-    // (`import ballerinax/trigger.twilio as triggerTwilio;`) and every reference to its own types is
-    // emitted under that alias. A single-segment module has no such risk and keeps its natural prefix,
-    // which makes the alias equal to it and all the rewriting below a no-op.
+    // A dotted module defaults to its natural prefix — its LAST segment (`ballerinax/trigger.twilio` ->
+    // `twilio`) — same as a plain one, so the common case is a bare, unaliased import. That only breaks
+    // when the target file already binds that prefix to something else: a same-named sibling package
+    // (`ballerinax/twilio` also wants `twilio`) or an unrelated import (`ballerina/file as ftp`
+    // shadowing `ballerina/ftp`). Only then is the module imported under a generated alias
+    // (`import ballerinax/trigger.twilio as triggerTwilio;`), with every reference to its own types
+    // rewritten onto it. Without a target file to check for such a collision (no rootNode in scope),
+    // the natural prefix is used as-is; a single-segment module never needs an alias.
     // ------------------------------------------------------------------
 
     /**
@@ -404,9 +406,9 @@ public final class SchemaDrivenSourceGenerator {
         return defaultEmitAlias(moduleName);
     }
 
-    /** @see ModuleAliasResolver#defaultAlias(String) */
+    /** @see ModuleAliasResolver#selfPrefix(String) */
     private static String defaultEmitAlias(String moduleName) {
-        return ModuleAliasResolver.defaultAlias(moduleName);
+        return ModuleAliasResolver.selfPrefix(moduleName);
     }
 
     /**

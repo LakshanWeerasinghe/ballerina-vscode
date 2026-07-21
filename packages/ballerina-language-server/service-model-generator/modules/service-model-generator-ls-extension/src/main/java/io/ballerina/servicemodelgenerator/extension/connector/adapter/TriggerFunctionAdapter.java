@@ -257,6 +257,7 @@ public final class TriggerFunctionAdapter {
             typeCodedata.setField(includedRecordHint(payloadCodedata, payloadCodedata.field(), "field"));
             typeCodedata.setTypeIdentifier(
                     includedRecordHint(payloadCodedata, null, "typeIdentifier", "typeIndentidier"));
+            typeCodedata.setNameEditable(payloadCodedata.nameEditable());
         }
 
         Value type = new Value.ValueBuilder()

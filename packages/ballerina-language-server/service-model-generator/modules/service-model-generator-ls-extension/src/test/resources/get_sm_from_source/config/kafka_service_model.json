@@ -169,7 +169,8 @@
                 "defaultType": "kafka:AnydataConsumerRecord",
                 "bindable": true,
                 "field": "value",
-                "typeIdentifier": "KafkaAnydataConsumer"
+                "typeIdentifier": "KafkaAnydataConsumer",
+                "nameEditable": false
               },
               "placeholder": "kafka:AnydataConsumerRecord[]",
               "value": "kafka:AnydataConsumerRecord[]",

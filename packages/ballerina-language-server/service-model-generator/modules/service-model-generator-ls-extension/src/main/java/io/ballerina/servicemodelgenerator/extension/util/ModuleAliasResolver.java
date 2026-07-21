@@ -86,8 +86,11 @@ public final class ModuleAliasResolver {
      *
      * <p>An import of that module already present wins outright — its prefix is reused verbatim, so
      * added functions and follow-up service blocks agree with the import already in the file (including
-     * one the user hand-aliased). Otherwise the preferred alias is taken and disambiguated against the
-     * prefixes other imports have already claimed ({@code ftp} &rarr; {@code ftp2}).
+     * one the user hand-aliased). Otherwise the module's natural prefix ({@code trigger.github} &rarr;
+     * {@code github}) is preferred, so the common case is a plain, unaliased import. The generated alias
+     * ({@code triggerGithub}) is only a fallback, tried when the natural prefix is already bound to
+     * something else in the file (a same-named sibling package, or an unrelated import claiming it); if
+     * even that collides, a numeric suffix disambiguates ({@code ftp} &rarr; {@code ftp2}).
      *
      * @param rootNode       the target file's root node
      * @param org            organization name; blank matches any org
@@ -98,26 +101,38 @@ public final class ModuleAliasResolver {
         if (module == null || module.isBlank()) {
             return "";
         }
+        boolean pinned = overridePrefix != null && !overridePrefix.isBlank();
+        String preferred = pinned ? overridePrefix : selfPrefix(module);
         if (rootNode == null) {
-            return overridePrefix != null && !overridePrefix.isBlank() ? overridePrefix : defaultAlias(module);
+            return preferred;
         }
         Optional<String> existing = Utils.existingImportPrefix(rootNode, org, module);
         if (existing.isPresent()) {
             return existing.get();
         }
-        String candidate = overridePrefix != null && !overridePrefix.isBlank()
-                ? overridePrefix : defaultAlias(module);
         // Reaching here means this module is NOT imported yet, so any prefix already claimed in the file
         // belongs to a different module and would shadow this one.
         Set<String> taken = Utils.importedPrefixes(rootNode);
-        if (!taken.contains(candidate)) {
-            return candidate;
+        if (!taken.contains(preferred)) {
+            return preferred;
+        }
+        String base = preferred;
+        if (!pinned) {
+            // The natural prefix lost to a real collision — the generated alias is unique to this
+            // module's dotted path, so it cannot collide with the sibling package that just claimed it.
+            String fallback = defaultAlias(module);
+            if (!fallback.equals(preferred) && !taken.contains(fallback)) {
+                return fallback;
+            }
+            if (!fallback.equals(preferred)) {
+                base = fallback;
+            }
         }
         int suffix = 2;
-        while (taken.contains(candidate + suffix)) {
+        while (taken.contains(base + suffix)) {
             suffix++;
         }
-        return candidate + suffix;
+        return base + suffix;
     }
 
     /**

@@ -208,6 +208,10 @@ interface CodeData {
     defaultType?: string;
     boundType?: string;
     bindable?: boolean;
+    // Whether the bound parameter's identifier may be renamed in the edit UI. Unset defaults to
+    // editable; false for connectors that bind to a fixed, structural identifier (e.g. kafka's
+    // `records`, a CDC `before`/`after`) where only the bound type is user-selected.
+    nameEditable?: boolean;
     modifier?: string;
     targetParam?: string;
     // Annotation-tree hints (COMPLEX_FUNCTION_ANNOTATION -> MAPPING_FIELD leaves). A leaf's

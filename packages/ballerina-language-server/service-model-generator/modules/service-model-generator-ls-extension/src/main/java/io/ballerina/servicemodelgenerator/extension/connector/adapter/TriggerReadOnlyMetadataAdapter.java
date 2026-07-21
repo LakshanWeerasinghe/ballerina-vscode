@@ -23,6 +23,7 @@ import io.ballerina.modelgenerator.commons.ReadOnlyMetaData;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.extractor.AnnotationExtractor;
 import io.ballerina.servicemodelgenerator.extension.extractor.ListenerParamExtractor;
+import io.ballerina.servicemodelgenerator.extension.extractor.ServiceDescriptionExtractor;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
@@ -50,7 +51,10 @@ import java.util.Map;
  *       e.g. {@code ServiceConfig.path} &rarr; {@code path});</li>
  *   <li>{@code LISTENER_PARAM} &rarr; {@link ListenerParamExtractor} (the listener constructor argument
  *       named {@code key});</li>
- *   <li>{@code STRING_LITERAL} &rarr; the service's string-literal attach point.</li>
+ *   <li>{@code STRING_LITERAL} &rarr; the service's string-literal attach point;</li>
+ *   <li>{@code SERVICE_DESCRIPTION} / {@code SERVICE_BASE_PATH} &rarr; {@link ServiceDescriptionExtractor}
+ *       (e.g. Salesforce's {@code serviceType} off the service's type descriptor, {@code basePath} off
+ *       its attach point/base path — {@code service <type> <basePath> on ...}).</li>
  * </ul>
  *
  * A definition whose value cannot be resolved simply contributes no values (its display name stays with
@@ -63,10 +67,13 @@ public final class TriggerReadOnlyMetadataAdapter {
     private static final String KIND_SERVICE_ANNOTATION = "SERVICE_ANNOTATION";
     private static final String KIND_LISTENER_PARAM = "LISTENER_PARAM";
     private static final String KIND_STRING_LITERAL = "STRING_LITERAL";
+    private static final String KIND_SERVICE_DESCRIPTION = "SERVICE_DESCRIPTION";
+    private static final String KIND_SERVICE_BASE_PATH = "SERVICE_BASE_PATH";
 
     // Wire kinds understood by the shared extractors (differ from the trigger-model JSON kinds above).
     private static final String EXTRACTOR_KIND_ANNOTATION = "ANNOTATION";
     private static final String EXTRACTOR_KIND_LISTENER_PARAM = "LISTENER_PARAM";
+    private static final String EXTRACTOR_KIND_SERVICE_DESCRIPTION = "SERVICE_DESCRIPTION";
 
     private static final String READONLY = "READONLY";
     private static final String PLACEHOLDER_FALSE = "false";
@@ -121,6 +128,9 @@ public final class TriggerReadOnlyMetadataAdapter {
                     new ReadOnlyMetaData(definition.key(), displayName, EXTRACTOR_KIND_LISTENER_PARAM),
                     serviceNode, context));
             case KIND_STRING_LITERAL -> stringLiteralValue(serviceModel);
+            case KIND_SERVICE_DESCRIPTION, KIND_SERVICE_BASE_PATH -> flatten(new ServiceDescriptionExtractor()
+                    .extractValues(new ReadOnlyMetaData(definition.key(), displayName,
+                            EXTRACTOR_KIND_SERVICE_DESCRIPTION), serviceNode, context));
             default -> List.of();
         };
     }

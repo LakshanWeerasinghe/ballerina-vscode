@@ -223,7 +223,8 @@
                 "boundType": "Order",
                 "bindable": true,
                 "field": "content",
-                "typeIdentifier": "RabbitmqAnydataMessage"
+                "typeIdentifier": "RabbitmqAnydataMessage",
+                "nameEditable": false
               },
               "placeholder": "rabbitmq:AnydataMessage",
               "value": "Order",

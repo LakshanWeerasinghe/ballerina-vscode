@@ -84,8 +84,9 @@ public final class ModulePrefixContext {
      *
      * <p>An import already in the file wins outright — its prefix is authoritative, so anything this
      * operation emits lines up with what is already there (including a prefix the user hand-edited).
-     * Otherwise a free prefix is allocated (the module's preferred alias, numerically disambiguated
-     * against everything already claimed) and recorded in {@link #pendingImports}.
+     * Otherwise a free prefix is allocated (the module's natural prefix when free, else its generated
+     * alias, else that alias numerically disambiguated against everything already claimed) and recorded
+     * in {@link #pendingImports} — see {@link #allocate}.
      *
      * @param org    organization name; blank matches any org
      * @param module module name
@@ -107,7 +108,7 @@ public final class ModulePrefixContext {
         if (existing.isPresent()) {
             resolved = existing.get();
         } else {
-            resolved = allocate(ModuleAliasResolver.defaultAlias(module));
+            resolved = allocate(module);
             pendingImports.put(key, resolved);
         }
         claimed.add(resolved);
@@ -121,15 +122,26 @@ public final class ModulePrefixContext {
         return resolved;
     }
 
-    private String allocate(String candidate) {
-        if (!claimed.contains(candidate)) {
-            return candidate;
+    /**
+     * A free prefix for a module not yet imported in this file: its natural prefix (last dot-segment)
+     * when free, else the generated alias (unique to the dotted path, so it cannot collide with the
+     * sibling package that just claimed the natural one), else that alias numerically disambiguated.
+     */
+    private String allocate(String module) {
+        String natural = ModuleAliasResolver.selfPrefix(module);
+        if (!claimed.contains(natural)) {
+            return natural;
         }
+        String fallback = ModuleAliasResolver.defaultAlias(module);
+        if (!fallback.equals(natural) && !claimed.contains(fallback)) {
+            return fallback;
+        }
+        String base = fallback.equals(natural) ? natural : fallback;
         int suffix = 2;
-        while (claimed.contains(candidate + suffix)) {
+        while (claimed.contains(base + suffix)) {
             suffix++;
         }
-        return candidate + suffix;
+        return base + suffix;
     }
 
     /**

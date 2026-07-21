@@ -222,7 +222,8 @@
                 "defaultType": "rabbitmq:AnydataMessage",
                 "bindable": true,
                 "field": "content",
-                "typeIdentifier": "RabbitmqAnydataMessage"
+                "typeIdentifier": "RabbitmqAnydataMessage",
+                "nameEditable": false
               },
               "placeholder": "rabbitmq:AnydataMessage",
               "value": "rabbitmq:AnydataMessage",

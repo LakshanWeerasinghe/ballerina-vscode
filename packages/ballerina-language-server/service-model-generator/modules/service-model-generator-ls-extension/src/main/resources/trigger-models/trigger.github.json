@@ -124,8 +124,8 @@
                   "value": "",
                   "enabled": true,
                   "editable": true,
-                  "optional": true,
-                  "advanced": true,
+                  "optional": false,
+                  "advanced": false,
                   "codedata": {
                     "argType": "LISTENER_PARAM_CONFIG_FIELD",
                     "path": "webhookSecret",

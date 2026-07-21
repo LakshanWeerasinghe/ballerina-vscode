@@ -56,6 +56,9 @@ public class Codedata {
     private Boolean optional;
     // The literal an ENUM_LITERAL choice branch emits (qualified by `valueQualifier`).
     private String value;
+    // Payload: whether the bound parameter's identifier may be renamed in the edit UI (unset
+    // defaults to editable). False for connectors that bind to a fixed, structural identifier.
+    private Boolean nameEditable;
 
     public Codedata() {
     }
@@ -249,6 +252,14 @@ public class Codedata {
 
     public void setValue(String value) {
         this.value = value;
+    }
+
+    public Boolean getNameEditable() {
+        return nameEditable;
+    }
+
+    public void setNameEditable(Boolean nameEditable) {
+        this.nameEditable = nameEditable;
     }
 
     public static class Builder {

@@ -222,7 +222,13 @@ public record TriggerModel(
             String value,
             String valueQualifier,
             String group,
-            String variantLabel) {
+            String variantLabel,
+            // Payload: whether the bound parameter's identifier (e.g. kafka's `records`, the CDC
+            // `before`/`after`) may be renamed in the edit UI. Some connectors bind to a fixed,
+            // structural identifier the generated code and its surrounding annotations refer to by
+            // name — only the bound type is user-selected there. Unset defaults to editable (true),
+            // matching FTP's genuinely user-named payload.
+            Boolean nameEditable) {
     }
 
     /**
