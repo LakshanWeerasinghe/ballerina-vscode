@@ -227,11 +227,20 @@ public final class ExistingListenerResolver {
      * is the nested-record tree of its expression: a {@code String} for a scalar/expression, or a
      * {@code Map<String, Object>} (recursively) for a record literal — so a leaf's dotted {@code path}
      * (e.g. {@code auth.credentials.username}) can be navigated back to its exact source value.
+     *
+     * @param positional the constructor's positional arguments, in source order
+     * @param named      the constructor's named arguments, keyed by parameter name
      */
     record ParsedListener(List<ParsedArg> positional, LinkedHashMap<String, Object> named) {
     }
 
-    /** One argument: exactly one of {@code scalar} / {@code recordFields} is set. */
+    /**
+     * One argument: exactly one of {@code scalar} / {@code recordFields} is set.
+     *
+     * @param scalar       the argument's rendered source text, when it is a scalar/expression
+     * @param recordFields the argument's field name -> rendered source text map, when it is a record
+     *                     literal
+     */
     record ParsedArg(String scalar, LinkedHashMap<String, String> recordFields) {
         static ParsedArg scalar(String value) {
             return new ParsedArg(value, null);

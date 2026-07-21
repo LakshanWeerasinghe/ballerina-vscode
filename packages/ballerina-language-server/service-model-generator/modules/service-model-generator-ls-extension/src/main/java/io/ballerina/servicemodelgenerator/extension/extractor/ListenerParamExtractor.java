@@ -38,9 +38,9 @@ import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.ParenthesizedArgList;
 import io.ballerina.compiler.syntax.tree.PositionalArgumentNode;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
+import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.compiler.syntax.tree.SimpleNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
-import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.modelgenerator.commons.ReadOnlyMetaData;
@@ -269,9 +269,11 @@ public class ListenerParamExtractor implements ReadOnlyMetadataExtractor {
         while (current != null && !(current instanceof ModulePartNode)) {
             current = current.parent();
         }
-        if (!(current instanceof ModulePartNode modulePart)) {
+        // The loop above only exits when `current` is null or already a ModulePartNode.
+        if (current == null) {
             return Optional.empty();
         }
+        ModulePartNode modulePart = (ModulePartNode) current;
         for (ModuleMemberDeclarationNode member : modulePart.members()) {
             if (member instanceof ListenerDeclarationNode listener
                     && listener.variableName().text().equals(listenerName)) {

@@ -46,6 +46,8 @@ export const BI_COMMANDS = {
     ADD_PROJECT: 'BI.project-explorer.add',
     SHOW_OVERVIEW: 'BI.project-explorer.overview',
     ADD_DATA_MAPPER: 'BI.project-explorer.add-data-mapper',
+    ADD_WORKFLOW: 'BI.project-explorer.add-workflow',
+    ADD_WORKFLOW_ACTIVITY: 'BI.project-explorer.add-workflow-activity',
     BI_EDIT_TEST_FUNCTION: 'BI.test.edit.function',
     BI_ADD_TEST_FUNCTION: 'BI.test.add.function',
     BI_ADD_AI_EVALUATION: 'BI.test.add.ai.evaluation',
@@ -56,6 +58,7 @@ export const BI_COMMANDS = {
     DEVANT_PUSH_TO_CLOUD: 'BI.devant.push.cloud',
     CREATE_BI_PROJECT: 'BI.project.createBIProjectPure',
     CREATE_BI_MIGRATION_PROJECT: 'BI.project.createBIProjectMigration',
+    GET_BI_FORM_WS_BOOTSTRAP: 'ballerina.getBiFormWsBootstrap',
     ADD_INTEGRATION: 'BI.project-explorer.add-integration',
     NOTIFY_PROJECT_EXPLORER: 'BI.project-explorer.notify'
 };

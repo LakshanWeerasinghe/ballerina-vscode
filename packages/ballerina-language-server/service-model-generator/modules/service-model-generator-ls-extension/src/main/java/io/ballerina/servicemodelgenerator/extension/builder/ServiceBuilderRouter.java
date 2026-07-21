@@ -25,11 +25,12 @@ import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.service.AiChatServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.DefaultServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.GraphqlServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.HttpServiceBuilder;
+import io.ballerina.servicemodelgenerator.extension.builder.service.HubspotTriggerServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.McpServiceBuilder;
+import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SolaceServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.TCPServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
@@ -60,6 +61,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.MCP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SOLACE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.TCP;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGER_HUBSPOT;
 
 /**
  * ServiceBuilderRouter is responsible for routing service building requests to the appropriate service builder
@@ -82,6 +84,10 @@ public class ServiceBuilderRouter {
         put(GRAPHQL, GraphqlServiceBuilder::new);
         put(MCP, McpServiceBuilder::new);
         put(SOLACE, SolaceServiceBuilder::new);
+        // Hubspot has no bundled/`.bala` TriggerModel schema yet, so it keeps its dedicated builder
+        // (unlike MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY above, which are already
+        // schema-driven and would be dead entries here).
+        put(TRIGGER_HUBSPOT, HubspotTriggerServiceBuilder::new);
     }};
 
     public static ServiceNodeBuilder getServiceBuilder(String protocol) {

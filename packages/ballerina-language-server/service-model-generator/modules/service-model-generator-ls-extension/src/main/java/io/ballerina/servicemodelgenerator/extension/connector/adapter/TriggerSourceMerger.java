@@ -300,8 +300,7 @@ public final class TriggerSourceMerger {
         Codedata typeCodedata = payloadParam.getType() == null ? null : payloadParam.getType().getCodedata();
 
         String element = null;
-        Map<String, Value> properties = template.getProperties() == null ? Map.of() : template.getProperties();
-        for (Value property : properties.values()) {
+        for (Value property : template.getProperties().values()) {
             Codedata propertyCodedata = property.getCodedata();
             if (propertyCodedata == null || !CD_PAYLOAD_MODIFIER.equals(propertyCodedata.getType())
                     || propertyCodedata.getTemplate() == null) {
@@ -357,9 +356,6 @@ public final class TriggerSourceMerger {
      * mapping fields are ticked and their leaves/choices set, absent optional fields stay unchecked.
      */
     private static void applyAnnotationsFromSource(Function template, Function source) {
-        if (template.getProperties() == null) {
-            return;
-        }
         for (Value tree : template.getProperties().values()) {
             Codedata treeCodedata = tree.getCodedata();
             if (treeCodedata == null || !CD_COMPLEX_FUNCTION_ANNOTATION.equals(treeCodedata.getType())) {
@@ -377,7 +373,7 @@ public final class TriggerSourceMerger {
 
     /** The mapping body of the source's annotation attachment with the given name, if present. */
     private static String sourceAnnotationBody(Function source, String annotationName) {
-        if (source.getProperties() == null || annotationName == null) {
+        if (annotationName == null) {
             return null;
         }
         for (Value property : source.getProperties().values()) {

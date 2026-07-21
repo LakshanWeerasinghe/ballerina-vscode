@@ -81,6 +81,7 @@ export function readEnhanceToml(projectRoot: string): EnhanceTomlData | null {
         const currentPackageMatch = content.match(/currentPackage\s*=\s*"([^"]+)"/);
         const currentStageMatch = content.match(/currentStage\s*=\s*(\d+)/);
         const multiProjectMatch = content.match(/multiProject\s*=\s*(true|false)/);
+        const keepStructureMatch = content.match(/keepStructure\s*=\s*(true|false)/);
 
         // Parse completedPackages array
         const completedPackagesMatch = content.match(/completedPackages\s*=\s*\[([^\]]*)\]/);
@@ -100,6 +101,7 @@ export function readEnhanceToml(projectRoot: string): EnhanceTomlData | null {
             currentPackage: currentPackageMatch?.[1],
             currentStage: currentStageMatch ? parseInt(currentStageMatch[1], 10) : undefined,
             multiProject: multiProjectMatch ? multiProjectMatch[1] === "true" : undefined,
+            keepStructure: keepStructureMatch ? keepStructureMatch[1] === "true" : undefined,
         };
     } catch {
         return null;
@@ -118,6 +120,7 @@ export function writeEnhanceToml(
     currentPackage?: string,
     currentStage?: number,
     multiProject?: boolean,
+    keepStructure?: boolean,
 ): void {
     const dir = path.join(projectRoot, AI_MIGRATION_DIR);
     if (!fs.existsSync(dir)) {
@@ -138,12 +141,15 @@ export function writeEnhanceToml(
     if (currentStage !== undefined) {
         content += `currentStage = ${currentStage}\n`;
     }
-    // When multiProject is not explicitly provided, preserve the existing value from disk.
-    const effectiveMultiProject = multiProject !== undefined
-        ? multiProject
-        : readEnhanceToml(projectRoot)?.multiProject;
+    // When multiProject / keepStructure are not explicitly provided, preserve existing values from disk.
+    const existing = multiProject === undefined || keepStructure === undefined ? readEnhanceToml(projectRoot) : undefined;
+    const effectiveMultiProject = multiProject !== undefined ? multiProject : existing?.multiProject;
     if (effectiveMultiProject !== undefined) {
         content += `multiProject = ${effectiveMultiProject}\n`;
+    }
+    const effectiveKeepStructure = keepStructure !== undefined ? keepStructure : existing?.keepStructure;
+    if (effectiveKeepStructure) {
+        content += `keepStructure = true\n`;
     }
     fs.writeFileSync(filePath, content);
 }
@@ -208,6 +214,18 @@ export function markEnhancementComplete(): void {
 }
 
 /**
+ * Returns the migration source project path for the given project root, if available and accessible.
+ * Used to inject `migration_source_list` / `migration_source_read` tools into post-enhancement AI chat sessions.
+ */
+export function getMigrationSourcePathForProject(projectRoot: string): string | undefined {
+    const data = readEnhanceToml(projectRoot);
+    if (data?.sourcePath && fs.existsSync(data.sourcePath)) {
+        return data.sourcePath;
+    }
+    return undefined;
+}
+
+/**
  * Previously seeded raw conversation history into chatStateStorage.
  * Now a no-op — resume context is injected via the prompt preamble from summary.md.
  *
@@ -230,6 +248,7 @@ export async function startMigrationEnhancement(): Promise<void> {
         // triggered by the AI Chat via wizardEnhancementReady().
         _wizardProjectRoot = projectRoot;
         _wizardSourcePath = existing?.sourcePath;
+        _wizardKeepStructure = existing?.keepStructure ?? false;
     }
 
     // Mark the session as active (panel is already open when called from AI Chat)
@@ -518,6 +537,29 @@ interface StageRunnerOpts {
     transcriptWriter?: TranscriptWriter;
     /** Relative package path used for transcript file layout (empty string for single-package). */
     packageRelPath?: string;
+    // ── Progress tracking (used by wizard to drive the progress bar) ──────────
+    /** 0-based index of this package within the workspace (0 for single-package). */
+    packageIndex?: number;
+    /** Total number of packages in the workspace (1 for single-package). */
+    totalPackages?: number;
+    /** Display name of the package being processed (empty for single-package). */
+    packageName?: string;
+    /** Completed stage count *before* this package starts (offset for the global progress bar). */
+    stageOffset?: number;
+    /** Total stages across all packages — denominator for progress %. */
+    totalStagesOverall?: number;
+}
+
+/** Maps a verbose enhancement stage name to a short UI label. */
+function shortStageName(name: string): string {
+    const stripped = name.replace(/^\[.*?\]\s*/, ""); // remove "[pkgName] " prefix
+    if (stripped.includes("Fidelity Check")) { return "Fidelity Check"; }
+    if (stripped.includes("Diagnostics")) {    return "Diagnostics"; }
+    if (stripped.includes("Test Refinement")) { return "Test Refinement"; }
+    if (stripped.includes("Final Validation")) { return "Final Validation"; }
+    if (stripped.includes("Workspace Validation")) { return "Workspace Validation"; }
+    const dash = stripped.indexOf("—");
+    return dash >= 0 ? stripped.substring(dash + 1).trim() : stripped;
 }
 
 /**
@@ -586,6 +628,21 @@ async function runStagesForPackage(opts: StageRunnerOpts): Promise<void> {
         recordingHandler({
             type: "content_block",
             content: `\n\n---\n\n**Starting ${stage.name}** (${i + 1} of ${stages.length})\n\n`,
+        });
+
+        // Emit structured progress so the wizard can show a progress bar and context row.
+        const stageOffset = opts.stageOffset ?? 0;
+        const totalStagesOverall = opts.totalStagesOverall ?? stages.length;
+        eventHandler({
+            type: "migration_progress",
+            currentPackageIndex: opts.packageIndex ?? 0,
+            totalPackages: opts.totalPackages ?? 1,
+            currentPackageName: opts.packageName ?? "",
+            currentStageIndex: i,
+            totalStagesInPackage: stages.length,
+            currentStageName: shortStageName(stage.name),
+            completedStagesOverall: stageOffset + i,
+            totalStagesOverall,
         });
 
         const stageGenId = `${stageIdPrefix}-stage${i + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -863,16 +920,19 @@ export function getMigrationHistoryMessages(): Array<{ role: string; content: st
 let _wizardProjectRoot: string | undefined;
 /** The original source path for the wizard enhancement. */
 let _wizardSourcePath: string | undefined;
+/** Whether the wizard ran with --keep-structure, preserving the original source file layout. */
+let _wizardKeepStructure: boolean = false;
 
 /**
  * Called by the RPC manager after `createBIProjectFromMigration` returns the
  * project root (when `aiFeatureUsed === true`).  Stores the project
  * root so the wizard enhancement can be kicked off from the webview.
  */
-export function setWizardProjectRoot(projectRoot: string, sourcePath?: string): void {
-    console.log('[orchestrator] setWizardProjectRoot called. projectRoot:', projectRoot, 'sourcePath:', sourcePath);
+export function setWizardProjectRoot(projectRoot: string, sourcePath?: string, keepStructure?: boolean): void {
+    console.log('[orchestrator] setWizardProjectRoot called. projectRoot:', projectRoot, 'sourcePath:', sourcePath, 'keepStructure:', keepStructure);
     _wizardProjectRoot = projectRoot;
     _wizardSourcePath = sourcePath;
+    _wizardKeepStructure = keepStructure ?? false;
 }
 
 /**
@@ -1280,7 +1340,7 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                 const fullPkgPath = path.join(projectRoot, pkgRelPath);
                 const pkgName = readPackageName(fullPkgPath) ?? pkgRelPath;
                 const manifest = buildCrossPackageManifest(projectRoot, packagePaths, pkgRelPath);
-                const stages = getPerProjectEnhancementStages(pkgName, pkgRelPath, pkgIdx, packagePaths.length, manifest);
+                const stages = getPerProjectEnhancementStages(pkgName, pkgRelPath, pkgIdx, packagePaths.length, manifest, _wizardKeepStructure);
                 if (!resumeInjected) {
                     injectResumePreamble(projectRoot, stages);
                     resumeInjected = true;
@@ -1295,6 +1355,7 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                     [...completedPackages], pkgRelPath, 0, true,
                 );
 
+                const totalStagesOverall = packagePaths.length * stages.length + 1; // stages per pkg + 1 workspace validation
                 try {
                     await runStagesForPackage({
                         projectRoot, packagePath: fullPkgPath, sourcePath, stages,
@@ -1302,6 +1363,11 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                         fromAIChat, stageIdPrefix: `wizard-${pkgRelPath}`,
                         useExistingTempPath: true, debugLogger,
                         transcriptWriter, packageRelPath: pkgRelPath,
+                        packageIndex: pkgIdx,
+                        totalPackages: packagePaths.length,
+                        packageName: pkgName,
+                        stageOffset: pkgIdx * stages.length,
+                        totalStagesOverall,
                     });
                     completedPackages.add(pkgRelPath);
                     results.push({ packagePath: pkgRelPath, success: true });
@@ -1335,6 +1401,11 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                             fromAIChat, stageIdPrefix: "wizard-workspace-validation",
                             useExistingTempPath: true, debugLogger,
                             transcriptWriter, packageRelPath: "",
+                            packageIndex: packagePaths.length,
+                            totalPackages: packagePaths.length,
+                            packageName: "",
+                            stageOffset: packagePaths.length * 4,
+                            totalStagesOverall: packagePaths.length * 4 + 1,
                         });
                         debugLogger.logMilestone("Workspace validation — completed (wizard)");
                     } catch (wsError) {
@@ -1361,18 +1432,32 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                 eventHandler({ type: "abort", command: Command.Agent });
             }
         } else {
-            // ── Single-package project (existing behavior) ───────────────
-            const stages = getEnhancementStages();
+            // ── Single-package project ───────────────────────────────────
+            const stages = getEnhancementStages(_wizardKeepStructure);
             injectResumePreamble(projectRoot, stages);
             console.log(`[MigrationEnhancement] Starting wizard migration agent (${stages.length} stages) – projectRoot: ${projectRoot}, sourcePath: ${sourcePath ?? 'none'}`);
             debugLogger.logMilestone(`Run start — single package (wizard), model: ${_selectedModelId}, projectRoot: ${projectRoot}`);
 
+            // Suppress per-stage "stop" events emitted by AgentExecutor at the end of each
+            // stage — without this, the first stage's stop sets terminalRef=true in the webview
+            // and all subsequent migration_progress events are silently dropped, leaving the
+            // progress bar stuck at 0%. The real final stop is emitted explicitly below.
+            const singleStageHandler = (event: ChatNotify) => {
+                if (event.type === 'stop') { return; }
+                eventHandler(event);
+            };
+
             await runStagesForPackage({
                 projectRoot, packagePath: projectRoot, sourcePath, stages,
-                eventHandler, abortController: _migrationAbortController,
+                eventHandler: singleStageHandler, abortController: _migrationAbortController,
                 fromAIChat, stageIdPrefix: "wizard-migration",
                 useExistingTempPath: true, debugLogger,
                 transcriptWriter, packageRelPath: "",
+                packageIndex: 0,
+                totalPackages: 1,
+                packageName: "",
+                stageOffset: 0,
+                totalStagesOverall: stages.length,
             });
 
             if (!_migrationAbortController.signal.aborted) {
@@ -1384,8 +1469,10 @@ export async function runWizardMigrationEnhancement(): Promise<void> {
                 }
                 debugLogger.logMilestone("Run complete — single package succeeded (wizard)");
                 console.log("[MigrationEnhancement] Wizard migration agent completed all stages successfully.");
+                eventHandler({ type: 'stop', command: Command.Agent });
             } else {
                 debugLogger.logMilestone("Run aborted by user (wizard, single-package)");
+                eventHandler({ type: "abort", command: Command.Agent });
             }
         }
     } catch (error) {
@@ -1444,10 +1531,11 @@ export function openMigratedProject(): void {
     const aiFeatureUsed = data?.aiFeatureUsed ?? true;
     const sourcePath = data?.sourcePath ?? _wizardSourcePath;
 
-    // If the AI agent was running (paused by user), the toml already reflects fullyEnhanced=false
+    // If the AI agent was running (paused by user), the toml already reflects fullyEnhanced=false.
+    // Also persist keepStructure so the resume flow can restore it after a window reload.
     const wasRunning = _migrationAbortController !== undefined;
-    if (wasRunning && data && !data.fullyEnhanced) {
-        writeEnhanceToml(projectRoot, aiFeatureUsed, false, sourcePath);
+    if ((wasRunning || _wizardKeepStructure) && data && !data.fullyEnhanced) {
+        writeEnhanceToml(projectRoot, aiFeatureUsed, false, sourcePath, undefined, undefined, undefined, undefined, _wizardKeepStructure || undefined);
     }
 
     scheduleMigrationEnhancement(aiFeatureUsed, projectRoot, sourcePath);
@@ -1455,6 +1543,7 @@ export function openMigratedProject(): void {
     // Clear the wizard state
     _wizardProjectRoot = undefined;
     _wizardSourcePath = undefined;
+    _wizardKeepStructure = false;
 
     commands.executeCommand('vscode.openFolder', Uri.file(projectRoot));
 }

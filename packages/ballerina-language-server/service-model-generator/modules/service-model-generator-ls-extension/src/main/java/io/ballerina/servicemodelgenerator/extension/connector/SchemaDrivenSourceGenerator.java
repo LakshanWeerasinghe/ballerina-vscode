@@ -113,7 +113,7 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /**
-     * Builds the {@code listener <proto>:Listener <var> = new (...);} declaration from the filled
+     * Builds the {@code listener <proto>:Listener &lt;var&gt; = new (...);} declaration from the filled
      * creation model (CHOICE/GROUP_SECTION aware).
      */
     public static String buildListenerDeclaration(ServiceInitModel creationModel) {
@@ -190,7 +190,7 @@ public final class SchemaDrivenSourceGenerator {
 
     /**
      * Full add-trigger block from the unified model: listener declaration (create-new branch only) +
-     * {@code service <descriptor> on <var> { <present functions> }}. Named distinctly from the
+     * {@code service <descriptor> on &lt;var&gt; { <present functions> }}. Named distinctly from the
      * two-model {@code buildServiceBlock} so a {@code null} second argument stays unambiguous.
      */
     public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel) {
@@ -855,12 +855,6 @@ public final class SchemaDrivenSourceGenerator {
             return List.of();
         }
         return List.of(codedata.getPath().split("\\."));
-    }
-
-    /** Resolves {@code <protocol>:<ServiceType>} from the SERVICE_TYPE_DESCRIPTOR field, anywhere in the tree. */
-    private static String resolveServiceDescriptor(ServiceInitModel creationModel, String protocol) {
-        String serviceType = findServiceType(creationModel.getProperties());
-        return protocol + COLON + (serviceType == null || serviceType.isEmpty() ? TYPE_SERVICE : serviceType);
     }
 
     private static String findServiceType(Map<String, Value> properties) {

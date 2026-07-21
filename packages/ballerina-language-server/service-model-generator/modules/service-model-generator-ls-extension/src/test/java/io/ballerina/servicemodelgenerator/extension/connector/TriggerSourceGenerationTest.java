@@ -66,7 +66,8 @@ public class TriggerSourceGenerationTest {
     public void testGithubServiceBlockEmitsDescriptorAndHandlers() throws Exception {
         // github: multi-type; the init form's serviceType selection (already module-qualified) drives
         // the descriptor (no double prefix), and that type's present handlers are emitted.
-        String src = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(initForm("github"), triggerModel("github"));
+        String src = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(
+                initForm("github"), triggerModel("github"));
         Assert.assertTrue(src.contains("service github:IssuesService on "),
                 "descriptor must not be double-prefixed: " + src);
         Assert.assertTrue(

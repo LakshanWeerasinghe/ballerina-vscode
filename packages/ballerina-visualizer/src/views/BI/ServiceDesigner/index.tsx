@@ -29,7 +29,8 @@ import {
     Protocol,
     SHARED_COMMANDS,
     ValidationResult,
-    hasBlockingValidationErrors
+    hasBlockingValidationErrors,
+    isSamePath
 } from "@wso2/ballerina-core";
 import { buildBaseUrl } from "./buildHurlString";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
@@ -404,8 +405,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
             setIsFtpService(service.moduleName === "ftp");
             setIsHttpService(service.moduleName === "http");
             setIsMcpService(service.moduleName === "mcp");
-            setIsCdcService(service.moduleName === "mssql" || service.moduleName === "postgresql"
-                || service.moduleName === "mysql");
+            setIsCdcService(service.moduleName === "mssql" || service.moduleName === "postgresql");
         }
 
         // Extract object methods if available (for service classes)
@@ -470,7 +470,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         rpcClient.getVisualizerLocation().then((location) => {
             const projectPath = location.projectPath;
             rpcClient.getBIDiagramRpcClient().getProjectStructure().then((res) => {
-                const project = res.projects.find(project => project.projectPath === projectPath);
+                const project = res.projects.find(project => isSamePath(project.projectPath, projectPath));
                 const listeners = project?.directoryMap[DIRECTORY_MAP.LISTENER];
                 if (listeners.length > 0) {
                     setProjectListeners(listeners);
@@ -708,7 +708,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         const context = await rpcClient.getVisualizerLocation();
         const projectPath = context.projectPath;
         const projectStructure = await rpcClient.getBIDiagramRpcClient().getProjectStructure();
-        const project = projectStructure.projects.find(project => project.projectPath === projectPath);
+        const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
 
         const serviceArtifact = findServiceArtifact(project.directoryMap[DIRECTORY_MAP.SERVICE]);
         if (serviceArtifact) {

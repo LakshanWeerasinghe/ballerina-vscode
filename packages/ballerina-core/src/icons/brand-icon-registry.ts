@@ -33,8 +33,8 @@ export interface BrandIcon {
  * on hand (a `ServiceModel.moduleName`, or a `CDService.type` with its `:Service` suffix stripped).
  *
  * Not every entry-point module needs a row here: modules that already publish a real icon to
- * Ballerina Central (Azure Service Bus, Salesforce, Twilio, GitHub's plain `github` key, HubSpot, …)
- * fall through to the central-icon `<img>` fallback in each consumer instead.
+ * Ballerina Central (Azure Service Bus, Salesforce, Twilio, GitHub's plain `github` key, …) fall
+ * through to the central-icon `<img>` fallback in each consumer instead.
  */
 export const BRAND_ICON_REGISTRY: Record<string, BrandIcon> = {
     tcp: { glyph: "bi-tcp" },
@@ -58,6 +58,8 @@ export const BRAND_ICON_REGISTRY: Record<string, BrandIcon> = {
     // vs. a CDService.type of "shopify:Service" stripped to "shopify") — both resolve to the same brand.
     shopify: { glyph: "bi-shopify", color: "#95BF47" },
     "trigger.shopify": { glyph: "bi-shopify", color: "#95BF47" },
+    hubspot: { glyph: "bi-hubspot", color: "#FF7A59" },
+    "trigger.hubspot": { glyph: "bi-hubspot", color: "#FF7A59" },
 };
 
 /** Looks up the brand glyph override for a module/type identifier; `undefined` when there is none. */

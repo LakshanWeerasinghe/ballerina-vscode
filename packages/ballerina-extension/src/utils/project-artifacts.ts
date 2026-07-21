@@ -17,11 +17,21 @@
  */
 import * as vscode from "vscode";
 import { URI, Utils } from "vscode-uri";
-import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, IconDescriptor, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, resolveBrandIcon, resolveKindDefaultIcon, toIconDescriptor } from "@wso2/ballerina-core";
+import { ARTIFACT_TYPE, Artifacts, ArtifactsNotification, BaseArtifact, DIRECTORY_MAP, IconDescriptor, isSamePath, PROJECT_KIND, ProjectInfo, ProjectStructure, ProjectStructureArtifactResponse, ProjectStructureResponse, resolveBrandIcon, resolveKindDefaultIcon, SHARED_COMMANDS, toIconDescriptor } from "@wso2/ballerina-core";
 import { StateMachine } from "../stateMachine";
 import { ExtendedLangClient } from "../core/extended-language-client";
 import { ArtifactsUpdated, ArtifactNotificationHandler } from "./project-artifacts-handler";
 import { isLibraryProject } from "./config";
+
+// Tracks projects whose artifacts could not be fetched (e.g., the initial load raced with a
+// missing-module pull and the compilation failed). Used to recover with a full rebuild once
+// the LS publishes artifacts after the pull completes.
+const failedArtifactProjects = new Set<string>();
+
+// True while a recovery rebuild is in flight. Overlapping publishArtifacts notifications are
+// skipped during this window: the rebuild fetches the latest project state anyway, and letting
+// them run the incremental path would race the rebuild with updates based on stale structure.
+let artifactRecoveryInProgress = false;
 
 export async function buildProjectsStructure(
     projectInfo: ProjectInfo,
@@ -83,19 +93,62 @@ async function buildProjectArtifactsStructure(
             [DIRECTORY_MAP.NP_FUNCTION]: [],
             [DIRECTORY_MAP.AGENTS]: [],
             [DIRECTORY_MAP.LOCAL_CONNECTORS]: [],
+            [DIRECTORY_MAP.WORKFLOW]: [],
+            [DIRECTORY_MAP.ACTIVITY]: [],
         }
     };
     const designArtifacts = await langClient.getProjectArtifacts({ projectPath });
     console.log("designArtifacts", designArtifacts);
     if (designArtifacts?.artifacts) {
+        failedArtifactProjects.delete(projectPath);
         traverseComponents(designArtifacts.artifacts, projectPath, result);
         await populateLocalConnectors(projectPath, result);
+    } else {
+        // The artifact fetch failed (e.g., compilation error while modules are being pulled).
+        // Remember it so the next publishArtifacts notification triggers a full rebuild.
+        failedArtifactProjects.add(projectPath);
+        console.warn("[buildProjectArtifactsStructure] Failed to fetch artifacts for project:", projectPath);
     }
 
     return result;
 }
 
 export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotification): Promise<void> {
+    // A recovery rebuild is already running; it fetches the post-edit state, so this
+    // notification's changes are covered by the rebuild.
+    if (artifactRecoveryInProgress) {
+        return;
+    }
+
+    // If any project's artifacts failed to load earlier (e.g., the initial load raced with a
+    // missing-module pull), the cached structure is empty and incremental deltas cannot repair
+    // it. The LS publishes artifacts once the pull completes and the project is reloaded, so
+    // recover here with a full rebuild instead of applying the deltas.
+    if (failedArtifactProjects.size > 0) {
+        const failedSnapshot = Array.from(failedArtifactProjects);
+        console.log("[updateProjectArtifacts] Rebuilding project structure; artifacts previously failed for:",
+            failedSnapshot);
+        artifactRecoveryInProgress = true;
+        // Clear before the rebuild; buildProjectArtifactsStructure re-adds any project that
+        // still fails, and stale entries (e.g., removed packages) get pruned.
+        failedArtifactProjects.clear();
+        const notificationHandler = ArtifactNotificationHandler.getInstance();
+        notificationHandler.publish(ArtifactsUpdated.method, {
+            data: [],
+            timestamp: Date.now()
+        });
+        try {
+            await vscode.commands.executeCommand(SHARED_COMMANDS.FORCE_UPDATE_PROJECT_ARTIFACTS);
+        } catch (error) {
+            // Restore the failed state so the next notification retries the recovery.
+            failedSnapshot.forEach(projectPath => failedArtifactProjects.add(projectPath));
+            console.error("[updateProjectArtifacts] Failed to rebuild the project structure:", error);
+        } finally {
+            artifactRecoveryInProgress = false;
+        }
+        return;
+    }
+
     // Current project structure
     const currentProjectStructure: ProjectStructureResponse = StateMachine.context().projectStructure;
 
@@ -137,7 +190,7 @@ export async function updateProjectArtifacts(publishedArtifacts: ArtifactsNotifi
             ?.filter(child => child?.projectPath !== undefined)
             ?.filter(
                 child => !currentProjectStructure.projects
-                    ?.some(project => project.projectPath === child.projectPath)
+                    ?.some(project => isSamePath(project.projectPath, child.projectPath))
             ).map(child => child.projectPath) ?? [];
 
         // Check if the active project exists in the current structure.
@@ -177,11 +230,19 @@ async function traverseComponents(artifacts: Artifacts, projectPath: string, res
     response.directoryMap[DIRECTORY_MAP.SERVICE].push(...await getComponents(artifacts[ARTIFACT_TYPE.EntryPoints], projectPath, DIRECTORY_MAP.SERVICE, "http-service"));
     response.directoryMap[DIRECTORY_MAP.LISTENER].push(...await getComponents(artifacts[ARTIFACT_TYPE.Listeners], projectPath, DIRECTORY_MAP.LISTENER, "http-service"));
     response.directoryMap[DIRECTORY_MAP.FUNCTION].push(...await getComponents(artifacts[ARTIFACT_TYPE.Functions], projectPath, DIRECTORY_MAP.FUNCTION, "function"));
+    response.directoryMap[DIRECTORY_MAP.WORKFLOW].push(...await getComponents(artifacts[ARTIFACT_TYPE.Workflows], projectPath, DIRECTORY_MAP.WORKFLOW, "workflow"));
+    response.directoryMap[DIRECTORY_MAP.ACTIVITY].push(...await getComponents(artifacts[ARTIFACT_TYPE.Workflows], projectPath, DIRECTORY_MAP.ACTIVITY, "task"));
     response.directoryMap[DIRECTORY_MAP.DATA_MAPPER].push(...await getComponents(artifacts[ARTIFACT_TYPE.DataMappers], projectPath, DIRECTORY_MAP.DATA_MAPPER, "dataMapper"));
     response.directoryMap[DIRECTORY_MAP.CONNECTION].push(...await getComponents(artifacts[ARTIFACT_TYPE.Connections], projectPath, DIRECTORY_MAP.CONNECTION, "connection"));
     response.directoryMap[DIRECTORY_MAP.TYPE].push(...await getComponents(artifacts[ARTIFACT_TYPE.Types], projectPath, DIRECTORY_MAP.TYPE, "type"));
     response.directoryMap[DIRECTORY_MAP.CONFIGURABLE].push(...await getComponents(artifacts[ARTIFACT_TYPE.Configurations], projectPath, DIRECTORY_MAP.CONFIGURABLE, "config"));
     response.directoryMap[DIRECTORY_MAP.NP_FUNCTION].push(...await getComponents(artifacts[ARTIFACT_TYPE.NaturalFunctions], projectPath, DIRECTORY_MAP.NP_FUNCTION, "function"));
+}
+
+function dedupeArtifactsById(artifacts: ProjectStructureArtifactResponse[]): ProjectStructureArtifactResponse[] {
+    const uniqueArtifacts = new Map<string, ProjectStructureArtifactResponse>();
+    artifacts.forEach((artifact) => uniqueArtifacts.set(artifact.id, artifact));
+    return Array.from(uniqueArtifacts.values());
 }
 
 async function getComponents(
@@ -345,6 +406,11 @@ function getDirectoryMapKeyAndIcon(artifact: BaseArtifact, artifactCategoryKey: 
             return { mapKey: DIRECTORY_MAP.LISTENER, icon: "http-service" }; // Base icon, getEntryValue might refine
         case ARTIFACT_TYPE.Functions:
             return { mapKey: DIRECTORY_MAP.FUNCTION, icon: "function" };
+        case ARTIFACT_TYPE.Workflows:
+            if (artifact.type === DIRECTORY_MAP.ACTIVITY) {
+                return { mapKey: DIRECTORY_MAP.ACTIVITY, icon: "task" };
+            }
+            return { mapKey: DIRECTORY_MAP.WORKFLOW, icon: "workflow" };
         case ARTIFACT_TYPE.DataMappers:
             return { mapKey: DIRECTORY_MAP.DATA_MAPPER, icon: "dataMapper" };
         case ARTIFACT_TYPE.Connections:
@@ -374,7 +440,7 @@ function processDeletion(artifact: BaseArtifact, artifactCategoryKey: string, pr
     if (mapping) {
         try {
             const projectPath = StateMachine.context().projectPath;
-            const project = projectStructure.projects.find(project => project.projectPath === projectPath);
+            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
             project.directoryMap[mapping.mapKey] =
                 project.directoryMap[mapping.mapKey]?.filter(value => value.id !== artifact.id) ?? [];
         } catch (error) {
@@ -400,7 +466,7 @@ async function processAddition(artifact: BaseArtifact, artifactCategoryKey: stri
             const projectPath = StateMachine.context().projectPath;
             const entryValue = await getEntryValue(artifact, projectPath, mapping.icon);
 
-            const project = projectStructure.projects.find(project => project.projectPath === projectPath);
+            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
             // Ensure the array exists before pushing
             if (!project.directoryMap[mapping.mapKey]) {
                 project.directoryMap[mapping.mapKey] = [];
@@ -431,7 +497,7 @@ async function processUpdate(artifact: BaseArtifact, artifactCategoryKey: string
         try {
             const projectPath = StateMachine.context().projectPath;
             const entryValue = await getEntryValue(artifact, projectPath, mapping.icon);
-            const project = projectStructure.projects.find(project => project.projectPath === projectPath);
+            const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
             // Ensure the array exists
             if (!project.directoryMap[mapping.mapKey]) {
                 project.directoryMap[mapping.mapKey] = [];
@@ -487,7 +553,7 @@ async function traverseUpdatedComponents(publishedArtifacts: Artifacts, currentP
     const results = await Promise.all(promises);
 
     const projectPath = StateMachine.context().projectPath;
-    const project = currentProjectStructure.projects.find(project => project.projectPath === projectPath);
+    const project = currentProjectStructure.projects.find(project => isSamePath(project.projectPath, projectPath));
     try {
         if (project) {
             for (const key of Object.keys(project.directoryMap)) {

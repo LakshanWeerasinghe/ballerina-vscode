@@ -23,8 +23,10 @@ import {
     DIRECTORY_MAP,
     EVENT_TYPE,
     FlowNode,
+    isSamePath,
     MACHINE_VIEW,
     NodePosition,
+    normalizeProjectPath,
     ProjectInfo
 } from "@wso2/ballerina-core";
 import { BallerinaExtension } from "../../core";
@@ -55,6 +57,7 @@ import { findWorkspaceTypeFromWorkspaceFolders } from "../../rpc-managers/common
 import { MESSAGES } from "../project";
 import { ensureICPServerRunning } from "../icp";
 import { TracerMachine } from "../tracing";
+import { DefaultServer } from "../../webview-communication/DefaultServer";
 
 const FOCUS_DEBUG_CONSOLE_COMMAND = 'workbench.debug.action.focusRepl';
 const TRACE_SERVER_OFF = "off";
@@ -181,6 +184,14 @@ export function activate(context: BallerinaExtension) {
         await handleCommandWithContext(item, MACHINE_VIEW.BINPFunctionForm);
     });
 
+    commands.registerCommand(BI_COMMANDS.ADD_WORKFLOW, async (item?: TreeItem) => {
+        await handleCommandWithContext(item, MACHINE_VIEW.BIWorkflowForm);
+    });
+
+    commands.registerCommand(BI_COMMANDS.ADD_WORKFLOW_ACTIVITY, async (item?: TreeItem) => {
+        await handleCommandWithContext(item, MACHINE_VIEW.BIActivityForm);
+    });
+
     commands.registerCommand(BI_COMMANDS.TOGGLE_TRACE_LOGS, toggleTraceLogs);
 
     commands.registerCommand(BI_COMMANDS.CREATE_BI_PROJECT, async (params) => {
@@ -199,6 +210,13 @@ export function activate(context: BallerinaExtension) {
 
     commands.registerCommand(BI_COMMANDS.CREATE_BI_MIGRATION_PROJECT, (params) => {
         return createBIProjectFromMigration(params);
+    });
+
+    // Lazily starts the WS server that serves the BI project-creation RPCs to the
+    // embedded form (which is owned by this extension but hosted in the WSO2
+    // Integrator webview), and returns the connection coordinates.
+    commands.registerCommand(BI_COMMANDS.GET_BI_FORM_WS_BOOTSTRAP, () => {
+        return DefaultServer.getInstance().getWsBootstrap();
     });
 
     commands.registerCommand(BI_COMMANDS.DELETE_COMPONENT, async (item?: TreeItem & { info?: string, position?: NodePosition }) => {
@@ -287,7 +305,7 @@ async function handleCommandWithContext(
     }
     // Scenario 2: Invoked from tree view with item context
     else if (item?.resourceUri) {
-        const projectPath = item.resourceUri.fsPath;
+        const projectPath = normalizeProjectPath(item.resourceUri.fsPath);
         openView(EVENT_TYPE.OPEN_VIEW, {
             view,
             projectPath,
@@ -448,11 +466,11 @@ const handleComponentDeletion = async (componentType: string, itemLabel: string,
     const rpcClient = new BiDiagramRpcManager();
     const { projectPath, projectInfo } = StateMachine.context();
     const projectRoot = await findBallerinaPackageRoot(filePath);
-    if (projectRoot && (!projectPath || projectRoot !== projectPath)) {
+    if (projectRoot && (!projectPath || !isSamePath(projectRoot, projectPath))) {
         await StateMachine.updateProjectRootAndInfo(projectRoot, projectInfo);
     }
     const projectStructure = await rpcClient.getProjectStructure();
-    const project = projectStructure.projects.find(project => project.projectPath === projectRoot);
+    const project = projectStructure.projects.find(project => isSamePath(project.projectPath, projectRoot));
     const componentCategory = project?.directoryMap[componentType];
 
     if (!componentCategory) {

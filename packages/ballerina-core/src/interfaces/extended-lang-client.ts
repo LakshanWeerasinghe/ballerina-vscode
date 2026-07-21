@@ -648,6 +648,16 @@ export interface ICPEnabledResponse {
     stacktrace?: string;
 }
 
+export interface WorkflowManagementRequest {
+    projectPath: string;
+}
+
+export interface WorkflowManagementResponse {
+    enabled?: boolean;
+    errorMsg?: string;
+    stacktrace?: string;
+}
+
 export interface GetTestFunctionRequest {
     filePath: string;
     functionName: string;
@@ -958,6 +968,8 @@ export type SearchKind =
     | "FUNCTION"
     | "CONNECTOR"
     | "TYPE"
+    | "WORKFLOW_RUN"
+    | "ACTIVITY_CALL"
     | "NP_FUNCTION"
     | "MODEL_PROVIDER"
     | "VECTOR_STORE"
@@ -981,6 +993,27 @@ export type BISearchRequest = {
 
 export type BISearchResponse = {
     categories: Category[];
+}
+
+export interface WorkflowDataRequest {
+    workflowName: string;
+    filePath: string;
+}
+
+export interface WorkflowData {
+    name: string;
+    type: string;
+}
+
+export interface WorkflowDataResponse {
+    data?: WorkflowData[];
+    output?: {
+        data?: WorkflowData[];
+        events?: WorkflowData[];
+    };
+    events?: WorkflowData[];
+    errorMsg?: string;
+    stacktrace?: string;
 }
 
 export type BISearchNodesRequest = {
@@ -1688,6 +1721,17 @@ export interface GetRecordConfigResponse {
 export type RecordSourceGenRequest = {
     filePath: string;
     type: TypeField;
+    // The type the generated value is assigned to, e.g. "jco:DestinationConfig|jco:AdvancedConfig".
+    // Optional for backward compatibility.
+    typeConstraint?: string;
+    // Package coordinates of the type, used to resolve imports. Same shape passed to getRecordConfig.
+    // Optional for backward compatibility.
+    codedata?: {
+        org: string;
+        module: string;
+        version: string;
+        packageName?: string;
+    };
 }
 
 export type RecordSourceGenResponse = {
@@ -2043,6 +2087,7 @@ export interface BaseArtifact<T = any> {
 // Artifact Types
 export enum ARTIFACT_TYPE {
     Functions = "Functions",
+    Workflows = "Workflows",
     Connections = "Connections",
     Listeners = "Listeners",
     EntryPoints = "Entry Points",
@@ -2060,6 +2105,7 @@ export enum PROJECT_KIND {
 
 export interface Artifacts {
     [ARTIFACT_TYPE.Functions]: Record<string, BaseArtifact>;
+    [ARTIFACT_TYPE.Workflows]?: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.Connections]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.Listeners]: Record<string, BaseArtifact>;
     [ARTIFACT_TYPE.EntryPoints]: Record<string, BaseArtifact>;
@@ -2157,6 +2203,7 @@ export interface BIInterface extends BaseLangClientInterface {
     getTypes: (params: GetTypesRequest) => Promise<GetTypesResponse>;
     getSimpleTypeOfExpression: (params: GetSimpleTypeOfExpressionRequest) => Promise<GetSimpleTypeOfExpressionResponse>;
     updateType: (params: UpdateTypeRequest) => Promise<UpdateTypeResponse>;
+    getAllData: (params: WorkflowDataRequest) => Promise<WorkflowDataResponse>;
     updateImports: (params: UpdateImportsRequest) => Promise<ImportsInfoResponse>;
     addFunction: (params: AddFunctionRequest) => Promise<AddImportItemResponse>;
     convertJsonToRecordType: (params: JsonToRecordParams) => Promise<TypeDataWithReferences>;

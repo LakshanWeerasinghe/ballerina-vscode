@@ -18,13 +18,14 @@
 
 import React, { useEffect, useState } from "react";
 import { SearchBox, View, ViewContent } from "@wso2/ui-toolkit";
-import { SCOPE, TriggerModelsResponse } from "@wso2/ballerina-core";
+import { isSamePath, SCOPE, TriggerModelsResponse } from "@wso2/ballerina-core";
 
 import { TitleBar } from "../../../components/TitleBar";
 import { TopNavigationBar } from "../../../components/TopNavigationBar";
 import { AddPanel, Container } from "./styles";
 import { AutomationPanel } from "./AutomationPanel";
 import { CentralSearchPanel } from "./CentralSearchPanel";
+import { WorkflowPanel } from "./WorkflowPanel";
 import { EventIntegrationPanel } from "./EventIntegrationPanel";
 import { FileIntegrationPanel } from "./FileIntegrationPanel";
 import { IntegrationAPIPanel } from "./IntegrationApiPanel";
@@ -58,7 +59,7 @@ export function ComponentListView(props: ComponentListViewProps) {
         });
 
         rpcClient.getBIDiagramRpcClient().getProjectStructure().then((res) => {
-            const project = res.projects.find(project => project.projectPath === projectPath);
+            const project = res.projects.find(project => isSamePath(project.projectPath, projectPath));
             if (project) {
                 setIsLibrary(project.isLibrary ?? false);
             }
@@ -106,6 +107,7 @@ export function ComponentListView(props: ComponentListViewProps) {
                         {!isLibrary && (
                             <>
                                 <AutomationPanel scope={scope} searchQuery={searchQuery} />
+                                <WorkflowPanel />
                                 <AIAgentPanel scope={scope} triggers={triggers} searchQuery={searchQuery} />
                                 <IntegrationAPIPanel scope={scope} searchQuery={searchQuery} />
                                 <EventIntegrationPanel triggers={triggers} scope={scope} searchQuery={searchQuery} />

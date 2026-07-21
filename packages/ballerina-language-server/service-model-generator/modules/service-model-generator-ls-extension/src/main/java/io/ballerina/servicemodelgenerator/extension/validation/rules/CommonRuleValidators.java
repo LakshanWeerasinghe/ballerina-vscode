@@ -315,7 +315,10 @@ public final class CommonRuleValidators {
 
     /** Renders a whole number without Java's trailing ".0". */
     private static String plain(double number) {
-        return number == Math.floor(number) && !Double.isInfinite(number)
+        if (Double.isNaN(number) || Double.isInfinite(number)) {
+            return String.valueOf(number);
+        }
+        return Double.compare(number, Math.floor(number)) == 0
                 ? String.valueOf((long) number)
                 : String.valueOf(number);
     }
@@ -398,8 +401,8 @@ public final class CommonRuleValidators {
         if (arg instanceof JsonPrimitive primitive) {
             return primitive.getAsString();
         }
-        if (arg instanceof Double doubleValue && doubleValue == Math.floor(doubleValue)
-                && !doubleValue.isInfinite()) {
+        if (arg instanceof Double doubleValue && !doubleValue.isNaN() && !doubleValue.isInfinite()
+                && Double.compare(doubleValue, Math.floor(doubleValue)) == 0) {
             // Gson parses every JSON number as a Double; render whole numbers without the ".0".
             return String.valueOf(doubleValue.longValue());
         }

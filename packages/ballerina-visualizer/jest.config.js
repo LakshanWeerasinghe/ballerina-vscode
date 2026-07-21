@@ -16,13 +16,17 @@
  * under the License.
  */
 
+const base = require('@wso2/test-config/jest-preset');
+
 module.exports = {
-    preset: 'ts-jest',
-    testEnvironment: 'node',
-    testMatch: ['**/?(*.)+(spec|test).ts?(x)'],
-    globals: {
-        'ts-jest': {
-            isolatedModules: true,
-        },
+    ...base,
+    rootDir: '.',
+    moduleNameMapper: {
+        ...base.moduleNameMapper,
+        // Local file mock (keeps existing behavior for this package).
+        '\\.(svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot)$': '<rootDir>/src/test/fileMock.js',
     },
+    // These unit tests mock @wso2/ballerina-core and use the pre-built CJS libs,
+    // so no node_modules (incl. @wso2 packages) need transformation.
+    transformIgnorePatterns: ['node_modules/'],
 };

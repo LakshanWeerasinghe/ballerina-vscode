@@ -217,7 +217,7 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
      * attachment (the property is disabled instead). Public for testing.
      */
     public static void renderComplexAnnotations(Function function) {
-        if (function == null || function.getProperties() == null) {
+        if (function == null) {
             return;
         }
         for (Map.Entry<String, Value> entry : function.getProperties().entrySet()) {
@@ -244,9 +244,6 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
     @Override
     public Function getModelFromSource(ModelFromSourceContext context) {
         Function function = super.getModelFromSource(context);
-        if (function == null) {
-            return null;
-        }
         // Prefer a bundled schema, then the unified TriggerModel resolved from the connector's .bala.
         // Either way, stamp the connector identity so the follow-up addFunction/updateFunction routes
         // back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's Codedata).

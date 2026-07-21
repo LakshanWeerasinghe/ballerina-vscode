@@ -20,6 +20,7 @@ package io.ballerina.modelgenerator.commons;
 
 import io.ballerina.compiler.api.ModuleID;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -186,7 +187,7 @@ public final class TriggerMetadataResolver {
                 byte[] bytes = Files.readAllBytes(file);
                 String encoded = Base64.getEncoder().encodeToString(bytes);
                 return "data:" + mimeType(relativePath) + ";base64," + encoded;
-            } catch (Exception e) {
+            } catch (IOException e) {
                 return null;
             }
         }).orElse(null);

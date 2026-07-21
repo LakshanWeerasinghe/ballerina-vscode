@@ -41,6 +41,7 @@ export function getIntegrationTypes(projectStructure: ProjectStructure | undefin
 
     const services = projectStructure.directoryMap[DIRECTORY_MAP.SERVICE];
     const automation = projectStructure.directoryMap[DIRECTORY_MAP.AUTOMATION];
+    const workflows = projectStructure.directoryMap[DIRECTORY_MAP.WORKFLOW];
 
     let scopes: SCOPE[] = [];
     
@@ -50,6 +51,10 @@ export function getIntegrationTypes(projectStructure: ProjectStructure | undefin
             .map(svc => findScope(svc?.kind, svc?.moduleName))
             .filter(svc => svc !== undefined);
         scopes = Array.from(new Set(svcScopes)); // Remove duplicates
+    }
+
+    if (workflows?.length > 0) {
+        scopes.push(SCOPE.WORKFLOW);
     }
     
     // Add automation scope if automation exists

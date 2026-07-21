@@ -19,7 +19,7 @@
 import { WebviewView, WebviewPanel, window } from 'vscode';
 import { Messenger } from 'vscode-messenger';
 import { StateMachine } from './stateMachine';
-import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated, approvalOverlayState, ApprovalOverlayState, onIdentifierUpdated, ProjectStructureArtifactResponse, runningServicesChanged, RunningServiceInfo, evaluationHistoryUpdated } from '@wso2/ballerina-core';
+import { stateChanged, getVisualizerLocation, VisualizerLocation, projectContentUpdated, aiStateChanged, sendAIStateEvent, popupStateChanged, getPopupVisualizerState, PopupVisualizerLocation, breakpointChanged, AIMachineEventType, ArtifactData, onArtifactUpdatedNotification, onArtifactUpdatedRequest, currentThemeChanged, AIMachineSendableEvent, checkpointCaptured, CheckpointCapturedPayload, promptUpdated, approvalOverlayState, ApprovalOverlayState, onIdentifierUpdated, ProjectStructureArtifactResponse, runningServicesChanged, RunningServiceInfo, evaluationHistoryUpdated, mcpServersChanged, McpServerStatusDTO, mcpLoadErrorsChanged, McpLoadErrorsDTO, agentsMdFileInfoChanged, AgentsMdFileInfoDTO } from '@wso2/ballerina-core';
 import { EvaluationHistoryWebview } from './views/evaluation-history/webview';
 import { VisualizerWebview } from './views/visualizer/webview';
 import { registerVisualizerRpcHandlers } from './rpc-managers/visualizer/rpc-handler';
@@ -42,6 +42,7 @@ import { registerSequenceDiagramRpcHandlers } from './rpc-managers/sequence-diag
 import { registerDataMapperRpcHandlers } from './rpc-managers/data-mapper/rpc-handler';
 import { registerTestManagerRpcHandlers } from './rpc-managers/test-manager/rpc-handler';
 import { registerIcpServiceRpcHandlers } from './rpc-managers/icp-service/rpc-handler';
+import { registerWorkflowManagementServiceRpcHandlers } from './rpc-managers/workflow-management-service/rpc-handler';
 import { extension } from './BalExtensionContext';
 import { registerAgentChatRpcHandlers } from './rpc-managers/agent-chat/rpc-handler';
 import { ChatPanel } from './views/agent-chat/webview';
@@ -50,6 +51,7 @@ import { ArtifactsUpdated, ArtifactNotificationHandler } from './utils/project-a
 import { registerMigrateIntegrationRpcHandlers } from './rpc-managers/migrate-integration/rpc-handler';
 import { registerPlatformExtRpcHandlers } from './rpc-managers/platform-ext/rpc-handler';
 import { MigrationPanelWebview } from './views/migration-panel/webview';
+import { isRecording, recordRpc } from './test-support/fixtureRecorder';
 
 export class RPCLayer {
     static _messenger: Messenger = new Messenger({ ignoreHiddenViews: false });
@@ -83,6 +85,28 @@ export class RPCLayer {
     }
 
     static init() {
+        // Records webview RPC traffic to fixtures when BAL_RECORD_FIXTURES is set.
+        // Wraps onRequest before any handler is registered so all handlers are covered.
+        if (isRecording()) {
+            const messenger = RPCLayer._messenger as any;
+            if (!messenger.__fixtureRecorderInstalled) {
+                messenger.__fixtureRecorderInstalled = true;
+                const originalOnRequest = messenger.onRequest.bind(messenger);
+                messenger.onRequest = (type: any, handler: any, ...rest: any[]) =>
+                    originalOnRequest(
+                        type,
+                        async (params: any, sender: any) => {
+                            const response = await handler(params, sender);
+                            try {
+                                recordRpc(type && type.method ? type.method : String(type), params, response);
+                            } catch { /* recording must never break handling */ }
+                            return response;
+                        },
+                        ...rest
+                    );
+            }
+        }
+
         // ----- Main Webview RPC Methods
         RPCLayer._messenger.onRequest(getVisualizerLocation, () => getContext());
         registerVisualizerRpcHandlers(RPCLayer._messenger);
@@ -99,6 +123,7 @@ export class RPCLayer {
         registerTestManagerRpcHandlers(RPCLayer._messenger);
         registerAiAgentRpcHandlers(RPCLayer._messenger);
         registerIcpServiceRpcHandlers(RPCLayer._messenger);
+        registerWorkflowManagementServiceRpcHandlers(RPCLayer._messenger);
         registerAgentChatRpcHandlers(RPCLayer._messenger);
         registerPlatformExtRpcHandlers(RPCLayer._messenger);
 
@@ -232,6 +257,18 @@ export function notifyApprovalOverlayState(state: ApprovalOverlayState) {
 
 export function notifyRunningServicesChanged(services: RunningServiceInfo[]) {
     RPCLayer._messenger.sendNotification(runningServicesChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, services);
+}
+
+export function notifyMcpServersChanged(servers: McpServerStatusDTO[]) {
+    RPCLayer._messenger.sendNotification(mcpServersChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, servers);
+}
+
+export function notifyMcpLoadErrorsChanged(errors: McpLoadErrorsDTO) {
+    RPCLayer._messenger.sendNotification(mcpLoadErrorsChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, errors);
+}
+
+export function notifyAgentsMdFileInfoChanged(state: AgentsMdFileInfoDTO) {
+    RPCLayer._messenger.sendNotification(agentsMdFileInfoChanged, { type: 'webview', webviewType: AiPanelWebview.viewType }, state);
 }
 
 export function notifyOnIdentifierUpdated(artifacts: ProjectStructureArtifactResponse[]) {

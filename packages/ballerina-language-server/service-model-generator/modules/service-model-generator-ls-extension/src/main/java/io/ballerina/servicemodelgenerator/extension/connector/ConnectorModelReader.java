@@ -21,6 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.projects.Package;
@@ -149,7 +150,7 @@ public class ConnectorModelReader {
         }
         try {
             return Optional.ofNullable(gson.fromJson(parse(modelFile), TriggerModel.class));
-        } catch (Exception e) {
+        } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
     }
@@ -177,7 +178,7 @@ public class ConnectorModelReader {
         }
         try {
             return buildServiceInitModelFromJson(parse(modelFile));
-        } catch (Exception e) {
+        } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
     }
@@ -245,7 +246,7 @@ public class ConnectorModelReader {
             }
             String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             return Optional.of(JsonParser.parseString(json));
-        } catch (Exception e) {
+        } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
     }

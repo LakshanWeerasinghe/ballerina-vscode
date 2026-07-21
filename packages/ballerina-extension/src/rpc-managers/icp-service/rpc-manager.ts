@@ -19,7 +19,9 @@ import {
     ICPServiceAPI,
     ICPEnabledRequest,
     ICPEnabledResponse,
+    isSamePath,
     TextEdit,
+    WorkflowManagementResponse,
 } from "@wso2/ballerina-core";
 import * as fs from 'fs';
 import * as os from 'os';
@@ -28,6 +30,7 @@ import * as vscode from 'vscode';
 import { StateMachine } from "../../stateMachine";
 import { updateSourceCode } from "../../utils/source-utils";
 import { parse, stringify } from "@iarna/toml";
+import { WorkflowManagementServiceRpcManager } from "../workflow-management-service/rpc-manager";
 import { getProjectHandle, getStoredICPSecret } from "../../features/icp/setup";
 import { ensureICPServerRunning, isICPServerRunning, getICPUrl } from "../../features/icp";
 
@@ -42,7 +45,7 @@ function getIntegrationName(projectPath: string): string {
 
     // title is the integration display name, name is the package name
     if (projectInfo?.children?.length) {
-        const matched = projectInfo.children.find(child => child.projectPath === projectPath);
+        const matched = projectInfo.children.find(child => isSamePath(child.projectPath, projectPath));
         if (matched) {
             return matched.title || matched.name || path.basename(projectPath);
         }
@@ -282,6 +285,22 @@ export class ICPServiceRpcManager implements ICPServiceAPI {
                 }
                 addICPBuildOptions(projectPath);
                 await addICPConfigToml(projectPath);
+                // When the integration contains workflow functions, enabling ICP also enables
+                // Workflow Management by default (saving a click). The user can still disable it
+                // independently afterwards.
+                try {
+                    const shouldEnableWfMgmt = await context.langClient
+                        .shouldEnableWorkflowManagementByDefault(param) as WorkflowManagementResponse;
+                    if (shouldEnableWfMgmt?.enabled) {
+                        const wfMgmtResult = await new WorkflowManagementServiceRpcManager()
+                            .addWorkflowManagement(param);
+                        if (!wfMgmtResult?.enabled) {
+                            console.log('[ICP] Auto-enable of Workflow Management did not take effect:', wfMgmtResult);
+                        }
+                    }
+                } catch (wfError) {
+                    console.log('[ICP] Failed to auto-enable Workflow Management:', wfError);
+                }
                 const result: ICPEnabledResponse = await context.langClient.isIcpEnabled(param);
                 resolve(result);
             } catch (error) {

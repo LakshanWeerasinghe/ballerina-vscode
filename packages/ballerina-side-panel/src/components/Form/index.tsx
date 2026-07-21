@@ -57,6 +57,7 @@ import {
     getSecondaryInputType,
     DIRECTORY_MAP,
     ValidationResult,
+    AvailableNode,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { FormContext, Provider, FormFieldLoadingProvider, useFormFieldLoadingContext } from "../../context";
@@ -274,7 +275,9 @@ namespace S {
     export const FormDiagnosticsActionContainer = styled.div`
         display: flex;
         justify-content: flex-end;
-        width: 100%;
+        align-items: center;
+        width: fit-content;
+        align-self: flex-end;
     `;
 
     export const MarkdownContainer = styled.div<{ isExpanded: boolean }>`
@@ -362,6 +365,10 @@ export interface FormProps {
     derivedFields?: FieldDerivation[]; // Configuration for auto-deriving field values from other fields
     updateImports?: (key: string, imports: Imports) => void;
     defaultExpandAdvanced?: boolean;
+    onRequestCreateConnection?: (params: {
+        selectedConnector: AvailableNode;
+        onSaved: (variableName: string) => void;
+    }) => void;
 }
 
 export const Form = forwardRef((props: FormProps, _ref) => {
@@ -408,6 +415,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         openFormTypeEditor,
         derivedFields = [],
         updateImports,
+        onRequestCreateConnection,
     } = props;
 
     const { rpcClient } = useRpcContext();
@@ -799,7 +807,9 @@ export const Form = forwardRef((props: FormProps, _ref) => {
     // has advance fields
     const hasAdvanceFields = formFields.some((field) => field.advanced && field.enabled && !field.hidden) || advancedChoiceFields.length > 0;
     const variableField = formFields.find((field) => field.key === "variable");
-    const typeField = formFields.find((field) => !field.advanced && !field.hidden && getPrimaryInputType(field.types)?.fieldType === "TYPE");
+    // Exclude PARAM_FOR_TYPE_INFER fields (e.g. the activity/human-task "Databinding Type"): those are
+    // rendered via targetTypeField below, so matching them here too would render the same field twice.
+    const typeField = formFields.find((field) => !field.advanced && !field.hidden && field.codedata?.kind !== "PARAM_FOR_TYPE_INFER" && getPrimaryInputType(field.types)?.fieldType === "TYPE");
     const expressionField = formFields.find((field) => getSecondaryInputType(field.types)?.fieldType === "EXPRESSION" || getPrimaryInputType(field.types)?.fieldType === "ACTION_OR_EXPRESSION");
     const targetTypeField = formFields.find((field) => field.codedata?.kind === "PARAM_FOR_TYPE_INFER");
     const hasParameters = hasRequiredParameters(formFields, selectedNode) || hasOptionalParameters(formFields);
@@ -832,7 +842,8 @@ export const Form = forwardRef((props: FormProps, _ref) => {
         popupManager: popupManager,
         nodeInfo: {
             kind: selectedNode,
-        }
+        },
+        onRequestCreateConnection,
     };
 
     // Find the first editable identifier field
@@ -1027,6 +1038,7 @@ export const Form = forwardRef((props: FormProps, _ref) => {
                 try {
                     const isValidForm = await runExternalFormValidation(data);
                     if (!isValidForm) {
+                        console.error(">>> Form validation failed, not saving", { data: props, formData: data });
                         setSavingButton(null);
                         return;
                     }
@@ -1072,7 +1084,10 @@ export const Form = forwardRef((props: FormProps, _ref) => {
             )}
             {formDiagnostics && formDiagnostics.length > 0 && (
                 <S.FormDiagnosticsContainer>
-                    <ErrorBanner errorMsg={formDiagnostics.map((diagnostic) => diagnostic.message).join("\n")} />
+                    <ErrorBanner
+                        errorMsg={formDiagnostics.map((diagnostic) => diagnostic.message).join("\n")}
+                        sx={{ alignItems: "flex-start" }}
+                    />
                     {formDiagnosticsAction && (
                         <S.FormDiagnosticsActionContainer>
                             {formDiagnosticsAction}

@@ -26,6 +26,7 @@ import {
     BuildMode,
     BI_COMMANDS,
     DIRECTORY_MAP,
+    isSamePath,
 } from "@wso2/ballerina-core";
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 import { Typography, Codicon, ProgressRing, Button, Icon, Divider, CheckBox, ProgressIndicator, Overlay, Dropdown } from "@wso2/ui-toolkit";
@@ -449,7 +450,7 @@ function DeploymentOptions({
         enabled: platformExtState.isExtInstalled,
         refetchInterval: 5000,
     });
-    const currentProjectMeta = devantMetadata?.projectsMetadata?.find(p => p.projectPath === projectPath);
+    const currentProjectMeta = devantMetadata?.projectsMetadata?.find(p => isSamePath(p.projectPath, projectPath));
     const isDeployed = devantMetadata?.isLoggedIn
         ? (currentProjectMeta?.hasComponent ?? false)
         : false;
@@ -570,6 +571,29 @@ function IntegrationControlPlane({ enabled, handleICP }: IntegrationControlPlane
                     checked={enabled}
                     onChange={handleICP}
                     label="Enable ICP monitoring"
+                />
+            </div>
+        </div>
+    );
+}
+
+interface WorkflowManagementProps {
+    enabled: boolean;
+    handleWorkflowManagement: (checked: boolean) => void;
+}
+
+function WorkflowManagement({ enabled, handleWorkflowManagement }: WorkflowManagementProps) {
+    return (
+        <div>
+            <Title variant="h3">Workflow</Title>
+            <p>
+                {"Manage long-running workflows in this integration, including human tasks, activities, and execution state."}
+            </p>
+            <div style={{ paddingLeft: 10 }}>
+                <CheckBox
+                    checked={enabled}
+                    onChange={handleWorkflowManagement}
+                    label="Enable Workflow Management"
                 />
             </div>
         </div>
@@ -789,6 +813,7 @@ export function PackageOverview(props: PackageOverviewProps) {
     const [readmeContent, setReadmeContent] = React.useState<string>("");
     const { platformExtState } = usePlatformExtContext();
     const [enabled, setEnableICP] = useState(false);
+    const [workflowMgmtEnabled, setWorkflowMgmtEnabled] = useState(false);
     const [showAlert, setShowAlert] = React.useState(false);
     const [projectStructure, setProjectStructure] = useState<ProjectStructure>();
     const [isInProject, setIsInProject] = useState(false);
@@ -799,7 +824,7 @@ export function PackageOverview(props: PackageOverviewProps) {
             .getBIDiagramRpcClient()
             .getProjectStructure()
             .then((res) => {
-                const project = res.projects.find(project => project.projectPath === projectPath);
+                const project = res.projects.find(project => isSamePath(project.projectPath, projectPath));
                 setIsInProject(res.workspaceName !== undefined);
                 if (project) {
                     setProjectStructure(project);
@@ -821,6 +846,13 @@ export function PackageOverview(props: PackageOverviewProps) {
             .isIcpEnabled({ projectPath: '' })
             .then((res) => {
                 setEnableICP(res.enabled);
+            });
+
+        rpcClient
+            .getWorkflowManagementRpcClient()
+            .isWorkflowManagementEnabled({ projectPath })
+            .then((res) => {
+                setWorkflowMgmtEnabled(res.enabled);
             });
 
         rpcClient
@@ -889,6 +921,8 @@ export function PackageOverview(props: PackageOverviewProps) {
             (validConnections.length === 0) &&
             (!projectStructure.directoryMap[DIRECTORY_MAP.LISTENER] || projectStructure.directoryMap[DIRECTORY_MAP.LISTENER].length === 0) &&
             (!projectStructure.directoryMap[DIRECTORY_MAP.SERVICE] || projectStructure.directoryMap[DIRECTORY_MAP.SERVICE].length === 0) &&
+            (!projectStructure.directoryMap[DIRECTORY_MAP.WORKFLOW] || projectStructure.directoryMap[DIRECTORY_MAP.WORKFLOW].length === 0) &&
+            (!projectStructure.directoryMap[DIRECTORY_MAP.ACTIVITY] || projectStructure.directoryMap[DIRECTORY_MAP.ACTIVITY].length === 0) &&
             (!projectStructure.directoryMap.agents || projectStructure.directoryMap.agents.length === 0)
         );
     }
@@ -916,19 +950,43 @@ export function PackageOverview(props: PackageOverviewProps) {
         });
     };
 
+    const refreshWorkflowManagementState = () => {
+        rpcClient.getWorkflowManagementRpcClient().isWorkflowManagementEnabled({ projectPath })
+            .then((res) => setWorkflowMgmtEnabled(res.enabled));
+    };
+
     const handleICP = (icpEnabled: boolean) => {
+        // Update the checkbox state optimistically so it doesn't flicker while the RPC is in flight.
+        setEnableICP(icpEnabled);
         if (icpEnabled) {
             rpcClient.getICPRpcClient().addICP({ projectPath: '' })
                 .then(() => {
                     setEnableICP(true);
-                }
-                );
+                    // Enabling ICP may auto-enable Workflow Management (when the integration has
+                    // workflow functions), so re-sync that checkbox from the language server.
+                    refreshWorkflowManagementState();
+                })
+                .catch(() => setEnableICP(false));
         } else {
             rpcClient.getICPRpcClient().disableICP({ projectPath: '' })
-                .then(() => {
-                    setEnableICP(false);
-                }
-                );
+                .then(() => setEnableICP(false))
+                .catch(() => setEnableICP(true));
+        }
+    };
+
+    const handleWorkflowManagement = (wfEnabled: boolean) => {
+        // Optimistic update to avoid checkbox flicker during the RPC round-trip.
+        setWorkflowMgmtEnabled(wfEnabled);
+        if (wfEnabled) {
+            rpcClient.getWorkflowManagementRpcClient().addWorkflowManagement({ projectPath })
+                // The RPC reports failures via errorMsg (it resolves rather than rejects), so roll
+                // back to the pre-toggle state instead of trusting enabled on a reported failure.
+                .then((res) => setWorkflowMgmtEnabled(res.errorMsg ? false : (res.enabled ?? true)))
+                .catch(() => setWorkflowMgmtEnabled(false));
+        } else {
+            rpcClient.getWorkflowManagementRpcClient().disableWorkflowManagement({ projectPath })
+                .then((res) => setWorkflowMgmtEnabled(res.errorMsg ? true : (res.enabled ?? false)))
+                .catch(() => setWorkflowMgmtEnabled(true));
         }
     };
 
@@ -1182,6 +1240,15 @@ export function PackageOverview(props: PackageOverviewProps) {
                                     <div style={{ marginTop: 8 }}>
                                         <LocalICPDeployment />
                                     </div>
+                                    {(projectStructure?.directoryMap?.[DIRECTORY_MAP.WORKFLOW]?.length ?? 0) > 0 && (
+                                        <>
+                                            <Divider sx={{ margin: "16px 0" }} />
+                                            <WorkflowManagement
+                                                enabled={workflowMgmtEnabled}
+                                                handleWorkflowManagement={handleWorkflowManagement}
+                                            />
+                                        </>
+                                    )}
                                 </>
                             }
                             {isInDevant &&

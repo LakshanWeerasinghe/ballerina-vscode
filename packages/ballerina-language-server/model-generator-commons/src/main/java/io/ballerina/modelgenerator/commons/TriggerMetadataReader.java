@@ -19,6 +19,7 @@
 package io.ballerina.modelgenerator.commons;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
@@ -95,7 +96,7 @@ public final class TriggerMetadataReader {
             }
             String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             return Optional.ofNullable(gson.fromJson(JsonParser.parseString(json), TriggerMetadata.class));
-        } catch (Exception e) {
+        } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
     }

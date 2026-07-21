@@ -28,6 +28,7 @@ import io.ballerina.projects.Project;
  * @param orgName       the organization name of the Ballerina package
  * @param packageName   the name of the Ballerina package
  * @param moduleName    the name of the Ballerina module
+ * @param version       the version of the Ballerina package
  * @param project       the Ballerina project
  * @param semanticModel the semantic model of the Ballerina source code
  * @param document      the Ballerina document

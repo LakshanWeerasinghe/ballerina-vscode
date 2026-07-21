@@ -71,6 +71,11 @@ export type FunctionNode = {
     returning: boolean;
 };
 
+export type AllowedConnector = {
+    codedata: CodeData;
+    addNewConnectionLabel: string;
+};
+
 export type Metadata = {
     label: string;
     description: string;
@@ -79,6 +84,7 @@ export type Metadata = {
     draft?: boolean; // for diagram draft nodes
     data?: NodeMetadata | ParentMetadata;
     functionKind?: string;
+    connectors?: AllowedConnector[];
 };
 
 export type NodeMetadata = {
@@ -100,6 +106,7 @@ export type ParentMetadata = {
     label: string;
     accessor?: string;
     parameters?: string[];
+    sourceCode?: string;
     return?: string;
     isServiceFunction?: boolean;
 };
@@ -172,7 +179,9 @@ export type FormFieldInputType = "TEXT" |
     "REPEATABLE_LIST" |
     "CONDITIONAL_FIELDS" |
     "DOC_TEXT" |
-    "GROUP_SECTION"
+    "ADVANCE_PARAM_LIST" |
+    "GROUP_SECTION" |
+    "CONNECTION"
     ;
 
 export interface BaseType {
@@ -246,6 +255,7 @@ export type Property = {
     oldValue?: string;
     defaultValue?: string;
     itemOptions?: OptionProps[];
+    dynamicFormFields?: { [key: string]: NodeProperties }
 };
 
 export type PropertyTypeMemberInfo = {
@@ -337,6 +347,7 @@ export type TargetMetadata = {
 };
 
 export enum DIRECTORY_MAP {
+    ACTIVITY = "ACTIVITY",
     AGENTS = "agents",
     AUTOMATION = "AUTOMATION",
     CONFIGURABLE = "CONFIGURABLE",
@@ -354,6 +365,7 @@ export enum DIRECTORY_MAP {
     SERVICE = "SERVICE",
     TYPE = "TYPE",
     VARIABLE = "VARIABLE",
+    WORKFLOW = "WORKFLOW",
 }
 
 export enum FUNCTION_TYPE {
@@ -383,6 +395,8 @@ export type ProjectDirectoryMap = {
     [DIRECTORY_MAP.NP_FUNCTION]: ProjectStructureArtifactResponse[];
     [DIRECTORY_MAP.AGENTS]: ProjectStructureArtifactResponse[];
     [DIRECTORY_MAP.LOCAL_CONNECTORS]: ProjectStructureArtifactResponse[];
+    [DIRECTORY_MAP.WORKFLOW]?: ProjectStructureArtifactResponse[];
+    [DIRECTORY_MAP.ACTIVITY]?: ProjectStructureArtifactResponse[];
 };
 
 /**
@@ -476,6 +490,8 @@ export type NodePropertyKey =
     | "functionName"
     | "functionNameDescription"
     | "instructions"
+    | "input"
+    | "inputType"
     | "isIsolated"
     | "isPublic"
     | "maxIter"
@@ -522,6 +538,8 @@ export type FieldScope = "Global" | "Local" | "Object";
 
 export type NodeKind =
     | "ACTION_OR_EXPRESSION"
+    | "ACTIVITY"
+    | "ACTIVITY_CALL"
     | "AGENTS"
     | "AGENT"
     | "AGENT_CALL"
@@ -591,12 +609,18 @@ export type NodeKind =
     | "RETURN"
     | "RETRY"
     | "ROLLBACK"
+    | "SEND_DATA"
+    | "SLEEP"
     | "START"
     | "STOP"
     | "TRANSACTION"
     | "UPDATE_DATA"
     | "WAIT"
+    | "WAIT_DATA"
+    | "HUMAN_TASK"
     | "WHILE"
+    | "WORKFLOW"
+    | "WORKFLOW_RUN"
     | "WORKER"
     | "RECORD"
     | "VARIABLE";

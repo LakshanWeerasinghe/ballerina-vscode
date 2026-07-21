@@ -38,8 +38,16 @@ function normalizeSource(source: string): string {
  * Compare a generated .bal file with an expected .bal file
  * @param generatedFileName - Name of the generated file (e.g., 'types.bal')
  * @param expectedFilePath - Path to the expected file (e.g., path to testOutput.bal)
+ * @param substitutions - Optional map of literal substrings to replace in the
+ *        expected content before comparison. Useful for tests that suffix
+ *        identifiers with a per-attempt counter (e.g. `Role${attempt}`) but
+ *        keep a single fixture file.
  */
-export async function verifyGeneratedSource(generatedFileName: string, expectedFilePath: string): Promise<void> {
+export async function verifyGeneratedSource(
+    generatedFileName: string,
+    expectedFilePath: string,
+    substitutions?: Record<string, string>
+): Promise<void> {
     const { expect } = await import('@playwright/test');
 
     // Generated file is in the current test project folder
@@ -54,10 +62,48 @@ export async function verifyGeneratedSource(generatedFileName: string, expectedF
     }
 
     const actualContent = fs.readFileSync(generatedFilePath, 'utf-8');
-    const expectedContent = fs.readFileSync(expectedFilePath, 'utf-8');
+    let expectedContent = fs.readFileSync(expectedFilePath, 'utf-8');
+    if (substitutions) {
+        for (const [from, to] of Object.entries(substitutions)) {
+            expectedContent = expectedContent.split(from).join(to);
+        }
+    }
 
     const normalizedActual = normalizeSource(actualContent);
     const normalizedExpected = normalizeSource(expectedContent);
 
     expect(normalizedActual).toBe(normalizedExpected);
+}
+
+/**
+ * Verify that a generated record type declares the given fields, scoped to
+ * that type's block so matches elsewhere in the file don't cause false
+ * positives.
+ * @param generatedFileName - Name of the generated file (e.g., 'types.bal')
+ * @param typeName - Name of the record type to look for (e.g., 'PersonJson1')
+ * @param fieldNames - Field names expected to be declared within the record
+ */
+export async function verifyRecordFields(
+    generatedFileName: string,
+    typeName: string,
+    fieldNames: string[]
+): Promise<void> {
+    const { expect } = await import('@playwright/test');
+
+    const generatedFilePath = path.join(newProjectPath, generatedFileName);
+    if (!fs.existsSync(generatedFilePath)) {
+        throw new Error(`Generated file not found at: ${generatedFilePath}`);
+    }
+
+    const content = fs.readFileSync(generatedFilePath, 'utf-8');
+    const recordMatch = content.match(
+        new RegExp(`type\\s+${typeName}\\s+record\\s*{[|]?\\s*([\\s\\S]*?)\\};`)
+    );
+    expect(recordMatch, `Record type '${typeName}' not found in ${generatedFileName}`).toBeTruthy();
+
+    const recordBody = recordMatch![1];
+    for (const fieldName of fieldNames) {
+        const fieldDeclared = new RegExp(`\\b${fieldName}\\s*;`).test(recordBody);
+        expect(fieldDeclared, `Field '${fieldName}' not declared in record '${typeName}'`).toBe(true);
+    }
 }

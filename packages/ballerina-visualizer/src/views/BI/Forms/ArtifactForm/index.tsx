@@ -73,6 +73,7 @@ import { getTypeHelper } from "../../TypeHelper";
 import { EXPRESSION_EXTRACTION_REGEX, TypeHelperContext } from "../../../../constants";
 import { getHelperPaneNew } from "../../HelperPaneNew";
 import { ConfigureRecordPage } from "../../HelperPaneNew/Views/RecordConfigModal";
+import { EntryPointTypeCreator } from "../../../../components/EntryPointTypeCreator";
 import React from "react";
 import { BreadcrumbContainer, BreadcrumbItem, BreadcrumbSeparator } from "../FlowNodeForm";
 import { EditorContext, StackItem } from "@wso2/type-editor";
@@ -215,7 +216,11 @@ export function ArtifactForm(props: ArtifactFormProps) {
     const [isTypeEditorOpen, setIsTypeEditorOpen] = useState<boolean>(false);
     const [editingTypeName, setEditingTypeName] = useState<string>("");
 
-    const handleOpenFormTypeEditor = (open: boolean, typeName?: string) => {
+    const handleOpenFormTypeEditor = (open: boolean, typeName?: string, editingField?: FormField) => {
+        setTypeEditorState((prevState) => ({
+            ...prevState,
+            field: editingField,
+        }));
         setIsTypeEditorOpen(open);
         if (typeName) {
             setEditingTypeName(typeName);
@@ -226,9 +231,11 @@ export function ArtifactForm(props: ArtifactFormProps) {
 
     const handleTypeEditorClose = () => {
         setIsTypeEditorOpen(false);
+        setEditingTypeName("");
+        setTypeEditorState((prevState) => ({ ...prevState, field: undefined }));
     };
 
-    const handleTypeCreated = (type: Type | string) => {
+    const handleTypeCreated = (type: Type | string, imports?: Imports) => {
         setIsTypeEditorOpen(false);
         setEditingTypeName("");
         if (type) {
@@ -239,6 +246,10 @@ export function ArtifactForm(props: ArtifactFormProps) {
                 }
                 return field;
             }));
+            if (imports) {
+                const targetFieldKey = typeEditorState.field?.key || "type";
+                handleUpdateImports(targetFieldKey, imports);
+            }
         }
     };
 
@@ -1134,6 +1145,15 @@ export function ArtifactForm(props: ArtifactFormProps) {
                     </div>
                 </DynamicModal>)
             }
+            <EntryPointTypeCreator
+                isOpen={isTypeEditorOpen}
+                onClose={handleTypeEditorClose}
+                onTypeCreate={handleTypeCreated}
+                initialTypeName={editingTypeName || "WorkflowInput"}
+                modalTitle="Define Workflow Input Type"
+                modalWidth={650}
+                modalHeight={600}
+            />
             {recordConfigPageState.isOpen &&
                 recordConfigPageState.fieldKey &&
                 recordConfigPageState.recordTypeField &&

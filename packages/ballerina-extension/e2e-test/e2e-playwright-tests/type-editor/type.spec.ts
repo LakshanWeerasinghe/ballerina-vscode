@@ -17,7 +17,7 @@
  */
 
 import { test } from '@playwright/test';
-import { addArtifact, BI_INTEGRATOR_LABEL, getWebview, initTest, page, verifyGeneratedSource } from '../utils/helpers';
+import { addArtifact, BI_INTEGRATOR_LABEL, getWebview, initTest, logStep, page, verifyGeneratedSource, verifyRecordFields } from '../utils/helpers';
 import { Form } from '@wso2/playwright-vscode-tester';
 import { TypeEditorUtils } from './TypeEditorUtils';
 import path from 'path';
@@ -127,10 +127,89 @@ export default function createTests() {
             await typeUtils.verifyTypeNodeExists(serviceClassName);
             await typeUtils.verifyTypeLink(serviceClassName, 'employeeDetails', recordName);
 
-            // Verify the generated types.bal matches testOutput.bal
+            // Verify the generated types.bal matches testOutput.bal. The fixture is
+            // written against attempt 1; on retries, identifiers are suffixed with
+            // the attempt number to avoid clashing with leftover types, so
+            // substitute the expected identifiers to match.
             const expectedFilePath = path.join(__dirname, 'testOutput.bal');
-            await verifyGeneratedSource('types.bal', expectedFilePath);
+            const substitutions = testAttempt === 1 ? undefined : {
+                'Role1': enumName,
+                'Id1': unionName,
+                'Organization1': organizationName,
+                'Employee1': recordName,
+                'Project1': serviceClassName,
+            };
+            await verifyGeneratedSource('types.bal', expectedFilePath, substitutions);
 
         });
+
+        test('Import Type from JSON', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            logStep(`Import type from JSON — attempt ${testAttempt}`);
+
+            const artifactWebView = await getWebview(BI_INTEGRATOR_LABEL, page);
+            const typeUtils = new TypeEditorUtils(page.page, artifactWebView);
+
+            logStep('Opening Add Type panel');
+            await typeUtils.clickAddType();
+
+            logStep('Switching to Import tab');
+            await typeUtils.switchToImportTab();
+
+            // Format defaults to JSON — no change needed
+            const typeName = `PersonJson${testAttempt}`;
+            logStep(`Setting type name: ${typeName}`);
+            await typeUtils.setImportTypeName(typeName);
+
+            logStep('Pasting JSON content');
+            await typeUtils.fillImportTextArea('{"name": "John", "age": 30, "city": "New York"}');
+
+            logStep('Clicking Import button');
+            await typeUtils.clickImportButton();
+
+            logStep(`Verifying type node ${typeName}`);
+            await typeUtils.verifyTypeNodeExists(typeName);
+
+            logStep('Verifying generated record fields in types.bal');
+            await verifyRecordFields('types.bal', typeName, ['name', 'age', 'city']);
+        });
+
+        test('Import Type from XML', async ({ }, testInfo) => {
+            const testAttempt = testInfo.retry + 1;
+            logStep(`Import type from XML — attempt ${testAttempt}`);
+
+            const artifactWebView = await getWebview(BI_INTEGRATOR_LABEL, page);
+            const typeUtils = new TypeEditorUtils(page.page, artifactWebView);
+
+            // XML import names the type from the root element, so the name isn't
+            // known upfront — snapshot existing nodes now and diff afterwards.
+            // A bare `.first()` on `[data-testid^="type-node-"]` can otherwise
+            // match a node left over from an earlier test in this serial block
+            // instead of the one this import creates.
+            const existingTypeNodeIds = await typeUtils.snapshotTypeNodeIds();
+
+            logStep('Opening Add Type panel');
+            await typeUtils.clickAddType();
+
+            logStep('Switching to Import tab');
+            await typeUtils.switchToImportTab();
+
+            logStep('Changing format to XML');
+            await typeUtils.setImportFormat('XML');
+
+            logStep('Pasting XML content');
+            await typeUtils.fillImportTextArea('<person><name>John</name><age>30</age></person>');
+
+            logStep('Clicking Import button');
+            await typeUtils.clickImportButton();
+
+            logStep('Verifying type node appears (name derived from XML root element)');
+            const generatedTypeName = await typeUtils.waitForNewTypeNode(existingTypeNodeIds);
+            logStep(`Type node visible: type-node-${generatedTypeName}`);
+
+            logStep('Verifying generated record fields in types.bal');
+            await verifyRecordFields('types.bal', generatedTypeName, ['name', 'age']);
+        });
+
     });
 }
