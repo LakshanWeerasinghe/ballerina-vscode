@@ -94,7 +94,9 @@
         },
         "placeholder": "false",
         "value": {
-          "Directory Path": []
+          "Directory Path": [
+            "/tmp"
+          ]
         },
         "types": [
           {
@@ -179,7 +181,7 @@
                 "label": "File Event",
                 "description": "The event describing the file that was created."
               },
-              "placeholder": "m",
+              "placeholder": "event",
               "value": "event",
               "types": [
                 {
@@ -302,8 +304,8 @@
                 "label": "File Event",
                 "description": "The event describing the file that was modified."
               },
-              "placeholder": "m",
-              "value": "m",
+              "placeholder": "event",
+              "value": "event",
               "types": [
                 {
                   "fieldType": "IDENTIFIER",
@@ -412,8 +414,8 @@
                 "label": "File Event",
                 "description": "The event describing the file that was deleted."
               },
-              "placeholder": "m",
-              "value": "m",
+              "placeholder": "event",
+              "value": "event",
               "types": [
                 {
                   "fieldType": "IDENTIFIER",

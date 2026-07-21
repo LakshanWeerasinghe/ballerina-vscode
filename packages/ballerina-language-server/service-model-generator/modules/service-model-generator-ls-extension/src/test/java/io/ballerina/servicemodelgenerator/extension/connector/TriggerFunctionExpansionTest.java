@@ -56,6 +56,12 @@ public class TriggerFunctionExpansionTest {
         return TriggerServiceAdapter.toServiceTemplate(model, "Service", "ballerina", "smb", "smb");
     }
 
+    /** The shipped FTP model, whose handlers use the variant-less COMPLEX_PAYLOAD shape. */
+    private Service ftpTemplate() {
+        TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
+        return TriggerServiceAdapter.toServiceTemplate(model, "Service", "ballerina", "ftp", "ftp");
+    }
+
     /** Looks a handler up across the template's present functions and its addable catalog. */
     private static Function byName(Service service, String name) {
         return java.util.stream.Stream.concat(
@@ -130,6 +136,38 @@ public class TriggerFunctionExpansionTest {
         Assert.assertTrue(caller.isAdvanced(), "caller is an opt-in framework param");
         Assert.assertFalse(caller.isEnabled());
         Assert.assertEquals(caller.getType().getValue(), "smb:Caller");
+    }
+
+    @Test
+    public void testVariantlessComplexPayloadSurfacesCompositionFlags() {
+        // The shipped FTP model ships each file format as its own schemaFunction (onFileCsv, …),
+        // whose `content` parameter is a COMPLEX_PAYLOAD directly rather than under a
+        // VARIATION_SELECTOR. Its composition siblings (the `stream` toggle, the `rows` marker) must
+        // still surface as wire properties, or the handler form renders neither.
+        Service ftp = ftpTemplate();
+        Function csv = byName(ftp, "onFileCsv");
+        Assert.assertNotNull(csv, "onFileCsv must be an addable FTP handler");
+        Assert.assertEquals(csv.getGroup(), "onCreate", "FTP file-format variants share the onCreate group");
+
+        Parameter content = csv.getParameters().stream()
+                .filter(p -> "content".equals(p.getName().getValue())).findFirst().orElseThrow();
+        Assert.assertEquals(content.getKind(), "DATA_BINDING");
+        Assert.assertEquals(content.getType().getValue(), "string[][]",
+                "CSV composes element(defaultType string[]) through template {{type}}[]");
+
+        Value stream = csv.getProperty("stream");
+        Assert.assertNotNull(stream, "variant-less COMPLEX_PAYLOAD must still surface the PAYLOAD_MODIFIER toggle");
+        Assert.assertEquals(stream.getCodedata().getType(), "PAYLOAD_MODIFIER");
+        Assert.assertEquals(stream.getCodedata().getTemplate(), "stream<{{type}}, error?>");
+        Value rows = csv.getProperty("rows");
+        Assert.assertNotNull(rows, "variant-less COMPLEX_PAYLOAD must still surface the METADATA_FLAG marker");
+        Assert.assertEquals(rows.getCodedata().getType(), "METADATA_FLAG");
+
+        // A payload with no composition siblings (JSON) adds no spurious flags.
+        Function json = byName(ftp, "onFileJson");
+        Assert.assertNotNull(json, "onFileJson must be an addable FTP handler");
+        Assert.assertNull(json.getProperty("stream"), "JSON payload has no stream toggle");
+        Assert.assertNull(json.getProperty("rows"), "JSON payload has no rows marker");
     }
 
     @Test

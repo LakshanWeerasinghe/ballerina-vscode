@@ -192,6 +192,23 @@ const removeLiteralWrapping = (value: string): string => {
     return unquoteStringLiteral(trimmed);
 };
 
+/**
+ * The bare text content of a value however it is wrapped: strips a quoted (`"…"`) or string-template
+ * (string`…`) literal, and returns a plain unquoted value (e.g. a raw path like `/home/x`) as-is.
+ * `removeLiteralWrapping` alone drops unwrapped values, which is wrong for the schema-driven fields
+ * whose model stores the raw string.
+ */
+const getTextContent = (value: string): string => {
+    const trimmed = getTrimmed(value);
+    if (!trimmed) {
+        return "";
+    }
+    if (isQuotedStringLiteral(trimmed) || isStringTemplateLiteral(trimmed)) {
+        return removeLiteralWrapping(trimmed);
+    }
+    return trimmed;
+};
+
 const toExpressionProperty = (propertyModel: PropertyModel | undefined, value: string): ExpressionProperty => ({
     metadata: {
         label: propertyModel?.metadata?.label || "",
@@ -296,6 +313,13 @@ export const TextExpressionField = forwardRef<TextExpressionFieldHandle, TextExp
     }, [rpcClient, filePath, targetLineRange]);
 
     const [inputMode, setInputMode] = useState<InputMode>(() => {
+        // Honor the schema's declared editor first: the selected type marks whether the connector
+        // modelled this field as plain text (a string literal such as a directory path) or an
+        // expression. Only when no type is declared do we sniff the value — a bare path like
+        // `/home/processed` must not be forced into Expression mode just because it lacks quotes.
+        const declaredType = property?.types?.find((type) => type.selected)?.fieldType;
+        if (declaredType === "TEXT") return InputMode.TEXT;
+        if (declaredType === "EXPRESSION") return InputMode.EXP;
         const trimmed = getTrimmed(value);
         if (!trimmed) return InputMode.TEXT;
         return isQuotedStringLiteral(trimmed) || isStringTemplateLiteral(trimmed) ? InputMode.TEXT : InputMode.EXP;
@@ -554,10 +578,13 @@ export const TextExpressionField = forwardRef<TextExpressionFieldHandle, TextExp
 
     const editorValue = useMemo(() => {
         if (inputMode === InputMode.TEXT) {
-            const trimmed = getTrimmed(value);
-            if (isQuotedStringLiteral(trimmed) || isStringTemplateLiteral(trimmed)) {
-                return removeLiteralWrapping(trimmed);
-            }
+            // The chip editor's string-template config renders only its own serialized fixed point
+            // (a string`…` literal): it re-derives that on every render and, while it differs from
+            // the incoming value, early-returns without painting the doc. Hand it that fixed point,
+            // built from the bare content, so a raw value like `/home/processed` actually shows.
+            // The model keeps the raw content — onChange unwraps the edited value back below.
+            const content = getTextContent(value);
+            return content ? new TextEditorConfig().deserializeValue(content) : "";
         }
         return value;
     }, [inputMode, value]);
@@ -648,8 +675,12 @@ export const TextExpressionField = forwardRef<TextExpressionFieldHandle, TextExp
                     completions={[]}
                     getHelperPane={helperPane}
                     onChange={(updated) => {
-                        onChange(updated);
-                        const trimmed = getTrimmed(updated);
+                        // In Text mode the editor emits its wrapped fixed point (string`…`); unwrap
+                        // it back to the bare content so the model keeps the raw string (matching the
+                        // schema) and diagnostics validate the same value the user typed.
+                        const nextValue = inputMode === InputMode.TEXT ? getTextContent(updated) : updated;
+                        onChange(nextValue);
+                        const trimmed = getTrimmed(nextValue);
                         if (!trimmed) {
                             resetValidationState();
                             setDiagnostics([]);
@@ -657,7 +688,7 @@ export const TextExpressionField = forwardRef<TextExpressionFieldHandle, TextExp
                             return;
                         }
                         setIsValidating(true);
-                        validateExpression(updated);
+                        validateExpression(nextValue);
                     }}
                     value={editorValue}
                     placeholder={inputMode === InputMode.TEXT ? "/path/to/dir" : '"/path/to/dir"'}

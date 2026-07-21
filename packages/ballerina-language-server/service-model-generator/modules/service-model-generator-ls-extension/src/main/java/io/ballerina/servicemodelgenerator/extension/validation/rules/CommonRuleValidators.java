@@ -30,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -53,6 +54,9 @@ public final class CommonRuleValidators {
     private static final Pattern PATH_PARAM_PATTERN =
             Pattern.compile("^\\[\\s*[a-zA-Z_][a-zA-Z0-9_:]*\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s*]$");
 
+    /** A {@code string `...`} template literal, as the text editors serialize their content. */
+    private static final Pattern STRING_TEMPLATE_PATTERN = Pattern.compile("^string\\s*`([\\s\\S]*)`$");
+
     private static final int DEFAULT_MIN_PORT = 1;
     private static final int DEFAULT_MAX_PORT = 65535;
 
@@ -71,6 +75,7 @@ public final class CommonRuleValidators {
     public static Map<String, RuleValidator> validators() {
         Map<String, RuleValidator> validators = new LinkedHashMap<>();
         validators.put("common.validate.required", (node, args, ctx) -> required(node));
+        validators.put("common.validate.non.empty", (node, args, ctx) -> nonEmpty(node));
         validators.put("common.validate.identifier", (node, args, ctx) -> identifier(node));
         validators.put("common.validate.regex", (node, args, ctx) -> regex(node, args));
         validators.put("common.validate.number.range", (node, args, ctx) -> numberRange(node, args));
@@ -86,6 +91,33 @@ public final class CommonRuleValidators {
 
     private static Optional<String> required(Value node) {
         return isBlank(node) ? Optional.of("{label} is required") : Optional.empty();
+    }
+
+    /**
+     * Rejects a string field whose <b>content</b> is empty. Distinct from {@code required}, which
+     * only sees whether the node holds a value at all: a text field holds its value as a string
+     * literal, so an empty entry arrives as {@code ""} (or {@code string ``}) — two characters that
+     * {@code required} happily accepts while the generated source binds an empty string.
+     */
+    private static Optional<String> nonEmpty(Value node) {
+        return stringContent(text(node)).isEmpty() ? Optional.of("{label} cannot be empty") : Optional.empty();
+    }
+
+    /**
+     * The content carried by a string literal — {@code "x"} and {@code string `x`} both yield
+     * {@code x}. A value that is not a literal (a raw path, or an expression) is returned as-is, so
+     * this stays a pure unwrap rather than a validity judgement.
+     */
+    private static String stringContent(String raw) {
+        String trimmed = raw.trim();
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            return trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        Matcher template = STRING_TEMPLATE_PATTERN.matcher(trimmed);
+        if (template.matches()) {
+            return template.group(1).trim();
+        }
+        return trimmed;
     }
 
     private static Optional<String> identifier(Value node) {

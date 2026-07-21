@@ -134,11 +134,38 @@ const argAsNumber = (args: RuleArgs, key: string): number | undefined => {
 
 const isMultiValue = (value: unknown): value is unknown[] => Array.isArray(value);
 
+/** A `string \`...\`` template literal, as the text editors serialize their content. */
+const STRING_TEMPLATE_PATTERN = /^string\s*`([\s\S]*)`$/;
+
+/**
+ * The content carried by a string literal — `"x"` and string`x` both yield `x`. A value that is not
+ * a literal (a raw path, or an expression) is returned as-is, so this stays a pure unwrap rather
+ * than a validity judgement. Mirrors `CommonRuleValidators.stringContent` on the server.
+ */
+const stringContent = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed.slice(1, -1).trim();
+    }
+    const template = STRING_TEMPLATE_PATTERN.exec(trimmed);
+    if (template) {
+        return template[1].trim();
+    }
+    return trimmed;
+};
+
 export const CLIENT_VALIDATION_RULES: Record<string, ClientRule> = {
     // ---- common.* — context-free, mirrored by the language server at save time ----
 
     "common.validate.required": (value) =>
         isBlank(value) ? "{label} is required" : undefined,
+
+    // Rejects a string field whose *content* is empty. `required` only sees whether the node holds a
+    // value at all, and a text field holds its value as a string literal — so an empty entry arrives
+    // as `""` (or string ``), two characters `required` accepts while the generated source binds an
+    // empty string. Mirrored server-side by `common.validate.non.empty`.
+    "common.validate.non.empty": (value) =>
+        stringContent(asString(value)) === "" ? "{label} cannot be empty" : undefined,
 
     "common.validate.identifier": (value) => {
         const raw = asString(value).trim();

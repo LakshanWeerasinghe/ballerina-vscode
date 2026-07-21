@@ -21,7 +21,7 @@ import styled from "@emotion/styled";
 import { CheckBox, CheckBoxGroup, RadioButtonGroup, Typography } from "@wso2/ui-toolkit";
 import { Diagnostic, LineRange, PropertyModel } from "@wso2/ballerina-core";
 
-import { TextExpressionField, TextExpressionFieldHandle } from "../FileIntegrationForm/TextExpressionField";
+import { AnnotationExpressionField, AnnotationExpressionFieldHandle } from "./AnnotationExpressionField";
 import { CODEDATA_FIELD_VALUE_CHOICE } from "./payloadComposer";
 
 const SectionHeader = styled.div`
@@ -69,7 +69,7 @@ export interface AnnotationConfigSectionProps {
     targetLineRange?: LineRange;
     disabled: boolean;
     onChange: (annotationKey: string, updated: PropertyModel) => void;
-    registerFieldRef: (key: string, handle: TextExpressionFieldHandle | null) => void;
+    registerFieldRef: (key: string, handle: AnnotationExpressionFieldHandle | null) => void;
     onDiagnosticsChange: (key: string, diagnostics: Diagnostic[]) => void;
     onValidationStateChange: (key: string, state: { isValidating: boolean }) => void;
 }
@@ -122,7 +122,7 @@ export function AnnotationConfigSection(props: AnnotationConfigSectionProps) {
     };
 
     const renderLeaf = (stateKey: string, field: PropertyModel, onValueChange: (value: string) => void) => (
-        <TextExpressionField
+        <AnnotationExpressionField
             key={stateKey}
             ref={(handle) => registerFieldRef(stateKey, handle)}
             id={`trigger-annotation-${stateKey}`}

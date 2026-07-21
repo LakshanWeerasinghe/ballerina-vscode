@@ -45,10 +45,11 @@ import {
 } from "@wso2/ballerina-core";
 import { cloneDeep } from "lodash";
 import WarningPopup from "@wso2/ballerina-side-panel/lib/components/WarningPopup";
+import { MarkdownDescription } from "@wso2/ballerina-side-panel";
 
 import { EntryPointTypeCreator } from "../../../../../components/EntryPointTypeCreator";
 import { Parameters } from "../FileIntegrationForm/Parameters/Parameters";
-import { TextExpressionFieldHandle } from "../FileIntegrationForm/TextExpressionField";
+import { AnnotationExpressionFieldHandle } from "./AnnotationExpressionField";
 import { AnnotationConfigSection } from "./AnnotationConfigSection";
 import {
     CODEDATA_COMPLEX_ANNOTATION,
@@ -57,6 +58,7 @@ import {
     CODEDATA_PAYLOAD_TYPE_INCLUDED_RECORD,
     addableCatalogOf,
     composePayloadType,
+    decomposePayloadType,
     functionSignatureKey,
     handlerGroupId,
     hasDefaultPayload,
@@ -311,7 +313,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     // ----- expression diagnostics (annotation leaves) -----
 
-    const fieldRefs = useRef<Record<string, TextExpressionFieldHandle | null>>({});
+    const fieldRefs = useRef<Record<string, AnnotationExpressionFieldHandle | null>>({});
     const [diagnosticsByField, setDiagnosticsByField] = useState<Record<string, Diagnostic[]>>({});
     const [validationStateByField, setValidationStateByField] = useState<Record<string, { isValidating: boolean }>>({});
 
@@ -321,7 +323,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         fieldRefs.current = {};
     }, [functionModel?.name?.value]);
 
-    const registerFieldRef = useCallback((key: string, handle: TextExpressionFieldHandle | null) => {
+    const registerFieldRef = useCallback((key: string, handle: AnnotationExpressionFieldHandle | null) => {
         if (handle) {
             fieldRefs.current[key] = handle;
         } else {
@@ -362,7 +364,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         // Save-time revalidation of annotation expression fields — the authoritative gate, since
         // typing-time diagnostics are debounced and swallow LS errors silently.
         const liveRefs = Object.values(fieldRefs.current).filter(
-            (handle): handle is TextExpressionFieldHandle => handle !== null && handle !== undefined
+            (handle): handle is AnnotationExpressionFieldHandle => handle !== null && handle !== undefined
         );
         if (liveRefs.length > 0) {
             const allDiagnostics = await Promise.all(liveRefs.map((h) => h.revalidate()));
@@ -408,6 +410,10 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     }
 
     const infoBannerText = functionModel.metadata?.notice;
+    // Handler-level documentation. It rides on the function model, so selecting a different variant
+    // (which swaps the whole model) re-renders this with the new variant's text. Rendered only when
+    // non-empty — most handlers ship no description.
+    const handlerDescription = functionModel.metadata?.description?.trim();
     const showAnnotationsDivider = hasVariants || metadataFlags.length > 0 || modifierFlags.length > 0;
 
     return (
@@ -445,6 +451,9 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                             disabled={!isNew}
                         />
                     )}
+
+                    {/* Handler documentation — updates with the selected variant, hidden when empty */}
+                    {handlerDescription && <MarkdownDescription description={handlerDescription} />}
 
                     {/* Read-only markers + modifier toggles (e.g. Rows, Stream) */}
                     {(metadataFlags.length > 0 || modifierFlags.length > 0) && (
@@ -499,32 +508,41 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                             <Typography variant="body2" sx={{ marginBottom: 8 }}>
                                                 {label}
                                             </Typography>
-                                            {/* The card presents the bound shape only (no name, no array/wrapper
-                                                composition); an edit flows back as the new bound element and the
-                                                stored composed type is derived from it. A bindable payload is
-                                                always editable, so force it on regardless of the shipped flag. */}
+                                            {/* The card shows the fully composed payload type (array/stream wrapper
+                                                applied) next to the parameter name — mirroring the generated handler
+                                                signature. Composition follows the active modifiers via
+                                                composePayloadType, so the chip re-renders when Stream is toggled.
+                                                Editing opens the inline schema editor, which strips the wrapper to
+                                                the bare element for editing and re-applies it on save; we decompose
+                                                that composed result back to the bound element (so recomposition
+                                                doesn't compound the wrapper), and let the name follow the editor. A
+                                                bindable payload is always editable, so force it on regardless of the
+                                                shipped flag. */}
                                             <Parameters
                                                 parameters={[{
                                                     ...param,
                                                     editable: true,
                                                     type: {
                                                         ...param.type,
-                                                        value: param.type?.codedata?.boundType
-                                                            || param.type?.value,
+                                                        value: composePayloadType(functionModel, param),
                                                     },
                                                 }]}
-                                                hideName={true}
                                                 onChange={(edited) => {
                                                     if (edited.length === 0) {
                                                         handleDeletePayloadSchema(param);
                                                         return;
                                                     }
                                                     const [editedPayload] = edited;
-                                                    const editedElement = editedPayload.type?.value ?? "";
+                                                    const editedElement = decomposePayloadType(
+                                                        functionModel, param, editedPayload.type?.value ?? "");
+                                                    const editedName = editedPayload.name?.value;
                                                     const parameters = functionModel.parameters.map((p) =>
                                                         isPayloadParameter(p) && p.name?.value === param.name?.value
                                                             ? {
                                                                 ...p,
+                                                                name: editedName !== undefined
+                                                                    ? { ...p.name, value: editedName }
+                                                                    : p.name,
                                                                 type: {
                                                                     ...p.type,
                                                                     imports: editedPayload.type?.imports ?? p.type?.imports,

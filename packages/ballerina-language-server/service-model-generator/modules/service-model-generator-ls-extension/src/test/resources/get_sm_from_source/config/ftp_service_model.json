@@ -186,13 +186,13 @@
         "parameters": [
           {
             "metadata": {
-              "label": "Define Content Schema",
+              "label": "Content Schema",
               "description": "Bound content type (defaults to json)."
             },
             "kind": "DATA_BINDING",
             "type": {
               "metadata": {
-                "label": "Define Content Schema",
+                "label": "Content Schema",
                 "description": "Bound content type (defaults to json)."
               },
               "codedata": {
@@ -217,7 +217,7 @@
             },
             "name": {
               "metadata": {
-                "label": "Define Content Schema",
+                "label": "Content Schema",
                 "description": "Bound content type (defaults to json)."
               },
               "placeholder": "content",
@@ -439,7 +439,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -569,7 +574,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -699,13 +709,13 @@
         "parameters": [
           {
             "metadata": {
-              "label": "Define Content Schema",
+              "label": "Content Schema",
               "description": "Bound content type (defaults to xml)."
             },
             "kind": "DATA_BINDING",
             "type": {
               "metadata": {
-                "label": "Define Content Schema",
+                "label": "Content Schema",
                 "description": "Bound content type (defaults to xml)."
               },
               "codedata": {
@@ -730,7 +740,7 @@
             },
             "name": {
               "metadata": {
-                "label": "Define Content Schema",
+                "label": "Content Schema",
                 "description": "Bound content type (defaults to xml)."
               },
               "placeholder": "content",
@@ -952,7 +962,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -1082,7 +1097,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -1214,13 +1234,13 @@
         "parameters": [
           {
             "metadata": {
-              "label": "Define Row Schema",
+              "label": "Row Schema",
               "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
             },
             "kind": "DATA_BINDING",
             "type": {
               "metadata": {
-                "label": "Define Row Schema",
+                "label": "Row Schema",
                 "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
               },
               "codedata": {
@@ -1245,7 +1265,7 @@
             },
             "name": {
               "metadata": {
-                "label": "Define Row Schema",
+                "label": "Row Schema",
                 "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
               },
               "placeholder": "content",
@@ -1456,7 +1476,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -1586,7 +1611,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -1680,6 +1710,49 @@
             "editable": true,
             "optional": true,
             "advanced": true
+          },
+          "rows": {
+            "metadata": {
+              "label": "Rows",
+              "description": "Content Schema contains a row of CSV Row type"
+            },
+            "codedata": {
+              "type": "METADATA_FLAG"
+            },
+            "value": true,
+            "types": [
+              {
+                "fieldType": "FLAG",
+                "selected": true
+              }
+            ],
+            "enabled": true,
+            "editable": false,
+            "optional": false,
+            "advanced": false
+          },
+          "stream": {
+            "metadata": {
+              "label": "Stream (Large Files)",
+              "description": "Process the file content in chunks"
+            },
+            "codedata": {
+              "type": "PAYLOAD_MODIFIER",
+              "template": "stream<{{type}}, error?>",
+              "modifier": "stream",
+              "targetParam": "payload"
+            },
+            "value": false,
+            "types": [
+              {
+                "fieldType": "FLAG",
+                "selected": true
+              }
+            ],
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
           }
         },
         "group": "onCreate",
@@ -1957,7 +2030,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -2087,7 +2165,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -2458,7 +2541,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -2588,7 +2676,12 @@
                               {
                                 "fieldType": "TEXT",
                                 "ballerinaType": "string",
-                                "selected": true
+                                "selected": true,
+                                "validations": [
+                                  {
+                                    "rule": "common.validate.non.empty"
+                                  }
+                                ]
                               },
                               {
                                 "fieldType": "EXPRESSION",
@@ -2682,6 +2775,29 @@
             "editable": true,
             "optional": true,
             "advanced": true
+          },
+          "stream": {
+            "metadata": {
+              "label": "Stream (Large Files)",
+              "description": "Deliver the content as stream<byte[], error?> to process large binary files in chunks."
+            },
+            "codedata": {
+              "type": "PAYLOAD_MODIFIER",
+              "template": "stream<{{type}}, error?>",
+              "modifier": "stream",
+              "targetParam": "payload"
+            },
+            "value": false,
+            "types": [
+              {
+                "fieldType": "FLAG",
+                "selected": true
+              }
+            ],
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
           }
         },
         "group": "onCreate",

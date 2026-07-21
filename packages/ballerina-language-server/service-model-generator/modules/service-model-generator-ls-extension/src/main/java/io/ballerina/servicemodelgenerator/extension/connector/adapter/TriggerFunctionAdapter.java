@@ -180,10 +180,28 @@ public final class TriggerFunctionAdapter {
                     properties.put(key, PropertyValueAdapter.toValue(property)));
         }
         if (variant != null) {
-            PayloadComposer.compositionSiblings(variant).forEach((key, sibling) ->
-                    properties.put(key, PropertyValueAdapter.toValue(sibling)));
+            // Fanned-out variant (VARIATION_SELECTOR): the composition siblings live on the selected
+            // variant sub-form.
+            addCompositionSiblings(variant, properties);
+        } else if (model.parameters() != null) {
+            // Variant-less payload param(s) — e.g. FTP's onFileCsv, whose `content` is a
+            // COMPLEX_PAYLOAD directly rather than under a VARIATION_SELECTOR. The composition
+            // siblings (the `stream` PAYLOAD_MODIFIER toggle, the `rows` METADATA_FLAG marker) live
+            // on the parameter's own type tree and must surface as wire properties just as a
+            // variant's do — otherwise the handler form drops the toggle/marker entirely.
+            for (TriggerModel.Parameter parameter : model.parameters()) {
+                if (PayloadComposer.payloadNode(parameter.type()) != null) {
+                    addCompositionSiblings(parameter.type(), properties);
+                }
+            }
         }
         return properties;
+    }
+
+    private static void addCompositionSiblings(TriggerModel.Property payloadTree,
+                                               Map<String, Value> properties) {
+        PayloadComposer.compositionSiblings(payloadTree).forEach((key, sibling) ->
+                properties.put(key, PropertyValueAdapter.toValue(sibling)));
     }
 
     private static List<Parameter> toParameters(List<TriggerModel.Parameter> parameters,

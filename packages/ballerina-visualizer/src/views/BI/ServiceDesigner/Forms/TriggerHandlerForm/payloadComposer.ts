@@ -199,6 +199,39 @@ export function composePayloadType(fn: FunctionModel, param: ParameterModel): st
     return base || element;
 }
 
+/**
+ * The template currently governing a payload param's composition — an active modifier's template
+ * supersedes the param's base template (mirrors {@link composePayloadType}).
+ */
+export function activeTemplateOf(fn: FunctionModel, param: ParameterModel): string | undefined {
+    const activeModifier = propertiesOfRole(fn, CODEDATA_PAYLOAD_MODIFIER)
+        .map(([, prop]) => prop)
+        .find((prop) => isModifierActive(prop) && !!prop.codedata?.template);
+    return activeModifier?.codedata?.template ?? param.type?.codedata?.template;
+}
+
+/**
+ * Inverse of {@link composePayloadType}: strips the active template's wrapper off a composed type
+ * string to recover the bound element (e.g. `stream<Order, error?>` or `Order[]` -> `Order`). Used
+ * when an edit hands back the composed type so the recovered element can be re-stored as boundType
+ * without the wrapper compounding. Returns the input unchanged when it lacks the expected wrapper.
+ */
+export function decomposePayloadType(fn: FunctionModel, param: ParameterModel, composed: string): string {
+    const template = activeTemplateOf(fn, param);
+    if (!template || !template.includes(TYPE_PLACEHOLDER)) {
+        return composed;
+    }
+    const placeholderAt = template.indexOf(TYPE_PLACEHOLDER);
+    const prefix = template.slice(0, placeholderAt);
+    const suffix = template.slice(placeholderAt + TYPE_PLACEHOLDER.length);
+    if (composed.length >= prefix.length + suffix.length
+        && composed.startsWith(prefix)
+        && composed.endsWith(suffix)) {
+        return composed.slice(prefix.length, composed.length - suffix.length);
+    }
+    return composed;
+}
+
 /** Whether the payload still renders its shipped default (no user-bound schema). */
 export function hasDefaultPayload(param: ParameterModel): boolean {
     return !param.type?.codedata?.boundType;

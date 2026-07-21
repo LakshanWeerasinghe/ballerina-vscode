@@ -738,7 +738,7 @@
                           "advanced": true,
                           "codedata": {
                             "argType": "LISTENER_PARAM_INCLUDED_FIELD",
-                            "path": "secureSocket"
+                            "path": "auth.secureSocket"
                           }
                         }
                       }
@@ -978,7 +978,7 @@
                   },
                   "payload": {
                     "metadata": {
-                      "label": "Define Row Schema",
+                      "label": "Row Schema",
                       "description": "Define or select the bound row type (T). Content is delivered as T[], or stream<T, error?> when streaming is enabled."
                     },
                     "value": "string[][]",
@@ -1270,7 +1270,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -1402,7 +1407,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -1509,7 +1519,7 @@
                 "properties": {
                   "payload": {
                     "metadata": {
-                      "label": "Define Content Schema",
+                      "label": "Content Schema",
                       "description": "Bound content type (defaults to json)."
                     },
                     "value": "json",
@@ -1800,7 +1810,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -1932,7 +1947,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -2039,7 +2059,7 @@
                 "properties": {
                   "payload": {
                     "metadata": {
-                      "label": "Define Content Schema",
+                      "label": "Content Schema",
                       "description": "Bound content type (defaults to xml)."
                     },
                     "value": "xml",
@@ -2330,7 +2350,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -2462,7 +2487,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -2846,7 +2876,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -2978,7 +3013,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -3390,7 +3430,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",
@@ -3522,7 +3567,12 @@
                                 {
                                   "fieldType": "TEXT",
                                   "selected": true,
-                                  "ballerinaType": "string"
+                                  "ballerinaType": "string",
+                                  "validations": [
+                                    {
+                                      "rule": "common.validate.non.empty"
+                                    }
+                                  ]
                                 },
                                 {
                                   "fieldType": "EXPRESSION",

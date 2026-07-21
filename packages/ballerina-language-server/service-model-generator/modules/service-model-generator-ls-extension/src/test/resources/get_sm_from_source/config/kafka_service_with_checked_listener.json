@@ -94,7 +94,9 @@
         },
         "placeholder": "false",
         "value": {
-          "Topic(s)": []
+          "Topic(s)": [
+            "my-topic"
+          ]
         },
         "types": [
           {

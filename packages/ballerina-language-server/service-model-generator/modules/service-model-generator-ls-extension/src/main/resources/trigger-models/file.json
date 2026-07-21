@@ -38,8 +38,8 @@
         "label": "Path",
         "description": "Directory path to be monitored."
       },
-      "placeholder": "/path/to/directory",
-      "value": "",
+      "placeholder": "/tmp",
+      "value": "/tmp",
       "enabled": true,
       "editable": true,
       "optional": false,
@@ -66,6 +66,7 @@
         "label": "Recursive",
         "description": "Recursively monitor all sub-directories"
       },
+      "value": false,
       "enabled": true,
       "editable": true,
       "optional": true,
@@ -155,11 +156,10 @@
               },
               "name": {
                 "metadata": {
-                  "label": "m",
+                  "label": "Parameter Name",
                   "description": "The event describing the file that was created."
                 },
-                "placeholder": "m",
-                "value": "m",
+                "value": "event",
                 "types": [
                   {
                     "fieldType": "IDENTIFIER",
@@ -247,11 +247,10 @@
               },
               "name": {
                 "metadata": {
-                  "label": "m",
+                  "label": "Parameter Name",
                   "description": "The event describing the file that was modified."
                 },
-                "placeholder": "m",
-                "value": "m",
+                "value": "event",
                 "types": [
                   {
                     "fieldType": "IDENTIFIER",
@@ -339,11 +338,10 @@
               },
               "name": {
                 "metadata": {
-                  "label": "m",
+                  "label": "Parameter Name",
                   "description": "The event describing the file that was deleted."
                 },
-                "placeholder": "m",
-                "value": "m",
+                "value": "event",
                 "types": [
                   {
                     "fieldType": "IDENTIFIER",
