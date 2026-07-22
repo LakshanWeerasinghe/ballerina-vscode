@@ -28,7 +28,6 @@ import io.ballerina.servicemodelgenerator.extension.builder.service.AiChatServic
 import io.ballerina.servicemodelgenerator.extension.builder.service.DefaultServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.GraphqlServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.HttpServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.HubspotTriggerServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.McpServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SolaceServiceBuilder;
@@ -87,7 +86,6 @@ public class ServiceBuilderRouter {
         // Hubspot has no bundled/`.bala` TriggerModel schema yet, so it keeps its dedicated builder
         // (unlike MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY above, which are already
         // schema-driven and would be dead entries here).
-        put(TRIGGER_HUBSPOT, HubspotTriggerServiceBuilder::new);
     }};
 
     public static ServiceNodeBuilder getServiceBuilder(String protocol) {
