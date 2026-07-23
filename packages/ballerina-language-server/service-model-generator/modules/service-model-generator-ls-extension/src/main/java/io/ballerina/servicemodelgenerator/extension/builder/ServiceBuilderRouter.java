@@ -103,9 +103,6 @@ public class ServiceBuilderRouter {
         if (ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName)) {
             return true;
         }
-        if (CONSTRUCTOR_MAP.containsKey(moduleName)) {
-            return false;
-        }
         return ConnectorModelReader.getInstance().hasTriggerModel(orgName, pkgName, version);
     }
 
