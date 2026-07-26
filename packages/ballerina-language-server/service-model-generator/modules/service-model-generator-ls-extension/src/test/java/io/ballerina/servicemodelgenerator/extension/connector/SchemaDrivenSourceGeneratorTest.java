@@ -232,6 +232,21 @@ public class SchemaDrivenSourceGeneratorTest {
     }
 
     @Test
+    public void testMcpServiceConfigNestsInfoRecordFromDottedPaths() {
+        // MCP's init form carries the annotation-bound `serviceName`/`version` fields under the dotted
+        // paths info.name/info.version (they address mcp:StreamableHttpServiceConfig's nested `info`
+        // record, not top-level fields). A dotted SERVICE_ANNOTATION path must nest into a mapping
+        // constructor, not render as a literal `info.name: ...` key — which is not valid Ballerina
+        // mapping-field syntax.
+        ServiceInitModel model = ConnectorModelReader.getInstance().getBundledServiceInitModel("mcp").orElseThrow();
+        String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(model, null);
+        Assert.assertTrue(
+                block.contains("@mcp:StreamableHttpServiceConfig {info: {name: \"MCP Service\", "
+                        + "version: \"1.0.0\"}}"),
+                "info.name/info.version must nest under a single info record, got:\n" + block);
+    }
+
+    @Test
     public void testProtocolEmittedFromEnabledBranchWhenParentValueCleared() {
         // Regression: on submit the front end signals a picked radio via the enabled branch's own value,
         // and does not always echo the parent CHOICE's `value` back. Clearing the parent value (leaving

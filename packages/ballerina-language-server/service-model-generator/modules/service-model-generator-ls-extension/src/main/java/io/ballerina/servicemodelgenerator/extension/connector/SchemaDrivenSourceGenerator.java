@@ -290,7 +290,7 @@ public final class SchemaDrivenSourceGenerator {
                     String key = codedata.getModuleName() + COLON + codedata.getOriginalName();
                     byAnnotation.computeIfAbsent(key,
                             k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()))
-                            .fields.add(codedata.getPath() + ": " + rendered);
+                            .fields.add(Map.entry(codedata.getPath(), rendered));
                 }
             }
             if (isGroup(field)) {
@@ -303,7 +303,7 @@ public final class SchemaDrivenSourceGenerator {
     private static final class AnnotationFields {
         private final String moduleName;
         private final String originalName;
-        private final List<String> fields = new ArrayList<>();
+        private final List<Map.Entry<String, String>> fields = new ArrayList<>();
 
         private AnnotationFields(String moduleName, String originalName) {
             this.moduleName = moduleName;
@@ -315,8 +315,44 @@ public final class SchemaDrivenSourceGenerator {
             String qualifier = selfPrefix.equals(moduleName) ? emitAlias : moduleName;
             String prefix = qualifier == null || qualifier.isBlank()
                     ? "@" + originalName : "@" + qualifier + COLON + originalName;
-            return prefix + " {" + String.join(", ", fields) + "}";
+            return prefix + " " + renderFieldTree(buildFieldTree(fields));
         }
+    }
+
+    /**
+     * Groups dot-separated {@code path}s (e.g. {@code info.name}, {@code info.version}) into a nested
+     * {field -> value | nested-map} tree, so a {@code SERVICE_ANNOTATION} field whose path addresses a
+     * record-typed sub-field (e.g. MCP's {@code info} record) emits as a nested mapping constructor
+     * rather than a literal dotted key, which is not valid Ballerina mapping-field syntax.
+     */
+    private static LinkedHashMap<String, Object> buildFieldTree(List<Map.Entry<String, String>> fields) {
+        LinkedHashMap<String, Object> root = new LinkedHashMap<>();
+        for (Map.Entry<String, String> field : fields) {
+            String[] segments = field.getKey().split("\\.");
+            Map<String, Object> node = root;
+            for (int i = 0; i < segments.length - 1; i++) {
+                node = childMap(node, segments[i]);
+            }
+            node.put(segments[segments.length - 1], field.getValue());
+        }
+        return root;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> childMap(Map<String, Object> node, String key) {
+        return (Map<String, Object>) node.computeIfAbsent(key, k -> new LinkedHashMap<String, Object>());
+    }
+
+    /** Renders a field tree built by {@link #buildFieldTree} as a mapping-constructor body. */
+    @SuppressWarnings("unchecked")
+    private static String renderFieldTree(Map<String, Object> node) {
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : node.entrySet()) {
+            Object value = entry.getValue();
+            String rendered = value instanceof Map ? renderFieldTree((Map<String, Object>) value) : (String) value;
+            parts.add(entry.getKey() + ": " + rendered);
+        }
+        return "{" + String.join(", ", parts) + "}";
     }
 
     /**

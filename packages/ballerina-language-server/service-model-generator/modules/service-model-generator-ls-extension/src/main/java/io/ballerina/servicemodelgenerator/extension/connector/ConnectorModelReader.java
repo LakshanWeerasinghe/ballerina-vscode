@@ -87,7 +87,8 @@ public class ConnectorModelReader {
             Map.entry(Constants.MSSQL, "trigger-models/mssql.json"),
             Map.entry(Constants.MYSQL, "trigger-models/mysql.json"),
             Map.entry(Constants.POSTGRESQL, "trigger-models/postgresql.json"),
-            Map.entry(Constants.TRIGGER_HUBSPOT, "trigger-models/trigger.hubspot.json")
+            Map.entry(Constants.TRIGGER_HUBSPOT, "trigger-models/trigger.hubspot.json"),
+            Map.entry(Constants.MCP, "trigger-models/mcp.json")
     );
 
     private final Gson gson = new Gson();
