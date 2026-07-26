@@ -51,7 +51,7 @@ import { FormField, FormValues, MarkdownDescription, ParamConfig, Parameter as S
 import { useRpcContext } from "@wso2/ballerina-rpc-client";
 
 import { EntryPointTypeCreator } from "../../../../../components/EntryPointTypeCreator";
-import { Parameters } from "../FileIntegrationForm/Parameters/Parameters";
+import { Parameters } from "./Parameters/Parameters";
 import { ParamEditor as HeaderParamEditor } from "../ResourceForm/Parameters/ParamEditor";
 import { ParamItem as HeaderParamItem } from "../ResourceForm/Parameters/ParamItem";
 import ArtifactForm from "../../../Forms/ArtifactForm";
@@ -667,11 +667,16 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const [diagnosticsByField, setDiagnosticsByField] = useState<Record<string, Diagnostic[]>>({});
     const [validationStateByField, setValidationStateByField] = useState<Record<string, { isValidating: boolean }>>({});
 
+    // Keyed on the variant identity (group + schema-shipped variant label), not `name.value`: the
+    // latter is user-editable for handlers like an MCP tool (name.editable), so keying on it here —
+    // and on the annotation section below — would wipe every annotation leaf's in-progress state on
+    // every keystroke of a rename. `groupId`/`selectedVariantLabel` only change on an actual variant
+    // switch or when editing a different handler, which is when annotation tracking should reset.
     useEffect(() => {
         setDiagnosticsByField({});
         setValidationStateByField({});
         fieldRefs.current = {};
-    }, [functionModel?.name?.value]);
+    }, [groupId, selectedVariantLabel]);
 
     const registerFieldRef = useCallback((key: string, handle: AnnotationExpressionFieldHandle | null) => {
         if (handle) {
@@ -952,7 +957,9 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                             {showAnnotationsDivider && <Divider />}
                             {annotations.map(([key, annotation]) => (
                                 <AnnotationConfigSection
-                                    key={`${functionModel.name?.value}-${key}`}
+                                    // Keyed on the variant identity, not the user-editable name value
+                                    // — see the effect above for why.
+                                    key={`${groupId}-${selectedVariantLabel}-${key}`}
                                     annotationKey={key}
                                     annotation={annotation}
                                     filePath={props.filePath}

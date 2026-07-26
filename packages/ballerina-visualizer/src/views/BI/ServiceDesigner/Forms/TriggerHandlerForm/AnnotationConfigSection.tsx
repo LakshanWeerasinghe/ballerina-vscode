@@ -139,8 +139,11 @@ export function AnnotationConfigSection(props: AnnotationConfigSectionProps) {
     );
 
     const renderChoiceValue = (fieldKey: string, field: PropertyModel, valueKey: string, choice: PropertyModel) => {
-        const selectedIndex = Math.max(0, (choice.choices ?? []).findIndex((c) => c.enabled));
-        const activeBranch = choice.choices?.[selectedIndex];
+        // No fallback to index 0: a choice the model has not resolved yet (no branch `enabled`)
+        // must render as genuinely unselected rather than showing the first option as chosen when
+        // the underlying model disagrees.
+        const selectedIndex = (choice.choices ?? []).findIndex((c) => c.enabled);
+        const activeBranch = selectedIndex >= 0 ? choice.choices?.[selectedIndex] : undefined;
         const nestedEntries = Object.entries(activeBranch?.properties ?? {}) as [string, PropertyModel][];
 
         const selectBranch = (value: string) => {

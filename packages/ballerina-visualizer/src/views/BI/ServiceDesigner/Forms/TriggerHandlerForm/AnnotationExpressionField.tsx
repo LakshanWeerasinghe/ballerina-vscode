@@ -29,13 +29,14 @@ import {
     TRIGGER_CHARACTERS,
 } from "@wso2/ballerina-core";
 import {
-    DiagnosticsStoreProvider,
+    DiagnosticsStoreContext,
     FieldFactory,
     FormExpressionEditorProps,
     FormField,
     FormValues,
     Provider as FormContextProvider,
     evaluateClientRules,
+    useDiagnosticsStoreState,
 } from "@wso2/ballerina-side-panel";
 import { CompletionItem } from "@wso2/ui-toolkit";
 
@@ -100,6 +101,14 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
         const methods = useForm<FormValues>({ defaultValues: { [FIELD_KEY]: value ?? "" } });
         const { control, getValues, setValue, watch, register, unregister, setError, clearErrors, formState } = methods;
 
+        // Owned here (not just rendered via a plain DiagnosticsStoreProvider below) so this component
+        // can read the store the nested shared editor (rendered through FieldFactory further down)
+        // writes into. That editor runs its own useFieldDiagnostics() against the same FIELD_KEY,
+        // including any `ls.*` (server-side) rule the leaf carries — reading its result back here is
+        // what lets a live `ls.*` failure actually reach this leaf's save gate below, instead of only
+        // rendering inside the nested editor with no way for this wrapper (or the parent form) to know.
+        const diagnosticsStore = useDiagnosticsStoreState();
+
         const [completions, setCompletions] = useState<CompletionItem[]>([]);
         const [filteredCompletions, setFilteredCompletions] = useState<CompletionItem[]>([]);
         const prevCompletionFetchText = useRef<string>("");
@@ -154,20 +163,35 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
         }) as FormField, [property, value, required]);
 
         // ----- diagnostics -----
-        // Two independent producers feed the parent's save gate: compiler diagnostics for the
-        // expression (async, below) and the connector's `validations[]` rules (synchronous). The
-        // shared editor renders the rule failures itself, but it keeps them in its own store — the
-        // parent never sees them — so they are re-evaluated here and merged into what we publish.
-        const [lsDiagnostics, setLsDiagnostics] = useState<Diagnostic[]>([]);
+        // Three independent producers feed the parent's save gate: compiler diagnostics for the
+        // expression (async, below), the connector's `validations[]` common/vscode.* rules
+        // (synchronous, re-evaluated here), and any `ls.*` (server-side) rule the leaf carries. The
+        // nested shared editor (rendered through FieldFactory further down) evaluates that last one
+        // itself via its own useFieldDiagnostics() call and writes the result into `diagnosticsStore`
+        // — read back below rather than left unseen, which is what previously let an `ls.*` failure
+        // render live in the nested editor while never counting toward this leaf's own save gate.
+        const [compilerDiagnostics, setCompilerDiagnostics] = useState<Diagnostic[]>([]);
 
         const clientDiagnostics: Diagnostic[] = useMemo(() => evaluateClientRules(field, watchedValue)
             .filter((failure) => failure.severity === "ERROR")
             .map((failure) => ({ message: failure.message, severity: 1 } as unknown as Diagnostic)),
             [field, watchedValue]);
 
+        const storeField = diagnosticsStore.getField(FIELD_KEY);
+        const serverRuleDiagnostics: Diagnostic[] = useMemo(
+            () => storeField.ls
+                .filter((d) => d.severity === "ERROR")
+                .map((d) => ({ message: d.message, severity: 1 } as unknown as Diagnostic)),
+            [storeField]
+        );
+
+        // ERROR-only: a compiler warning/info must not read as a blocking failure here. Non-error
+        // findings from `ls.*`/client rules are already excluded above at the source; the nested
+        // editor renders warnings itself (independent of what this wrapper publishes upward).
         const mergedDiagnostics = useMemo(
-            () => [...lsDiagnostics, ...clientDiagnostics],
-            [lsDiagnostics, clientDiagnostics]
+            () => [...compilerDiagnostics, ...clientDiagnostics, ...serverRuleDiagnostics]
+                .filter((d) => d.severity === 1),
+            [compilerDiagnostics, clientDiagnostics, serverRuleDiagnostics]
         );
 
         // Publish the merged view and mirror it into react-hook-form, so the field reads as invalid
@@ -186,7 +210,7 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
         }, [mergedDiagnostics, clearErrors, setError]);
 
         const applyDiagnostics = useCallback((diagnostics: Diagnostic[]) => {
-            setLsDiagnostics(diagnostics);
+            setCompilerDiagnostics(diagnostics);
         }, []);
 
         const runDiagnostics = useCallback(async (expression: string, property?: ExpressionProperty): Promise<Diagnostic[]> => {
@@ -393,20 +417,29 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
                 const ruleFailures = evaluateClientRules(field, current)
                     .filter((failure) => failure.severity === "ERROR")
                     .map((failure) => ({ message: failure.message, severity: 1 } as unknown as Diagnostic));
+                // The nested shared editor's own `ls.*` check is debounced independently of this
+                // handle; its latest settled result (if any) is already sitting in the shared store,
+                // so fold it in rather than reporting this leaf clean while a visible `ls.*` error is
+                // still showing underneath it. A check still in flight when save is clicked is the
+                // same accepted debounce-timing gap as elsewhere in this form.
+                const serverFailures = diagnosticsStore.getField(FIELD_KEY).ls
+                    .filter((d) => d.severity === "ERROR")
+                    .map((d) => ({ message: d.message, severity: 1 } as unknown as Diagnostic));
                 if (!current.trim()) {
                     applyDiagnostics([]);
                     onValidationStateChangeRef.current?.({ isValidating: false });
-                    return ruleFailures;
+                    return [...ruleFailures, ...serverFailures];
                 }
-                return [...(await runDiagnostics(current)), ...ruleFailures];
+                return [...(await runDiagnostics(current)), ...ruleFailures, ...serverFailures];
             },
-        }), [debouncedDiagnostics, getValues, runDiagnostics, applyDiagnostics, field]);
+        }), [debouncedDiagnostics, getValues, runDiagnostics, applyDiagnostics, field, diagnosticsStore]);
 
         return (
-            // The shared editor keeps its live rule failures in a diagnostics store and reads them
-            // back through it — without this provider the store is absent, every lookup yields
-            // nothing, and the messages never render.
-            <DiagnosticsStoreProvider>
+            // Provides the store this component itself owns (see diagnosticsStore above) rather than
+            // a plain DiagnosticsStoreProvider — the nested editor's live rule failures land in this
+            // exact store instance, which is what makes them readable above instead of trapped in an
+            // isolated provider only the nested editor can see.
+            <DiagnosticsStoreContext.Provider value={diagnosticsStore}>
                 <FormContextProvider {...(formContextValue as any)}>
                     <FieldFactory
                         field={field}
@@ -414,7 +447,7 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
                         handleFormValidation={handleFormValidation}
                     />
                 </FormContextProvider>
-            </DiagnosticsStoreProvider>
+            </DiagnosticsStoreContext.Provider>
         );
     }
 );
