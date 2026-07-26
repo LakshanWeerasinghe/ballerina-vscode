@@ -20,6 +20,17 @@ package io.ballerina.servicemodelgenerator.extension.model;
 
 import java.util.List;
 
+/**
+ * A trigger picker entry, loaded once (as a flat map) from {@code trigger_properties.json}.
+ *
+ * <p>{@code version}/{@code icon}/{@code kind} are optional, populated only for a schema-driven
+ * trigger (transcribed from its {@code trigger-model.json}'s own top-level fields at onboarding time).
+ * When present, {@link ServiceModelGeneratorService} builds the trigger's {@link TriggerBasicInfo}
+ * directly from these scalars, without parsing/caching the connector's full (potentially large,
+ * deeply-nested) {@code TriggerModel} just to populate the picker list. A legacy trigger (e.g. Solace,
+ * which has no schema-driven model at all) simply omits them, falling back to the sqlite index derived
+ * from {@code service_artifacts.json}.
+ */
 public record TriggerProperty(String name, String orgName, String packageName, List<String> keywords,
-                              String triggerName) {
+                              String triggerName, String version, String icon, String kind) {
 }

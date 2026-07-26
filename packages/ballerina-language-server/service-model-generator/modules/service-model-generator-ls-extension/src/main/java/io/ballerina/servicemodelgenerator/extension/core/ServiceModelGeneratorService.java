@@ -46,6 +46,8 @@ import io.ballerina.projects.Package;
 import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.FunctionBuilderRouter;
 import io.ballerina.servicemodelgenerator.extension.builder.ServiceBuilderRouter;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
+import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
@@ -1129,7 +1131,52 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         return SaveTimeValidator.validate(function.getProperties(), context, extraNodes);
     }
 
-    private Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
+    /**
+     * Resolves a trigger's basic info, preferring the schema-driven {@code TriggerModel} (bundled
+     * classpath resource, then the connector's own {@code .bala}) over the legacy sqlite index derived
+     * from {@code service_artifacts.json}. This lets a schema-driven trigger appear in the picker with
+     * no {@code service_artifacts.json} entry or index rebuild; only triggers with neither a bundled nor
+     * bala-shipped model (e.g. HTTP, AI, TCP, GraphQL, Solace) fall through to the legacy index.
+     *
+     * <p>Package-visible for unit testing without a full LS bootstrap.
+     */
+    Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
+        ConnectorModelReader reader = ConnectorModelReader.getInstance();
+
+        Optional<TriggerModel> bundled = reader.getBundledTriggerModel(name);
+        if (bundled.isPresent()) {
+            return bundled.map(this::toTriggerBasicInfo);
+        }
+
+        Optional<TriggerModel> bala = reader.readTriggerModel(orgName, name, null); // null -> latest version
+        if (bala.isPresent()) {
+            return bala.map(this::toTriggerBasicInfo);
+        }
+
+        return getTriggerBasicInfoFromLegacyIndex(orgName, name);
+    }
+
+    /** Builds {@link TriggerBasicInfo} straight from a resolved schema-driven {@link TriggerModel}. */
+    TriggerBasicInfo toTriggerBasicInfo(TriggerModel model) {
+        String protocol = getProtocol(model.moduleName());
+        String label = model.displayName();
+        String icon = (model.icon() == null || model.icon().isBlank())
+                ? TriggerMetadataResolver.resolveIcon(
+                        model.orgName(), model.packageName(), model.moduleName(), model.version()).url()
+                : model.icon();
+        // TriggerModel.id is a String catalog id and is inconsistently populated across real models
+        // (null / numeric / a slug), so it can't be reused as TriggerBasicInfo's int id. Nothing
+        // downstream looks a trigger up by this id (the frontend only uses it as a list key, and
+        // getTriggerModel's id-based lookup keys off the separate trigger_properties.json entry id),
+        // so a deterministic hash of moduleName is a safe, stable substitute.
+        int id = model.moduleName().hashCode();
+        return new TriggerBasicInfo(id, label, model.orgName(), model.packageName(), model.moduleName(),
+                model.version(), model.kind(), label, "", protocol, icon);
+    }
+
+    /** The legacy sqlite-index lookup (seeded from {@code service_artifacts.json}), reached only when
+     * neither a bundled nor bala-shipped {@link TriggerModel} resolves for {@code orgName}/{@code name}. */
+    private Optional<TriggerBasicInfo> getTriggerBasicInfoFromLegacyIndex(String orgName, String name) {
         Optional<ServiceDeclaration> serviceDeclaration = ServiceDatabaseManager.getInstance()
                 .getServiceDeclaration(orgName, name); // TODO: improve this to use a single query
 
@@ -1149,7 +1196,23 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         return Optional.of(triggerBasicInfo);
     }
 
-    private Optional<TriggerBasicInfo> getTriggerBasicInfoByName(TriggerProperty triggerProperty) {
+    /**
+     * Resolves a trigger picker entry's basic info. When {@code trigger_properties.json} already
+     * carries {@code version}/{@code icon}/{@code kind} for this entry, builds {@link TriggerBasicInfo}
+     * straight from those scalars -- no {@code TriggerModel} is parsed or cached, so listing the full
+     * picker never pays the cost of reading every connector's (potentially large, deeply-nested) schema
+     * just to render a list row. Only an entry missing those fields (a legacy trigger with no
+     * schema-driven model, e.g. Solace, or one not yet backfilled) falls back to the fuller
+     * {@link #getTriggerBasicInfoByName(String, String)} resolution chain.
+     *
+     * <p>Package-visible for unit testing without a full LS bootstrap.
+     */
+    Optional<TriggerBasicInfo> getTriggerBasicInfoByName(TriggerProperty triggerProperty) {
+        if (triggerProperty.version() != null && triggerProperty.icon() != null
+                && triggerProperty.kind() != null) {
+            return Optional.of(toTriggerBasicInfo(triggerProperty));
+        }
+
         if (triggerProperty.triggerName() == null) {
             return getTriggerBasicInfoByName(triggerProperty.orgName(), triggerProperty.name());
         }
@@ -1159,5 +1222,15 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                         original.packageName(), original.moduleName(), original.version(), original.type(),
                         original.displayName(), original.documentation(), original.listenerProtocol(),
                         original.icon()));
+    }
+
+    /** Builds {@link TriggerBasicInfo} straight from a self-describing {@link TriggerProperty} entry. */
+    private TriggerBasicInfo toTriggerBasicInfo(TriggerProperty triggerProperty) {
+        String label = triggerProperty.triggerName() != null ? triggerProperty.triggerName() : triggerProperty.name();
+        String protocol = getProtocol(triggerProperty.name());
+        int id = triggerProperty.name().hashCode();
+        return new TriggerBasicInfo(id, label, triggerProperty.orgName(), triggerProperty.packageName(),
+                triggerProperty.name(), triggerProperty.version(), triggerProperty.kind(), label, "",
+                protocol, triggerProperty.icon());
     }
 }

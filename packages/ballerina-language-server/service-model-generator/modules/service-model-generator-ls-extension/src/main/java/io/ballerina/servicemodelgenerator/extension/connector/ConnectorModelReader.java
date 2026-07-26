@@ -23,14 +23,17 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.projects.Package;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
-import io.ballerina.servicemodelgenerator.extension.util.Constants;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,6 +64,9 @@ public class ConnectorModelReader {
     private static final List<String> INIT_IDENTITY_KEYS = List.of(
             "id", "displayName", "description", "orgName", "packageName", "moduleName", "version", "type", "icon");
 
+    private static final String BUNDLED_TRIGGER_MODEL_REGISTRY_RESOURCE = "bundled_trigger_models.json";
+    private static final Type BUNDLED_REGISTRY_TYPE = new TypeToken<Map<String, String>>() { }.getType();
+
     /**
      * Modules for which a {@code trigger-model.json} is bundled as a classpath resource in this jar,
      * instead of being resolved from the connector's {@code .bala}. This lets a connector with a
@@ -68,28 +74,34 @@ public class ConnectorModelReader {
      * without needing a Central release that ships the model. Keyed by moduleName to line up with the
      * routers' {@code CONSTRUCTOR_MAP}s.
      *
-     * <p>Deliberately rooted at {@code bundled_trigger_models/} rather than {@code trigger_models/}:
-     * the latter is already used under {@code src/test/resources} for unrelated read-path test
-     * fixtures, and the test classpath merges main + test resources, so reusing that root would let a
-     * test fixture masquerade as a bundled production schema.
+     * <p>Loaded from {@code bundled_trigger_models.json} (a resource sibling of
+     * {@code trigger_properties.json}) rather than hardcoded, so onboarding a new bundled trigger model
+     * is a data edit, not a Java edit. Falls back to an empty registry (no bundled models resolve) if
+     * the resource is missing or malformed, so a broken/absent file degrades to the bala-resolution and
+     * legacy-index fallbacks rather than failing the class to load.
+     *
+     * <p>The registry's resource paths are deliberately rooted at {@code trigger-models/} and the
+     * registry file itself is named distinctly from that directory: {@code trigger_models/} (underscore)
+     * is already used under {@code src/test/resources} for unrelated read-path test fixtures, and the
+     * test classpath merges main + test resources, so a colliding name could let a test fixture
+     * masquerade as a bundled production schema.
      */
-    private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = Map.ofEntries(
-            Map.entry(Constants.FTP, "trigger-models/ftp.json"),
-            Map.entry(Constants.FILE, "trigger-models/file.json"),
-            Map.entry(Constants.KAFKA, "trigger-models/kafka.json"),
-            Map.entry(Constants.RABBITMQ, "trigger-models/rabbitmq.json"),
-            Map.entry(Constants.MQTT, "trigger-models/mqtt.json"),
-            Map.entry(Constants.TRIGGER_GITHUB, "trigger-models/trigger.github.json"),
-            Map.entry(Constants.ASB, "trigger-models/asb.json"),
-            Map.entry(Constants.SF, "trigger-models/salesforce.json"),
-            Map.entry(Constants.TRIGGER_TWILIO, "trigger-models/trigger.twilio.json"),
-            Map.entry(Constants.TRIGGER_SHOPIFY, "trigger-models/trigger.shopify.json"),
-            Map.entry(Constants.MSSQL, "trigger-models/mssql.json"),
-            Map.entry(Constants.MYSQL, "trigger-models/mysql.json"),
-            Map.entry(Constants.POSTGRESQL, "trigger-models/postgresql.json"),
-            Map.entry(Constants.TRIGGER_HUBSPOT, "trigger-models/trigger.hubspot.json"),
-            Map.entry(Constants.MCP, "trigger-models/mcp.json")
-    );
+    private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = loadBundledTriggerModelRegistry();
+
+    private static Map<String, String> loadBundledTriggerModelRegistry() {
+        try (InputStream is = ConnectorModelReader.class.getClassLoader()
+                .getResourceAsStream(BUNDLED_TRIGGER_MODEL_REGISTRY_RESOURCE)) {
+            if (is == null) {
+                return Map.of();
+            }
+            try (JsonReader reader = new JsonReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                Map<String, String> loaded = new Gson().fromJson(reader, BUNDLED_REGISTRY_TYPE);
+                return loaded == null ? Map.of() : Map.copyOf(loaded);
+            }
+        } catch (IOException | JsonParseException e) {
+            return Map.of();
+        }
+    }
 
     private final Gson gson = new Gson();
     private final Map<String, Optional<TriggerModel>> triggerCache = new ConcurrentHashMap<>();
