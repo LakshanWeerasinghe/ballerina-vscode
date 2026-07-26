@@ -100,20 +100,36 @@ public final class TriggerFunctionAdapter {
                 && notBlank(variant.codedata().originalName())
                         ? variant.codedata().originalName() : model.name();
         String variantLabel = variantLabel(model, variant);
+        // The name field's own label/description, when the schema wants the rename prompt to read
+        // differently from the handler's own metadata (e.g. MCP's "Function Name" / "The name of the
+        // function" vs. the catalog card's "Tool" / "Define a tool function..."). Falls back to the
+        // handler's own label/description, matching every schema authored before this field existed.
+        String nameLabel = model.nameMetadata() != null && notBlank(model.nameMetadata().label())
+                ? model.nameMetadata().label() : (variantLabel != null ? variantLabel : label);
+        String nameDescription = model.nameMetadata() != null && notBlank(model.nameMetadata().description())
+                ? model.nameMetadata().description() : description;
 
         Function.FunctionBuilder builder = new Function.FunctionBuilder()
                 .setMetadata(new MetaData(label, description, notice, null, badge))
                 .kind(wireKind(model.kind()))
-                .name(identifierValue(functionName, variantLabel != null ? variantLabel : label, description))
+                .name(identifierValue(functionName, nameLabel, nameDescription,
+                        Boolean.TRUE.equals(model.nameEditable())))
                 .parameters(toParameters(model.parameters(), variantParameter, variant))
                 .returnType(toReturnType(model.returnType()))
                 .enabled(model.enabled())
                 .optional(Boolean.TRUE.equals(model.optional()))
-                .editable(model.editable() == null || model.editable());
+                .editable(model.editable() == null || model.editable())
+                .canAddParameters(Boolean.TRUE.equals(model.canAddParameters()));
 
         // Do NOT copy `qualifiers` — the source emitter derives the keyword from `kind`.
         if (KIND_RESOURCE.equalsIgnoreCase(model.kind()) && model.accessor() != null) {
             builder.accessor(identifierValue(model.accessor(), model.accessor(), description));
+        }
+        // A user-editable doc-comment (e.g. MCP's "Tool Description") rides the same
+        // Function.documentation the generic emitter already turns into a `# ...` doc comment — no
+        // new emission path needed, just a Value built from the schema's own template.
+        if (model.documentationSchema() != null) {
+            builder.documentation(PropertyValueAdapter.toValue(model.documentationSchema()));
         }
         Function function = builder.build();
         function.setGroup(notBlank(model.group()) ? model.group() : model.name());
@@ -122,7 +138,48 @@ public final class TriggerFunctionAdapter {
         function.setRepeatable(Repeatable.orDefault(model.repeatable()).effective(function.getGroup()));
         function.setNameEditable(model.nameEditable());
         function.setProperties(toWireProperties(model, variant));
+        function.setSchema(toParameterSchema(model.parameterSchema()));
         return function;
+    }
+
+    /**
+     * Converts the addable-parameter templates ({@code canAddParameters}'s backing data) into the
+     * wire {@code Function.schema} the front-end's generic {@code ParamManager} reads — one entry per
+     * kind (e.g. {@code parameter}, {@code header}), each a fully-formed template {@link Parameter}
+     * (editable {@code type}/{@code name}, plus {@code defaultValue}/{@code documentation}/
+     * {@code headerName} where the kind uses them). Cloning one of these per user "+ Add" click, then
+     * appending the clone to the function's own {@code parameters}, is exactly how
+     * {@code functions/http_resource.json}'s non-schema-driven {@code schema} map already works —
+     * this generalizes the same mechanism into the unified {@link TriggerModel}.
+     */
+    private static Map<String, Parameter> toParameterSchema(Map<String, TriggerModel.Parameter> parameterSchema) {
+        if (parameterSchema == null || parameterSchema.isEmpty()) {
+            return null;
+        }
+        Map<String, Parameter> schema = new LinkedHashMap<>();
+        parameterSchema.forEach((key, template) -> schema.put(key, toParameterSchemaTemplate(template)));
+        return schema;
+    }
+
+    private static Parameter toParameterSchemaTemplate(TriggerModel.Parameter model) {
+        if (model == null) {
+            return null;
+        }
+        String label = label(model.metadata(), paramNameText(model));
+        String description = description(model.metadata());
+        return new Parameter.Builder()
+                .metadata(new MetaData(label, description))
+                .kind(model.kind())
+                .type(PropertyValueAdapter.toValue(model.type()))
+                .name(PropertyValueAdapter.toValue(model.name()))
+                .defaultValue(PropertyValueAdapter.toValue(model.defaultValue()))
+                .documentation(PropertyValueAdapter.toValue(model.documentation()))
+                .headerName(PropertyValueAdapter.toValue(model.headerName()))
+                .httpParamType(model.httpParamType())
+                .optional(Boolean.TRUE.equals(model.optional()))
+                .enabled(model.enabled() == null || model.enabled())
+                .editable(model.editable() == null || model.editable())
+                .build();
     }
 
     /**
@@ -321,15 +378,26 @@ public final class TriggerFunctionAdapter {
         Value name = identifierValue(paramNameText(model), label, description);
 
         String typeText = paramTypeText(model);
-        Value type = new Value.ValueBuilder()
+        Value.ValueBuilder typeBuilder = new Value.ValueBuilder()
                 .setMetadata(new MetaData("Parameter Type", "The type of the parameter"))
                 .value(typeText)
                 .types(List.of(PropertyType.types(Value.FieldType.TYPE)))
                 .setPlaceholder(typeText)
                 .editable(false)
                 .enabled(true)
-                .optional(true)
-                .build();
+                .optional(true);
+        // A fixed parameter type from a module other than the connector's own (e.g. MCP's `http:Request`)
+        // declares that module on its own codedata; ride it along as a wire import so the generic emitter
+        // (Utils#generateFunctionParamListSource) adds the missing `import` whenever this parameter is
+        // enabled — on initial add or when toggled on later on an already-existing function. Same principle
+        // FunctionForm/ResourceForm already use for a user-picked type's import, just server-populated here
+        // since this type is fixed by the schema rather than chosen through the type editor.
+        TriggerModel.Codedata typeCodedata = model.type() == null ? null : model.type().codedata();
+        if (typeCodedata != null && notBlank(typeCodedata.moduleName()) && notBlank(typeCodedata.orgName())) {
+            typeBuilder.addImport(typeCodedata.moduleName(),
+                    typeCodedata.orgName() + "/" + typeCodedata.moduleName());
+        }
+        Value type = typeBuilder.build();
 
         return new Parameter.Builder()
                 .metadata(new MetaData(label, description))
@@ -387,12 +455,18 @@ public final class TriggerFunctionAdapter {
     }
 
     private static Value identifierValue(String value, String label, String description) {
+        return identifierValue(value, label, description, false);
+    }
+
+    /** {@code editable} marks the function-name identifier user-renamable (see {@code nameEditable}). */
+    private static Value identifierValue(String value, String label, String description, boolean editable) {
         return new Value.ValueBuilder()
                 .metadata(label, description)
                 .value(value)
                 .types(List.of(PropertyType.types(Value.FieldType.IDENTIFIER)))
                 .setPlaceholder(value)
                 .enabled(true)
+                .editable(editable)
                 .build();
     }
 

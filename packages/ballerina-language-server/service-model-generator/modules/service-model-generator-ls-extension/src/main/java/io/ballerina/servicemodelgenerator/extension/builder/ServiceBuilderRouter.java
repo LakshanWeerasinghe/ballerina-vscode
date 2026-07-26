@@ -28,7 +28,6 @@ import io.ballerina.servicemodelgenerator.extension.builder.service.AiChatServic
 import io.ballerina.servicemodelgenerator.extension.builder.service.DefaultServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.GraphqlServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.HttpServiceBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.service.McpServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SchemaDrivenServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.SolaceServiceBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.service.TCPServiceBuilder;
@@ -57,7 +56,6 @@ import java.util.function.Supplier;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.AI;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MCP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SOLACE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.TCP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGER_HUBSPOT;
@@ -70,18 +68,17 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.TRIGGE
  */
 public class ServiceBuilderRouter {
 
-    // RABBITMQ/KAFKA/MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY (and ASB, never
+    // RABBITMQ/KAFKA/MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY/MCP (and ASB, never
     // registered here) are deliberately absent: each now ships a bundled TriggerModel schema (see
     // ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so useSchemaDrivenPath always routes
     // them to SchemaDrivenServiceBuilder before this map is consulted — a hardcoded entry here
-    // would be dead code. HTTP/AI/TCP/GRAPHQL/MCP/SOLACE are not (yet) schema-driven and keep their
+    // would be dead code. HTTP/AI/TCP/GRAPHQL/SOLACE are not (yet) schema-driven and keep their
     // dedicated builders.
     private static final Map<String, Supplier<? extends ServiceNodeBuilder>> CONSTRUCTOR_MAP = new HashMap<>() {{
         put(HTTP, HttpServiceBuilder::new);
         put(AI, AiChatServiceBuilder::new);
         put(TCP, TCPServiceBuilder::new);
         put(GRAPHQL, GraphqlServiceBuilder::new);
-        put(MCP, McpServiceBuilder::new);
         put(SOLACE, SolaceServiceBuilder::new);
         // Hubspot has no bundled/`.bala` TriggerModel schema yet, so it keeps its dedicated builder
         // (unlike MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY above, which are already

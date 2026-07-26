@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -153,17 +154,42 @@ public final class TriggerSourceMerger {
         serviceModel.setSchemaFunctions(catalog);
     }
 
-    /** Matches a source function to its schema template by emitted name (and accessor for resources). */
+    /**
+     * Matches a source function to its schema template by emitted name (and accessor for resources).
+     * A fixed-name template (the common case) only ever matches its own literal name. A
+     * <b>name-editable, repeat-always</b> template (e.g. MCP's {@code Tool} — any remote function in
+     * the service is one) has no fixed identity to match by name once the user renames an instance
+     * away from the template's placeholder: falls back to matching any same-{@code kind}/
+     * {@code accessor} source function not already claimed by a fixed-name template, so a renamed
+     * instance keeps being recognised (editable, and not silently dropped from the schema) on every
+     * re-read instead of degrading into an unrecognised, read-only hand-written member.
+     */
     private static Function findTemplate(List<Function> templates, Function source) {
         String sourceName = valueOf(source.getName());
         if (sourceName == null) {
             return null;
         }
+        String sourceAccessor = valueOf(source.getAccessor());
         for (Function template : templates) {
             if (!sourceName.equals(valueOf(template.getName()))) {
                 continue;
             }
-            String sourceAccessor = valueOf(source.getAccessor());
+            String templateAccessor = valueOf(template.getAccessor());
+            if (sourceAccessor == null || templateAccessor == null
+                    || sourceAccessor.equals(templateAccessor)) {
+                return template;
+            }
+        }
+        for (Function template : templates) {
+            if (!Boolean.TRUE.equals(template.getNameEditable())) {
+                continue;
+            }
+            if (!Repeatable.orDefault(template.getRepeatable()).effective(template.getGroup()).staysAddable()) {
+                continue;
+            }
+            if (!Objects.equals(source.getKind(), template.getKind())) {
+                continue;
+            }
             String templateAccessor = valueOf(template.getAccessor());
             if (sourceAccessor == null || templateAccessor == null
                     || sourceAccessor.equals(templateAccessor)) {
@@ -211,7 +237,10 @@ public final class TriggerSourceMerger {
      * types like {@code smb:FileInfo}/{@code smb:Caller}) match by type text and toggle their
      * include state; payload parameters (there may be more than one — e.g. CDC's {@code before}/
      * {@code after}) claim the remaining unclaimed source parameters positionally, in declaration
-     * order, and are each reverse-composed. Unknown extra source parameters are appended read-only.
+     * order, and are each reverse-composed. Unknown extra source parameters are appended read-only —
+     * unless the handler declares {@code canAddParameters} (e.g. MCP's Tool), in which case an extra
+     * parameter is exactly what a user-added parameter/header looks like once it round-trips through
+     * source, and forcing it read-only would silently un-do the whole point of being able to add one.
      */
     private static void reconcileParameters(Function template, Function source) {
         List<Parameter> sourceParams = source.getParameters() == null
@@ -240,9 +269,10 @@ public final class TriggerSourceMerger {
                 applyPayloadSource(template, payloadTemplate, sourceParams.remove(0));
             }
         }
+        boolean userAddable = template.isCanAddParameters();
         for (Parameter extra : sourceParams) {
             extra.setEnabled(true);
-            extra.setEditable(false);
+            extra.setEditable(userAddable);
             template.getParameters().add(extra);
         }
     }

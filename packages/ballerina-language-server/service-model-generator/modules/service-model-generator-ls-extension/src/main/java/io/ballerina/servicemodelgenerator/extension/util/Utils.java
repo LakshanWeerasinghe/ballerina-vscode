@@ -113,6 +113,8 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.COLON;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GET;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL_CONTEXT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL_FIELD;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP_HEADER_PARAM_ANNOTATION;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP_PARAM_TYPE_HEADER;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_DEFAULT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_DEFAULTABLE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_MUTATION;
@@ -392,28 +394,36 @@ public final class Utils {
     }
 
     public static Optional<Parameter> getParameterModel(ParameterNode parameterNode) {
+        Parameter parameterModel;
         if (parameterNode instanceof RequiredParameterNode parameter) {
             if (parameter.paramName().isEmpty()) {
                 return Optional.empty();
             }
             String paramName = parameter.paramName().get().text().trim();
-            Parameter parameterModel = createParameter(paramName, KIND_REQUIRED,
-                    parameter.typeName().toString().trim());
-            return Optional.of(parameterModel);
+            parameterModel = createParameter(paramName, KIND_REQUIRED, parameter.typeName().toString().trim());
         } else if (parameterNode instanceof DefaultableParameterNode parameter) {
             if (parameter.paramName().isEmpty()) {
                 return Optional.empty();
             }
             String paramName = parameter.paramName().get().text().trim();
-            Parameter parameterModel = createParameter(paramName, KIND_DEFAULTABLE,
-                    parameter.typeName().toString().trim());
+            parameterModel = createParameter(paramName, KIND_DEFAULTABLE, parameter.typeName().toString().trim());
             Value defaultValue = parameterModel.getDefaultValue();
             defaultValue.setValue(parameter.expression().toString().trim());
             defaultValue.setTypes(List.of(PropertyType.types((Value.FieldType.EXPRESSION))));
             defaultValue.setEnabled(true);
-            return Optional.of(parameterModel);
+        } else {
+            return Optional.empty();
         }
-        return Optional.empty();
+        // Same detection as AbstractFunctionBuilder#getParameterModel (this method is that one's
+        // duplicate, used by the generic service-level source extraction path — see
+        // ServiceModelUtils#extractFunctionsFromSource) — an @http:Header-annotated parameter must be
+        // recognised here too, or it reverts to a plain parameter every time the model is re-read.
+        Optional<String> annotationRef = HttpUtil.getHttpParamTypeAndSetHeaderName(
+                parameterModel, getParamAnnotations(parameterNode));
+        if (annotationRef.filter(HTTP_HEADER_PARAM_ANNOTATION::equals).isPresent()) {
+            parameterModel.setHttpParamType(HTTP_PARAM_TYPE_HEADER);
+        }
+        return Optional.of(parameterModel);
     }
 
 
@@ -1312,10 +1322,40 @@ public final class Utils {
                     paramDef = String.format("@graphql:ID %s", paramDef);
                     imports.put("graphql", "ballerina/graphql");
                 }
+                // An individually bound HTTP header (e.g. a schema-driven function's user-added
+                // header parameter) — same annotation shape HttpUtil#generateParams emits for HTTP
+                // resources, via the shared helper below.
+                String headerAnnotation = buildHttpHeaderAnnotationPrefix(param, imports);
+                if (!headerAnnotation.isEmpty()) {
+                    paramDef = headerAnnotation + paramDef;
+                }
                 params.add(paramDef);
             }
         });
         return String.join(", ", params);
+    }
+
+    /**
+     * The {@code @http:Header} annotation prefix (including a trailing space) for a parameter marked
+     * {@code httpParamType == HEADER} — an individually bound HTTP header, whether on HTTP's own
+     * resource functions ({@link io.ballerina.servicemodelgenerator.extension.util.HttpUtil}) or a
+     * schema-driven function's user-added header parameter (see {@code TriggerFunctionAdapter}'s
+     * {@code parameterSchema}). Adds the {@code {name: ...}} remap when the wire header name differs
+     * from the parameter's own identifier, and registers the {@code ballerina/http} import the
+     * annotation itself needs. Returns {@code ""} for a non-header parameter.
+     */
+    static String buildHttpHeaderAnnotationPrefix(Parameter param, Map<String, String> imports) {
+        if (!HTTP_PARAM_TYPE_HEADER.equals(param.getHttpParamType())) {
+            return "";
+        }
+        imports.put("http", "ballerina/http");
+        StringBuilder prefix = new StringBuilder("@http:").append(HTTP_HEADER_PARAM_ANNOTATION);
+        Value headerName = param.getHeaderName();
+        if (headerName != null && headerName.isEnabledWithValue()
+                && !headerName.getValue().equals(param.getName().getValue())) {
+            prefix.append(" {name: ").append(headerName.getLiteralValue()).append("}");
+        }
+        return prefix.append(SPACE).toString();
     }
 
     public static String getFunctionQualifiers(Function function) {

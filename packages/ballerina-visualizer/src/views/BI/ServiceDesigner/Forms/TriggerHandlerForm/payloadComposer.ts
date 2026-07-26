@@ -78,6 +78,46 @@ export function repeatBehaviorOf(fn: FunctionModel): RepeatBehavior {
 }
 
 /**
+ * A handler's addable-parameter kinds (`FunctionModel.schema` keys the language server ships when
+ * `canAddParameters` is set — see `TriggerModel.FunctionModel.parameterSchema`). `parameter` is a
+ * plain user-typed parameter; `header` is an individually bound HTTP header (emits `@http:Header`,
+ * the same annotation HTTP resource functions use for their own header parameters).
+ */
+export type AddableParameterKind = "parameter" | "header";
+
+const HTTP_PARAM_TYPE_HEADER = "HEADER";
+
+/**
+ * Whether a parameter was appended by the user through the addable `parameterSchema` catalog, as
+ * opposed to a fixed schema parameter (e.g. MCP's opt-in `Request`/`Headers`/`Meta`, toggled via the
+ * Advanced Parameters checkboxes rather than added/removed freely). A fixed parameter is always
+ * `advanced === true`; nothing user-added through the parameter manager is.
+ */
+export function isAddedParameter(p: ParameterModel, kind: AddableParameterKind): boolean {
+    if (p.advanced === true) {
+        return false;
+    }
+    const isHeaderParam = p.httpParamType === HTTP_PARAM_TYPE_HEADER;
+    return kind === "header" ? isHeaderParam : !isHeaderParam;
+}
+
+/** A handler's user-added parameters of one kind (its `parameters`, minus fixed and other-kind ones). */
+export function addedParametersOf(fn: FunctionModel, kind: AddableParameterKind): ParameterModel[] {
+    return (fn.parameters ?? []).filter((p) => isAddedParameter(p, kind));
+}
+
+/**
+ * Replaces a handler's user-added parameters of one kind with a fresh set (e.g. after a ParamManager
+ * edit), leaving its fixed parameters and the other kind's user-added ones untouched.
+ */
+export function withAddedParameters(
+    fn: FunctionModel, kind: AddableParameterKind, params: ParameterModel[]
+): FunctionModel {
+    const kept = (fn.parameters ?? []).filter((p) => !isAddedParameter(p, kind));
+    return { ...fn, parameters: [...kept, ...params] };
+}
+
+/**
  * The still-addable handler catalog, with the group/repeat rules enforced against the handlers
  * already present (enabled) in the service. The language server already prunes `schemaFunctions` on
  * the read path; applying the same rules on the client keeps the catalog correct independently —
@@ -166,10 +206,10 @@ export function propertiesOfRole(fn: FunctionModel, role: string): [string, Prop
 
 /**
  * Whether a single handler variant has anything {@link TriggerHandlerForm} would let the user
- * configure: a bindable payload, composition flags, function annotations, or opt-in advanced
- * parameters. False for a handler like kafka's `onError`, whose only parameter is a fixed,
- * non-editable error — the form would render empty, so callers can skip it (add directly / hide
- * the edit affordance) instead of opening a blank panel.
+ * configure: a bindable payload, composition flags, function annotations, opt-in advanced
+ * parameters, a user-renamable name, or an editable return type. False for a handler like kafka's
+ * `onError`, whose only parameter is a fixed, non-editable error — the form would render empty, so
+ * callers can skip it (add directly / hide the edit affordance) instead of opening a blank panel.
  */
 export function hasConfigurableFields(fn: FunctionModel): boolean {
     if (!fn) {
@@ -181,7 +221,75 @@ export function hasConfigurableFields(fn: FunctionModel): boolean {
     const hasModifierFlags = propertiesOfRole(fn, CODEDATA_PAYLOAD_MODIFIER).length > 0;
     const hasAnnotations = propertiesOfRole(fn, CODEDATA_COMPLEX_ANNOTATION).length > 0;
     const hasAdvancedParams = fn.parameters?.some((p) => p.advanced === true) ?? false;
-    return isPayloadBindable || hasMetadataFlags || hasModifierFlags || hasAnnotations || hasAdvancedParams;
+    const hasEditableName = fn.name?.editable === true;
+    const hasEditableReturnType = fn.returnType?.editable === true;
+    return isPayloadBindable || hasMetadataFlags || hasModifierFlags || hasAnnotations || hasAdvancedParams
+        || hasEditableName || hasEditableReturnType;
+}
+
+/** One card in the add-handler catalog picker — a group's variants collapse into one entry. */
+export interface HandlerGroup {
+    id: string;
+    label: string;
+    description: string;
+    /** False when the group has exactly one variant and nothing configurable on it. */
+    needsForm: boolean;
+    /** The variant to add directly when {@code needsForm} is false. */
+    quickAddFunction?: FunctionModel;
+    /** The repeat behaviour shared by the group's members (see {@link repeatBehaviorOf}). */
+    repeatable: RepeatBehavior;
+}
+
+/**
+ * The add-handler catalog, collapsed into one card per handler group (a group's functions are its
+ * format variants). Shared by {@link TriggerHandlerConfigForm} (renders the picker) and the "+ Add
+ * Handler" entry point (which skips the picker straight to the form when there's exactly one
+ * always-addable group — see `isSoleRepeatableGroup`).
+ */
+export function computeHandlerGroups(serviceModel: ServiceModel): HandlerGroup[] {
+    const catalog = addableCatalogOf(serviceModel);
+    const groups = new Map<string, HandlerGroup>();
+    const membersByGroup = new Map<string, FunctionModel[]>();
+    for (const fn of catalog) {
+        const id = handlerGroupId(fn);
+        if (!id) {
+            continue;
+        }
+        if (!groups.has(id)) {
+            groups.set(id, {
+                id,
+                label: fn.metadata?.label || id,
+                description: fn.metadata?.description || "",
+                needsForm: true,
+                repeatable: repeatBehaviorOf(fn),
+            });
+        }
+        if (!membersByGroup.has(id)) {
+            membersByGroup.set(id, []);
+        }
+        membersByGroup.get(id).push(fn);
+    }
+    for (const group of groups.values()) {
+        const members = membersByGroup.get(group.id) ?? [];
+        group.needsForm = members.length > 1 || members.some(hasConfigurableFields);
+        if (!group.needsForm) {
+            group.quickAddFunction = members[0];
+        }
+    }
+    return Array.from(groups.values());
+}
+
+/**
+ * Whether the add-handler catalog has exactly one group, and it's repeat-always (e.g. MCP's `Tool` —
+ * there's nothing to choose between, so the picker step is pure friction). When true, "+ Add Handler"
+ * should open that group's form directly instead of the picker.
+ */
+export function isSoleRepeatableGroup(serviceModel: ServiceModel): HandlerGroup | undefined {
+    const groups = computeHandlerGroups(serviceModel);
+    if (groups.length !== 1) {
+        return undefined;
+    }
+    return groups[0].repeatable === RepeatBehavior.TRUE ? groups[0] : undefined;
 }
 
 export function applyTypeTemplate(template: string | undefined, element: string): string {

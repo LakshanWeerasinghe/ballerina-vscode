@@ -100,6 +100,12 @@ public class Value {
         TEXT_SET,
         IDENTIFIER,
         TEXT,
+        // Front-end-recognized alias for a plain multi-line textarea (TextAreaEditor) — no expression
+        // evaluation, just free text a user types (e.g. a parameter/header/tool description). Needs
+        // its own constant for the same reason MULTI_SELECT_LISTENER does below: without one,
+        // wireFieldType's valueOf(...) throws and silently falls back to EXPRESSION, rendering the
+        // rich expression editor instead of a plain textarea.
+        DOC_TEXT,
         TYPE,
         ENUM,
         NUMBER,

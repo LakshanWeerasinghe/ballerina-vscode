@@ -23,7 +23,7 @@ import { cloneDeep } from "lodash";
 import ButtonCard from "../../../../../components/ButtonCard";
 
 import { EditorContentColumn } from "../../styles";
-import { addableCatalogOf, handlerGroupId, hasConfigurableFields } from "./payloadComposer";
+import { computeHandlerGroups, HandlerGroup } from "./payloadComposer";
 
 interface TriggerHandlerConfigFormProps {
     serviceModel: ServiceModel;
@@ -32,16 +32,6 @@ interface TriggerHandlerConfigFormProps {
     /** Adds a handler straight away, bypassing the config form (nothing in it to configure). */
     onQuickAdd: (functionModel: FunctionModel) => void;
     onBack?: () => void;
-}
-
-interface HandlerGroup {
-    id: string;
-    label: string;
-    description: string;
-    /** False when the group has exactly one variant and nothing configurable on it. */
-    needsForm: boolean;
-    /** The variant to add directly when {@code needsForm} is false. */
-    quickAddFunction?: FunctionModel;
 }
 
 /**
@@ -56,37 +46,8 @@ interface HandlerGroup {
 export function TriggerHandlerConfigForm(props: TriggerHandlerConfigFormProps) {
     const { serviceModel, isSaving, onSubmit, onQuickAdd } = props;
 
-    const handlerGroups: HandlerGroup[] = React.useMemo(() => {
-        const catalog = addableCatalogOf(serviceModel) as FunctionModel[];
-        const groups = new Map<string, HandlerGroup>();
-        const membersByGroup = new Map<string, FunctionModel[]>();
-        for (const fn of catalog) {
-            const id = handlerGroupId(fn);
-            if (!id) {
-                continue;
-            }
-            if (!groups.has(id)) {
-                groups.set(id, {
-                    id,
-                    label: fn.metadata?.label || id,
-                    description: fn.metadata?.description || "",
-                    needsForm: true,
-                });
-            }
-            if (!membersByGroup.has(id)) {
-                membersByGroup.set(id, []);
-            }
-            membersByGroup.get(id).push(fn);
-        }
-        for (const group of groups.values()) {
-            const members = membersByGroup.get(group.id) ?? [];
-            group.needsForm = members.length > 1 || members.some(hasConfigurableFields);
-            if (!group.needsForm) {
-                group.quickAddFunction = members[0];
-            }
-        }
-        return Array.from(groups.values());
-    }, [serviceModel]);
+    const handlerGroups: HandlerGroup[] = React.useMemo(
+        () => computeHandlerGroups(serviceModel), [serviceModel]);
 
     const handleCardClick = (group: HandlerGroup) => {
         if (group.needsForm) {

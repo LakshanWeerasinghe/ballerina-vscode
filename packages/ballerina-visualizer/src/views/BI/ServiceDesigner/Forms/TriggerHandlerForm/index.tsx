@@ -36,7 +36,9 @@ import {
     Diagnostic,
     FunctionModel,
     GeneralPayloadContext,
+    getPrimaryInputType,
     Imports,
+    LineRange,
     ParameterModel,
     PropertyModel,
     ServiceModel,
@@ -45,13 +47,18 @@ import {
 } from "@wso2/ballerina-core";
 import { cloneDeep } from "lodash";
 import WarningPopup from "@wso2/ballerina-side-panel/lib/components/WarningPopup";
-import { MarkdownDescription } from "@wso2/ballerina-side-panel";
+import { FormField, FormValues, MarkdownDescription, ParamConfig, Parameter as SidePanelParameter } from "@wso2/ballerina-side-panel";
+import { useRpcContext } from "@wso2/ballerina-rpc-client";
 
 import { EntryPointTypeCreator } from "../../../../../components/EntryPointTypeCreator";
 import { Parameters } from "../FileIntegrationForm/Parameters/Parameters";
+import { ParamEditor as HeaderParamEditor } from "../ResourceForm/Parameters/ParamEditor";
+import { ParamItem as HeaderParamItem } from "../ResourceForm/Parameters/ParamItem";
+import ArtifactForm from "../../../Forms/ArtifactForm";
 import { AnnotationExpressionFieldHandle } from "./AnnotationExpressionField";
 import { AnnotationConfigSection } from "./AnnotationConfigSection";
 import {
+    addedParametersOf,
     CODEDATA_COMPLEX_ANNOTATION,
     CODEDATA_METADATA_FLAG,
     CODEDATA_PAYLOAD_MODIFIER,
@@ -66,6 +73,7 @@ import {
     isPayloadParameter,
     payloadParametersOf,
     propertiesOfRole,
+    withAddedParameters,
 } from "./payloadComposer";
 
 const SIGNATURE_CHANGE_BODY_WARNING =
@@ -135,6 +143,219 @@ export interface TriggerHandlerFormProps {
     serverValidationErrors?: ValidationResult[];
 }
 
+/** A ParamManager template's own sub-fields, in the order they should render as a mini add/edit form. */
+const PARAM_TEMPLATE_SUB_FIELDS = ["type", "name", "defaultValue", "documentation"] as const;
+
+/** Renames a template sub-field's own key onto ParamManager's conventional key for that concept. */
+function paramManagerFieldKey(key: string): string {
+    if (key === "name") {
+        return "variable";
+    }
+    if (key === "defaultValue") {
+        return "defaultable";
+    }
+    return key;
+}
+
+/**
+ * The ParamManager add/edit mini-form for one addable-parameter kind (`functionModel.schema.parameter`
+ * / `.header`) — walking the template's own `type`/`name`/`defaultValue`/`documentation`/`headerName`
+ * sub-properties, each already carrying its own `metadata.label`. The same shape
+ * `functions/http_resource.json`'s non-schema-driven `schema` map already uses.
+ */
+function paramTemplateFormFields(template: ParameterModel | undefined): FormField[] {
+    if (!template) {
+        return [];
+    }
+    const fields: FormField[] = [];
+    for (const key of PARAM_TEMPLATE_SUB_FIELDS) {
+        const sub = template[key] as PropertyModel | undefined;
+        if (sub?.metadata?.label) {
+            fields.push({
+                key: paramManagerFieldKey(key),
+                label: sub.metadata.label,
+                type: getPrimaryInputType(sub.types)?.fieldType || "STRING",
+                optional: sub.optional ?? false,
+                editable: sub.editable ?? true,
+                advanced: sub.advanced ?? false,
+                documentation: sub.metadata?.description || "",
+                value: (sub.value as string) ?? "",
+                types: sub.types,
+                enabled: sub.enabled ?? true,
+            });
+        }
+    }
+    return fields;
+}
+
+/** One already-added parameter, as the collapsed card + editable form ParamManager expects. */
+function paramManagerValueOf(p: ParameterModel, index: number): SidePanelParameter {
+    const defaultVal = p.defaultValue as PropertyModel | undefined;
+    const documentationVal = p.documentation as PropertyModel | undefined;
+    const displayDefault = defaultVal?.value ? ` = ${defaultVal.value}` : "";
+    return {
+        id: index,
+        key: p.name?.value ?? "",
+        value: `${p.type?.value ?? ""} ${p.name?.value ?? ""}${displayDefault}`.trim(),
+        icon: "symbol-variable",
+        identifierEditable: p.name?.editable ?? true,
+        identifierRange: p.name?.codedata?.lineRange,
+        hidden: p.hidden ?? false,
+        imports: p.type?.imports ?? {},
+        formValues: {
+            variable: p.name?.value ?? "",
+            type: p.type?.value ?? "",
+            defaultable: defaultVal?.value ?? "",
+            documentation: documentationVal?.value ?? "",
+        },
+    };
+}
+
+/** Recomposes a ParamManager row's collapsed-card display text after an edit. */
+function composeParamManagerValue(param: SidePanelParameter): SidePanelParameter {
+    const name = `${param.formValues["variable"] ?? ""}`;
+    const type = `${param.formValues["type"] ?? ""}`;
+    const defaultRaw = param.formValues["defaultable"];
+    const hasDefault = defaultRaw !== undefined && defaultRaw !== null && `${defaultRaw}`.trim() !== "";
+    let value = `${type} ${name}`.trim();
+    if (hasDefault) {
+        value += ` = ${`${defaultRaw}`.trim()}`;
+    }
+    return { ...param, key: name, value };
+}
+
+/** Converts a ParamManager row back into the wire `ParameterModel` merged into `functionModel.parameters`. */
+function toParameterModel(param: SidePanelParameter): ParameterModel {
+    const name = `${param.formValues["variable"] ?? ""}`;
+    const type = `${param.formValues["type"] ?? ""}`;
+    const defaultRaw = param.formValues["defaultable"];
+    const hasDefault = defaultRaw !== undefined && defaultRaw !== null && `${defaultRaw}`.trim() !== "";
+    const documentation = `${param.formValues["documentation"] ?? ""}`.trim();
+
+    const model: ParameterModel = {
+        kind: "REQUIRED",
+        enabled: true,
+        editable: true,
+        optional: hasDefault,
+        advanced: false,
+        type: {
+            value: type,
+            enabled: true,
+            editable: true,
+            optional: false,
+            advanced: false,
+            types: [{ fieldType: "TYPE", selected: true }],
+            imports: param.imports,
+        },
+        name: {
+            value: name,
+            enabled: true,
+            editable: param.identifierEditable ?? true,
+            optional: false,
+            advanced: false,
+            types: [{ fieldType: "IDENTIFIER", selected: true }],
+        },
+    };
+    if (hasDefault) {
+        model.defaultValue = {
+            value: `${defaultRaw}`.trim(), enabled: true, editable: true, optional: true, advanced: false,
+        };
+    }
+    if (documentation) {
+        model.documentation = { value: documentation, enabled: true, editable: true, optional: true, advanced: false };
+    }
+    return model;
+}
+
+/** The "+ Add Parameter" ParamManager field for the generic addable-parameter kind. */
+function buildParamManagerField(fn: FunctionModel, template: ParameterModel): FormField {
+    const paramValues = addedParametersOf(fn, "parameter").map((p, index) => paramManagerValueOf(p, index));
+    return {
+        key: "parameters",
+        label: "Parameters",
+        type: "PARAM_MANAGER",
+        optional: true,
+        editable: true,
+        enabled: true,
+        documentation: template.metadata?.description || "",
+        value: paramValues,
+        paramManagerProps: {
+            paramValues,
+            formFields: paramTemplateFormFields(template),
+            handleParameter: composeParamManagerValue,
+        },
+        types: [{ fieldType: "PARAM_MANAGER", selected: false }],
+        addNewButtonLabel: template.metadata?.label || "Parameter",
+    };
+}
+
+/**
+ * Builds the ArtifactForm field list for a handler's user-renamable name / addable parameters /
+ * editable return type (e.g. an MCP tool) — in that display order: name, then the parameter manager,
+ * then return type. Individually-bound HTTP headers are handled separately (see `headerParameters`
+ * below), reusing HTTP resource's own header editor rather than the generic ParamManager, since they
+ * need the exact same autocomplete-header-name + auto-derived-identifier behavior.
+ *
+ * Recomputed only when the underlying handler changes (initial load, edit target, or variant switch)
+ * — never from a live keystroke — so the `fields` identity ArtifactForm receives stays stable and
+ * typing doesn't get interrupted by ArtifactForm's own `useEffect(() => setFields(fields), [fields])`
+ * resync.
+ */
+function buildArtifactFields(fn: FunctionModel | null | undefined): FormField[] {
+    if (!fn) {
+        return [];
+    }
+    const fields: FormField[] = [];
+    if (fn.name?.editable) {
+        fields.push({
+            key: "name",
+            label: fn.name.metadata?.label || "Function Name",
+            type: "IDENTIFIER",
+            optional: fn.name.optional ?? false,
+            editable: true,
+            advanced: fn.name.advanced,
+            enabled: fn.name.enabled ?? true,
+            documentation: fn.name.metadata?.description || "",
+            value: fn.name.value,
+            types: fn.name.types,
+            lineRange: fn.name.codedata?.lineRange,
+        });
+    }
+    if (fn.documentation?.editable) {
+        fields.push({
+            key: "documentation",
+            label: fn.documentation.metadata?.label || "Description",
+            type: getPrimaryInputType(fn.documentation.types)?.fieldType || "STRING",
+            optional: fn.documentation.optional ?? true,
+            editable: true,
+            advanced: fn.documentation.advanced,
+            enabled: fn.documentation.enabled ?? true,
+            placeholder: fn.documentation.placeholder,
+            documentation: fn.documentation.metadata?.description || "",
+            value: fn.documentation.value,
+            types: fn.documentation.types,
+        });
+    }
+    if (fn.canAddParameters && fn.schema?.parameter) {
+        fields.push(buildParamManagerField(fn, fn.schema.parameter as ParameterModel));
+    }
+    if (fn.returnType?.editable) {
+        fields.push({
+            key: "returnType",
+            label: fn.returnType.metadata?.label || "Return Type",
+            type: "TYPE",
+            optional: fn.returnType.optional ?? false,
+            editable: true,
+            advanced: fn.returnType.advanced,
+            enabled: fn.returnType.enabled ?? true,
+            documentation: fn.returnType.metadata?.description || "",
+            value: fn.returnType.value,
+            types: fn.returnType.types,
+        });
+    }
+    return fields;
+}
+
 /**
  * Generic add/edit form for a schema-driven trigger handler (unified TriggerModel wire shape) — the
  * connector-agnostic counterpart of the FTP-specific FileIntegrationForm. Every section is driven by
@@ -146,10 +367,14 @@ export interface TriggerHandlerFormProps {
  *   payload type through the templates the connector shipped;
  * - payload schema — the DATA_BINDING parameter (codedata.bindable), bound via the type creator;
  * - opt-in framework params — parameters marked `advanced` (caller and friends);
- * - function annotations — properties with codedata.type COMPLEX_FUNCTION_ANNOTATION.
+ * - function annotations — properties with codedata.type COMPLEX_FUNCTION_ANNOTATION;
+ * - a user-renamable name / editable return type (e.g. an MCP tool) — rendered through ArtifactForm
+ *   so it gets the real IdentifierField/TypeEditor widgets (type completion, identifier validation)
+ *   rather than a plain text box.
  */
 export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const { serviceModel, isSaving, onSave, onClose, isNew, selectedGroup, serverValidationErrors } = props;
+    const { rpcClient } = useRpcContext();
 
     const [functionModel, setFunctionModel] = useState<FunctionModel | null>(null);
     // The payload param (by name) the type-creator modal is open for — a handler can expose several
@@ -158,6 +383,22 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const [isSignatureWarningOpen, setIsSignatureWarningOpen] = useState<boolean>(false);
     const [isAdvancedExpanded, setIsAdvancedExpanded] = useState<boolean>(false);
     const initialSignatureKeyRef = useRef<string | null>(null);
+
+    // The name/return-type/parameters ArtifactForm fields — held separately from `functionModel` and
+    // only ever rebuilt from the handler's source-of-truth (initial load / variant switch), never
+    // from a keystroke, so the `fields` array identity ArtifactForm receives stays stable while typing.
+    const [artifactFields, setArtifactFields] = useState<FormField[]>([]);
+    const [isArtifactFieldsValid, setIsArtifactFieldsValid] = useState<boolean>(true);
+    const [artifactLineRange, setArtifactLineRange] = useState<LineRange | undefined>(undefined);
+
+    useEffect(() => {
+        if (!props.filePath || !rpcClient) {
+            return;
+        }
+        rpcClient.getBIDiagramRpcClient().getEndOfFile({ filePath: props.filePath }).then((res) => {
+            setArtifactLineRange({ startLine: res, endLine: res });
+        });
+    }, [props.filePath, rpcClient]);
 
     const groupId = selectedGroup ?? (props.functionModel ? handlerGroupId(props.functionModel) : undefined);
 
@@ -176,9 +417,13 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         if (isNew) {
             const initial = props.functionModel ?? addableVariants[0];
             setFunctionModel(initial ? cloneDeep(initial) : null);
+            setArtifactFields(buildArtifactFields(initial));
+            setIsArtifactFieldsValid(true);
             initialSignatureKeyRef.current = null;
         } else {
             setFunctionModel(props.functionModel ? cloneDeep(props.functionModel) : null);
+            setArtifactFields(buildArtifactFields(props.functionModel));
+            setIsArtifactFieldsValid(true);
             initialSignatureKeyRef.current = props.functionModel
                 ? functionSignatureKey(props.functionModel) : null;
         }
@@ -197,6 +442,8 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         );
         if (variant) {
             setFunctionModel(cloneDeep(variant));
+            setArtifactFields(buildArtifactFields(variant));
+            setIsArtifactFieldsValid(true);
         }
     };
 
@@ -218,6 +465,35 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                 : p
         );
         return { ...fn, parameters };
+    };
+
+    // ----- user-renamable name / editable return type / addable parameters -----
+    // Most schema-driven handlers ship a fixed name, return type, and parameter list; a repeatable,
+    // freely-named handler (e.g. an MCP tool) marks `name.editable` / `returnType.editable` /
+    // `canAddParameters` instead so this form asks for them (via `artifactFields`/ArtifactForm below)
+    // rather than emitting the catalog's placeholder verbatim. ArtifactForm reports live edits through
+    // `onChange`; mirror them onto `functionModel` here so Save picks up the latest value.
+    const handleArtifactFieldChange = (fieldKey: string, value: any) => {
+        if (fieldKey === "parameters") {
+            const newParams = (value as SidePanelParameter[]).map((p) => toParameterModel(p));
+            setFunctionModel((prev) => (prev ? withAddedParameters(prev, "parameter", newParams) : prev));
+            return;
+        }
+        setFunctionModel((prev) => {
+            if (!prev) {
+                return prev;
+            }
+            if (fieldKey === "name") {
+                return { ...prev, name: { ...prev.name, value: String(value) } };
+            }
+            if (fieldKey === "returnType") {
+                return { ...prev, returnType: { ...prev.returnType, value: String(value) } };
+            }
+            if (fieldKey === "documentation") {
+                return { ...prev, documentation: { ...prev.documentation, value: String(value) } };
+            }
+            return prev;
+        });
     };
 
     const handleModifierToggle = (key: string, prop: PropertyModel, checked: boolean) => {
@@ -299,6 +575,80 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         }
         const parameters = functionModel.parameters.map((p) => (p === param ? { ...p, enabled: checked } : p));
         setFunctionModel({ ...functionModel, parameters });
+    };
+
+    // ----- individually bound HTTP headers -----
+    // Reuses HTTP resource's own header editor/list (ResourceForm/Parameters) as-is — same
+    // autocomplete header-name list, auto-derived identifier, and "Advanced Configurations" layout —
+    // rather than the generic ParamManager, since that's the exact behavior asked for. Lives under the
+    // Advanced Parameters section below alongside the fixed opt-in toggles.
+    const [headerEditModel, setHeaderEditModel] = useState<ParameterModel | undefined>(undefined);
+    const [isNewHeaderParam, setIsNewHeaderParam] = useState<boolean>(false);
+    // The exact header object being edited, captured when editing starts — used to find-and-replace
+    // it by identity at save time, rather than by array index. HeaderParamEditor's own submit calls
+    // both `onChange` (live, once per keystroke/selection) and `onSave` (once, on final submit) for
+    // the SAME save action; an index captured once and reused across both, combined with each call
+    // independently writing to functionModel from a same-tick stale closure, was producing duplicate
+    // parameters (one written by the live onChange, another by onSave, or a slot picked by a since-
+    // shifted index) — e.g. both an `@http:Header string x` and an `@http:Header{name:...} string x`
+    // for the same header. Object-identity replace is robust to either call firing, in either order.
+    const [editingHeaderOriginal, setEditingHeaderOriginal] = useState<ParameterModel | undefined>(undefined);
+
+    const headerTemplate = functionModel?.schema?.header as ParameterModel | undefined;
+    const headerParameters = functionModel ? addedParametersOf(functionModel, "header") : [];
+
+    const handleAddHeaderClick = () => {
+        if (!headerTemplate) {
+            return;
+        }
+        const fresh = cloneDeep(headerTemplate);
+        fresh.name = { ...fresh.name, value: "" };
+        fresh.httpParamType = "HEADER";
+        setHeaderEditModel(fresh);
+        setIsNewHeaderParam(true);
+        setEditingHeaderOriginal(undefined);
+    };
+
+    const handleHeaderEditClick = (param: ParameterModel) => {
+        setHeaderEditModel(param);
+        setIsNewHeaderParam(false);
+        setEditingHeaderOriginal(param);
+    };
+
+    // Live edits (e.g. picking a header name from the autocomplete) only update the in-progress draft
+    // shown in the editor — never the committed functionModel — so they can never race with the final
+    // save below, which is now the single commit point.
+    const handleHeaderChange = (param: ParameterModel) => {
+        setHeaderEditModel(param);
+    };
+
+    const handleHeaderSave = (param: ParameterModel) => {
+        if (!functionModel) {
+            return;
+        }
+        const updated = isNewHeaderParam || !editingHeaderOriginal
+            ? [...headerParameters, param]
+            : headerParameters.map((p) => (p === editingHeaderOriginal ? param : p));
+        setFunctionModel(withAddedParameters(functionModel, "header", updated));
+        setHeaderEditModel(undefined);
+        setIsNewHeaderParam(false);
+        setEditingHeaderOriginal(undefined);
+    };
+
+    const handleHeaderCancel = () => {
+        setHeaderEditModel(undefined);
+        setIsNewHeaderParam(false);
+        setEditingHeaderOriginal(undefined);
+    };
+
+    const handleHeaderDelete = (param: ParameterModel) => {
+        if (!functionModel) {
+            return;
+        }
+        const updated = headerParameters.filter((p) => p !== param);
+        setFunctionModel(withAddedParameters(functionModel, "header", updated));
+        setHeaderEditModel(undefined);
+        setEditingHeaderOriginal(undefined);
     };
 
     // ----- annotations -----
@@ -386,7 +736,8 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         }
     };
 
-    const isSaveDisabled = hasErrorDiagnostics || hasPendingValidation;
+    const isSaveDisabled = hasErrorDiagnostics || hasPendingValidation
+        || (artifactFields.length > 0 && !isArtifactFieldsValid);
     const saveTooltip = useMemo(() => {
         if (isSaving) {
             return "Saving...";
@@ -454,6 +805,25 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
                     {/* Handler documentation — updates with the selected variant, hidden when empty */}
                     {handlerDescription && <MarkdownDescription description={handlerDescription} />}
+
+                    {/* User-renamable name / editable return type / addable parameters (e.g. an MCP
+                        tool). Rendered through ArtifactForm — the same IdentifierField/TypeEditor/
+                        ParamManager widgets (type completion, identifier validation, inline param
+                        table) the rest of the visualizer uses — with its own Save button hidden since
+                        this form's Save (below) owns the actual save. */}
+                    {artifactFields.length > 0 && props.filePath && artifactLineRange && (
+                        <ArtifactForm
+                            fileName={props.filePath}
+                            targetLineRange={artifactLineRange}
+                            fields={artifactFields}
+                            nestedForm={true}
+                            hideSaveButton={true}
+                            preserveFieldOrder={true}
+                            onChange={handleArtifactFieldChange}
+                            onValidityChange={setIsArtifactFieldsValid}
+                            onSubmit={() => { }}
+                        />
+                    )}
 
                     {/* Read-only markers + modifier toggles (e.g. Rows, Stream) */}
                     {(metadataFlags.length > 0 || modifierFlags.length > 0) && (
@@ -597,8 +967,8 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                         </>
                     )}
 
-                    {/* Opt-in framework params (caller and friends) */}
-                    {advancedParameters.length > 0 && (
+                    {/* Opt-in framework params (caller and friends) + individually bound HTTP headers */}
+                    {(advancedParameters.length > 0 || headerTemplate) && (
                         <>
                             <Divider />
                             <CollapsibleHeader onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}>
@@ -622,6 +992,47 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                                         />
                                     </CheckBoxGroup>
                                 ))}
+                                {headerTemplate && (
+                                    <>
+                                        <Typography variant="body2" sx={{ marginTop: 12, marginBottom: 0 }}>
+                                            {headerTemplate.metadata?.label || "HTTP Headers"}
+                                        </Typography>
+                                        {headerTemplate.metadata?.description && (
+                                            <Typography
+                                                variant="body3"
+                                                sx={{ color: "var(--vscode-descriptionForeground)", marginBottom: 4 }}
+                                            >
+                                                {headerTemplate.metadata.description}
+                                            </Typography>
+                                        )}
+                                        {headerParameters.map((param, index) => (
+                                            <HeaderParamItem
+                                                key={`header-${index}`}
+                                                param={param}
+                                                onDelete={handleHeaderDelete}
+                                                onEditClick={handleHeaderEditClick}
+                                            />
+                                        ))}
+                                        {headerEditModel && (
+                                            <HeaderParamEditor
+                                                isNew={isNewHeaderParam}
+                                                param={headerEditModel}
+                                                onChange={handleHeaderChange}
+                                                onSave={handleHeaderSave}
+                                                onCancel={handleHeaderCancel}
+                                                type="HEADER"
+                                            />
+                                        )}
+                                        {!headerEditModel && (
+                                            <AddButtonWrapper>
+                                                <LinkButton onClick={handleAddHeaderClick}>
+                                                    <Codicon name="add" />
+                                                    <>Add Header</>
+                                                </LinkButton>
+                                            </AddButtonWrapper>
+                                        )}
+                                    </>
+                                )}
                             </CollapsibleContent>
                         </>
                     )}

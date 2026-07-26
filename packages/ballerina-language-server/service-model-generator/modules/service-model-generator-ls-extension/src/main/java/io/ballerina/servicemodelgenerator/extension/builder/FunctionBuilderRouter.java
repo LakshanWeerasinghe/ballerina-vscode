@@ -29,7 +29,6 @@ import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.function.DefaultFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.GraphqlFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.HttpFunctionBuilder;
-import io.ballerina.servicemodelgenerator.extension.builder.function.McpFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SchemaDrivenFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SolaceFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
@@ -52,7 +51,6 @@ import java.util.function.Supplier;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DEFAULT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.GRAPHQL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.HTTP;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.MCP;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.OBJECT_METHOD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.SOLACE;
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.deriveServiceType;
@@ -63,15 +61,14 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
  * @since 1.2.0
  */
 public class FunctionBuilderRouter {
-    // FTP/KAFKA/RABBITMQ/MSSQL/POSTGRESQL/MYSQL are deliberately absent: each now ships a bundled
+    // FTP/KAFKA/RABBITMQ/MSSQL/POSTGRESQL/MYSQL/MCP are deliberately absent: each now ships a bundled
     // TriggerModel schema (see ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so
     // useSchemaDrivenPath always routes them to SchemaDrivenFunctionBuilder before this map is
-    // consulted — a hardcoded entry here would be dead code. HTTP/GRAPHQL/MCP/SOLACE are not
-    // (yet) schema-driven and keep their dedicated builders.
+    // consulted — a hardcoded entry here would be dead code. HTTP/GRAPHQL/SOLACE are not (yet)
+    // schema-driven and keep their dedicated builders.
     private static final Map<String, Supplier<? extends NodeBuilder<Function>>> CONSTRUCTOR_MAP = new HashMap<>() {{
         put(HTTP, HttpFunctionBuilder::new);
         put(GRAPHQL, GraphqlFunctionBuilder::new);
-        put(MCP, McpFunctionBuilder::new);
         put(SOLACE, SolaceFunctionBuilder::new);
     }};
 

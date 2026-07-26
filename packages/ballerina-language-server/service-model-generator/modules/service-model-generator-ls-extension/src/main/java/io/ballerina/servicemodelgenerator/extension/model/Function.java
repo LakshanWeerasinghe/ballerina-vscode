@@ -87,6 +87,7 @@ public class Function {
         this.enabled = enabled;
         this.optional = optional;
         this.editable = editable;
+        this.canAddParameters = canAddParameters;
         this.codedata = codedata;
         this.properties = properties;
     }

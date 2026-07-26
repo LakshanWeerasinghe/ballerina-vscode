@@ -188,32 +188,55 @@ public record TriggerModel(
      * A trigger handler / resource definition. Rich enough to render the add/edit-function dialog
      * and generate the Ballerina function source.
      *
-     * @param metadata         display metadata for this handler
-     * @param name             the emitted function name
-     * @param nameEditable     whether the emitted name may be changed when adding this handler
-     * @param kind             the function's syntax kind (e.g. {@code REMOTE}/{@code RESOURCE})
-     * @param accessor         the resource accessor (e.g. {@code get}), for a resource function
-     * @param qualifiers       the function's source qualifiers (e.g. {@code remote}/{@code resource})
-     * @param group            the handler-catalog group this variant belongs to, if any (see
-     *                         {@link Repeatable})
-     * @param variantLabel     this variant's label within its {@code group}
-     * @param enabled          whether this handler is currently present/enabled
-     * @param editable         whether this handler's fields may be edited
-     * @param optional         whether this handler may be removed once present
-     * @param canAddParameters whether the user may append extra parameters beyond the schema's own
-     * @param repeatable       how this handler may be added to the addable catalog (see
-     *                         {@link Repeatable})
-     * @param documentation    the handler's doc-comment text emitted above the generated function
-     * @param parameters       the handler's parameters
-     * @param properties       the handler's annotation / composition fields, keyed by property name
-     * @param returnType       the handler's return type
-     * @param codedata         source-generation semantics for this handler
-     * @param validations      the named validation rules bound to this handler
+     * @param metadata            display metadata for this handler
+     * @param name                the emitted function name
+     * @param nameEditable        whether the emitted name may be changed when adding this handler
+     * @param nameMetadata        display metadata for the name field itself when {@code nameEditable}
+     *                            is {@code true} (e.g. {@code "Function Name"} / {@code "The name of
+     *                            the function"}) — falls back to {@code metadata} when absent, so
+     *                            existing schemas need no change
+     * @param kind                the function's syntax kind (e.g. {@code REMOTE}/{@code RESOURCE})
+     * @param accessor            the resource accessor (e.g. {@code get}), for a resource function
+     * @param qualifiers          the function's source qualifiers (e.g. {@code remote}/{@code resource})
+     * @param group               the handler-catalog group this variant belongs to, if any (see
+     *                            {@link Repeatable})
+     * @param variantLabel        this variant's label within its {@code group}
+     * @param enabled             whether this handler is currently present/enabled
+     * @param editable            whether this handler's fields may be edited
+     * @param optional            whether this handler may be removed once present
+     * @param canAddParameters    whether the user may append extra parameters beyond the schema's own
+     *                            (see {@code parameterSchema})
+     * @param repeatable          how this handler may be added to the addable catalog (see
+     *                            {@link Repeatable})
+     * @param documentation       the handler's doc-comment text emitted above the generated function,
+     *                            for a fixed (non-editable) handler
+     * @param documentationSchema when present, makes the handler's doc-comment a user-editable field
+     *                            (e.g. MCP's "Tool Description") driven by this template's own
+     *                            label/placeholder/description, instead of the fixed
+     *                            {@code documentation} string — layered onto the same
+     *                            {@code Function.documentation} the generic emitter
+     *                            ({@code Utils#getDocumentationEdits}) already renders as a
+     *                            {@code # ...} doc comment, so no new emission logic is needed
+     * @param parameters          the handler's parameters
+     * @param parameterSchema     the addable parameter template(s) offered when {@code canAddParameters}
+     *                            is {@code true}, keyed by kind (e.g. {@code parameter} for a plain
+     *                            user-typed parameter, {@code header} for an individually bound
+     *                            {@code @http:Header} parameter) — the schema-driven counterpart of a
+     *                            non-schema-driven builder's hardcoded {@code Function.schema} (see e.g.
+     *                            {@code functions/http_resource.json}'s {@code schema} map). A
+     *                            {@code header} template's own {@code documentation} sub-property is
+     *                            optional — HTTP's header form has none; a connector that needs one per
+     *                            header (e.g. MCP) declares it and the header editor picks it up.
+     * @param properties          the handler's annotation / composition fields, keyed by property name
+     * @param returnType          the handler's return type
+     * @param codedata            source-generation semantics for this handler
+     * @param validations         the named validation rules bound to this handler
      */
     public record FunctionModel(
             Metadata metadata,
             String name,
             Boolean nameEditable,
+            Metadata nameMetadata,
             String kind,
             String accessor,
             List<String> qualifiers,
@@ -225,7 +248,9 @@ public record TriggerModel(
             Boolean canAddParameters,
             Repeatable repeatable,
             String documentation,
+            Property documentationSchema,
             List<Parameter> parameters,
+            Map<String, Parameter> parameterSchema,
             Map<String, Property> properties,
             ReturnType returnType,
             Codedata codedata,
@@ -234,26 +259,43 @@ public record TriggerModel(
 
     /**
      * A function parameter whose {@code type} and {@code name} are {@link Property} sub-nodes, so a
-     * parameter is rendered and generated with the same generic walk as any form field.
+     * parameter is rendered and generated with the same generic walk as any form field. Also doubles
+     * as an addable-parameter <b>template</b> when it appears under a {@link FunctionModel}'s
+     * {@code parameterSchema} rather than its {@code parameters} — {@code defaultValue}/
+     * {@code documentation}/{@code headerName} are meaningful in that role (a plain {@code parameters}
+     * entry normally leaves them unset).
      *
-     * @param metadata    display metadata for this parameter
-     * @param kind        the parameter's kind (e.g. {@code REQUIRED}/{@code OPTIONAL}/
-     *                    {@code DATA_BINDING})
-     * @param type        the parameter's type, as a {@code Property} sub-node
-     * @param name        the parameter's identifier, as a {@code Property} sub-node
-     * @param enabled     whether this parameter is currently included in the emitted signature
-     * @param editable    whether the user may change this parameter's fields
-     * @param optional    whether this parameter may be omitted from the emitted signature
-     * @param advanced    whether this parameter is tucked behind an "advanced" toggle in the form
-     * @param hidden      whether this parameter is fixed/internal and not shown to the user
-     * @param codedata    source-generation semantics for this parameter
-     * @param validations the named validation rules bound to this parameter
+     * @param metadata      display metadata for this parameter
+     * @param kind          the parameter's kind (e.g. {@code REQUIRED}/{@code OPTIONAL}/
+     *                      {@code DATA_BINDING})
+     * @param type          the parameter's type, as a {@code Property} sub-node
+     * @param name          the parameter's identifier, as a {@code Property} sub-node
+     * @param defaultValue  the parameter's default value, as a {@code Property} sub-node (template use)
+     * @param documentation the parameter's doc text, as a {@code Property} sub-node (template use)
+     * @param headerName    the wire HTTP header name, when it differs from {@code name}'s identifier
+     *                      (template use — pairs with {@code httpParamType == HEADER}); left unset, the
+     *                      header name is derived from the identifier at emit time
+     * @param httpParamType marks this as an HTTP-bound parameter template ({@code HEADER} is the only
+     *                      value currently emitted by the schema-driven path — {@code QUERY}/
+     *                      {@code PAYLOAD} are HTTP-resource-only concepts today), mirroring
+     *                      {@code functions/http_resource.json}'s {@code schema.*.httpParamType}
+     * @param enabled       whether this parameter is currently included in the emitted signature
+     * @param editable      whether the user may change this parameter's fields
+     * @param optional      whether this parameter may be omitted from the emitted signature
+     * @param advanced      whether this parameter is tucked behind an "advanced" toggle in the form
+     * @param hidden        whether this parameter is fixed/internal and not shown to the user
+     * @param codedata      source-generation semantics for this parameter
+     * @param validations   the named validation rules bound to this parameter
      */
     public record Parameter(
             Metadata metadata,
             String kind,
             Property type,
             Property name,
+            Property defaultValue,
+            Property documentation,
+            Property headerName,
+            String httpParamType,
             Boolean enabled,
             Boolean editable,
             Boolean optional,

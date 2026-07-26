@@ -51,7 +51,6 @@ import { FunctionConfigForm } from "./Forms/FunctionConfigForm";
 import { FunctionForm } from "./Forms/FunctionForm";
 import { ResourceForm } from "./Forms/ResourceForm";
 import { getCustomEntryNodeIcon } from "../ComponentListView/EventIntegrationPanel";
-import { McpToolForm } from "./Forms/McpToolForm";
 import { removeForwardSlashes, canDataBind, getReadableListenerName } from "./utils";
 import { DatabindForm } from "./Forms/DatabindForm";
 import { FileIntegrationForm } from "./Forms/FileIntegrationForm";
@@ -63,6 +62,7 @@ import {
     handlerGroupId,
     hasConfigurableFields,
     isSchemaTriggerService as checkSchemaTriggerService,
+    isSoleRepeatableGroup,
 } from "./Forms/TriggerHandlerForm/payloadComposer";
 import { getTryItAIDefaultPromptService, getTryItDropdownOptions, TryItOptionValue, TryItQuickPickItem } from "../shared/tryIt";
 
@@ -482,15 +482,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                         setResources([]);
                         return;
                     }
-                    if (selectedService.moduleName === "mcp") {
-                        const updatedResources = selectedService.resources.map(resource => ({
-                            ...resource,
-                            icon: "tool"
-                        }));
-                        setResources(updatedResources);
-                    } else {
-                        setResources(selectedService.resources);
-                    }
+                    setResources(selectedService.resources);
                 }
             });
         });
@@ -549,9 +541,10 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     // so the generic TriggerHandlerForm applies — no module gate.
     const isSchemaTriggerService = checkSchemaTriggerService(serviceModel);
 
-    // A "file" kind trigger (ftp/file) surfaces File Handlers rather than Event Handlers.
+    // A "file" kind trigger (ftp/file) surfaces File Handlers rather than Event Handlers; MCP
+    // surfaces Tools. Otherwise a generic event handler.
     const isFileService = serviceModel?.moduleName === "ftp" || serviceModel?.moduleName === "file";
-    const handlerNoun = isFileService ? "file" : "event";
+    const handlerNoun = isFileService ? "file" : isMcpService ? "tool" : "event";
 
     const handleNewTriggerHandler = (group: string) => {
         setSelectedTriggerGroup(group);
@@ -588,19 +581,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         setIsSaving(false);
     };
 
-    const handleNewMcpTool = () => {
-        rpcClient
-            .getServiceDesignerRpcClient()
-            .getFunctionModel({ type: "mcp", functionName: "remote" })
-            .then((res) => {
-                console.log("New Function Model: ", res.function);
-                // let fields = res.function ? convertConfig(res.function.properties) : [];
-                setFunctionModel(res.function);
-                setIsNew(true);
-                setShowForm(true);
-            });
-    };
-
     const handleNewObjectMethod = () => {
         rpcClient
             .getServiceDesignerRpcClient()
@@ -620,6 +600,16 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
     };
 
     const onSelectAddHandler = () => {
+        // A schema-driven catalog with exactly one always-addable (repeatable TRUE) group has nothing
+        // to choose between — e.g. MCP's Tool. Skip the picker and go straight to its form, rather
+        // than making the user click through a single-card list every time.
+        if (isSchemaTriggerService && serviceModel) {
+            const soleGroup = isSoleRepeatableGroup(serviceModel);
+            if (soleGroup) {
+                handleNewTriggerHandler(soleGroup.id);
+                return;
+            }
+        }
         setIsNew(true);
         setShowFunctionConfigForm(true);
     };
@@ -1023,30 +1013,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
         })
         .length;
 
-    const remoteFunctionsCount = resources
-        .filter((resource) => resource.type === DIRECTORY_MAP.REMOTE)
-        .filter((resource) => {
-            const search = searchValue.toLowerCase();
-            const nameMatch = resource.name && resource.name.toLowerCase().includes(search);
-            const iconMatch = resource.icon && resource.icon.toLowerCase().includes(search);
-            return nameMatch || iconMatch;
-        })
-        .length;
-
-    function createLineRange(filePath: string, position: NodePosition): LineRange {
-        return {
-            fileName: filePath,
-            startLine: {
-                line: position.startLine ?? 1,
-                offset: position.startColumn ?? 0
-            },
-            endLine: {
-                line: position.endLine ?? position.startLine ?? 1,
-                offset: position.endColumn ?? position.startColumn ?? 0
-            }
-        };
-    }
-
     return (
         <View>
             <TopNavigationBar projectPath={projectPath} />
@@ -1302,75 +1268,24 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </>
                             )} */}
 
-                            {/* Listing Tools in MCP */}
-                            {isMcpService && (
+                            {/* Listing service type bound functions (event/file handlers, MCP tools, ...) */}
+                            {!isHttpService && (
                                 <>
                                     <SectionHeader
-                                        title="Tools"
-                                        subtitle={`${remoteFunctionsCount === 0 ? `` : 'Define how the mcp service responds to tool calls'}`}
-                                    >
-                                        <ActionGroup>
-                                            {resources.length > 10 && (
-                                                <TextField placeholder="Search..." sx={{ width: 200 }} onChange={handleSearch} value={searchValue} />
-                                            )}
-                                            {!haveServiceTypeName && remoteFunctionsCount > 0 && (
-                                                <Button appearance="primary" tooltip="Add Tool" onClick={handleNewMcpTool}>
-                                                    <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Tool</ButtonText>
-                                                </Button>
-                                            )}
-                                        </ActionGroup>
-                                    </SectionHeader>
-                                    <FunctionsContainer>
-                                        {resources
-                                            .filter((resource) => {
-                                                const search = searchValue.toLowerCase();
-                                                const nameMatch = resource.name && resource.name.toLowerCase().includes(search);
-                                                const iconMatch = resource.icon && resource.icon.toLowerCase().includes(search);
-                                                return nameMatch || iconMatch;
-                                            })
-                                            .map((resource, index) => (
-                                                <ResourceAccordionV2
-                                                    key={`${index}-${resource.name}`}
-                                                    resource={resource}
-                                                    readOnly={serviceModel.properties.hasOwnProperty('serviceTypeName')}
-                                                    onEditResource={handleFunctionEdit}
-                                                    onDeleteResource={handleFunctionDelete}
-                                                    onResourceImplement={handleOpenDiagram}
-                                                    isMcpTool={true}
-                                                    deletionTypeLabel="tool"
-                                                />
-                                            ))}
-                                    </FunctionsContainer>
-
-                                    {remoteFunctionsCount === 0 && (
-                                        <EmptyReadmeContainer>
-                                            <Description variant="body2">
-                                                No tools found. Add a new tool.
-                                            </Description>
-                                            <Button
-                                                appearance="primary"
-                                                onClick={handleNewMcpTool}>
-                                                <Codicon name="add" sx={{ marginRight: 5 }} />
-                                                Add Tool
-                                            </Button>
-                                        </EmptyReadmeContainer>
-                                    )}
-                                </>
-                            )}
-
-                            {/* Listing service type bound functions */}
-                            {!(isHttpService || isMcpService ) && (
-                            // {!(isHttpService || isMcpService || isFtpService) && (
-
-                                <>
-                                    <SectionHeader
-                                        title={isFileService ? "File Handlers" : "Event Handlers"}
-                                        subtitle={enabledHandlers.length === 0 ? "" : `Define how the service responds to events`}
+                                        title={isFileService ? "File Handlers" : isMcpService ? "Tools" : "Event Handlers"}
+                                        subtitle={enabledHandlers.length === 0 ? "" : isMcpService
+                                            ? "Define how the mcp service responds to tool calls"
+                                            : `Define how the service responds to events`}
                                     >
                                         <ActionGroup>
                                             {enabledHandlers.length !== 0 && unusedHandlers.length > 0 && (
-                                                <Button appearance="primary" tooltip="Add Handler" onClick={onSelectAddHandler}>
-                                                    <Codicon name="add" sx={{ marginRight: 8 }} /> <ButtonText>Handler</ButtonText>
+                                                <Button
+                                                    appearance="primary"
+                                                    tooltip={isMcpService ? "Add Tool" : "Add Handler"}
+                                                    onClick={onSelectAddHandler}
+                                                >
+                                                    <Codicon name="add" sx={{ marginRight: 8 }} />
+                                                    <ButtonText>{isMcpService ? "Tool" : "Handler"}</ButtonText>
                                                 </Button>
                                             )}
                                         </ActionGroup>
@@ -1389,7 +1304,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                     onEditResource={handleFunctionEdit}
                                                     onDeleteResource={handleFunctionDelete}
                                                     onResourceImplement={handleOpenDiagram}
-                                                    deletionTypeLabel={`${handlerNoun} handler`}
+                                                    deletionTypeLabel={isMcpService ? "tool" : `${handlerNoun} handler`}
                                                     editDisabled={editDisabled}
                                                 />
                                             );
@@ -1399,13 +1314,15 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                     {enabledHandlers.length === 0 && (
                                         <EmptyReadmeContainer>
                                             <Description variant="body2">
-                                                {`No ${handlerNoun} handlers found. Add a new ${handlerNoun} handler.`}
+                                                {isMcpService
+                                                    ? "No tools found. Add a new tool."
+                                                    : `No ${handlerNoun} handlers found. Add a new ${handlerNoun} handler.`}
                                             </Description>
                                             <Button
                                                 appearance="primary"
                                                 onClick={onSelectAddHandler}>
                                                 <Codicon name="add" sx={{ marginRight: 5 }} />
-                                                Add Handler
+                                                {isMcpService ? "Add Tool" : "Add Handler"}
                                             </Button>
                                         </EmptyReadmeContainer>
                                     )}
@@ -1543,8 +1460,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions with data binding */}
-                            {functionModel && !isHttpService && !isMcpService
-                            // {functionModel && !isHttpService && !isMcpService && !isFtpService
+                            {functionModel && !isHttpService
                                 && !isSchemaTriggerService && canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Message Handler Configuration"}
@@ -1571,8 +1487,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                             )}
 
                             {/* This is for adding or editing functions */}
-                            {/* {functionModel && !isHttpService && !isMcpService && !isFtpService */}
-                            {functionModel && !isHttpService && !isMcpService
+                            {functionModel && !isHttpService
                                 && !isSchemaTriggerService && !canDataBind(functionModel) && (
                                 <PanelContainer
                                     title={"Function Configuration"}
@@ -1697,23 +1612,6 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                 </PanelContainer>
                             )} */}
 
-                            {functionModel && isMcpService && (
-                                <PanelContainer
-                                    title={"Tool Configuration"}
-                                    show={showForm}
-                                    onClose={handleNewFunctionClose}
-                                    width={400}
-                                >
-                                    <McpToolForm
-                                        model={functionModel}
-                                        filePath={filePath}
-                                        lineRange={createLineRange(filePath, position)}
-                                        isSaving={isSaving}
-                                        onSave={handleFunctionSubmit}
-                                        onClose={handleNewFunctionClose}
-                                    />
-                                </PanelContainer>
-                            )}
                         </ServiceContainer>
                     </>
                 )
