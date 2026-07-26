@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ServiceModel, NodePosition, LineRange, EVENT_TYPE, ValidationResult, hasBlockingValidationErrors } from '@wso2/ballerina-core';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import ServiceConfigForm from './Forms/ServiceConfigForm';
@@ -36,16 +36,27 @@ export function ServiceEditView(props: ServiceEditViewProps) {
     const [saving, setSaving] = useState<boolean>(false);
     const [serverValidationErrors, setServerValidationErrors] = useState<ValidationResult[]>([]);
 
+    const isMountedRef = useRef(true);
+
     useEffect(() => {
+        isMountedRef.current = true;
         const lineRange: LineRange = { startLine: { line: position.startLine, offset: position.startColumn }, endLine: { line: position.endLine, offset: position.endColumn } };
         rpcClient.getServiceDesignerRpcClient().getServiceModelFromCode({ filePath, codedata: { lineRange } }).then(res => {
-            setServiceModel(res.service);
+            if (isMountedRef.current) {
+                setServiceModel(res.service);
+            }
         })
+        return () => {
+            isMountedRef.current = false;
+        };
     }, [props.filePath, props.position]);
 
     const onSubmit = async (value: ServiceModel) => {
         setSaving(true);
         const res = await rpcClient.getServiceDesignerRpcClient().updateServiceSourceCode({ filePath, service: value });
+        if (!isMountedRef.current) {
+            return;
+        }
         // Refused by the language server's save-time gate — nothing was written, so keep the form
         // open with the failures on their fields instead of hanging on "Saving". A WARNING is not a
         // rejection and must not trap the form.

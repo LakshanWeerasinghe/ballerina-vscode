@@ -205,7 +205,7 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
                 {functionModel &&
                     <ButtonSection>
                         <>
-                            {onEditResource! && (
+                            {onEditResource && (
                                 <ActionButton
                                     id="bi-edit"
                                     appearance="secondary"
@@ -223,7 +223,7 @@ export function ResourceAccordion(params: ResourceAccordionProps) {
                                     />
                                 </ActionButton >
                             )}
-                            {onDeleteResource! && (
+                            {onDeleteResource && (
                                 <ActionButton id="bi-delete" appearance="secondary" onClick={handleDeleteResource} disabled={!functionModel.optional}>
                                     <Codicon
                                         name="trash"
