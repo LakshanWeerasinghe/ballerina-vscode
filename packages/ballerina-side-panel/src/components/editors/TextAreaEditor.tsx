@@ -28,6 +28,7 @@ import { ExpandIcon } from "./MultiModeExpressionEditor/ChipExpressionEditor/com
 import { FloatingToggleButton } from "./MultiModeExpressionEditor/ChipExpressionEditor/components/FloatingToggleButton";
 import { buildRequiredRule } from "./utils";
 import { buildValidate } from "../Form/validationRules";
+import { dedupeMessages } from "../Form/DiagnosticsStore";
 
 interface TextAreaEditorProps {
     field: FormField;
@@ -55,8 +56,6 @@ export function TextAreaEditor(props: TextAreaEditorProps) {
     const { form } = useFormContext();
     const { control, setValue, watch } = form;
     const [isExpandedModalOpen, setIsExpandedModalOpen] = useState(false);
-
-    const errorMsg = field.diagnostics?.map((diagnostic) => diagnostic.message).join("\n");
 
     const handleOpenExpandedMode = () => {
         setIsExpandedModalOpen(true);
@@ -88,7 +87,7 @@ export function TextAreaEditor(props: TextAreaEditorProps) {
                         required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
                         validate: buildValidate(field)
                     }}
-                    render={({ field: { name, value, onChange } }) => (
+                    render={({ field: { name, value, onChange }, fieldState: { error } }) => (
                         <TextAreaContainer>
                             <AutoResizeTextArea
                                 id={field.key}
@@ -99,7 +98,14 @@ export function TextAreaEditor(props: TextAreaEditorProps) {
                                 readOnly={!field.editable}
                                 value={value}
                                 sx={{ width: "100%" }}
-                                errorMsg={errorMsg}
+                                // `error` is react-hook-form's own state — now the only place a
+                                // buildValidate (connector-shipped rule) failure shows up. Previously
+                                // this was bound to the static `field.diagnostics` prop alone, so a
+                                // rule that blocked Save could do so with nothing visible on the field.
+                                errorMsg={dedupeMessages([
+                                    error?.message?.toString(),
+                                    ...(field.diagnostics ?? []).map((diagnostic) => diagnostic.message),
+                                ]).join("\n")}
                                 onFocus={() => handleOnFieldFocus?.(field.key)}
                                 autoFocus={autoFocus}
                                 onChange={onChange}

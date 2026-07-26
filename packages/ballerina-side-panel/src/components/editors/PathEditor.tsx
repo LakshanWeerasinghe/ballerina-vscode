@@ -23,6 +23,7 @@ import { useFormContext } from "../../context";
 import { parseBasePath, parseResourceActionPath } from "../../utils/path-validations";
 import { buildRequiredRule, capitalize } from "./utils";
 import { buildValidate } from "../Form/validationRules";
+import { dedupeMessages } from "../Form/DiagnosticsStore";
 import { debounce } from "lodash";
 
 interface PathEditorProps {
@@ -34,7 +35,7 @@ interface PathEditorProps {
 export function PathEditor(props: PathEditorProps) {
     const { field, handleOnFieldFocus, autoFocus } = props;
     const { form } = useFormContext();
-    const { register, setError, clearErrors, watch } = form;
+    const { register, setError, clearErrors, watch, formState: { errors } } = form;
 
     const [pathErrorMsg, setPathErrorMsg] = useState<string>(field.diagnostics?.map((diagnostic) => diagnostic.message).join("\n"));
 
@@ -61,6 +62,16 @@ export function PathEditor(props: PathEditorProps) {
         return () => validatePath.cancel();
     }, [fieldValue, field.key, validatePath]);
 
+    // `pathErrorMsg` (the legacy sync path-syntax check) and `errors[field.key]` (react-hook-form's
+    // own state, which now also carries buildValidate's connector-shipped rule failures) are merged
+    // here rather than shown from `pathErrorMsg` alone — previously a buildValidate failure marked
+    // the field invalid (blocking Save) without ever appearing in this field's own error slot.
+    const validationError = errors[field.key]?.message;
+    const errorMsg = dedupeMessages([
+        validationError ? String(validationError) : undefined,
+        pathErrorMsg,
+    ]).join("\n");
+
     return (
         <TextField
             id={field.key}
@@ -76,7 +87,7 @@ export function PathEditor(props: PathEditorProps) {
             placeholder={field.placeholder}
             readOnly={!field.editable}
             sx={{ width: "100%" }}
-            errorMsg={pathErrorMsg}
+            errorMsg={errorMsg}
             onKeyUp={(e) => validatePath(e.currentTarget.value)}
             onFocus={() => handleOnFieldFocus?.(field.key)}
             autoFocus={autoFocus}
