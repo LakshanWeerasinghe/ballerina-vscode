@@ -53,9 +53,7 @@ export const BRAND_ICON_REGISTRY: Record<string, BrandIcon> = {
     file: { glyph: "bi-file" },
     mssql: { glyph: "bi-mssql", color: "#b61d1c" },
     postgresql: { glyph: "bi-postgresql", color: "#336791" },
-    mysql: { glyph: "bi-mysql", color: "#00678c" },
-    // Different consumers key Shopify differently (a ServiceModel.moduleName of "trigger.shopify"
-    // vs. a CDService.type of "shopify:Service" stripped to "shopify") — both resolve to the same brand.
+    mysql: { glyph: "bi-mysql", color: "#00758F" },
     shopify: { glyph: "bi-shopify", color: "#95BF47" },
     "trigger.shopify": { glyph: "bi-shopify", color: "#95BF47" },
     hubspot: { glyph: "bi-hubspot", color: "#FF7A59" },

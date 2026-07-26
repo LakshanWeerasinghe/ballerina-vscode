@@ -15,7 +15,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRpcContext } from '@wso2/ballerina-rpc-client';
 import { EVENT_TYPE, MACHINE_VIEW, ServiceModel, TriggerModelsResponse } from '@wso2/ballerina-core';
 import debounce from 'lodash.debounce';
@@ -47,19 +47,40 @@ export function CentralSearchPanel(props: CentralSearchPanelProps) {
     const [searching, setSearching] = useState<boolean>(true);
     const [results, setResults] = useState<ServiceModel[]>([]);
 
+    const isMountedRef = useRef(true);
+    // The most recently *dispatched* search query. Debounce only coalesces rapid keystrokes into
+    // one call per pause — it does nothing once two calls are genuinely in flight together (e.g. a
+    // slow response for an older query outlasting a newer one). Comparing against this before
+    // applying a response is what stops a stale result from overwriting a fresher one purely
+    // because of network timing.
+    const latestQueryRef = useRef<string>("");
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
     // Debounced so we don't hit Central on every keystroke.
     const runSearch = useMemo(
         () =>
             debounce((searchQuery: string) => {
+                latestQueryRef.current = searchQuery;
                 setSearching(true);
                 rpcClient
                     .getServiceDesignerRpcClient()
                     .searchTriggers({ query: searchQuery })
                     .then((res) => {
+                        if (!isMountedRef.current || latestQueryRef.current !== searchQuery) {
+                            return;
+                        }
                         setResults(res?.local ?? []);
                     })
                     .finally(() => {
-                        setSearching(false);
+                        if (isMountedRef.current && latestQueryRef.current === searchQuery) {
+                            setSearching(false);
+                        }
                     });
             }, SEARCH_DEBOUNCE_MS),
         [rpcClient]
