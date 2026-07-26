@@ -244,13 +244,11 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
     @Override
     public Function getModelFromSource(ModelFromSourceContext context) {
         Function function = super.getModelFromSource(context);
-        // Prefer a bundled schema, then the unified TriggerModel resolved from the connector's .bala.
-        // Either way, stamp the connector identity so the follow-up addFunction/updateFunction routes
-        // back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's Codedata).
+        // The bundled schema. Stamp the connector identity so the follow-up addFunction/updateFunction
+        // routes back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's
+        // Codedata).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName())
-                .or(() -> ConnectorModelReader.getInstance()
-                        .readTriggerModel(context.orgName(), context.packageName(), context.version()));
+                .getBundledTriggerModel(context.moduleName());
         if (triggerModel.isPresent()) {
             overlayConnectorMetadata(function, triggerModel.get(), context.serviceType());
             stampCodedata(function, context);
@@ -260,7 +258,7 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
 
     /**
      * Overlays the connector's curated function/parameter metadata onto a source-parsed function from
-     * the unified {@link TriggerModel} (bundled or resolved from a {@code .bala}). The source parse
+     * the bundled unified {@link TriggerModel}. The source parse
      * yields the real names/types/ranges; the connector model supplies the human labels, descriptions
      * and type constraints the raw source cannot. Package-visible for testing.
      */

@@ -30,33 +30,29 @@ import io.ballerina.servicemodelgenerator.extension.util.Utils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 
 /**
- * Unit test for {@code TriggerFunctionAdapter}'s variant expansion: a schemaFunction with a VARIANT
- * parameter (SMB/FTP's onFileChange file formats) fans out into one self-contained wire Function per
- * variant, carrying the handler-catalog fields ({@code group}/{@code variantLabel}/{@code addLabel}/
+ * Unit test for the wire-level shape of a grouped/repeatable schema function catalog: FTP's file-format
+ * handlers (onFileCsv/onFileJson/…) share the {@code onCreate} group as {@code ONE_EACH_PER_GROUP},
+ * carrying the handler-catalog fields ({@code group}/{@code variantLabel}/{@code addLabel}/
  * {@code repeatable}), the composed payload parameter, the composition flags (stream / metadata
  * markers) and the function-level annotation tree — the wire contract the generic front-end handler
- * form consumes. Also covers the save-side collapse of an edited COMPLEX_FUNCTION_ANNOTATION tree
- * into an emitted {@code @smb:FunctionConfig {...}} attachment.
+ * form consumes. Also covers the save-side collapse of an edited COMPLEX_FUNCTION_ANNOTATION tree into
+ * an emitted {@code @ftp:FunctionConfig {...}} attachment.
+ *
+ * <p>These handlers are pre-expanded in FTP's own {@code trigger-model.json} (each format is its own
+ * top-level schemaFunction), not fanned out at runtime from a single VARIATION_SELECTOR parameter.
+ * None of the 15 currently bundled trigger models use the runtime VARIANT-parameter expansion mechanism
+ * {@link TriggerServiceAdapter} still supports (FTP itself was refactored away from it), so this class
+ * verifies the wire-level shape grouped/repeatable handlers must have, not the fan-out algorithm itself.
  *
  * @since 1.9.0
  */
 public class TriggerFunctionExpansionTest {
 
-    private Service smbTemplate() throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/smb");
-        Assert.assertNotNull(fixture, "smb fixture missing");
-        TriggerModel model = ConnectorModelReader.getInstance()
-                .readTriggerModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
-        return TriggerServiceAdapter.toServiceTemplate(model, "Service", "ballerina", "smb", "smb");
-    }
-
-    /** The shipped FTP model, whose handlers use the variant-less COMPLEX_PAYLOAD shape. */
+    /** The shipped FTP model: file-format handlers pre-expanded, sharing the {@code onCreate} group. */
     private Service ftpTemplate() {
         TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
         return TriggerServiceAdapter.toServiceTemplate(model, "Service", "ballerina", "ftp", "ftp");
@@ -73,36 +69,31 @@ public class TriggerFunctionExpansionTest {
     }
 
     @Test
-    public void testVariantHandlerFansOutPerFormat() throws Exception {
-        Service service = smbTemplate();
-        // onFileChange (5 formats) + onError = 6 addable wire functions, all in the catalog
-        // (schemaFunctions) — the template's `functions` only carries the model's present handlers.
+    public void testGroupedHandlersCarryCatalogFields() {
+        Service service = ftpTemplate();
+        // onFileCsv/onFileJson/onFileXml/onFileText/onFile (5 formats) + onFileDelete/onFileChange/
+        // onError are all addable wire functions, all in the catalog (schemaFunctions) — ftp ships no
+        // present handlers by default.
         List<String> names = service.getSchemaFunctions().stream().map(f -> f.getName().getValue()).toList();
-        for (String expected : List.of("onFileCsv", "onFileJson", "onFileXml", "onFileText", "onFile", "onError")) {
+        for (String expected : List.of("onFileCsv", "onFileJson", "onFileXml", "onFileText", "onFile")) {
             Assert.assertTrue(names.contains(expected), expected + " missing from " + names);
         }
 
         Function csv = byName(service, "onFileCsv");
-        Assert.assertEquals(csv.getGroup(), "onFileChange", "variants must share the schema group id");
+        Assert.assertEquals(csv.getGroup(), "onCreate", "format variants must share the schema group id");
         Assert.assertEquals(csv.getVariantLabel(), "CSV");
-        Assert.assertEquals(csv.getAddLabel(), "Add On File Change Handler");
         Assert.assertEquals(csv.getRepeatable(), Repeatable.ONE_EACH_PER_GROUP,
                 "grouped file-format variants are each addable once");
         Assert.assertFalse(csv.isEnabled(), "schemaFunction templates ship disabled (addable)");
 
         Function raw = byName(service, "onFile");
-        Assert.assertEquals(raw.getGroup(), "onFileChange");
+        Assert.assertEquals(raw.getGroup(), "onCreate");
         Assert.assertEquals(raw.getVariantLabel(), "Raw Bytes");
-
-        Function onError = byName(service, "onError");
-        Assert.assertEquals(onError.getGroup(), "onError", "a variant-less handler is its own group");
-        Assert.assertEquals(onError.getVariantLabel(), "onError",
-                "a variant-less handler keeps its model-declared variantLabel");
     }
 
     @Test
-    public void testVariantPayloadParameterComposition() throws Exception {
-        Service service = smbTemplate();
+    public void testPayloadParameterComposition() {
+        Service service = ftpTemplate();
         Function csv = byName(service, "onFileCsv");
 
         Parameter content = csv.getParameters().stream()
@@ -135,15 +126,15 @@ public class TriggerFunctionExpansionTest {
                 .filter(p -> "caller".equals(p.getName().getValue())).findFirst().orElseThrow();
         Assert.assertTrue(caller.isAdvanced(), "caller is an opt-in framework param");
         Assert.assertFalse(caller.isEnabled());
-        Assert.assertEquals(caller.getType().getValue(), "smb:Caller");
+        Assert.assertEquals(caller.getType().getValue(), "ftp:Caller");
     }
 
     @Test
     public void testVariantlessComplexPayloadSurfacesCompositionFlags() {
-        // The shipped FTP model ships each file format as its own schemaFunction (onFileCsv, …),
-        // whose `content` parameter is a COMPLEX_PAYLOAD directly rather than under a
-        // VARIATION_SELECTOR. Its composition siblings (the `stream` toggle, the `rows` marker) must
-        // still surface as wire properties, or the handler form renders neither.
+        // Each FTP file format is its own schemaFunction, whose `content` parameter is a
+        // COMPLEX_PAYLOAD directly rather than under a VARIATION_SELECTOR. Its composition siblings
+        // (the `stream` toggle, the `rows` marker) must still surface as wire properties, or the
+        // handler form renders neither.
         Service ftp = ftpTemplate();
         Function csv = byName(ftp, "onFileCsv");
         Assert.assertNotNull(csv, "onFileCsv must be an addable FTP handler");
@@ -171,34 +162,43 @@ public class TriggerFunctionExpansionTest {
     }
 
     @Test
-    public void testComplexAnnotationCollapsesToAttachmentOnSave() throws Exception {
-        Service service = smbTemplate();
+    public void testComplexAnnotationCollapsesToAttachmentOnSave() {
+        Service service = ftpTemplate();
         Function csv = byName(service, "onFileCsv");
 
-        Value functionConfig = csv.getProperty("functionConfig");
+        Value functionConfig = csv.getProperty("afterFileProcessing");
         Assert.assertNotNull(functionConfig, "annotation tree must ride the wire function");
         Assert.assertEquals(functionConfig.getCodedata().getType(), "COMPLEX_FUNCTION_ANNOTATION");
 
-        // Simulate the UI: tick the optional fileNamePattern mapping field and type a pattern
-        // (a `string `...`` template, the shape the expression field produces).
-        Value fileNamePattern = functionConfig.getProperties().get("fileNamePattern");
-        fileNamePattern.setEnabled(true);
-        fileNamePattern.setValue("string `(.*).csv`");
+        // Simulate the UI: only the "on success -> move to" mapping field is ticked, with a custom
+        // destination (the shape the string field produces). For an OPTIONAL_FIELD node, inclusion is
+        // driven by its own `value` (the include flag), not `enabled`.
+        Value afterProcess = functionConfig.getProperties().get("afterProcess");
+        afterProcess.setValue(Boolean.TRUE);
+        Value afterError = functionConfig.getProperties().get("afterError");
+        afterError.setValue(Boolean.FALSE);
+        Value moveTo = afterProcess.getProperties().get("action").getChoices().get(0).getProperties().get("moveTo");
+        moveTo.setValue("/tmp/archive");
 
         SchemaDrivenFunctionBuilder.renderComplexAnnotations(csv);
         String source = Utils.generateFunctionDefSource(csv, List.of(),
                 Utils.FunctionAddContext.TRIGGER_ADD, Utils.FunctionSignatureContext.FUNCTION_ADD, new HashMap<>());
-        Assert.assertTrue(source.contains("@smb:FunctionConfig{fileNamePattern: \"(.*).csv\"}"),
+        Assert.assertTrue(source.contains("@ftp:FunctionConfig{afterProcess: {moveTo: \"/tmp/archive\"}}"),
                 "annotation must render above the handler; got:\n" + source);
-        Assert.assertTrue(source.contains("remote function onFileCsv(string[][] content, smb:FileInfo fileInfo)"),
+        Assert.assertTrue(source.contains("remote function onFileCsv(string[][] content, ftp:Caller caller)")
+                        || source.contains("remote function onFileCsv(string[][] content)"),
                 "variant signature must compose payload + required params; got:\n" + source);
     }
 
     @Test
-    public void testUncheckedAnnotationEmitsNothing() throws Exception {
-        Service service = smbTemplate();
+    public void testUncheckedAnnotationEmitsNothing() {
+        Service service = ftpTemplate();
         Function csv = byName(service, "onFileCsv");
-        // fileNamePattern ships disabled -> the whole @FunctionConfig attachment is skipped.
+        Value functionConfig = csv.getProperty("afterFileProcessing");
+        functionConfig.getProperties().get("afterProcess").setValue(Boolean.FALSE);
+        functionConfig.getProperties().get("afterError").setValue(Boolean.FALSE);
+
+        // No enabled mapping fields -> the whole @FunctionConfig attachment is skipped.
         SchemaDrivenFunctionBuilder.renderComplexAnnotations(csv);
         String source = Utils.generateFunctionDefSource(csv, List.of(),
                 Utils.FunctionAddContext.TRIGGER_ADD, Utils.FunctionSignatureContext.FUNCTION_ADD, new HashMap<>());

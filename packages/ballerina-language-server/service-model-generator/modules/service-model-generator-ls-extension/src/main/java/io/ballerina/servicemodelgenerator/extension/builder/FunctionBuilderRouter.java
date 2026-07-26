@@ -77,27 +77,19 @@ public class FunctionBuilderRouter {
     }
 
     /**
-     * Returns {@code true} when the connector's schema is available — either bundled as a classpath
-     * resource in this jar (checked first, no network/bala-cache cost), or, when no hardcoded function
-     * builder is registered for {@code moduleName}, resolved from the connector's {@code .bala}. Mirrors
-     * {@code ServiceBuilderRouter} (hardcoded wins unless a schema is available).
+     * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar
+     * (no network/bala-cache cost). A connector is never checked for a self-shipped {@code .bala}
+     * schema. Mirrors {@code ServiceBuilderRouter} (hardcoded wins unless a bundled schema is available).
      */
-    private static boolean useSchemaDrivenPath(String orgName, String pkgName, String moduleName, String version) {
+    private static boolean useSchemaDrivenPath(String moduleName) {
         if (moduleName == null) {
             return false;
         }
-        if (ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName)) {
-            return true;
-        }
-        return ConnectorModelReader.getInstance().hasTriggerModel(orgName, pkgName, version);
+        return ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName);
     }
 
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
-        // No org/package/version identity available at this call site — only the bundled-resource
-        // check in useSchemaDrivenPath (which needs just the module name) can fire here; a connector
-        // resolved solely via an external .bala schema falls through to the hardcoded/default builder,
-        // same as before this method learned about the schema-driven path at all.
-        NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(null, null, moduleName, null)
+        NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleName)
                 ? new SchemaDrivenFunctionBuilder()
                 : getFunctionBuilder(moduleName);
         GetModelContext context = GetModelContext.fromServiceAndFunctionType(moduleName, functionType);
@@ -111,8 +103,7 @@ public class FunctionBuilderRouter {
         // Schema-driven connectors add handlers via the generic builder; route by the function's
         // stamped connector identity (codedata), mirroring updateFunction.
         Codedata fnCodedata = function.getCodedata();
-        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(
-                fnCodedata.getOrgName(), fnCodedata.getPackageName(), moduleName, fnCodedata.getVersion())
+        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(moduleName)
                         ? new SchemaDrivenFunctionBuilder()
                         : getFunctionBuilder(moduleName);
         Project project = document != null ? document.module().project() : null;
@@ -130,8 +121,7 @@ public class FunctionBuilderRouter {
             moduleName = DEFAULT;
         }
         Codedata fnCodedata = function.getCodedata();
-        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(
-                fnCodedata.getOrgName(), fnCodedata.getPackageName(), moduleName, fnCodedata.getVersion())
+        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(moduleName)
                         ? new SchemaDrivenFunctionBuilder()
                         : getFunctionBuilder(moduleName);
         UpdateModelContext context =
@@ -148,8 +138,7 @@ public class FunctionBuilderRouter {
             context = new ModelFromSourceContext(functionNode, null, semanticModel, null, "",
                     metadata.serviceTypeIdentifier(), moduleID.orgName(), moduleID.packageName(),
                     moduleID.moduleName(), moduleID.version());
-            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(),
-                    moduleID.packageName(), moduleID.moduleName(), moduleID.version())
+            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.moduleName())
                             ? new SchemaDrivenFunctionBuilder()
                             : getFunctionBuilder(moduleID.moduleName());
             Function function = functionBuilder.getModelFromSource(context);

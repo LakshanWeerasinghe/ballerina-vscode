@@ -59,8 +59,8 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getServiceTypeIdentifier;
 
 /**
- * Generic, schema-driven service builder for connectors that ship a unified {@link TriggerModel} in
- * their {@code .bala} (or bundled as a classpath resource). It serves the add-event-integration flow
+ * Generic, schema-driven service builder for connectors whose unified {@link TriggerModel} is bundled
+ * as a classpath resource in this jar. It serves the add-event-integration flow
  * ({@code getServiceInitModel} + {@code addServiceAndListener}) with no per-connector code: the init
  * form comes straight from the model's {@code initProperties}, and the source is emitted by
  * {@link SchemaDrivenSourceGenerator} from the model's {@code codedata}.
@@ -83,12 +83,9 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
-        // Prefer a bundled schema (classpath resource), then the unified TriggerModel resolved from the
-        // connector's .bala: its init form is derived from `initProperties`.
+        // The bundled schema (classpath resource): its init form is derived from `initProperties`.
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getBundledServiceInitModel(context.moduleName())
-                .or(() -> ConnectorModelReader.getInstance()
-                        .readServiceInitModel(context.orgName(), context.packageName(), context.version()));
+                .getBundledServiceInitModel(context.moduleName());
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -102,11 +99,9 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     public Map<String, List<TextEdit>> addServiceInitSource(AddServiceInitModelContext context) {
         ServiceInitModel filledModel = context.serviceInitModel();
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
-        // Prefer a bundled schema, then the unified TriggerModel resolved from the connector's .bala.
+        // The bundled schema (classpath resource).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(filledModel.getModuleName())
-                .or(() -> ConnectorModelReader.getInstance().readTriggerModel(
-                        filledModel.getOrgName(), filledModel.getPackageName(), filledModel.getVersion()));
+                .getBundledTriggerModel(filledModel.getModuleName());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
@@ -116,13 +111,10 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public Service getModelFromSource(ModelFromSourceContext context) {
-        // Prefer a bundled schema, then the unified TriggerModel: build the designer template from its
-        // serviceTypes[], then merge the user's source (functions present, base path, listeners, line
-        // ranges).
+        // The bundled schema: build the designer template from its serviceTypes[], then merge the
+        // user's source (functions present, base path, listeners, line ranges).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName())
-                .or(() -> ConnectorModelReader.getInstance()
-                        .readTriggerModel(context.orgName(), context.packageName(), context.version()));
+                .getBundledTriggerModel(context.moduleName());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.
             return super.getModelFromSource(context);

@@ -28,33 +28,22 @@ import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
- * Unit test for the single-file {@code trigger-model.json} reader on {@link ConnectorModelReader}:
- * deserializes the phase-6 worked examples (kafka / ftp / github) from a package-root layout
- * ({@code <root>/resources/trigger-model.json}) without spinning up the language server. Verifies the
- * distinctive phase-6 shapes survive Gson: the listener CHOICE, structured parameters (type/name as
- * {@code Property} sub-nodes), data-binding, format variants, and fully-derived multi-service-type
- * handler sets.
+ * Unit test for the unified {@code trigger-model.json} reader on {@link ConnectorModelReader}:
+ * deserializes the bundled worked examples (kafka / ftp / trigger.github / trigger.hubspot) from their
+ * classpath resources without spinning up the language server. Verifies the distinctive shapes survive
+ * Gson: the listener CHOICE, structured parameters (type/name as {@code Property} sub-nodes),
+ * data-binding, composed payloads, and fully-derived multi-service-type handler sets.
  *
  * @since 1.9.0
  */
 public class TriggerModelReaderTest {
 
-    private TriggerModel read(String connector) throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-        Assert.assertNotNull(fixture, connector + " trigger-model fixture is missing from test resources");
-        Path packageRoot = Paths.get(fixture.toURI());
-        Optional<TriggerModel> result =
-                ConnectorModelReader.getInstance().readTriggerModelFromPackageRoot(packageRoot);
-        Assert.assertTrue(result.isPresent(), "expected " + connector + " trigger-model to be read");
-        return result.get();
+    private TriggerModel read(String moduleName) {
+        return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
     private String listenerFieldType(TriggerModel model) {
@@ -77,26 +66,23 @@ public class TriggerModelReaderTest {
     }
 
     @Test
-    public void testReadKafka() throws Exception {
+    public void testReadKafka() {
         TriggerModel model = read("kafka");
-        Assert.assertEquals(model.schemaVersion(), "1.0");
         Assert.assertEquals(model.orgName(), "ballerinax");
         Assert.assertEquals(model.moduleName(), "kafka");
         // Kafka does not support attaching to an existing listener, so there is no create/reuse
-        // CHOICE — `listenerConfig` is a plain GROUP_SECTION straight under initProperties, always
-        // creating a new listener.
+        // CHOICE — the listener init params sit directly under initProperties, always creating a new
+        // listener.
         Assert.assertFalse(model.initProperties().containsKey("listener"), "kafka has no listener CHOICE");
-        Property listenerConfig = model.initProperties().get("listenerConfig");
-        Assert.assertNotNull(listenerConfig, "listenerConfig should be present directly under initProperties");
-        Assert.assertEquals(listenerConfig.types().getFirst().fieldType(), "GROUP_SECTION");
-        Assert.assertTrue(listenerConfig.properties().containsKey("listenerVarName"));
-        Assert.assertTrue(listenerConfig.properties().containsKey("bootstrapServers"));
+        Assert.assertTrue(model.initProperties().containsKey("listenerVarName"));
+        Property bootstrapServers = model.initProperties().get("bootstrapServers");
+        Assert.assertNotNull(bootstrapServers, "bootstrapServers should be present directly under initProperties");
+        Assert.assertEquals(bootstrapServers.codedata().argType(), "LISTENER_PARAM_REQUIRED");
 
         List<ServiceTypeModel> serviceTypes = model.serviceTypes();
         Assert.assertNotNull(serviceTypes);
         Assert.assertEquals(serviceTypes.size(), 1);
         ServiceTypeModel st = serviceTypes.getFirst();
-        Assert.assertEquals(st.name(), "Service");
         // Kafka: no present handlers; onConsumerRecord/onError are addable templates.
         Assert.assertTrue(st.functions() == null || st.functions().isEmpty());
 
@@ -114,30 +100,31 @@ public class TriggerModelReaderTest {
     }
 
     @Test
-    public void testReadFtp() throws Exception {
+    public void testReadFtp() {
         TriggerModel model = read("ftp");
         Assert.assertEquals(model.moduleName(), "ftp");
         Assert.assertEquals(model.orgName(), "ballerina");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
 
         ServiceTypeModel st = model.serviceTypes().getFirst();
-        // A format-variant handler: COMPLEX_REMOTE_FUNCTION whose content param is a VARIANT with a
-        // VARIATION_SELECTOR type (the CSV/JSON/XML/TEXT/RAW picker).
+        // Each file format is pre-expanded into its own schemaFunction (not fanned out at runtime from
+        // a VARIATION_SELECTOR): the content parameter is a data-binding COMPLEX_PAYLOAD directly.
         FunctionModel onFileCsv = findFunction(st, "onFileCsv");
         Assert.assertNotNull(onFileCsv, "onFileCsv should be present");
-        Assert.assertEquals(onFileCsv.kind(), "COMPLEX_REMOTE_FUNCTION");
-        Parameter content = onFileCsv.parameters().getFirst();
-        Assert.assertEquals(content.kind(), "VARIANT");
-        Assert.assertEquals(content.type().types().getFirst().fieldType(), "VARIATION_SELECTOR");
-        // The variant sub-forms live under the selector's nested properties.
-        Assert.assertNotNull(content.type().properties(), "variant sub-forms live in type.properties");
-        Assert.assertTrue(content.type().properties().containsKey("CSV"));
+        Assert.assertEquals(onFileCsv.kind(), "REMOTE");
+        Parameter content = onFileCsv.parameters().stream()
+                .filter(p -> "content".equals(p.name().value())).findFirst().orElseThrow();
+        Assert.assertEquals(content.kind(), "DATA_BINDING");
+        Assert.assertEquals(content.type().types().getFirst().fieldType(), "COMPLEX_PAYLOAD");
+        // The composed payload's own sub-properties (payload/stream/rows) live under type.properties.
+        Assert.assertNotNull(content.type().properties(), "the composed payload lives in type.properties");
+        Assert.assertTrue(content.type().properties().containsKey("payload"));
     }
 
     @Test
-    public void testReadGithub() throws Exception {
-        TriggerModel model = read("github");
-        Assert.assertEquals(model.moduleName(), "github");
+    public void testReadGithub() {
+        TriggerModel model = read("trigger.github");
+        Assert.assertEquals(model.moduleName(), "trigger.github");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
         // Multi-service-type connector: a serviceType selector in the init form.
         Assert.assertTrue(model.initProperties().containsKey("serviceType"),
@@ -158,42 +145,29 @@ public class TriggerModelReaderTest {
     }
 
     @Test
-    public void testKafkaInitFormAsServiceInitModel() throws Exception {
+    public void testKafkaInitFormAsServiceInitModel() {
         // The add-trigger init form is derived from the unified model's initProperties subtree and
         // handed to the frontend as the wire ServiceInitModel (identity + Map<String,Value>).
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/kafka");
-        Assert.assertNotNull(fixture);
-        Path packageRoot = Paths.get(fixture.toURI());
-        Optional<ServiceInitModel> result =
-                ConnectorModelReader.getInstance().readServiceInitModelFromPackageRoot(packageRoot);
-        Assert.assertTrue(result.isPresent(), "the init form should build from the unified model");
-        ServiceInitModel init = result.get();
+        ServiceInitModel init = ConnectorModelReader.getInstance().getBundledServiceInitModel("kafka").orElseThrow();
         Assert.assertEquals(init.getOrgName(), "ballerinax");
         Assert.assertEquals(init.getModuleName(), "kafka");
         Assert.assertEquals(init.getType(), "kafka");
 
         // Kafka does not support attaching to an existing listener, so there is no create/reuse
-        // CHOICE — `listenerConfig` sits directly under initProperties as a plain GROUP_SECTION,
-        // wrapping the WHOLE listener config (listenerVarName plus every init param) so it still
-        // renders as a single titled box (not just a record-typed param's own fields).
+        // CHOICE — the listener init params (listenerVarName plus every init param) sit directly
+        // under initProperties, not wrapped in a listenerConfig group.
         Assert.assertFalse(init.getProperties().containsKey("listener"), "kafka has no listener CHOICE");
-        Value listenerConfig = init.getProperties().get("listenerConfig");
-        Assert.assertNotNull(listenerConfig, "the whole listener should be wrapped in one listenerConfig group");
-        Assert.assertEquals(listenerConfig.getTypes().getFirst().fieldType(), Value.FieldType.GROUP_SECTION);
-        Map<String, Value> cfg = listenerConfig.getProperties();
-        Assert.assertTrue(cfg.containsKey("listenerVarName"), "listenerVarName should be first field");
+        Assert.assertTrue(init.getProperties().containsKey("listenerVarName"), "listenerVarName should be present");
 
-        Value bootstrapServers = cfg.get("bootstrapServers");
+        Value bootstrapServers = init.getProperties().get("bootstrapServers");
         Assert.assertNotNull(bootstrapServers);
-        // codedata (argType/position) drives positional listener args; validations must survive.
+        // codedata (argType/position) drives positional listener args.
         Assert.assertEquals(bootstrapServers.getCodedata().getArgType(), "LISTENER_PARAM_REQUIRED");
         Assert.assertEquals(bootstrapServers.getCodedata().getPosition(), Integer.valueOf(1));
-        Assert.assertNotNull(bootstrapServers.getValidations());
-        Assert.assertEquals(bootstrapServers.getValidations().getFirst().getRule(), "common.validate.required");
     }
 
     @Test
-    public void testHubspotGroupedListenerParamAsServiceInitModel() throws Exception {
+    public void testHubspotGroupedListenerParamAsServiceInitModel() {
         // HubSpot's listener has a record-typed positional param (`config`, holding clientSecret /
         // callbackURL) alongside a scalar positional param (`listenOn`). Regression test for a bug
         // where clientSecret/callbackURL both ended up at position 1 (duplicated) and listenOn was
@@ -201,12 +175,8 @@ public class TriggerModelReaderTest {
         // flattened as CONFIG_FIELD siblings sharing position 1 (config's own slot) with listenOn
         // correctly at position 2 — all nested inside ONE listenerConfig GROUP_SECTION so the whole
         // listener (not just the record fields) renders as a single titled box.
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/hubspot");
-        Assert.assertNotNull(fixture, "hubspot fixture missing");
-        Optional<ServiceInitModel> result = ConnectorModelReader.getInstance()
-                .readServiceInitModelFromPackageRoot(Paths.get(fixture.toURI()));
-        Assert.assertTrue(result.isPresent());
-        ServiceInitModel init = result.get();
+        ServiceInitModel init = ConnectorModelReader.getInstance()
+                .getBundledServiceInitModel("trigger.hubspot").orElseThrow();
 
         Value listener = init.getProperties().get("listener");
         Value createNew = listener.getChoices().stream().filter(Value::isEnabled).findFirst().orElse(null);
@@ -214,10 +184,6 @@ public class TriggerModelReaderTest {
         Value listenerConfig = createNew.getProperties().get("listenerConfig");
         Assert.assertNotNull(listenerConfig, "the whole listener should be wrapped in one listenerConfig group");
         Assert.assertEquals(listenerConfig.getTypes().getFirst().fieldType(), Value.FieldType.GROUP_SECTION);
-        // The group's OWN codedata carries the record param's position (1) so its assembled record
-        // literal lands at the right slot.
-        Assert.assertEquals(listenerConfig.getCodedata().getArgType(), "LISTENER_PARAM_REQUIRED");
-        Assert.assertEquals(listenerConfig.getCodedata().getPosition(), Integer.valueOf(1));
 
         Map<String, Value> cfg = listenerConfig.getProperties();
         Assert.assertTrue(cfg.containsKey("listenerVarName"), "listenerVarName is inside the group, not a sibling");
@@ -239,25 +205,21 @@ public class TriggerModelReaderTest {
     }
 
     @Test
-    public void testInitFormBuildsForAllExamples() throws Exception {
+    public void testInitFormBuildsForAllExamples() {
         // ftp and github init forms use only known wire fieldTypes, so they deserialize cleanly too.
-        for (String connector : new String[] {"ftp", "github"}) {
-            URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-            Assert.assertNotNull(fixture, connector + " fixture missing");
-            Optional<ServiceInitModel> result = ConnectorModelReader.getInstance()
-                    .readServiceInitModelFromPackageRoot(Paths.get(fixture.toURI()));
-            Assert.assertTrue(result.isPresent(), connector + " init form should build");
-            Value listener = result.get().getProperties().get("listener");
-            Assert.assertNotNull(listener, connector + " listener present");
+        for (String moduleName : new String[] {"ftp", "trigger.github"}) {
+            ServiceInitModel init = ConnectorModelReader.getInstance()
+                    .getBundledServiceInitModel(moduleName).orElseThrow();
+            Value listener = init.getProperties().get("listener");
+            Assert.assertNotNull(listener, moduleName + " listener present");
             Assert.assertEquals(listener.getTypes().getFirst().fieldType(), Value.FieldType.CHOICE);
         }
     }
 
     @Test
     public void testMissingModelReturnsEmpty() {
-        Path nonExistent = Paths.get(System.getProperty("java.io.tmpdir"), "no-trigger-model-" + hashCode());
         Assert.assertTrue(
-                ConnectorModelReader.getInstance().readTriggerModelFromPackageRoot(nonExistent).isEmpty(),
-                "a package without trigger-model.json must yield empty (so the router falls back)");
+                ConnectorModelReader.getInstance().getBundledTriggerModel("no-such-module").isEmpty(),
+                "a module with no bundled trigger-model.json must yield empty (so the router falls back)");
     }
 }

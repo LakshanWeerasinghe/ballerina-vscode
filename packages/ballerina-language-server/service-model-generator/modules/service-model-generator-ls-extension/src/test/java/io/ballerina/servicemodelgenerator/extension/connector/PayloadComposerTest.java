@@ -23,8 +23,6 @@ import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -38,11 +36,8 @@ public class PayloadComposerTest {
 
     private final Gson gson = new Gson();
 
-    private TriggerModel model(String connector) throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-        Assert.assertNotNull(fixture, connector + " fixture missing");
-        return ConnectorModelReader.getInstance()
-                .readTriggerModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
+    private TriggerModel model(String moduleName) {
+        return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
     private TriggerModel.FunctionModel schemaFunction(TriggerModel model, String name) {
@@ -69,9 +64,10 @@ public class PayloadComposerTest {
 
     @Test
     public void testFtpCsvVariantDefaultPayload() throws Exception {
-        // content: VARIATION_SELECTOR -> selected CSV variant -> payload PAYLOAD_TYPE (default string[],
-        // base template {{type}}[]) with the stream modifier OFF -> string[][].
-        TriggerModel.Parameter content = schemaFunction(model("ftp"), "onFileCsv").parameters().getFirst();
+        // content: COMPLEX_PAYLOAD -> payload PAYLOAD_TYPE (default string[], base template {{type}}[])
+        // with the stream modifier OFF -> string[][].
+        TriggerModel.Parameter content = schemaFunction(model("ftp"), "onFileCsv").parameters().stream()
+                .filter(p -> "content".equals(p.name().value())).findFirst().orElseThrow();
         Assert.assertEquals(PayloadComposer.effectiveType(content.type()), "string[][]");
     }
 

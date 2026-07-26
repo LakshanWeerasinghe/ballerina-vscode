@@ -26,9 +26,6 @@ import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Paths;
-
 /**
  * Unit test for {@link TriggerServiceAdapter}: builds the designer wire {@link Service} template from
  * a unified {@link TriggerModel}. Pure (no LS): verifies the service descriptor and the wire
@@ -38,17 +35,14 @@ import java.nio.file.Paths;
  */
 public class TriggerServiceAdapterTest {
 
-    private TriggerModel model(String connector) throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-        Assert.assertNotNull(fixture, connector + " fixture missing");
-        return ConnectorModelReader.getInstance()
-                .readTriggerModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
+    private TriggerModel model(String moduleName) {
+        return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
     @Test
     public void testGithubServiceTemplate() throws Exception {
         Service service = TriggerServiceAdapter.toServiceTemplate(
-                model("github"), "github:IssuesService", "ballerinax", "github", "github");
+                model("trigger.github"), "github:IssuesService", "ballerinax", "github", "github");
         Assert.assertNotNull(service);
         Assert.assertEquals(service.getServiceType().getValue(), "github:IssuesService",
                 "descriptor should resolve from the selected service type");
@@ -95,7 +89,7 @@ public class TriggerServiceAdapterTest {
     public void testListenerPropertyWidgetFollowsListenerKind() throws Exception {
         // The model's `listenerKind` drives the listener property's widget in the wire template.
         Service github = TriggerServiceAdapter.toServiceTemplate(
-                model("github"), "github:IssuesService", "ballerinax", "github", "github");
+                model("trigger.github"), "github:IssuesService", "ballerinax", "github", "github");
         Assert.assertEquals(github.getProperties().get("listener").getTypes().getFirst().fieldType(),
                 Value.FieldType.MULTIPLE_SELECT_LISTENER,
                 "github declares listenerKind MULTIPLE_SELECT_LISTENER");
@@ -103,11 +97,12 @@ public class TriggerServiceAdapterTest {
 
     @Test
     public void testListenerPropertyDefaultsToSingleSelectWhenListenerKindAbsent() throws Exception {
-        // The kafka fixture omits listenerKind, so the widget falls back to SINGLE_SELECT_LISTENER.
+        // Kafka declares listenerKind SINGLE_SELECT_LISTENER (single-listener connector): the widget
+        // resolves to the same default a model omitting listenerKind entirely would fall back to.
         Service kafka = TriggerServiceAdapter.toServiceTemplate(
                 model("kafka"), "Service", "ballerinax", "kafka", "kafka");
         Assert.assertEquals(kafka.getProperties().get("listener").getTypes().getFirst().fieldType(),
                 Value.FieldType.SINGLE_SELECT_LISTENER,
-                "a model without listenerKind defaults to SINGLE_SELECT_LISTENER");
+                "single-listener connectors resolve to SINGLE_SELECT_LISTENER");
     }
 }

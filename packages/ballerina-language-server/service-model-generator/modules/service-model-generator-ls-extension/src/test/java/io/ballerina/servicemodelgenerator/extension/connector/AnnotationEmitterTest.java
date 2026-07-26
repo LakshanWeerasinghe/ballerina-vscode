@@ -22,26 +22,21 @@ import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Paths;
 import java.util.List;
 
 /**
- * Unit test for {@link AnnotationEmitter} and the annotation/variant wiring in
+ * Unit test for {@link AnnotationEmitter} and the annotation wiring in
  * {@link SchemaDrivenSourceGenerator#buildFunctionSource}: the granular {@code codedata} roles
  * (COMPLEX_FUNCTION_ANNOTATION -> MAPPING_FIELD -> FIELD_VALUE_CHOICE -> MAPPING_CONSTRUCTOR) emit a
- * well-formed {@code @ftp:FunctionConfig { ... }}, and a variant handler fans out to the selected
- * variant's name. Leaf rendering (string quoting) derives from the leaf's declared types[].
+ * well-formed {@code @ftp:FunctionConfig { ... }}. Leaf rendering (string quoting) derives from the
+ * leaf's declared types[].
  *
  * @since 1.9.0
  */
 public class AnnotationEmitterTest {
 
-    private TriggerModel.FunctionModel onFileCsv() throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/ftp");
-        Assert.assertNotNull(fixture, "ftp fixture missing");
-        TriggerModel model = ConnectorModelReader.getInstance()
-                .readTriggerModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
+    private TriggerModel.FunctionModel onFileCsv() {
+        TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
         return model.serviceTypes().getFirst().schemaFunctions().stream()
                 .filter(f -> "onFileCsv".equals(f.name())).findFirst().orElseThrow();
     }

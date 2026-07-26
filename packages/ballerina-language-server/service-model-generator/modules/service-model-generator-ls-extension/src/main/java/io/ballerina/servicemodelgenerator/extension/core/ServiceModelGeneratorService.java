@@ -1132,25 +1132,18 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     }
 
     /**
-     * Resolves a trigger's basic info, preferring the schema-driven {@code TriggerModel} (bundled
-     * classpath resource, then the connector's own {@code .bala}) over the legacy sqlite index derived
-     * from {@code service_artifacts.json}. This lets a schema-driven trigger appear in the picker with
-     * no {@code service_artifacts.json} entry or index rebuild; only triggers with neither a bundled nor
-     * bala-shipped model (e.g. HTTP, AI, TCP, GraphQL, Solace) fall through to the legacy index.
+     * Resolves a trigger's basic info, preferring the bundled schema-driven {@code TriggerModel} over
+     * the legacy sqlite index derived from {@code service_artifacts.json}. This lets a bundled
+     * schema-driven trigger appear in the picker with no {@code service_artifacts.json} entry or index
+     * rebuild; a trigger with no bundled model (e.g. HTTP, AI, TCP, GraphQL, Solace) falls through to
+     * the legacy index. There is no support for a connector shipping its own schema in its {@code .bala}.
      *
      * <p>Package-visible for unit testing without a full LS bootstrap.
      */
     Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
-        ConnectorModelReader reader = ConnectorModelReader.getInstance();
-
-        Optional<TriggerModel> bundled = reader.getBundledTriggerModel(name);
+        Optional<TriggerModel> bundled = ConnectorModelReader.getInstance().getBundledTriggerModel(name);
         if (bundled.isPresent()) {
             return bundled.map(this::toTriggerBasicInfo);
-        }
-
-        Optional<TriggerModel> bala = reader.readTriggerModel(orgName, name, null); // null -> latest version
-        if (bala.isPresent()) {
-            return bala.map(this::toTriggerBasicInfo);
         }
 
         return getTriggerBasicInfoFromLegacyIndex(orgName, name);
@@ -1175,7 +1168,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     }
 
     /** The legacy sqlite-index lookup (seeded from {@code service_artifacts.json}), reached only when
-     * neither a bundled nor bala-shipped {@link TriggerModel} resolves for {@code orgName}/{@code name}. */
+     * no bundled {@link TriggerModel} resolves for {@code orgName}/{@code name}. */
     private Optional<TriggerBasicInfo> getTriggerBasicInfoFromLegacyIndex(String orgName, String name) {
         Optional<ServiceDeclaration> serviceDeclaration = ServiceDatabaseManager.getInstance()
                 .getServiceDeclaration(orgName, name); // TODO: improve this to use a single query

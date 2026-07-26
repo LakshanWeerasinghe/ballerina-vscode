@@ -21,11 +21,11 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 import com.google.gson.Gson;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
+import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.URL;
-import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * Unit test for {@link SchemaDrivenSourceGenerator}'s unified {@code TriggerModel} path: given the
@@ -37,18 +37,20 @@ import java.nio.file.Paths;
  */
 public class TriggerSourceGenerationTest {
 
-    private ServiceInitModel initForm(String connector) throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-        Assert.assertNotNull(fixture, connector + " fixture missing");
-        return ConnectorModelReader.getInstance()
-                .readServiceInitModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
+    private final Gson gson = new Gson();
+
+    // ConnectorModelReader caches bundled models per moduleName (a JVM-wide singleton), and source
+    // generation mutates the init form in place (e.g. the enum-qualifier pre-pass). Returning a fresh
+    // deep copy per call keeps each test's mutations from leaking into every other test that resolves
+    // the same module later in the run.
+    private ServiceInitModel initForm(String moduleName) {
+        ServiceInitModel cached = ConnectorModelReader.getInstance().getBundledServiceInitModel(moduleName)
+                .orElseThrow();
+        return gson.fromJson(gson.toJsonTree(cached), ServiceInitModel.class);
     }
 
-    private TriggerModel triggerModel(String connector) throws Exception {
-        URL fixture = getClass().getClassLoader().getResource("trigger_models/" + connector);
-        Assert.assertNotNull(fixture, connector + " fixture missing");
-        return ConnectorModelReader.getInstance()
-                .readTriggerModelFromPackageRoot(Paths.get(fixture.toURI())).orElseThrow();
+    private TriggerModel triggerModel(String moduleName) {
+        return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
     @Test
@@ -67,7 +69,7 @@ public class TriggerSourceGenerationTest {
         // github: multi-type; the init form's serviceType selection (already module-qualified) drives
         // the descriptor (no double prefix), and that type's present handlers are emitted.
         String src = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(
-                initForm("github"), triggerModel("github"));
+                initForm("trigger.github"), triggerModel("trigger.github"));
         Assert.assertTrue(src.contains("service github:IssuesService on "),
                 "descriptor must not be double-prefixed: " + src);
         Assert.assertTrue(
@@ -82,41 +84,49 @@ public class TriggerSourceGenerationTest {
         // `config` param assembled into ONE record literal at its own position (1), followed by the
         // scalar `listenOn` at position 2. Previously clientSecret/callbackURL both landed at
         // position 1 as duplicate top-level args and listenOn was wrongly bumped to position 2 as a
-        // third argument.
+        // third argument. clientSecret/callbackURL ship with empty default values -- simulate the user
+        // having filled the form.
+        ServiceInitModel form = initForm("trigger.hubspot");
+        Value listenerConfig = form.getProperties().get("listener").getChoices().stream()
+                .filter(Value::isEnabled).findFirst().orElseThrow()
+                .getProperties().get("listenerConfig");
+        // string-typed field values already carry their emitted quoting (matches how the model's own
+        // TEXT fields are authored, e.g. ftp's moveTo: "\"/home/processed\"").
+        listenerConfig.getProperties().get("clientSecret").setValue("\"clientSecretValue\"");
+        listenerConfig.getProperties().get("callbackURL").setValue("\"callbackUrlValue\"");
+
         String src = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(
-                initForm("hubspot"), triggerModel("hubspot"));
+                form, triggerModel("trigger.hubspot"));
         Assert.assertTrue(
                 src.contains("new ({clientSecret: \"clientSecretValue\", callbackURL: \"callbackUrlValue\"}, 8090)"),
                 "record-typed config param and scalar listenOn should render as ordered positional args: " + src);
     }
 
     @Test
-    public void testSmbListenerNestsChoiceScopedIncludedFields() throws Exception {
-        // Regression test: SMB's `auth` is a nested CHOICE (Username & Password / Kerberos) inside
-        // the `listenerConfig` GROUP_SECTION, itself inside the top-level "Create New Listener"
-        // branch. Its selected branch's fields carry dotted paths (auth.credentials.username,
-        // auth.credentials.password) that cross the CHOICE boundary. Previously these were
-        // flattened into bogus top-level named args (`username = ..., password = ...`) instead of
-        // nesting into `auth = {credentials: {username: ..., password: ...}}` -- which doesn't
-        // compile against smb:ListenerConfiguration (no such flat fields) and is what made "fill
-        // the form and save" produce no usable service.
-        String src = SchemaDrivenSourceGenerator.buildListenerDeclaration(initForm("smb"));
-        Assert.assertTrue(src.contains("auth = {credentials: {username: \"user\", password: \"password\"}}"),
-                "auth's selected branch should nest into one record literal named arg: " + src);
-        Assert.assertFalse(src.contains("username = \"user\""),
-                "username must not leak out as a bogus top-level named arg: " + src);
-        Assert.assertFalse(src.contains("password = \"password\""),
-                "password must not leak out as a bogus top-level named arg: " + src);
-    }
-
-    @Test
     public void testFtpListenerNestsChoiceScopedIncludedFields() throws Exception {
-        // Same class of bug as SMB, on the flagship fixture: FTP's protocol CHOICE selects "FTP",
-        // whose `auth` is a GROUP_SECTION (not a CHOICE, but the same argType/dotted-path shape)
-        // with dotted paths auth.credentials.username / auth.credentials.password. This path was
-        // never exercised by a source-generation test before, so the same flattening bug applied
-        // here too -- confirms the fix is connector-agnostic, not an SMB-only patch.
-        String src = SchemaDrivenSourceGenerator.buildListenerDeclaration(initForm("ftp"));
+        // Regression test: FTP's protocol CHOICE selects "FTP", whose `auth` is itself a nested CHOICE
+        // (No Authentication / Basic Authentication / Certificate Based Authentication) inside the
+        // `listenerConfig` GROUP_SECTION, itself inside the top-level "Create New Listener" branch.
+        // Its selected branch's fields carry dotted paths (auth.credentials.username,
+        // auth.credentials.password) that cross the CHOICE boundary. Previously these were flattened
+        // into bogus top-level named args (`username = ..., password = ...`) instead of nesting into
+        // `auth = {credentials: {username: ..., password: ...}}` -- which doesn't compile against
+        // ftp:ListenerConfiguration (no such flat fields) and is what made "fill the form and save"
+        // produce no usable service.
+        //
+        // FTP's protocol CHOICE defaults to "FTP", but that branch's own auth CHOICE defaults to
+        // "No Authentication" (no `auth` fields at all) -- select "Basic Authentication" to exercise
+        // the nested-CHOICE dotted-path merge this test targets.
+        ServiceInitModel form = initForm("ftp");
+        Value protocol = form.getProperties().get("listener").getChoices().stream()
+                .filter(Value::isEnabled).findFirst().orElseThrow()
+                .getProperties().get("listenerConfig").getProperties().get("protocol");
+        Value ftpBranch = protocol.getChoices().stream().filter(Value::isEnabled).findFirst().orElseThrow();
+        List<Value> authChoices = ftpBranch.getProperties().get("auth").getChoices();
+        authChoices.forEach(choice -> choice.setEnabled(false));
+        authChoices.get(1).setEnabled(true); // "Basic Authentication"
+
+        String src = SchemaDrivenSourceGenerator.buildListenerDeclaration(form);
         Assert.assertTrue(src.contains("auth = {credentials: {username: \"user\", password: \"password\"}}"),
                 "auth should nest into one record literal named arg: " + src);
         Assert.assertFalse(src.contains("username = \"user\""),

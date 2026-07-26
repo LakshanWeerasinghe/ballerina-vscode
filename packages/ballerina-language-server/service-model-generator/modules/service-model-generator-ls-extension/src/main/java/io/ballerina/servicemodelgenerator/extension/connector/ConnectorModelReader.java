@@ -25,8 +25,6 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
-import io.ballerina.modelgenerator.commons.PackageUtil;
-import io.ballerina.projects.Package;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 
@@ -35,29 +33,24 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reads the unified {@code trigger-model.json} out of a connector's {@code .bala} (or a bundled
- * classpath resource).
+ * Reads the unified {@code trigger-model.json} for a connector from a bundled classpath resource
+ * shipped in this jar.
  *
- * <p>This is the entry point of the schema-driven trigger path: it locates the package in the
- * Bala Cache (pulling from Ballerina Central on a cache miss via {@link PackageUtil}), reads
- * {@code resources/trigger-model.json} from the resolved package root, deserializes it, and
- * caches the result per {@code org:name:version}. A connector that does not ship the model
- * resolves to {@link Optional#empty()}, so the routers fall back to the existing hardcoded path.
+ * <p>This is the entry point of the schema-driven trigger path: a connector's schema is bundled here
+ * (registered in {@code bundled_trigger_models.json}) rather than resolved from the connector's own
+ * {@code .bala} -- there is no support for a connector shipping its own {@code trigger-model.json}. A
+ * module with no bundled schema resolves to {@link Optional#empty()}, so the routers fall back to the
+ * existing hardcoded builder path.
  *
  * @since 1.8.0
  */
 public class ConnectorModelReader {
-
-    public static final String TRIGGER_MODEL_FILE = "trigger-model.json";
-    private static final String RESOURCES_DIR = "resources";
 
     private static final ConnectorModelReader INSTANCE = new ConnectorModelReader();
 
@@ -68,23 +61,18 @@ public class ConnectorModelReader {
     private static final Type BUNDLED_REGISTRY_TYPE = new TypeToken<Map<String, String>>() { }.getType();
 
     /**
-     * Modules for which a {@code trigger-model.json} is bundled as a classpath resource in this jar,
-     * instead of being resolved from the connector's {@code .bala}. This lets a connector with a
-     * hardcoded Java builder (e.g. RabbitMQ, Kafka, Solace) migrate onto the schema-driven path
-     * without needing a Central release that ships the model. Keyed by moduleName to line up with the
+     * Modules for which a {@code trigger-model.json} is bundled as a classpath resource in this jar.
+     * This lets a connector with a hardcoded Java builder (e.g. RabbitMQ, Kafka, Solace) migrate onto
+     * the schema-driven path without needing a Central release. Keyed by moduleName to line up with the
      * routers' {@code CONSTRUCTOR_MAP}s.
      *
      * <p>Loaded from {@code bundled_trigger_models.json} (a resource sibling of
      * {@code trigger_properties.json}) rather than hardcoded, so onboarding a new bundled trigger model
      * is a data edit, not a Java edit. Falls back to an empty registry (no bundled models resolve) if
-     * the resource is missing or malformed, so a broken/absent file degrades to the bala-resolution and
-     * legacy-index fallbacks rather than failing the class to load.
+     * the resource is missing or malformed, so a broken/absent file degrades to the legacy-index
+     * fallback rather than failing the class to load.
      *
-     * <p>The registry's resource paths are deliberately rooted at {@code trigger-models/} and the
-     * registry file itself is named distinctly from that directory: {@code trigger_models/} (underscore)
-     * is already used under {@code src/test/resources} for unrelated read-path test fixtures, and the
-     * test classpath merges main + test resources, so a colliding name could let a test fixture
-     * masquerade as a bundled production schema.
+     * <p>The registry's resource paths are rooted at {@code trigger-models/}.
      */
     private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = loadBundledTriggerModelRegistry();
 
@@ -104,8 +92,6 @@ public class ConnectorModelReader {
     }
 
     private final Gson gson = new Gson();
-    private final Map<String, Optional<TriggerModel>> triggerCache = new ConcurrentHashMap<>();
-    private final Map<String, Optional<ServiceInitModel>> initCache = new ConcurrentHashMap<>();
     private final Map<String, Optional<TriggerModel>> bundledTriggerCache = new ConcurrentHashMap<>();
     private final Map<String, Optional<ServiceInitModel>> bundledInitCache = new ConcurrentHashMap<>();
 
@@ -117,90 +103,10 @@ public class ConnectorModelReader {
     }
 
     /**
-     * Resolves the on-disk root of a package from the Bala Cache, pulling from Ballerina Central on a
-     * cache miss. Returns empty on any resolution failure (so callers fall back to the hardcoded path).
-     */
-    private Optional<Path> resolvePackageRoot(String org, String name, String version) {
-        try {
-            Optional<Package> resolved = (version == null || version.isBlank())
-                    ? PackageUtil.getModulePackage(PackageUtil.getSampleProject(), org, name)
-                    : PackageUtil.getModulePackage(PackageUtil.getSampleProject(), org, name, version);
-            return resolved.map(pkg -> pkg.project().sourceRoot());
-        } catch (Throwable e) {
-            return Optional.empty();
-        }
-    }
-
-    // --- single unified TriggerModel (resources/trigger-model.json) ---
-    // One document unifying the init form with the service type(s) and their handler functions.
-
-    /** Cheap presence check for the unified model, used by the routers for the schema-driven path. */
-    public boolean hasTriggerModel(String org, String name, String version) {
-        return readTriggerModel(org, name, version).isPresent();
-    }
-
-    /** Resolves and reads the connector's single {@code trigger-model.json}, caching the result. */
-    public Optional<TriggerModel> readTriggerModel(String org, String name, String version) {
-        String key = org + ":" + name + ":" + (version == null || version.isBlank() ? "latest" : version);
-        return triggerCache.computeIfAbsent(key,
-                k -> resolvePackageRoot(org, name, version).flatMap(this::readTriggerModelFromPackageRoot));
-    }
-
-    /**
-     * Reads the unified model from a resolved package/bala root
-     * ({@code <root>/resources/trigger-model.json}). Tolerant of the leading {@code $comment} key
-     * (Gson ignores unknown fields). Package-visible for unit testing without the LS.
-     *
-     * @param packageRoot the on-disk root of the resolved package (a bala directory)
-     * @return the model, or empty if the file is missing or unparseable
-     */
-    Optional<TriggerModel> readTriggerModelFromPackageRoot(Path packageRoot) {
-        if (packageRoot == null) {
-            return Optional.empty();
-        }
-        Path modelFile = packageRoot.resolve(RESOURCES_DIR).resolve(TRIGGER_MODEL_FILE);
-        if (!Files.isRegularFile(modelFile)) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.ofNullable(gson.fromJson(parse(modelFile), TriggerModel.class));
-        } catch (IOException | JsonParseException e) {
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Builds the add-trigger init form ({@link ServiceInitModel}) from the unified model's
-     * {@code initProperties} subtree, caching the result. The wire model expects identity fields +
-     * a top-level {@code properties} map, so this remaps {@code initProperties -> properties} at the
-     * JSON level and lets Gson deserialize the (already {@code Value}-shaped) init-form nodes.
-     */
-    public Optional<ServiceInitModel> readServiceInitModel(String org, String name, String version) {
-        String key = org + ":" + name + ":" + (version == null || version.isBlank() ? "latest" : version);
-        return initCache.computeIfAbsent(key,
-                k -> resolvePackageRoot(org, name, version).flatMap(this::readServiceInitModelFromPackageRoot));
-    }
-
-    /** Package-visible for unit testing without the LS. See {@link #readServiceInitModel}. */
-    Optional<ServiceInitModel> readServiceInitModelFromPackageRoot(Path packageRoot) {
-        if (packageRoot == null) {
-            return Optional.empty();
-        }
-        Path modelFile = packageRoot.resolve(RESOURCES_DIR).resolve(TRIGGER_MODEL_FILE);
-        if (!Files.isRegularFile(modelFile)) {
-            return Optional.empty();
-        }
-        try {
-            return buildServiceInitModelFromJson(parse(modelFile));
-        } catch (IOException | JsonParseException e) {
-            return Optional.empty();
-        }
-    }
-
-    /**
      * Derives the add-trigger init form from a parsed {@code trigger-model.json} document by remapping
-     * {@code initProperties -> properties} at the JSON level. Shared by the bala-root reader and the
-     * bundled-resource reader below.
+     * {@code initProperties -> properties} at the JSON level. The wire model expects identity fields +
+     * a top-level {@code properties} map, so this remaps at the JSON level and lets Gson deserialize the
+     * (already {@code Value}-shaped) init-form nodes.
      */
     private Optional<ServiceInitModel> buildServiceInitModelFromJson(JsonElement parsed) {
         if (!parsed.isJsonObject()) {
@@ -223,8 +129,7 @@ public class ConnectorModelReader {
 
     // --- bundled trigger models (classpath resources shipped in this jar) ---
     // Lets a connector with a hardcoded Java builder migrate onto the schema-driven path without a
-    // Central release: the schema is bundled here instead of being resolved from a .bala. Checked by
-    // the routers before the bala-based lookup above, so it never triggers a network/bala-cache hit.
+    // Central release: the schema is bundled here instead of being resolved from a .bala.
 
     /** Cheap presence check for a bundled schema, used by the routers at dispatch time. */
     public boolean hasBundledTriggerModel(String moduleName) {
@@ -263,9 +168,5 @@ public class ConnectorModelReader {
         } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
-    }
-
-    private JsonElement parse(Path file) throws IOException {
-        return JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));
     }
 }
