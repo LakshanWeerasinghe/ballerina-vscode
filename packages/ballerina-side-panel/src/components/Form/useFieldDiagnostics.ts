@@ -252,7 +252,21 @@ export function useFieldDiagnostics(
         [runClientRules, runRemoteRules, store, fieldKey]
     );
 
-    useEffect(() => () => clearTimeout(debounceRef.current), []);
+    // `store` is read through a ref rather than closed over directly: its identity changes on every
+    // diagnostics write anywhere in the form (each write replaces the whole `fields` map), and if it
+    // were a dependency below this cleanup would re-fire — clearing THIS field's diagnostics — every
+    // time an unrelated field's diagnostics changed, not just when this field's editor goes away.
+    const storeRef = useRef(store);
+    storeRef.current = store;
+
+    useEffect(() => {
+        return () => {
+            clearTimeout(debounceRef.current);
+            // Drop this field's entry so an editor that later reuses the same key (e.g. a repeatable
+            // list item removed and re-added) does not inherit stale diagnostics left behind here.
+            storeRef.current?.clearField(fieldKey);
+        };
+    }, [fieldKey]);
 
     // Clear any client diagnostics left over when the field no longer has client rules — e.g. the
     // user switched a NUMBER↔EXPRESSION field from the member that carried a rule to the one that

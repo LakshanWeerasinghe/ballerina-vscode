@@ -70,9 +70,19 @@ interface DiagnosticsStoreValue {
     isAnyValidating: () => boolean;
 }
 
-const DiagnosticsStoreContext = createContext<DiagnosticsStoreValue | undefined>(undefined);
+/**
+ * Exported (rather than kept module-private) so a component that owns the state via
+ * {@link useDiagnosticsStoreState} — instead of just rendering {@link DiagnosticsStoreProvider} — can
+ * provide it directly. `Form` needs this: it renders `DiagnosticsStoreProvider` as a *descendant* of
+ * itself, so `Form` cannot call `useDiagnosticsStore()` to read `hasBlockingErrors()` for its own Save
+ * button — a component is never inside the context provider it creates. Calling the hook directly and
+ * providing the context explicitly sidesteps that.
+ */
+export const DiagnosticsStoreContext = createContext<DiagnosticsStoreValue | undefined>(undefined);
 
-export function DiagnosticsStoreProvider(props: { children: React.ReactNode }) {
+/** The state and actions behind {@link DiagnosticsStoreProvider}, for a caller that needs direct access
+ * to the value it is about to provide (see {@link DiagnosticsStoreContext}'s doc). */
+export function useDiagnosticsStoreState(): DiagnosticsStoreValue {
     const [fields, setFields] = useState<Record<string, FieldDiagnostics>>({});
     // The versions are read and written inside async callbacks, where the state snapshot may be
     // stale; a ref keeps the counter authoritative regardless of render timing.
@@ -166,7 +176,7 @@ export function DiagnosticsStoreProvider(props: { children: React.ReactNode }) {
         [fields]
     );
 
-    const value = useMemo<DiagnosticsStoreValue>(
+    return useMemo<DiagnosticsStoreValue>(
         () => ({
             getField,
             setBucket,
@@ -182,7 +192,12 @@ export function DiagnosticsStoreProvider(props: { children: React.ReactNode }) {
         [getField, setBucket, bumpVersion, applyVersionedLsResult, applyVersionedClientResult,
             settleVersion, setValidating, clearField, hasBlockingErrors, isAnyValidating]
     );
+}
 
+/** Convenience wrapper for a caller that only needs to make the store available to descendants —
+ * see {@link useDiagnosticsStoreState} when the caller itself needs to read the value too. */
+export function DiagnosticsStoreProvider(props: { children: React.ReactNode }) {
+    const value = useDiagnosticsStoreState();
     return (
         <DiagnosticsStoreContext.Provider value={value}>
             {props.children}
@@ -218,4 +233,14 @@ export function mergeFieldDiagnostics(field: FieldDiagnostics): FieldDiagnostic[
     const errors = deduped.filter((diagnostic) => diagnostic.severity === "ERROR");
     const warnings = deduped.filter((diagnostic) => diagnostic.severity !== "ERROR");
     return [...errors, ...warnings];
+}
+
+/**
+ * Collapses a list of diagnostic messages (already resolved to display text, unlike
+ * {@link mergeFieldDiagnostics} which dedupes structured diagnostics) to their distinct values,
+ * preserving order. Shared by the editors that combine react-hook-form's own error with the live
+ * client/ls diagnostics into one banner.
+ */
+export function dedupeMessages(messages: (string | undefined | null | false)[]): string[] {
+    return Array.from(new Set(messages.filter((message): message is string => !!message)));
 }

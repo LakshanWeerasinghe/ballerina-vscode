@@ -24,6 +24,7 @@ import { buildRequiredRule, capitalize } from "./utils";
 import { buildValidate } from "../Form/validationRules";
 import { useFieldDiagnostics } from "../Form/useFieldDiagnostics";
 import { WarningBanner } from "../Form/WarningBanner";
+import { dedupeMessages } from "../Form/DiagnosticsStore";
 
 interface TextEditorProps {
     field: FormField;
@@ -50,14 +51,14 @@ export function TextEditor(props: TextEditorProps) {
     // shown. ERRORs go in the field's red slot (and mark it invalid); WARNINGs render amber below
     // and never block. The RHF error still covers the built-in required/pattern rules.
     const validationError = errors[field.key]?.message;
-    const errorMsg = Array.from(new Set([
-        ...(validationError ? [String(validationError)] : []),
+    const errorMsg = dedupeMessages([
+        validationError ? String(validationError) : undefined,
         ...liveDiagnostics.errors.map((diagnostic) => diagnostic.message),
         ...(field.diagnostics ?? []).map((diagnostic) => diagnostic.message),
-    ].filter(Boolean))).join("\n");
-    const warningMsg = Array.from(new Set(
+    ]).join("\n");
+    const warningMsg = dedupeMessages(
         liveDiagnostics.warnings.map((diagnostic) => diagnostic.message)
-    )).join("\n");
+    ).join("\n");
 
     // Build validation rules
     const validationRules: any = {
@@ -105,8 +106,9 @@ export function TextEditor(props: TextEditorProps) {
                 onFocus={() => handleOnFieldFocus?.(field.key)}
                 autoFocus={autoFocus}
             />
-            {/* WARNINGs render amber below, only when they are not already stated as an error. */}
-            {warningMsg && !errorMsg && <WarningBanner warningMsg={warningMsg} />}
+            {/* WARNINGs render amber below, independent of whether an ERROR is also showing above —
+                matches ExpressionEditor, whose ErrorBanner/WarningBanner render independently. */}
+            {warningMsg && <WarningBanner warningMsg={warningMsg} />}
         </div>
     );
 }

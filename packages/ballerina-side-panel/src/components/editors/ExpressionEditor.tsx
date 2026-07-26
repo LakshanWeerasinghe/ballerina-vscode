@@ -34,6 +34,7 @@ import { buildRequiredRule, getPropertyFromFormField, isExpandableMode, sanitize
 import { buildValidate } from '../Form/validationRules';
 import { useFieldDiagnostics } from '../Form/useFieldDiagnostics';
 import { WarningBanner } from '../Form/WarningBanner';
+import { dedupeMessages } from '../Form/DiagnosticsStore';
 import { FormField, FormExpressionEditorProps, HelperpaneOnChangeOptions } from '../Form/types';
 import { useFormContext, useFormFieldLoadingContext } from '../../context';
 import {
@@ -876,12 +877,12 @@ export const ExpressionEditor = (props: ExpressionEditorProps) => {
                                     // connector rules (which render live, ahead of RHF's onSubmit-mode
                                     // commit), and compiler diagnostics; warnings are advisory and
                                     // never mark the field invalid. Deduped by message.
-                                    const errorMessages = Array.from(new Set([
-                                        ...(error?.message ? [error.message.toString()] : []),
+                                    const errorMessages = dedupeMessages([
+                                        error?.message?.toString(),
                                         ...liveErrorMessages,
                                         ...((formDiagnostics ?? []).map((d) => d.message)),
-                                    ].filter(Boolean)));
-                                    const warningMessages = Array.from(new Set(liveWarningMessages));
+                                    ]);
+                                    const warningMessages = dedupeMessages(liveWarningMessages);
                                     return (
                                         <>
                                             {errorMessages.length > 0 && (
