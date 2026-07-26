@@ -193,11 +193,7 @@ export interface BaseType {
     defaultItems?: number; // default number of items for EXPRESSION_SET fields
     pattern?: string; // regex pattern for validation (e.g., for TEXT fields)
     patternErrorMessage?: string; // custom error message when pattern validation fails
-    // Connector-shipped validation rules scoped to THIS type member. A rule runs only while this
-    // member is the active input mode — e.g. a NUMBER member's `port` rule never fires when the
-    // user switches the field to its EXPRESSION member and types a variable reference we cannot
-    // evaluate. Generalises the single `pattern`/`patternErrorMessage` above.
-    validations?: ValidationRule[];
+    validations?: ValidationRule[]; // connector-shipped rules scoped to this type member (generalises pattern/patternErrorMessage)
 }
 
 export interface EnumOptions {
@@ -428,16 +424,22 @@ export interface ProjectStructureResponse {
     projects: ProjectStructure[];
 }
 
+/**
+ * `kind` is the semantic integration kind (event/file/http/graphql/ai) from the trigger metadata.
+ * `iconColor` is an optional tint for a monochrome brand glyph (e.g. "#f60"); `iconLight`/`iconDark`
+ * are theme-specific images (data: URI / path) paired with each other, used when `icon` alone isn't
+ * theme-aware.
+ */
 export interface ProjectStructureArtifactResponse {
     id: string;
     name: string;
     path: string;
     type: string;
-    kind?: string; // semantic integration kind (event/file/http/graphql/ai) from the trigger metadata
+    kind?: string;
     icon?: string;
-    iconColor?: string; // optional tint for a monochrome brand glyph (e.g. "#f60")
-    iconLight?: string; // theme-specific image (data: URI / path) for light themes; paired with iconDark
-    iconDark?: string;  // dark-theme counterpart of iconLight
+    iconColor?: string;
+    iconLight?: string;
+    iconDark?: string;
     context?: string;
     moduleName?: string;
     position?: NodePosition;
@@ -446,11 +448,13 @@ export interface ProjectStructureArtifactResponse {
     visibility?: VISIBILITY;
 }
 
+/**
+ * `validationErrors` is set when the language server's save-time gate refused the model: `artifacts`
+ * is empty and no source was written. The form renders these per field by `propertyPath`.
+ */
 export interface UpdatedArtifactsResponse {
     artifacts: ProjectStructureArtifactResponse[];
     error?: string;
-    // Set when the language server's save-time gate refused the model: `artifacts` is empty and no
-    // source was written. The form renders these per field by `propertyPath`.
     validationErrors?: ValidationResult[];
 }
 

@@ -17,6 +17,7 @@
  */
 
 import { DevantScopes } from "@wso2/wso2-platform-core";
+import { IntegrationKind, isIntegrationKind } from "../../utils/identifier-utils";
 
 const INTEGRATION_API_MODULES: ReadonlySet<string> = new Set(["http", "graphql", "tcp"]);
 const EVENT_INTEGRATION_MODULES: ReadonlySet<string> = new Set([
@@ -41,8 +42,12 @@ export function findDevantScopeByModule(moduleName: string): DevantScopes | unde
     }
 }
 
-/** Connector-declared semantic `kind` -> Devant scope (mirrors {@link findDevantScopeByModule}). */
-const KIND_TO_DEVANT_SCOPE: Record<string, DevantScopes> = {
+/**
+ * Connector-declared semantic `kind` -> Devant scope (mirrors {@link findDevantScopeByModule}).
+ * Keyed by the shared {@link IntegrationKind} union so this table is kept in lockstep with
+ * `KIND_TO_SCOPE` in `utils/identifier-utils.ts` at compile time.
+ */
+const KIND_TO_DEVANT_SCOPE: Record<IntegrationKind, DevantScopes> = {
     event: DevantScopes.EVENT_INTEGRATION,
     file: DevantScopes.FILE_INTEGRATION,
     http: DevantScopes.INTEGRATION_AS_API,
@@ -56,7 +61,7 @@ const KIND_TO_DEVANT_SCOPE: Record<string, DevantScopes> = {
  * module allow-lists for connectors that ship no kind.
  */
 export function findDevantScope(kind: string | undefined, moduleName: string): DevantScopes | undefined {
-    if (kind && KIND_TO_DEVANT_SCOPE[kind]) {
+    if (kind && isIntegrationKind(kind)) {
         return KIND_TO_DEVANT_SCOPE[kind];
     }
     return findDevantScopeByModule(moduleName);

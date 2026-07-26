@@ -1442,14 +1442,16 @@ export interface ExpressionTokensResponse {
     data: number[];
 }
 
+/**
+ * `validationErrors` are rule failures from the language server's save-time gate. An ERROR here
+ * means the model was refused and `textEdits` is empty; WARNINGs accompany a successful generation.
+ */
 export interface SourceEditResponse {
     textEdits?: {
         [key: string]: TextEdit[];
     };
     errorMsg?: string;
     stacktrace?: string;
-    // Rule failures from the language server's save-time gate. An ERROR here means the model was
-    // refused and `textEdits` is empty; WARNINGs accompany a successful generation.
     validationErrors?: ValidationResult[];
 }
 
@@ -1510,13 +1512,13 @@ export interface ServiceInitSourceRequest {
 /**
  * A live validation request for a single form node. `version` is the caller's per-field revision;
  * it comes back untouched on the response so an answer about a stale value can be discarded.
+ * `codedata` locates the enclosing service, for rules scoped to one service.
  */
 export interface ValidatePropertyRequest {
     filePath: string;
     propertyPath: string;
     property: PropertyModel;
     moduleName?: string;
-    // Locates the enclosing service, for the rules scoped to one service.
     codedata?: CodeData;
     version: number;
 }
@@ -2038,6 +2040,8 @@ export interface WorkspaceDeploymentRequest {
  * A structured, multi-representation icon descriptor resolved by the Language Server (Phase-6 icon
  * architecture). The LS fills `url`/`kind`/`source` and any connector-declared `glyph`/`color`; the IDE
  * completes missing `glyph`/`color` from its brand-icon registry and applies the `kind` default.
+ * `light`/`dark` are a paired set of theme-specific images (data: URI) used when a single `url` isn't
+ * theme-aware.
  */
 export interface IconDescriptor {
     url?: string;
@@ -2045,8 +2049,8 @@ export interface IconDescriptor {
     color?: string;
     kind?: string;
     source?: string;
-    light?: string; // theme-specific image (data: URI) for light themes; paired with `dark`
-    dark?: string;  // dark-theme counterpart of `light`
+    light?: string;
+    dark?: string;
 }
 
 /**
