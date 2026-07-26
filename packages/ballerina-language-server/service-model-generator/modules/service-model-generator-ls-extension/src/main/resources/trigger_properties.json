@@ -108,6 +108,7 @@
       "file",
       "event"
     ],
+    "triggerName": "FTP / SFTP",
     "version": "2.19.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.19.0.png",
     "kind": "file"
@@ -122,6 +123,7 @@
       "service",
       "event"
     ],
+    "triggerName": "Directory",
     "version": "1.13.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_file_1.13.0.png",
     "kind": "file"
@@ -133,6 +135,7 @@
     "keywords": [
       "mcp"
     ],
+    "triggerName": "MCP Service",
     "version": "1.2.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_mcp_1.2.0.png",
     "kind": "mcp"
@@ -170,6 +173,7 @@
       "cdc",
       "event"
     ],
+    "triggerName": "CDC for Microsoft SQL Server",
     "version": "1.18.1",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mssql_1.18.1.png",
     "kind": "event"
@@ -184,6 +188,7 @@
       "cdc",
       "event"
     ],
+    "triggerName": "CDC for PostgreSQL",
     "version": "1.18.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_postgresql_1.18.0.png",
     "kind": "event"
@@ -197,6 +202,7 @@
       "cdc",
       "event"
     ],
+    "triggerName": "CDC for MySQL",
     "version": "1.18.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mysql_1.18.0.png",
     "kind": "event"
