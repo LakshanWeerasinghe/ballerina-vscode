@@ -58,7 +58,6 @@ import {
     updateServiceSourceCode,
     GetOASSpecRequest,
     ValidatePropertyRequest,
-    ValidatePropertyResponse,
     getOASSpec,
     validateProperty
 } from "@wso2/ballerina-core";

@@ -237,25 +237,6 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                 const targetFile = path.join(projectPath, `main.bal`);
                 await this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
-                const identifiers = [];
-                for (let property in params.service.properties) {
-                    const value = params.service.properties[property].value || params.service.properties[property].values?.at(0);
-                    if (value) {
-                        identifiers.push(value);
-                    }
-                    if (params.service.properties[property].choices) {
-                        params.service.properties[property].choices.forEach(choice => {
-                            if (choice.properties) {
-                                Object.keys(choice.properties).forEach(subProperty => {
-                                    const subPropertyValue = choice.properties[subProperty].value;
-                                    if (subPropertyValue) {
-                                        identifiers.push(subPropertyValue);
-                                    }
-                                });
-                            }
-                        });
-                    }
-                }
                 const res: ListenerSourceCodeResponse = await context.langClient.addServiceSourceCode(params);
                 const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: { artifactType: DIRECTORY_MAP.SERVICE }, description: params.service.name + ' Creation' });
                 let result: UpdatedArtifactsResponse = {
@@ -277,13 +258,6 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                 const targetFile = path.join(projectPath, `main.bal`);
                 await this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
-                const identifiers = [];
-                for (let property in params.service.properties) {
-                    const value = params.service.properties[property].value || params.service.properties[property].values?.at(0);
-                    if (value) {
-                        identifiers.push(value);
-                    }
-                }
                 const res: ListenerSourceCodeResponse = await context.langClient.updateServiceSourceCode(params);
                 const blockingErrors = getBlockingValidationErrors(res.validationErrors);
                 if (blockingErrors.length > 0) {
@@ -310,27 +284,23 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
     }
 
     async getServiceModelFromCode(params: ServiceModelFromCodeRequest): Promise<ServiceModelFromCodeResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: ServiceModelFromCodeResponse = await context.langClient.getServiceModelFromCode(params);
-                resolve(res);
-            } catch (error) {
-                console.log(error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getServiceModelFromCode(params);
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async getHttpResourceModel(params: HttpResourceModelRequest): Promise<HttpResourceModelResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: HttpResourceModelResponse = await context.langClient.getHttpResourceModel(params);
-                resolve(res);
-            } catch (error) {
-                console.log(error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getHttpResourceModel(params);
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async addResourceSourceCode(params: FunctionSourceCodeRequest): Promise<UpdatedArtifactsResponse> {
@@ -357,71 +327,61 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
     }
 
     async updateResourceSourceCode(params: FunctionSourceCodeRequest): Promise<UpdatedArtifactsResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: ResourceSourceCodeResponse = await context.langClient.updateResourceSourceCode(params);
-                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
-                if (blockingErrors.length > 0) {
-                    resolve({ artifacts: [], validationErrors: blockingErrors });
-                    return;
-                }
-                const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : null, description: 'Resource Update' });
-                const result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts,
-                    validationErrors: getValidationWarnings(res.validationErrors)
-                };
-                resolve(result);
-            } catch (error) {
-                console.log(error);
+        const context = StateMachine.context();
+        try {
+            const res: ResourceSourceCodeResponse = await context.langClient.updateResourceSourceCode(params);
+            const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+            if (blockingErrors.length > 0) {
+                return { artifacts: [], validationErrors: blockingErrors };
             }
-        });
+            const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : null, description: 'Resource Update' });
+            return {
+                artifacts: artifacts,
+                validationErrors: getValidationWarnings(res.validationErrors)
+            };
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async getListenerModelFromCode(params: ListenerModelFromCodeRequest): Promise<ListenerModelFromCodeResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: ListenerModelFromCodeResponse = await context.langClient.getListenerFromSourceCode(params);
-                resolve(res);
-            } catch (error) {
-                console.log(error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getListenerFromSourceCode(params);
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async addFunctionSourceCode(params: FunctionSourceCodeRequest): Promise<UpdatedArtifactsResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: ResourceSourceCodeResponse = await context.langClient.addFunctionSourceCode(params);
-                const blockingErrors = getBlockingValidationErrors(res.validationErrors);
-                if (blockingErrors.length > 0) {
-                    resolve({ artifacts: [], validationErrors: blockingErrors });
-                    return;
-                }
-                const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : { artifactType: DIRECTORY_MAP.FUNCTION }, description: 'Function Creation' });
-                const result: UpdatedArtifactsResponse = {
-                    artifacts: artifacts,
-                    validationErrors: getValidationWarnings(res.validationErrors)
-                };
-                resolve(result);
-            } catch (error) {
-                console.log(error);
+        const context = StateMachine.context();
+        try {
+            const res: ResourceSourceCodeResponse = await context.langClient.addFunctionSourceCode(params);
+            const blockingErrors = getBlockingValidationErrors(res.validationErrors);
+            if (blockingErrors.length > 0) {
+                return { artifacts: [], validationErrors: blockingErrors };
             }
-        });
+            const artifacts = await updateSourceCode({ textEdits: res.textEdits, artifactData: params.artifactType ? { artifactType: params.artifactType } : { artifactType: DIRECTORY_MAP.FUNCTION }, description: 'Function Creation' });
+            return {
+                artifacts: artifacts,
+                validationErrors: getValidationWarnings(res.validationErrors)
+            };
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async getTriggerModels(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: TriggerModelsResponse = await context.langClient.getTriggerModels(params);
-                resolve(res);
-            } catch (error) {
-                console.log(error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getTriggerModels(params);
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async searchTriggers(params: TriggerModelsRequest): Promise<TriggerModelsResponse> {
@@ -438,15 +398,13 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
     }
 
     async getFunctionModel(params: FunctionModelRequest): Promise<FunctionModelResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: FunctionModelResponse = await context.langClient.getFunctionModel(params);
-                resolve(res);
-            } catch (error) {
-                console.log(">>> error fetching function model", error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getFunctionModel(params);
+        } catch (error) {
+            console.log(">>> error fetching function model", error);
+            throw error;
+        }
     }
 
     private async ensureFileExists(targetFile: string) {
@@ -459,28 +417,24 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
     }
 
     async getResourceReturnTypes(params: ResourceReturnTypesRequest): Promise<VisibleTypesResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            params.filePath = params.filePath || context.projectPath;
-            try {
-                const res: VisibleTypesResponse = await context.langClient.getResourceReturnTypes(params);
-                resolve(res);
-            } catch (error) {
-                console.log(">>> error fetching resource return types", error);
-            }
-        });
+        const context = StateMachine.context();
+        params.filePath = params.filePath || context.projectPath;
+        try {
+            return await context.langClient.getResourceReturnTypes(params);
+        } catch (error) {
+            console.log(">>> error fetching resource return types", error);
+            throw error;
+        }
     }
 
     async getFunctionFromSource(params: FunctionFromSourceRequest): Promise<FunctionFromSourceResponse> {
-        return new Promise(async (resolve) => {
-            const context = StateMachine.context();
-            try {
-                const res: FunctionFromSourceResponse = await context.langClient.getFunctionFromSource(params);
-                resolve(res);
-            } catch (error) {
-                console.log(">>> error fetching function model", error);
-            }
-        });
+        const context = StateMachine.context();
+        try {
+            return await context.langClient.getFunctionFromSource(params);
+        } catch (error) {
+            console.log(">>> error fetching function model", error);
+            throw error;
+        }
     }
 
     async getServiceInitModel(params: ServiceModelRequest): Promise<ServiceModelInitResponse> {
@@ -508,26 +462,6 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
                 const targetFile = path.join(projectDir, `main.bal`);
                 await this.ensureFileExists(targetFile);
                 params.filePath = targetFile;
-                const identifiers = [];
-                for (let property in params.serviceInitModel.properties) {
-                    const value = params.serviceInitModel.properties[property].value
-                        || params.serviceInitModel.properties[property].values?.at(0);
-                    if (value) {
-                        identifiers.push(value);
-                    }
-                    if (params.serviceInitModel.properties[property].choices) {
-                        params.serviceInitModel.properties[property].choices.forEach(choice => {
-                            if (choice.properties) {
-                                Object.keys(choice.properties).forEach(subProperty => {
-                                    const subPropertyValue = choice.properties[subProperty].value;
-                                    if (subPropertyValue) {
-                                        identifiers.push(subPropertyValue);
-                                    }
-                                });
-                            }
-                        });
-                    }
-                }
                 const res: SourceEditResponse = await context.langClient.createServiceAndListener(params);
 
                 // The save-time gate refused the model — no source was generated, so surface the
