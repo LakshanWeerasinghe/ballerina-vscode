@@ -18,10 +18,16 @@
 
 package io.ballerina.servicemodelgenerator.extension.model;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import com.google.gson.annotations.JsonAdapter;
 import io.ballerina.modelgenerator.commons.Annotation;
 import io.ballerina.servicemodelgenerator.extension.util.Constants;
 import io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +74,7 @@ public class Function {
     private String group;
     private String variantLabel;
     private String addLabel;
+    @JsonAdapter(RepeatableSerializer.class)
     private Repeatable repeatable;
     private Boolean nameEditable;
 
@@ -535,6 +542,13 @@ public class Function {
         public Function build() {
             return new Function(metadata, qualifiers, kind, accessor, name, documentation, parameters, schema,
                     returnType, enabled, optional, editable, canAddParameters, codedata, properties);
+        }
+    }
+
+    public static class RepeatableSerializer implements JsonSerializer<Repeatable> {
+        @Override
+        public JsonElement serialize(Repeatable src, Type typeOfSrc, JsonSerializationContext context) {
+            return new JsonPrimitive(src.name());
         }
     }
 }
