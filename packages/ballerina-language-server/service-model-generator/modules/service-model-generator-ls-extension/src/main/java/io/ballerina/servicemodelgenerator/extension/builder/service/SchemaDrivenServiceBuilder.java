@@ -136,7 +136,8 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         Value stringLiteralProperty = serviceModel.getStringLiteralProperty();
         if (stringLiteralProperty != null) {
             String stringLiteral = stringLiteralProperty.getValue();
-            stringLiteralProperty.setEnabled(!stringLiteralProperty.isOptional() || !stringLiteral.isEmpty());
+            stringLiteralProperty.setEnabled(!stringLiteralProperty.isOptional()
+                    || (stringLiteral != null && !stringLiteral.isEmpty()));
         }
 
         // Included-record payloads: the textual merge above only sees the generated wrapper's name

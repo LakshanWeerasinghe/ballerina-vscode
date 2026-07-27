@@ -58,7 +58,12 @@ public final class AnnotationEmitter {
     private AnnotationEmitter() {
     }
 
-    /** The annotation attachment strings (e.g. {@code @ftp:FunctionConfig {...}}) in a properties map. */
+    /**
+     * The annotation attachment strings (e.g. {@code @ftp:FunctionConfig {...}}) in a properties map.
+     * A node whose body renders empty (every optional field unchecked) is skipped entirely, matching
+     * {@link #annotationBody}'s behavior for the update-time path — an attachment with nothing to say
+     * should not be emitted at all.
+     */
     public static List<String> annotationsOf(Map<String, TriggerModel.Property> properties) {
         List<String> annotations = new ArrayList<>();
         if (properties == null) {
@@ -67,18 +72,23 @@ public final class AnnotationEmitter {
         for (TriggerModel.Property node : properties.values()) {
             TriggerModel.Codedata cd = node.codedata();
             if (cd != null && "COMPLEX_FUNCTION_ANNOTATION".equals(cd.type())) {
-                annotations.add(emitAnnotation(node));
+                emitAnnotation(node).ifPresent(annotations::add);
             }
         }
         return annotations;
     }
 
-    private static String emitAnnotation(TriggerModel.Property node) {
+    /** The rendered annotation attachment, or empty when {@link #annotationBody} has nothing to emit. */
+    private static Optional<String> emitAnnotation(TriggerModel.Property node) {
+        Optional<String> body = annotationBody(node);
+        if (body.isEmpty()) {
+            return Optional.empty();
+        }
         TriggerModel.Codedata cd = node.codedata();
         String module = cd.moduleName();
         String name = cd.originalName();
         String prefix = module == null || module.isBlank() ? "@" + name : "@" + module + ":" + name;
-        return prefix + " " + mappingBody(node.properties());
+        return Optional.of(prefix + " " + body.get());
     }
 
     /**

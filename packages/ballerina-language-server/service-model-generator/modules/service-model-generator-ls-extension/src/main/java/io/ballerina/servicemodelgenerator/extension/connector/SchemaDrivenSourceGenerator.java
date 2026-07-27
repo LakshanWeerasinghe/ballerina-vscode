@@ -36,6 +36,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.argName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.fieldName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isChoice;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isGroup;
 import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel.KEY_EXISTING_LISTENER;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_CDC_OPERATION_ENABLE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD;
@@ -968,19 +972,6 @@ public final class SchemaDrivenSourceGenerator {
     // Small helpers
     // ------------------------------------------------------------------
 
-    private static boolean isChoice(Value field) {
-        return hasFieldType(field, Value.FieldType.CHOICE);
-    }
-
-    private static boolean isGroup(Value field) {
-        return hasFieldType(field, Value.FieldType.GROUP_SECTION);
-    }
-
-    private static boolean hasFieldType(Value field, Value.FieldType fieldType) {
-        return field.getTypes() != null
-                && field.getTypes().stream().anyMatch(type -> type.fieldType() == fieldType);
-    }
-
     private static boolean isVarName(Codedata codedata) {
         if (codedata == null) {
             return false;
@@ -1020,16 +1011,6 @@ public final class SchemaDrivenSourceGenerator {
         return choices.stream().filter(Value::isEnabled).findFirst().orElse(choices.getFirst());
     }
 
-    private static String fieldName(Codedata codedata, String key) {
-        if (codedata != null && codedata.getPath() != null && !codedata.getPath().isBlank()) {
-            return codedata.getPath();
-        }
-        if (codedata != null && codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
-    }
-
     /**
      * The record-field name split into its dotted segments, so a config field whose {@code path}
      * crosses into a nested record (e.g. {@code auth.username}) nests instead of emitting a flat
@@ -1037,13 +1018,6 @@ public final class SchemaDrivenSourceGenerator {
      */
     private static List<String> fieldNameSegments(Codedata codedata, String key) {
         return List.of(fieldName(codedata, key).split("\\."));
-    }
-
-    private static String argName(Codedata codedata, String key) {
-        if (codedata != null && codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
     }
 
     private static String qualifiedValue(Value field) {
@@ -1101,7 +1075,7 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /** Accumulates listener arguments: positional (by position, then unordered), included, loose config. */
-    private static final class ListenerArgs {
+    static final class ListenerArgs {
         private final TreeMap<Integer, String> byPosition = new TreeMap<>();
         private final TreeMap<Integer, Map<String, Object>> configFieldsByPosition = new TreeMap<>();
         private final List<String> noPosition = new ArrayList<>();
@@ -1109,13 +1083,24 @@ public final class SchemaDrivenSourceGenerator {
         private final Map<String, Object> looseConfig = new LinkedHashMap<>();
         private final Map<String, Object> includedTree = new LinkedHashMap<>();
         // Aggregated CDC-style skip lists, keyed by the record-field arg they merge into (e.g.
-        // "options") -> its list field (e.g. "skippedOperations") + the collected op-code literals.
-        private final Map<String, SkipList> skipLists = new LinkedHashMap<>();
+        // "options") -> its list field name (e.g. "skippedOperations") -> the collected op-code
+        // literals for that list field. Nested by list field (not flattened to one-per-recordField)
+        // so two independently-toggled flag groups that happen to target the same record slot with
+        // different list-field names both survive, instead of the second silently overwriting the
+        // first's list-field name.
+        private final Map<String, LinkedHashMap<String, List<String>>> skipLists = new LinkedHashMap<>();
         private String varName = "";
         private String listenerType;
 
-        private void addSkippedOperation(String recordField, String listField, String code) {
-            skipLists.computeIfAbsent(recordField, ignored -> new SkipList(listField)).codes.add(code);
+        void addSkippedOperation(String recordField, String listField, String code) {
+            skipLists.computeIfAbsent(recordField, ignored -> new LinkedHashMap<>())
+                    .computeIfAbsent(listField, ignored -> new ArrayList<>())
+                    .add(code);
+        }
+
+        /** Seeds a pre-rendered {@code <recordField> = {...}} included arg (test support). */
+        void addIncludedArg(String rendered) {
+            included.add(rendered);
         }
 
         private void addPositional(Integer position, String rendered) {
@@ -1184,10 +1169,11 @@ public final class SchemaDrivenSourceGenerator {
         private boolean hasArgs() {
             return !byPosition.isEmpty() || !configFieldsByPosition.isEmpty() || !noPosition.isEmpty()
                     || !included.isEmpty() || !looseConfig.isEmpty() || !includedTree.isEmpty()
-                    || skipLists.values().stream().anyMatch(skip -> !skip.codes.isEmpty());
+                    || skipLists.values().stream().flatMap(byListField -> byListField.values().stream())
+                            .anyMatch(codes -> !codes.isEmpty());
         }
 
-        private String render() {
+        String render() {
             TreeMap<Integer, String> positional = new TreeMap<>(byPosition);
             for (Map.Entry<Integer, Map<String, Object>> entry : configFieldsByPosition.entrySet()) {
                 positional.put(entry.getKey(), renderIncludedValue(entry.getValue()));
@@ -1213,25 +1199,37 @@ public final class SchemaDrivenSourceGenerator {
         /**
          * Folds each aggregated skip list into the matching included record argument. When that
          * record arg is already present (the user filled it, e.g. {@code options = {snapshotMode:
-         * "no_data"}}) the list field is inserted/replaced inside it in place; otherwise a fresh
-         * {@code <record> = {<listField>: [...]}} argument is collected into {@code newSkipArgs} for
-         * the caller to append last. Returns the user-provided included args with in-place merges
-         * applied.
+         * "no_data"}}) each list field is inserted/replaced inside it in place, in encounter order —
+         * so two distinct list fields targeting the same record (e.g. {@code skippedOperations} and
+         * a hypothetical {@code excludedColumns}) both land in it rather than the second overwriting
+         * the first. Otherwise a fresh {@code <record> = {...}} argument is collected into
+         * {@code newSkipArgs} for the caller to append last (also merging further list fields for the
+         * same record into that same fresh argument, not one-per-list-field). Returns the
+         * user-provided included args with in-place merges applied.
          */
         private List<String> mergeSkipLists(List<String> newSkipArgs) {
             List<String> result = new ArrayList<>(included);
-            for (Map.Entry<String, SkipList> entry : skipLists.entrySet()) {
-                SkipList skip = entry.getValue();
-                if (skip.codes.isEmpty()) {
-                    continue;
-                }
+            for (Map.Entry<String, LinkedHashMap<String, List<String>>> entry : skipLists.entrySet()) {
                 String recordField = entry.getKey();
-                String listAssignment = skip.listField + ": [" + String.join(", ", skip.codes) + "]";
-                int index = indexOfIncludedArg(result, recordField);
-                if (index < 0) {
-                    newSkipArgs.add(recordField + " = {" + listAssignment + "}");
-                } else {
-                    result.set(index, insertListField(result.get(index), skip.listField, listAssignment));
+                for (Map.Entry<String, List<String>> listEntry : entry.getValue().entrySet()) {
+                    List<String> codes = listEntry.getValue();
+                    if (codes.isEmpty()) {
+                        continue;
+                    }
+                    String listField = listEntry.getKey();
+                    String listAssignment = listField + ": [" + String.join(", ", codes) + "]";
+                    int index = indexOfIncludedArg(result, recordField);
+                    if (index >= 0) {
+                        result.set(index, insertListField(result.get(index), listField, listAssignment));
+                        continue;
+                    }
+                    int freshIndex = indexOfIncludedArg(newSkipArgs, recordField);
+                    if (freshIndex < 0) {
+                        newSkipArgs.add(recordField + " = {" + listAssignment + "}");
+                    } else {
+                        newSkipArgs.set(freshIndex, insertListField(newSkipArgs.get(freshIndex), listField,
+                                listAssignment));
+                    }
                 }
             }
             return result;
@@ -1249,36 +1247,82 @@ public final class SchemaDrivenSourceGenerator {
         }
 
         /**
-         * Inserts (or replaces) {@code <listField>: [...]} inside an existing
-         * {@code <recordField> = {...}} record argument. Falls back to leaving the argument untouched
-         * when its value is not a record literal (a variable reference or expression the user typed).
+         * Inserts (or replaces) a {@code <listField>: [...]} field inside an existing
+         * {@code <recordField> = {...}} record argument, by splitting the record's <i>top-level</i>
+         * fields (quote/brace/bracket-depth aware, so a nested record or array is never split into,
+         * and a value that happens to contain {@code ]} or a field-name substring never misleads the
+         * match) and replacing the one whose name exactly equals {@code listField}, or appending a new
+         * one when absent. Falls back to leaving the argument untouched when its value is not a record
+         * literal (a variable reference or expression the user typed).
          */
-        private static String insertListField(String recordArg, String listField, String listAssignment) {
+        static String insertListField(String recordArg, String listField, String listAssignment) {
             int brace = recordArg.indexOf('{');
             if (brace < 0 || !recordArg.trim().endsWith("}")) {
                 return recordArg;
             }
-            String existing = recordArg.replaceAll(
-                    java.util.regex.Pattern.quote(listField) + "\\s*:\\s*\\[[^\\]]*\\]",
-                    java.util.regex.Matcher.quoteReplacement(listAssignment));
-            if (!existing.equals(recordArg)) {
-                return existing;
-            }
             int close = recordArg.lastIndexOf('}');
-            String head = recordArg.substring(0, close).stripTrailing();
-            String inner = head.substring(brace + 1).trim();
-            String separator = inner.isEmpty() ? "" : ", ";
-            return head + separator + listAssignment + "}";
+            String inner = recordArg.substring(brace + 1, close).trim();
+            List<String> fields = new ArrayList<>(splitTopLevelFields(inner));
+            int existingIndex = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                if (listField.equals(topLevelFieldName(fields.get(i)))) {
+                    existingIndex = i;
+                    break;
+                }
+            }
+            if (existingIndex >= 0) {
+                fields.set(existingIndex, listAssignment);
+            } else {
+                fields.add(listAssignment);
+            }
+            return recordArg.substring(0, brace + 1) + String.join(", ", fields) + "}";
         }
-    }
 
-    /** A record field's aggregated skip list: the list field name plus its collected literal codes. */
-    private static final class SkipList {
-        private final String listField;
-        private final List<String> codes = new ArrayList<>();
+        /**
+         * Splits a record literal's inner content into its top-level {@code field: value} entries.
+         * Tracks brace/bracket/paren depth and quoted-string state so a comma inside a nested record,
+         * array, or a quoted string value (which may itself contain any of {@code {}[]()},}) never
+         * splits early or misdirects a match to a nested field of the same name.
+         */
+        static List<String> splitTopLevelFields(String inner) {
+            List<String> fields = new ArrayList<>();
+            if (inner.isEmpty()) {
+                return fields;
+            }
+            int depth = 0;
+            boolean inString = false;
+            int start = 0;
+            for (int i = 0; i < inner.length(); i++) {
+                char c = inner.charAt(i);
+                if (inString) {
+                    if (c == '\\') {
+                        i++; // skip the escaped character (e.g. \")
+                    } else if (c == '"') {
+                        inString = false;
+                    }
+                    continue;
+                }
+                switch (c) {
+                    case '"' -> inString = true;
+                    case '{', '[', '(' -> depth++;
+                    case '}', ']', ')' -> depth--;
+                    case ',' -> {
+                        if (depth == 0) {
+                            fields.add(inner.substring(start, i).trim());
+                            start = i + 1;
+                        }
+                    }
+                    default -> { }
+                }
+            }
+            fields.add(inner.substring(start).trim());
+            return fields;
+        }
 
-        private SkipList(String listField) {
-            this.listField = listField;
+        /** The field name of a top-level {@code name: value} record entry, or null if malformed. */
+        private static String topLevelFieldName(String field) {
+            int colon = field.indexOf(':');
+            return colon < 0 ? null : field.substring(0, colon).trim();
         }
     }
 }

@@ -264,9 +264,9 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                                 removeDeprecated)
                         .map(listenerModel -> {
                             if (FTP.equals(request.codedata().getModuleName())
-                                    && request.removeDeprecated() != null && request.removeDeprecated()) {
+                                    && request.removeDeprecated() != null) {
                                 FTPListenerUtil.adjustFtpListenerModelForDeprecatedMode(
-                                        listenerModel, true, semanticModel.get(), document);
+                                        listenerModel, request.removeDeprecated(), semanticModel.get(), document);
                             }
                             return new ListenerModelResponse(listenerModel);
                         })
@@ -811,6 +811,21 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
 
                 LineRange lineRange = listener.getCodedata().getLineRange();
                 ModulePartNode modulePartNode = document.get().syntaxTree().rootNode();
+
+                // Save-time gate: an ERROR here means no edits are generated at all. editedRange is the
+                // listener's own declaration range, so a uniqueness rule (e.g.
+                // ls.validate.unique.listener.name) recognises re-saving it as itself, not a collision.
+                Optional<SemanticModel> semanticModel = this.workspaceManager.semanticModel(filePath);
+                if (semanticModel.isPresent()) {
+                    ValidationContext context = new ValidationContext(semanticModel.get(), null, document.get(),
+                            listener.getModuleName(), null, lineRange);
+                    List<ValidationResult> validations = SaveTimeValidator.validate(listener.getProperties(),
+                            context);
+                    if (SaveTimeValidator.blocksGeneration(validations)) {
+                        return CommonSourceResponse.validationFailure(validations);
+                    }
+                }
+
                 // The protocol is derived from the package name (the module's natural prefix), which is
                 // not what the file binds the module to when it is imported under an alias. Regenerating
                 // the declaration with the natural prefix would rewrite a working `triggerTwilio:Listener`
