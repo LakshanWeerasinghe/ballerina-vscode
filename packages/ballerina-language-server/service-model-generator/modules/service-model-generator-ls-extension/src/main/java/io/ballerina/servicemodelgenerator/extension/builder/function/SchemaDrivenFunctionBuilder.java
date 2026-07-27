@@ -248,7 +248,7 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         // routes back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's
         // Codedata).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName());
+                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
         if (triggerModel.isPresent()) {
             overlayConnectorMetadata(function, triggerModel.get(), context.serviceType());
             stampCodedata(function, context);

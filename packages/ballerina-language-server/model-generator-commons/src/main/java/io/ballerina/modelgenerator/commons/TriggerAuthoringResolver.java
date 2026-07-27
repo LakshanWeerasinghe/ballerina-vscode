@@ -81,10 +81,13 @@ public final class TriggerAuthoringResolver {
 
     /**
      * Reads and parses {@code resources/trigger-authoring.json} relative to an already-resolved
-     * package root. Package-visible (rather than private) so it is directly unit-testable against a
-     * plain test-fixture directory, independent of live bala/Central resolution.
+     * package root. Public (rather than only package-visible) so a caller that has already resolved a
+     * {@code Package} for another reason (e.g. to introspect its {@code SemanticModel} in the same
+     * call) can read this file from the same root without a redundant {@link #resolve} lookup; also
+     * directly unit-testable against a plain test-fixture directory, independent of live bala/Central
+     * resolution.
      */
-    static Optional<TriggerAuthoringModel> readResource(Path packageRoot) {
+    public static Optional<TriggerAuthoringModel> readResource(Path packageRoot) {
         Path file = packageRoot.resolve(RESOURCE_PATH).normalize();
         if (!file.startsWith(packageRoot) || !Files.isRegularFile(file)) {
             return Optional.empty();
