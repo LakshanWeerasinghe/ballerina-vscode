@@ -1,7 +1,0 @@
-{
-  "displayName": "GitHub Event Integration",
-  "icon": {
-    "glyph": "bi-github",
-    "kind": "event"
-  }
-}

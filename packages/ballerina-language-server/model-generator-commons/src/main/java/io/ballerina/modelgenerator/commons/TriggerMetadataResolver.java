@@ -64,20 +64,17 @@ public final class TriggerMetadataResolver {
     }
 
     /**
-     * The trigger metadata for a module: bundled classpath resource first, then the connector-shipped
-     * {@code resources/trigger-metadata.json} at its resolved package root (for non-bundled triggers).
+     * The trigger metadata for a module: the LS's bundled classpath resource only. Reading a
+     * connector's own shipped {@code resources/trigger-metadata.json} from its resolved {@code .bala}
+     * is not supported in this phase — a non-bundled connector simply has no metadata (no display name,
+     * no label-field suffix).
      */
     private static Optional<TriggerMetadata> metadata(String orgName, String packageName, String moduleName,
                                                       String version) {
         if (moduleName == null) {
             return Optional.empty();
         }
-        TriggerMetadataReader reader = TriggerMetadataReader.getInstance();
-        Optional<TriggerMetadata> bundled = reader.getBundledMetadata(moduleName);
-        if (bundled.isPresent()) {
-            return bundled;
-        }
-        return resolvePackageRoot(orgName, packageName, version).flatMap(reader::readMetadataFromPackageRoot);
+        return TriggerMetadataReader.getInstance().getBundledMetadata(moduleName);
     }
 
     /** The resolved package root of the module (its bala source root), if it can be resolved locally. */

@@ -1,7 +1,0 @@
-{
-  "displayName": "Kafka Event Integration",
-  "icon": {
-    "glyph": "bi-kafka",
-    "kind": "event"
-  }
-}
