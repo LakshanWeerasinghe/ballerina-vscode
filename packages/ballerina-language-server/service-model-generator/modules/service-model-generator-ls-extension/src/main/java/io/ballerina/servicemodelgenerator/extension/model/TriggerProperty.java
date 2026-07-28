@@ -30,6 +30,15 @@ import java.util.List;
  * deeply-nested) {@code TriggerModel} just to populate the picker list. A legacy trigger (e.g. Solace,
  * which has no schema-driven model at all) simply omits them, falling back to the sqlite index derived
  * from {@code service_artifacts.json}.
+ *
+ * @param name        the trigger's display name
+ * @param orgName     the organization that owns the trigger's package
+ * @param packageName the name of the package that provides the trigger
+ * @param keywords    keywords used to search for the trigger in the picker
+ * @param triggerName the trigger's unique identifier
+ * @param version     the schema-driven trigger's model version, if any
+ * @param icon        the schema-driven trigger's icon, if any
+ * @param kind        the schema-driven trigger's kind, if any
  */
 public record TriggerProperty(String name, String orgName, String packageName, List<String> keywords,
                               String triggerName, String version, String icon, String kind) {

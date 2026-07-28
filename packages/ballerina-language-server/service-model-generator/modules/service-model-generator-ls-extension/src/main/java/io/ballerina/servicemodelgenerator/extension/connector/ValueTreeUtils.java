@@ -48,7 +48,10 @@ final class ValueTreeUtils {
                 && field.getTypes().stream().anyMatch(type -> type.fieldType() == fieldType);
     }
 
-    /** The record-field name a leaf's {@code codedata} addresses: {@code path}, else {@code originalName}, else {@code key}. */
+    /**
+     * The record-field name a leaf's {@code codedata} addresses: {@code path}, else {@code originalName},
+     * else {@code key}.
+     */
     static String fieldName(Codedata codedata, String key) {
         if (codedata != null && codedata.getPath() != null && !codedata.getPath().isBlank()) {
             return codedata.getPath();
