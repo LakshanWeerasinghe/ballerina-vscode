@@ -46,8 +46,8 @@ import java.util.Set;
 
 /**
  * Resolves the {@link TriggerLibraryFacts} a {@code TriggerModel} synthesizer needs from a
- * connector's compiled {@link SemanticModel}: listeners (with init parameters), service object
- * types (with their remote/resource functions), and declared annotations -- the introspectable
+ * connector's compiled {@link SemanticModel}: a listener's init-parameter <b>structure</b>, service
+ * object types (with their remote/resource functions), and declared annotations -- the introspectable
  * counterpart to a connector's hand-authored {@link TriggerAuthoringModel}.
  *
  * <p>Ported from the {@code library-introspector} tool (used offline by the
@@ -59,6 +59,14 @@ import java.util.Set;
  * {@code --listeners}/{@code --service-type} filtering flags are dropped: this method always
  * resolves the full set and lets the caller filter.
  *
+ * <p>Unlike the original tool, the listener param facts resolved here are consumed for
+ * <b>structure only</b> (which params exist, in what order, whether one is an
+ * {@code INCLUDED_RECORD} spread with named-only fields versus a plain record-typed parameter): a
+ * synthesizer still resolves each parameter's actual rendered widget via
+ * {@code ListenerUtil#getListenerModelByName} rather than this class reimplementing type-to-widget
+ * selection (records, unions, numbers, ...) a second time with worse fidelity. See
+ * {@link TriggerLibraryFacts}'s class javadoc.
+ *
  * @since 1.10.0
  */
 public final class TriggerLibraryIntrospector {
@@ -69,8 +77,19 @@ public final class TriggerLibraryIntrospector {
     private TriggerLibraryIntrospector() {
     }
 
-    /** Resolves every listener, service type, and annotation declared in {@code semanticModel}'s module. */
-    public static TriggerLibraryFacts introspect(SemanticModel semanticModel) {
+    /**
+     * Resolves every listener (structure only), service type, and annotation declared in
+     * {@code semanticModel}'s module.
+     *
+     * @param semanticModel the connector's compiled semantic model
+     * @param moduleInfo    the connector's own module coordinates -- every type signature this method
+     *                      produces is rendered relative to it (via {@link CommonUtils#getTypeSignature
+     *                      (TypeSymbol, ModuleInfo)}), so a same-module reference renders as a bare
+     *                      simple name (or the connector's own natural import prefix), never the
+     *                      compiler's fully-qualified {@code org/module:version:Type} form -- emitting
+     *                      that verbatim is not valid Ballerina source
+     */
+    public static TriggerLibraryFacts introspect(SemanticModel semanticModel, ModuleInfo moduleInfo) {
         List<TriggerLibraryFacts.Listener> listeners = new ArrayList<>();
         List<TriggerLibraryFacts.ServiceType> serviceTypes = new ArrayList<>();
         List<TriggerLibraryFacts.Annotation> annotations = new ArrayList<>();
@@ -80,17 +99,19 @@ public final class TriggerLibraryIntrospector {
                 case CLASS -> {
                     ClassSymbol classSymbol = (ClassSymbol) symbol;
                     if (isListenerClass(classSymbol)) {
-                        classSymbol.initMethod().ifPresent(init -> listeners.add(extractListener(classSymbol, init)));
+                        classSymbol.initMethod().ifPresent(init ->
+                                listeners.add(extractListener(classSymbol, init, moduleInfo)));
                     }
                 }
                 case TYPE_DEFINITION -> {
                     TypeDefinitionSymbol typeDef = (TypeDefinitionSymbol) symbol;
                     TypeSymbol type = typeDef.typeDescriptor();
                     if (type instanceof ObjectTypeSymbol obj && obj.qualifiers().contains(Qualifier.SERVICE)) {
-                        serviceTypes.add(extractServiceType(typeDef.getName().orElse("Service"), typeDef, obj));
+                        serviceTypes.add(extractServiceType(typeDef.getName().orElse("Service"), typeDef, obj,
+                                moduleInfo));
                     }
                 }
-                case ANNOTATION -> annotations.add(extractAnnotation((AnnotationSymbol) symbol));
+                case ANNOTATION -> annotations.add(extractAnnotation((AnnotationSymbol) symbol, moduleInfo));
                 default -> { }
             }
         }
@@ -108,21 +129,23 @@ public final class TriggerLibraryIntrospector {
                 .anyMatch(t -> t.getName().map(LISTENER::equals).orElse(false));
     }
 
-    private static TriggerLibraryFacts.Listener extractListener(ClassSymbol classSymbol, MethodSymbol init) {
-        String type = qualifiedName(classSymbol);
+    private static TriggerLibraryFacts.Listener extractListener(ClassSymbol classSymbol, MethodSymbol init,
+                                                                 ModuleInfo moduleInfo) {
+        String type = classSymbol.getName().orElse(LISTENER);
         List<TriggerLibraryFacts.Param> params = new ArrayList<>();
-        init.typeDescriptor().params().ifPresent(ps -> ps.forEach(p -> params.add(toParam(p))));
+        init.typeDescriptor().params().ifPresent(ps -> ps.forEach(p -> params.add(toParam(p, moduleInfo))));
         return new TriggerLibraryFacts.Listener(type, params);
     }
 
-    private static TriggerLibraryFacts.Param toParam(ParameterSymbol p) {
+    private static TriggerLibraryFacts.Param toParam(ParameterSymbol p, ModuleInfo moduleInfo) {
         String name = p.getName().orElse("");
         TypeSymbol type = p.typeDescriptor();
         String kind = mapParamKind(p.paramKind());
         boolean optional = p.paramKind() == ParameterKind.DEFAULTABLE
                 || p.paramKind() == ParameterKind.INCLUDED_RECORD;
-        List<TriggerLibraryFacts.Param> fields = recordFields(type, 0);
-        return new TriggerLibraryFacts.Param(name, type.signature(), optional, kind, doc(p), fields);
+        List<TriggerLibraryFacts.Param> fields = recordFields(type, 0, moduleInfo);
+        return new TriggerLibraryFacts.Param(name, CommonUtils.getTypeSignature(type, moduleInfo), optional, kind,
+                doc(p), fields);
     }
 
     /**
@@ -132,7 +155,7 @@ public final class TriggerLibraryIntrospector {
      * occurrence wins on name clashes -- so every branch's fields are visible even though no single
      * member describes the whole union.
      */
-    private static List<TriggerLibraryFacts.Param> recordFields(TypeSymbol type, int depth) {
+    private static List<TriggerLibraryFacts.Param> recordFields(TypeSymbol type, int depth, ModuleInfo moduleInfo) {
         if (depth >= MAX_FIELD_DEPTH) {
             return List.of();
         }
@@ -144,7 +167,7 @@ public final class TriggerLibraryIntrospector {
             List<TriggerLibraryFacts.Param> merged = new ArrayList<>();
             Set<String> seen = new HashSet<>();
             for (TypeSymbol member : union.memberTypeDescriptors()) {
-                for (TriggerLibraryFacts.Param f : recordFields(member, depth)) {
+                for (TriggerLibraryFacts.Param f : recordFields(member, depth, moduleInfo)) {
                     if (seen.add(f.name())) {
                         merged.add(f);
                     }
@@ -158,9 +181,10 @@ public final class TriggerLibraryIntrospector {
         List<TriggerLibraryFacts.Param> fields = new ArrayList<>();
         for (Map.Entry<String, RecordFieldSymbol> e : rec.fieldDescriptors().entrySet()) {
             RecordFieldSymbol f = e.getValue();
-            fields.add(new TriggerLibraryFacts.Param(e.getKey(), f.typeDescriptor().signature(),
+            fields.add(new TriggerLibraryFacts.Param(e.getKey(),
+                    CommonUtils.getTypeSignature(f.typeDescriptor(), moduleInfo),
                     f.isOptional() || f.hasDefaultValue(), "RECORD_FIELD", doc(f),
-                    recordFields(f.typeDescriptor(), depth + 1)));
+                    recordFields(f.typeDescriptor(), depth + 1, moduleInfo)));
         }
         return fields;
     }
@@ -178,7 +202,7 @@ public final class TriggerLibraryIntrospector {
     // ---- service types & functions ------------------------------------------
 
     private static TriggerLibraryFacts.ServiceType extractServiceType(String name, TypeDefinitionSymbol typeDef,
-                                                                       ObjectTypeSymbol obj) {
+                                                                       ObjectTypeSymbol obj, ModuleInfo moduleInfo) {
         List<TriggerLibraryFacts.Function> functions = new ArrayList<>();
         for (Map.Entry<String, MethodSymbol> e : obj.methods().entrySet()) {
             MethodSymbol m = e.getValue();
@@ -187,17 +211,18 @@ public final class TriggerLibraryIntrospector {
             if (!remote && !resource) {
                 continue;
             }
-            functions.add(extractFunction(e.getKey(), m, remote ? "REMOTE" : "RESOURCE"));
+            functions.add(extractFunction(e.getKey(), m, remote ? "REMOTE" : "RESOURCE", moduleInfo));
         }
         return new TriggerLibraryFacts.ServiceType(name, doc(typeDef), functions);
     }
 
-    private static TriggerLibraryFacts.Function extractFunction(String name, MethodSymbol m, String kind) {
+    private static TriggerLibraryFacts.Function extractFunction(String name, MethodSymbol m, String kind,
+                                                                 ModuleInfo moduleInfo) {
         FunctionTypeSymbol fn = m.typeDescriptor();
         List<TriggerLibraryFacts.Param> params = new ArrayList<>();
-        fn.params().ifPresent(ps -> ps.forEach(p -> params.add(toParam(p))));
+        fn.params().ifPresent(ps -> ps.forEach(p -> params.add(toParam(p, moduleInfo))));
         Optional<TypeSymbol> ret = fn.returnTypeDescriptor();
-        String returnType = ret.map(TypeSymbol::signature).orElse(null);
+        String returnType = ret.map(r -> CommonUtils.getTypeSignature(r, moduleInfo)).orElse(null);
         boolean returnsError = ret.map(r -> r.signature().contains("error")).orElse(false);
         List<String> quals = new ArrayList<>();
         m.qualifiers().forEach(q -> quals.add(q.getValue()));
@@ -206,21 +231,19 @@ public final class TriggerLibraryIntrospector {
 
     // ---- annotations ---------------------------------------------------------
 
-    private static TriggerLibraryFacts.Annotation extractAnnotation(AnnotationSymbol a) {
-        String typeConstraint = a.typeDescriptor().map(TypeSymbol::signature).orElse(null);
+    private static TriggerLibraryFacts.Annotation extractAnnotation(AnnotationSymbol a, ModuleInfo moduleInfo) {
+        Optional<TypeSymbol> typeDescriptor = a.typeDescriptor();
+        String typeConstraint = typeDescriptor.map(t -> CommonUtils.getTypeSignature(t, moduleInfo)).orElse(null);
+        List<TriggerLibraryFacts.Param> fields = typeDescriptor.map(t -> recordFields(t, 0, moduleInfo))
+                .orElse(List.of());
         List<String> points = new ArrayList<>();
         a.attachPoints().forEach(p -> points.add(p.name()));
         String module = a.getModule().map(m -> m.id().moduleName()).orElse("");
-        return new TriggerLibraryFacts.Annotation(a.getName().orElse(""), module, typeConstraint, points, doc(a));
+        return new TriggerLibraryFacts.Annotation(a.getName().orElse(""), module, typeConstraint, points, doc(a),
+                fields);
     }
 
     // ---- helpers ---------------------------------------------------------------
-
-    private static String qualifiedName(Symbol s) {
-        String mod = s.getModule().map(m -> m.id().moduleName()).orElse("");
-        String name = s.getName().orElse("");
-        return mod.isEmpty() ? name : mod + ":" + name;
-    }
 
     private static String doc(Symbol s) {
         if (s instanceof Documentable d) {

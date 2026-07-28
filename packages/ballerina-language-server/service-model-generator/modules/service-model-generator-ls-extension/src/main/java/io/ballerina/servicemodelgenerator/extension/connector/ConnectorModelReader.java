@@ -35,7 +35,10 @@ import io.ballerina.modelgenerator.commons.TriggerLibraryIntrospector;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageDescriptor;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
+import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -272,16 +275,55 @@ public class ConnectorModelReader {
         }
         SemanticModel semanticModel = PackageUtil.getCompilation(pkg.get())
                 .getSemanticModel(pkg.get().getDefaultModule().moduleId());
-        TriggerLibraryFacts facts = TriggerLibraryIntrospector.introspect(semanticModel);
 
         PackageDescriptor descriptor = pkg.get().descriptor();
         String resolvedOrg = descriptor.org().value();
         String resolvedPackageName = descriptor.name().value();
         String resolvedVersion = descriptor.version().value().toString();
+        // No "home" module: every type signature the introspector produces is emitted into a
+        // *different* file (the user's own service file, which has the connector only as an imported
+        // dependency), so even a reference to the connector's own type (e.g. a handler's Event payload,
+        // or the listener's own ListenerConfig) needs its module prefix (e.g. "calendar:Event") --
+        // never bare. Passing null means CommonUtils.getTypeSignature never strips a prefix, only
+        // shortens a dotted module part to its last segment (the connector's natural import alias).
+        TriggerLibraryFacts facts = TriggerLibraryIntrospector.introspect(semanticModel, null);
+
+        Listener listenerModel = resolveListenerModel(authoring.get(), semanticModel, resolvedOrg,
+                resolvedPackageName, moduleName, resolvedVersion);
+
         String displayName = TriggerModelSynthesizer.humanize(moduleName);
         String icon = CommonUtils.generateIcon(resolvedOrg, resolvedPackageName, resolvedVersion);
 
-        return TriggerModelSynthesizer.synthesize(authoring.get(), facts, moduleName, displayName, icon, "event",
-                resolvedOrg, resolvedPackageName, moduleName, resolvedVersion);
+        return TriggerModelSynthesizer.synthesize(authoring.get(), facts, listenerModel, moduleName, displayName,
+                icon, "event", resolvedOrg, resolvedPackageName, moduleName, resolvedVersion);
+    }
+
+    /**
+     * Resolves the listener init-form template for the authoring schema's declared listener class via
+     * {@link ListenerUtil#getListenerModelByName} -- the same utility the non-schema-driven "add
+     * listener" flow already uses, so init params (including record-typed/union-typed ones) get their
+     * widget correctly resolved without this reader/synthesizer duplicating that logic. {@code null}
+     * "userModuleInfo" is deliberate: there is no specific target file here (this model is cached and
+     * reused across every file that might add a service for this connector), so every type keeps its
+     * full module-qualified form rather than being stripped bare for a particular file's own module.
+     * Returns {@code null} (not a thrown exception) on any resolution failure -- the caller still
+     * renders a listener choice, just with no init params beyond its name.
+     */
+    private static Listener resolveListenerModel(TriggerAuthoringModel authoring, SemanticModel semanticModel,
+                                                 String orgName, String packageName, String moduleName,
+                                                 String version) {
+        try {
+            String listenerType = authoring.listeners().get(0).type().name();
+            Codedata codedata = new Codedata.Builder()
+                    .setType(listenerType)
+                    .setOrgName(orgName)
+                    .setPackageName(packageName)
+                    .setModuleName(moduleName)
+                    .setVersion(version)
+                    .build();
+            return ListenerUtil.getListenerModelByName(codedata, semanticModel, null).orElse(null);
+        } catch (Throwable e) {
+            return null;
+        }
     }
 }
