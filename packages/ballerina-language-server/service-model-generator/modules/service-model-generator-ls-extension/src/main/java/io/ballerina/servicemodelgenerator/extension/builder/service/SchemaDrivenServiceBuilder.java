@@ -21,6 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.builder.service;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorVersionResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
@@ -84,8 +85,12 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
         // The bundled schema (classpath resource): its init form is derived from `initProperties`.
+        // Modelled against the version the project will actually compile against, so a project pinned
+        // to an older connector gets that release's form rather than the newest one.
+        String version = ConnectorVersionResolver.resolve(context.project(), context.orgName(),
+                context.packageName(), context.version());
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getBundledServiceInitModel(context.moduleName());
+                .getBundledServiceInitModel(context.moduleName(), version);
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -101,7 +106,7 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
         // The bundled schema (classpath resource).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(filledModel.getModuleName());
+                .getBundledTriggerModel(filledModel.getModuleName(), filledModel.getVersion());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
@@ -114,7 +119,7 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         // The bundled schema: build the designer template from its serviceTypes[], then merge the
         // user's source (functions present, base path, listeners, line ranges).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName());
+                .getBundledTriggerModel(context.moduleName(), context.version());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.
             return super.getModelFromSource(context);

@@ -70,6 +70,34 @@
         "originalName": "StreamableHttpServiceConfig"
       }
     },
+    "serviceType": {
+      "metadata": {
+        "label": "Service Type",
+        "description": "The MCP service type. New services use the Streamable HTTP transport; mcp:Service is deprecated and only resolved when already present in the source."
+      },
+      "types": [
+        {
+          "fieldType": "SINGLE_SELECT",
+          "selected": true,
+          "ballerinaType": "mcp:StreamableHttpService",
+          "options": [
+            {
+              "label": "Streamable HTTP Service",
+              "value": "StreamableHttpService"
+            }
+          ]
+        }
+      ],
+      "value": "StreamableHttpService",
+      "enabled": true,
+      "editable": false,
+      "optional": false,
+      "advanced": false,
+      "hidden": true,
+      "codedata": {
+        "type": "SERVICE_TYPE_DESCRIPTOR"
+      }
+    },
     "listenTo": {
       "metadata": {
         "label": "Port",
@@ -200,8 +228,8 @@
           "name": "newTool",
           "nameEditable": true,
           "nameMetadata": {
-            "label": "Function Name",
-            "description": "The name of the function"
+            "label": "Tool Name",
+            "description": "The name of the MCP tool"
           },
           "kind": "REMOTE",
           "accessor": "",
@@ -238,8 +266,8 @@
           "parameters": [
             {
               "metadata": {
-                "label": "Request",
-                "description": "Binds the underlying HTTP request that carried the tool call."
+                "label": "Meta",
+                "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
               },
               "kind": "OPTIONAL",
               "type": {
@@ -247,8 +275,8 @@
                   "label": "Parameter Type",
                   "description": "The type of the parameter"
                 },
-                "placeholder": "http:Request",
-                "value": "http:Request",
+                "placeholder": "mcp:Meta?",
+                "value": "mcp:Meta?",
                 "types": [
                   {
                     "fieldType": "TYPE",
@@ -257,20 +285,16 @@
                 ],
                 "enabled": true,
                 "editable": false,
-                "optional": false,
-                "advanced": false,
-                "codedata": {
-                  "orgName": "ballerina",
-                  "moduleName": "http"
-                }
+                "optional": true,
+                "advanced": false
               },
               "name": {
                 "metadata": {
-                  "label": "request",
-                  "description": "Binds the underlying HTTP request that carried the tool call."
+                  "label": "meta",
+                  "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
                 },
-                "placeholder": "request",
-                "value": "request",
+                "placeholder": "meta",
+                "value": "meta",
                 "types": [
                   {
                     "fieldType": "IDENTIFIER",
@@ -346,6 +370,374 @@
                 "type": "FUNCTION_PARAM"
               }
             },
+            {
+              "metadata": {
+                "label": "Request",
+                "description": "Binds the underlying HTTP request that carried the tool call."
+              },
+              "kind": "OPTIONAL",
+              "type": {
+                "metadata": {
+                  "label": "Parameter Type",
+                  "description": "The type of the parameter"
+                },
+                "placeholder": "http:Request",
+                "value": "http:Request",
+                "types": [
+                  {
+                    "fieldType": "TYPE",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false,
+                "codedata": {
+                  "orgName": "ballerina",
+                  "moduleName": "http"
+                }
+              },
+              "name": {
+                "metadata": {
+                  "label": "request",
+                  "description": "Binds the underlying HTTP request that carried the tool call."
+                },
+                "placeholder": "request",
+                "value": "request",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": false,
+                "optional": false,
+                "advanced": false
+              },
+              "enabled": false,
+              "editable": true,
+              "optional": true,
+              "advanced": true,
+              "hidden": false,
+              "codedata": {
+                "type": "FUNCTION_PARAM"
+              }
+            }
+          ],
+          "parameterSchema": {
+            "parameter": {
+              "metadata": {
+                "label": "Parameter",
+                "description": "A parameter the tool call must (or may) supply."
+              },
+              "kind": "REQUIRED",
+              "type": {
+                "metadata": {
+                  "label": "Type",
+                  "description": "The type of the parameter"
+                },
+                "placeholder": "string",
+                "value": "string",
+                "types": [
+                  {
+                    "fieldType": "TYPE",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "Name",
+                  "description": "The parameter's identifier"
+                },
+                "placeholder": "paramName",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "defaultValue": {
+                "metadata": {
+                  "label": "Default Value",
+                  "description": "The default value, if this parameter is optional"
+                },
+                "placeholder": "",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "EXPRESSION",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": true
+              },
+              "documentation": {
+                "metadata": {
+                  "label": "Description",
+                  "description": "The description of the parameter"
+                },
+                "placeholder": "",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "DOC_TEXT",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "enabled": true,
+              "editable": true,
+              "optional": true
+            },
+            "header": {
+              "metadata": {
+                "label": "HTTP Headers",
+                "description": "Bind individual HTTP headers of the request that carried the tool call as typed parameters."
+              },
+              "kind": "REQUIRED",
+              "type": {
+                "metadata": {
+                  "label": "Type",
+                  "description": "The type of the header value"
+                },
+                "placeholder": "string",
+                "value": "string",
+                "types": [
+                  {
+                    "fieldType": "SINGLE_SELECT",
+                    "selected": true,
+                    "options": [
+                      {
+                        "label": "string",
+                        "value": "string"
+                      },
+                      {
+                        "label": "string?",
+                        "value": "string?"
+                      },
+                      {
+                        "label": "string[]",
+                        "value": "string[]"
+                      },
+                      {
+                        "label": "int",
+                        "value": "int"
+                      },
+                      {
+                        "label": "int?",
+                        "value": "int?"
+                      },
+                      {
+                        "label": "boolean",
+                        "value": "boolean"
+                      },
+                      {
+                        "label": "boolean?",
+                        "value": "boolean?"
+                      },
+                      {
+                        "label": "decimal",
+                        "value": "decimal"
+                      },
+                      {
+                        "label": "decimal?",
+                        "value": "decimal?"
+                      },
+                      {
+                        "label": "float",
+                        "value": "float"
+                      },
+                      {
+                        "label": "float?",
+                        "value": "float?"
+                      }
+                    ]
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "name": {
+                "metadata": {
+                  "label": "Name",
+                  "description": "The parameter's identifier"
+                },
+                "placeholder": "headerName",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "IDENTIFIER",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              },
+              "headerName": {
+                "metadata": {
+                  "label": "Header Name",
+                  "description": "The wire HTTP header name, if it differs from the identifier above (e.g. \"x-request-id\"). Leave blank to derive it from the identifier."
+                },
+                "placeholder": "",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "TEXT",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "defaultValue": {
+                "metadata": {
+                  "label": "Default Value",
+                  "description": "The default value, if this header is optional"
+                },
+                "placeholder": "",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "EXPRESSION",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": true
+              },
+              "documentation": {
+                "metadata": {
+                  "label": "Description",
+                  "description": "The description of the header parameter"
+                },
+                "placeholder": "",
+                "value": "",
+                "types": [
+                  {
+                    "fieldType": "DOC_TEXT",
+                    "selected": true
+                  }
+                ],
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false
+              },
+              "httpParamType": "HEADER",
+              "enabled": true,
+              "editable": true,
+              "optional": true
+            }
+          },
+          "returnType": {
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the MCP tool"
+            },
+            "type": "anydata|error",
+            "typeEditable": true,
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "hasError": true,
+            "importStatements": "",
+            "codedata": {
+              "type": "FUNCTION_RETURN"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "label": "MCP Service",
+        "description": "Handles MCP tool calls over the Streamable HTTP transport."
+      },
+      "name": "Service",
+      "description": "Defines a transport-agnostic basic MCP service interface. Tools are declared as remote functions and cannot access transport-specific request information. Deprecated since mcp 1.2.0 in favour of mcp:StreamableHttpService.",
+      "enabled": true,
+      "editable": false,
+      "codedata": {
+        "type": "SERVICE_TYPE_DESCRIPTOR",
+        "moduleName": "mcp",
+        "originalName": "Service"
+      },
+      "properties": {},
+      "functions": [],
+      "schemaFunctions": [
+        {
+          "metadata": {
+            "label": "Tool",
+            "description": "Define a tool function that MCP clients can discover and call.",
+            "addLabel": "Add Tool"
+          },
+          "name": "newTool",
+          "nameEditable": true,
+          "nameMetadata": {
+            "label": "Tool Name",
+            "description": "The name of the MCP tool"
+          },
+          "kind": "REMOTE",
+          "accessor": "",
+          "qualifiers": [
+            "remote"
+          ],
+          "enabled": false,
+          "editable": true,
+          "optional": true,
+          "canAddParameters": true,
+          "repeatable": "TRUE",
+          "documentationSchema": {
+            "metadata": {
+              "label": "Tool Description",
+              "description": "Description of what this MCP tool does"
+            },
+            "placeholder": "Describe what this tool does...",
+            "value": "",
+            "types": [
+              {
+                "fieldType": "DOC_TEXT",
+                "selected": true
+              }
+            ],
+            "enabled": true,
+            "editable": true,
+            "optional": true,
+            "advanced": false
+          },
+          "codedata": {
+            "type": "FUNCTION",
+            "moduleName": "mcp"
+          },
+          "parameters": [
             {
               "metadata": {
                 "label": "Meta",
@@ -480,127 +872,13 @@
               "enabled": true,
               "editable": true,
               "optional": true
-            },
-            "header": {
-              "metadata": {
-                "label": "HTTP Headers",
-                "description": "Bind individual HTTP headers of the request that carried the tool call as typed parameters."
-              },
-              "kind": "REQUIRED",
-              "type": {
-                "metadata": {
-                  "label": "Type",
-                  "description": "The type of the header value"
-                },
-                "placeholder": "string",
-                "value": "string",
-                "types": [
-                  {
-                    "fieldType": "SINGLE_SELECT",
-                    "selected": true,
-                    "options": [
-                      { "label": "string", "value": "string" },
-                      { "label": "string?", "value": "string?" },
-                      { "label": "string[]", "value": "string[]" },
-                      { "label": "int", "value": "int" },
-                      { "label": "int?", "value": "int?" },
-                      { "label": "boolean", "value": "boolean" },
-                      { "label": "boolean?", "value": "boolean?" },
-                      { "label": "decimal", "value": "decimal" },
-                      { "label": "decimal?", "value": "decimal?" },
-                      { "label": "float", "value": "float" },
-                      { "label": "float?", "value": "float?" }
-                    ]
-                  }
-                ],
-                "enabled": true,
-                "editable": true,
-                "optional": false,
-                "advanced": false
-              },
-              "name": {
-                "metadata": {
-                  "label": "Name",
-                  "description": "The parameter's identifier"
-                },
-                "placeholder": "headerName",
-                "value": "",
-                "types": [
-                  {
-                    "fieldType": "IDENTIFIER",
-                    "selected": true
-                  }
-                ],
-                "enabled": true,
-                "editable": true,
-                "optional": false,
-                "advanced": false
-              },
-              "headerName": {
-                "metadata": {
-                  "label": "Header Name",
-                  "description": "The wire HTTP header name, if it differs from the identifier above (e.g. \"x-request-id\"). Leave blank to derive it from the identifier."
-                },
-                "placeholder": "",
-                "value": "",
-                "types": [
-                  {
-                    "fieldType": "TEXT",
-                    "selected": true
-                  }
-                ],
-                "enabled": true,
-                "editable": true,
-                "optional": true,
-                "advanced": false
-              },
-              "defaultValue": {
-                "metadata": {
-                  "label": "Default Value",
-                  "description": "The default value, if this header is optional"
-                },
-                "placeholder": "",
-                "value": "",
-                "types": [
-                  {
-                    "fieldType": "EXPRESSION",
-                    "selected": true
-                  }
-                ],
-                "enabled": true,
-                "editable": true,
-                "optional": true,
-                "advanced": true
-              },
-              "documentation": {
-                "metadata": {
-                  "label": "Description",
-                  "description": "The description of the header parameter"
-                },
-                "placeholder": "",
-                "value": "",
-                "types": [
-                  {
-                    "fieldType": "DOC_TEXT",
-                    "selected": true
-                  }
-                ],
-                "enabled": true,
-                "editable": true,
-                "optional": true,
-                "advanced": false
-              },
-              "httpParamType": "HEADER",
-              "enabled": true,
-              "editable": true,
-              "optional": true
             }
           },
           "returnType": {
             "metadata": {
               "label": "Return Type",
               "description": "The return type of the MCP tool"
-            }, 
+            },
             "type": "anydata|error",
             "typeEditable": true,
             "enabled": true,

@@ -75,6 +75,34 @@
           "optional": false,
           "advanced": false
         },
+        "serviceType": {
+          "metadata": {
+            "label": "Service Type",
+            "description": "The MCP service type. New services use the Streamable HTTP transport; mcp:Service is deprecated and only resolved when already present in the source."
+          },
+          "codedata": {
+            "type": "SERVICE_TYPE_DESCRIPTOR"
+          },
+          "value": "StreamableHttpService",
+          "types": [
+            {
+              "fieldType": "SINGLE_SELECT",
+              "ballerinaType": "mcp:StreamableHttpService",
+              "options": [
+                {
+                  "label": "Streamable HTTP Service",
+                  "value": "StreamableHttpService"
+                }
+              ],
+              "selected": true
+            }
+          ],
+          "enabled": true,
+          "editable": false,
+          "optional": false,
+          "advanced": false,
+          "hidden": true
+        },
         "listenTo": {
           "metadata": {
             "label": "Port",
