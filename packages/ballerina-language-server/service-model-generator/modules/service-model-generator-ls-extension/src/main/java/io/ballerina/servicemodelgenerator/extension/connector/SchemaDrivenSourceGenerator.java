@@ -227,7 +227,7 @@ public final class SchemaDrivenSourceGenerator {
         List<String> functions = buildRequiredFunctionSources(filledInitForm, triggerModel, selfPrefix, emitAlias);
 
         StringBuilder builder = new StringBuilder(NEW_LINE);
-        if (collected.hasArgs()) {
+        if (collected.declareListener) {
             builder.append(renderListenerDeclaration(emitAlias, collected)).append(NEW_LINE);
         }
         for (String annotation : buildServiceAnnotations(filledInitForm, selfPrefix, emitAlias)) {
@@ -772,6 +772,12 @@ public final class SchemaDrivenSourceGenerator {
             }
             Codedata codedata = field.getCodedata();
             if (isVarName(codedata)) {
+                // Presence of this field is itself the "create new listener" signal -- it only exists
+                // in that branch's form, never the "use existing" one -- so a declaration must always
+                // be emitted here even when every other (optional/defaultable) listener param was left
+                // blank: `new ()` rather than silently dropping the declaration while the service block
+                // still references this variable name.
+                args.declareListener = true;
                 String varName = value(field);
                 if (!varName.isEmpty()) {
                     args.varName = varName;
@@ -1111,6 +1117,12 @@ public final class SchemaDrivenSourceGenerator {
         private final Map<String, LinkedHashMap<String, List<String>>> skipLists = new LinkedHashMap<>();
         private String varName = "";
         private String listenerType;
+        // Set only when the walk actually enters the "create new listener" branch (its LISTENER_VAR_NAME
+        // field is unique to that form -- the "use existing" branch has no such field). Whether to emit
+        // a declaration must key off this, never off "were any constructor args collected": a connector
+        // whose listener config is entirely optional and left blank still needs `new ();` emitted, not a
+        // silently-dropped declaration.
+        private boolean declareListener;
 
         void addSkippedOperation(String recordField, String listField, String code) {
             skipLists.computeIfAbsent(recordField, ignored -> new LinkedHashMap<>())
@@ -1184,13 +1196,6 @@ public final class SchemaDrivenSourceGenerator {
                 fields.add(entry.getKey() + ": " + renderIncludedValue(entry.getValue()));
             }
             return "{" + String.join(", ", fields) + "}";
-        }
-
-        private boolean hasArgs() {
-            return !byPosition.isEmpty() || !configFieldsByPosition.isEmpty() || !noPosition.isEmpty()
-                    || !included.isEmpty() || !looseConfig.isEmpty() || !includedTree.isEmpty()
-                    || skipLists.values().stream().flatMap(byListField -> byListField.values().stream())
-                            .anyMatch(codes -> !codes.isEmpty());
         }
 
         String render() {
