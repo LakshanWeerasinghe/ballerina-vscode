@@ -19,18 +19,18 @@
 package io.ballerina.servicemodelgenerator.extension.util;
 
 import io.ballerina.centralconnector.CentralAPI;
-import io.ballerina.centralconnector.response.Listeners;
 import io.ballerina.centralconnector.response.PackageResponse;
 import io.ballerina.servicemodelgenerator.extension.model.TriggerBasicInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Discovers event-integration <b>trigger</b> packages on Ballerina Central for the "Search more"
@@ -40,7 +40,7 @@ import java.util.function.Predicate;
  *
  * <p>Central returns generic package results; a package is treated as a trigger when its keywords
  * signal a listener/trigger, or its module name uses the {@code trigger.*} convention. The pure
- * predicate/mapping helpers are package-visible for unit testing without a network call.
+ * mapping/filtering helpers are package-visible for unit testing without a network call.
  *
  * @since 1.8.0
  */
@@ -49,58 +49,60 @@ public final class TriggerSearchUtil {
     private static final int DEFAULT_LIMIT = 30;
     private static final String EVENT_TYPE = "event";
     private static final String DEFAULT_QUERY = "trigger";
-    // Keyword/name signals that a Central package is an event-integration trigger.
     private static final Set<String> TRIGGER_KEYWORDS = Set.of("trigger", "listener", "event");
+    private static final String TRIGGER_TAG_KEYWORD = "type/trigger";
     private static final String TRIGGER_MODULE_PREFIX = "trigger.";
-    // Upper bound on the authoritative (but network-bound) "does this package export a Listener?" checks
-    // per search, so a broad query cannot fan out into hundreds of Central calls.
-    private static final int MAX_LISTENER_LOOKUPS = 30;
+    private static final List<String> ALLOWED_ORGS = List.of("ballerina", "ballerinax");
 
     private TriggerSearchUtil() {
     }
 
     /**
-     * Searches Central for trigger packages matching {@code query}, excluding those already known
-     * locally ({@code existingKeys}, each {@code org/name}). Returns an empty list on any failure
-     * (e.g. offline) so the caller degrades gracefully to the local list.
+     * Searches Central for trigger packages matching {@code query}, restricted to
+     * {@code ballerina}/{@code ballerinax}, excluding those already known locally
+     * ({@code existingKeys}, each {@code org/name}). Returns an empty list on any failure (e.g.
+     * offline) so the caller degrades gracefully to the local list.
      */
     public static List<TriggerBasicInfo> searchCentral(CentralAPI central, String query, Integer limit,
                                                        Integer offset, Set<String> existingKeys) {
         try {
-            Map<String, String> queryMap = new HashMap<>();
-            queryMap.put("q", (query == null || query.isBlank()) ? DEFAULT_QUERY : query.trim());
-            queryMap.put("limit", String.valueOf(limit == null || limit <= 0 ? DEFAULT_LIMIT : limit));
-            queryMap.put("offset", String.valueOf(offset == null || offset < 0 ? 0 : offset));
-            PackageResponse response = central.searchPackages(queryMap);
-            // Authoritative fallback: a package that exports a Listener is an event trigger even when it
-            // is not tagged with an 'event'/'trigger'/'listener' keyword (e.g. activemq, aws.sqs, smb).
-            // Only consulted for packages the cheap keyword check misses, and bounded by MAX_LISTENER_LOOKUPS.
-            int[] budget = {MAX_LISTENER_LOOKUPS};
-            Predicate<PackageResponse.Package> exportsListener = pkg -> {
-                if (budget[0] <= 0) {
-                    return false;
+            String effectiveQuery = (query == null || query.isBlank()) ? DEFAULT_QUERY : query.trim();
+            int effectiveLimit = limit == null || limit <= 0 ? DEFAULT_LIMIT : limit;
+            int effectiveOffset = offset == null || offset < 0 ? 0 : offset;
+
+            // One org can't be expressed per call (see ALLOWED_ORGS), so the per-org Central calls are
+            // independent - run them concurrently rather than paying their latency serially.
+            List<CompletableFuture<List<TriggerBasicInfo>>> futures = ALLOWED_ORGS.stream()
+                    .map(org -> CompletableFuture.supplyAsync(() -> {
+                        Map<String, String> queryMap = new HashMap<>();
+                        queryMap.put("q", effectiveQuery + " org:" + org);
+                        queryMap.put("limit", String.valueOf(effectiveLimit));
+                        queryMap.put("offset", String.valueOf(effectiveOffset));
+                        PackageResponse response = central.searchPackages(queryMap);
+                        return toTriggerResults(response, existingKeys);
+                    }))
+                    .toList();
+
+            List<TriggerBasicInfo> results = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            for (CompletableFuture<List<TriggerBasicInfo>> future : futures) {
+                for (TriggerBasicInfo info : future.join()) {
+                    if (seen.add(info.orgName() + "/" + info.packageName())) {
+                        results.add(info);
+                    }
                 }
-                budget[0]--;
-                return hasListeners(central, pkg.organization(), pkg.name(), pkg.version());
-            };
-            return toTriggerResults(response, existingKeys, exportsListener);
+            }
+            return results.size() > effectiveLimit ? results.subList(0, effectiveLimit) : results;
         } catch (Throwable e) {
             return List.of();
         }
     }
 
-    /** Keyword-only variant (no listener lookup). Pure; unit-testable without a network call. */
-    static List<TriggerBasicInfo> toTriggerResults(PackageResponse response, Set<String> existingKeys) {
-        return toTriggerResults(response, existingKeys, pkg -> false);
-    }
-
     /**
      * Filters a Central package response to trigger packages and maps them to {@link TriggerBasicInfo},
-     * skipping any already present locally. A package qualifies if the cheap keyword/name heuristic
-     * matches, or {@code exportsListener} confirms it exports a Listener.
+     * skipping any already present locally. Pure; unit-testable without a network call.
      */
-    static List<TriggerBasicInfo> toTriggerResults(PackageResponse response, Set<String> existingKeys,
-                                                   Predicate<PackageResponse.Package> exportsListener) {
+    static List<TriggerBasicInfo> toTriggerResults(PackageResponse response, Set<String> existingKeys) {
         List<TriggerBasicInfo> results = new ArrayList<>();
         if (response == null || response.packages() == null) {
             return results;
@@ -113,9 +115,7 @@ public final class TriggerSearchUtil {
             if (known.contains(key(pkg.organization(), pkg.name()))) {
                 continue;
             }
-            // Keyword check first (cheap, short-circuits before any Central listener lookup).
-            if (!isTriggerPackage(pkg.keywords(), pkg.name())
-                    && !(exportsListener != null && exportsListener.test(pkg))) {
+            if (!isTriggerPackage(pkg.keywords(), pkg.name())) {
                 continue;
             }
             results.add(toTriggerBasicInfo(pkg));
@@ -123,22 +123,12 @@ public final class TriggerSearchUtil {
         return results;
     }
 
-    /** Whether the package exports at least one Listener (authoritative trigger signal). */
-    private static boolean hasListeners(CentralAPI central, String org, String name, String version) {
-        if (version == null || version.isBlank()) {
-            return false;
-        }
-        try {
-            Listeners listeners = central.listeners(org, name, version);
-            return listeners != null && listeners.listeners() != null && !listeners.listeners().isEmpty();
-        } catch (Throwable e) {
-            return false;
-        }
-    }
-
     /**
-     * Whether a Central package is an event-integration trigger, based on its keywords or the
-     * {@code trigger.*} module-name convention.
+     * Whether a Central package is an event-integration trigger, based on its {@code Type/Trigger}
+     * classification tag, a bare trigger/listener/event keyword, or the {@code trigger.*} module-name
+     * convention. {@code Type/Trigger} is Central's own curated classification (e.g. {@code aws.sqs},
+     * {@code kafka}, {@code rabbitmq}). A package that exports a Listener but carries none of these
+     * signals (e.g. {@code smb}, {@code mqtt}) is not detected -- there is no network-bound fallback.
      */
     static boolean isTriggerPackage(List<String> keywords, String name) {
         if (name != null && name.toLowerCase(Locale.US).startsWith(TRIGGER_MODULE_PREFIX)) {
@@ -150,7 +140,7 @@ public final class TriggerSearchUtil {
         return keywords.stream()
                 .filter(Objects::nonNull)
                 .map(k -> k.toLowerCase(Locale.US))
-                .anyMatch(TRIGGER_KEYWORDS::contains);
+                .anyMatch(k -> TRIGGER_KEYWORDS.contains(k) || TRIGGER_TAG_KEYWORD.equals(k));
     }
 
     static TriggerBasicInfo toTriggerBasicInfo(PackageResponse.Package pkg) {
@@ -173,11 +163,29 @@ public final class TriggerSearchUtil {
         return org + "/" + name;
     }
 
-    private static String displayName(String name) {
+    /**
+     * Humanizes a Central package name for display: drops the leading org/family segment up to the
+     * last {@code .} (e.g. {@code trigger.github} -> {@code github}, {@code confluent.cavroserdes} ->
+     * {@code cavroserdes}), then Title-Cases every {@code -}/{@code _}-separated word (e.g.
+     * {@code cdc-mysql} -> {@code Cdc Mysql}). Central package names are conventionally all-lowercase, so
+     * every word needs capitalizing here, unlike {@code TriggerModelSynthesizer.humanize} which only
+     * capitalizes the first letter of an already-camelCased identifier.
+     */
+    static String displayName(String name) {
         if (name == null || name.isEmpty()) {
             return name;
         }
-        String last = name.substring(name.lastIndexOf('.') + 1);
-        return Character.toUpperCase(last.charAt(0)) + last.substring(1);
+        String segment = name.substring(name.lastIndexOf('.') + 1);
+        StringBuilder result = new StringBuilder();
+        for (String word : segment.replace('_', ' ').replace('-', ' ').trim().split("\\s+")) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return result.isEmpty() ? segment : result.toString();
     }
 }
