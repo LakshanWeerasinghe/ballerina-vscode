@@ -126,17 +126,11 @@ export function AnnotationConfigSection(props: AnnotationConfigSectionProps) {
 
     const fieldEntries = Object.entries(annotation.properties ?? {}) as [string, PropertyModel][];
     if (fieldEntries.length === 0) {
-        return (
-            <>
-                <SectionHeader>
-                    <Typography variant="body2">{annotation.metadata?.label || annotationKey}</Typography>
-                </SectionHeader>
-                <SectionContent>
-                    {renderLeaf(annotationKey, annotation,
-                        (value) => onChange(annotationKey, { ...annotation, value }))}
-                </SectionContent>
-            </>
-        );
+        // A whole-value ANNOTATION_ATTACHMENT leaf (no granular fields) already renders its own
+        // label and description via AnnotationExpressionField -> FieldFactory, so wrapping it in
+        // another SectionHeader here would just repeat the same label a second time.
+        return renderLeaf(annotationKey, annotation,
+            (value) => onChange(annotationKey, { ...annotation, value }));
     }
 
     const updateField = (fieldKey: string, updated: PropertyModel) => {

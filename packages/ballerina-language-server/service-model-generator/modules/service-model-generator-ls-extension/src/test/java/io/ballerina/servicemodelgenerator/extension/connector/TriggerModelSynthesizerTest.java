@@ -273,6 +273,9 @@ public class TriggerModelSynthesizerTest {
         Assert.assertEquals(member.type(), "ServiceConfigData",
                 "typeMembers names the backing RECORD type, distinct from the annotation's own name");
         Assert.assertEquals(member.packageName(), MODULE);
+        Assert.assertTrue(member.selected(),
+                "an annotation field's sole type member must be selected, matching the bundled models' "
+                        + "hand-authored serviceConfig precedent (e.g. mssql/mysql/ftp/rabbitmq)");
 
         // Per direct product feedback ("I don't see [the service annotation] in the smb form"), a copy
         // of the same annotation must ALSO show up directly in the init form, right after the listener
@@ -547,6 +550,8 @@ public class TriggerModelSynthesizerTest {
         Assert.assertEquals(annotation.codedata().originalName(), "FunctionConfig");
         Assert.assertEquals(annotation.value(), "{}", "no per-field skeleton -- an empty record is enough");
         Assert.assertTrue(annotation.optional(), "declared optional in the authoring schema");
+        Assert.assertTrue(annotation.types().get(0).typeMembers().get(0).selected(),
+                "a handler annotation's sole type member must be selected, same as a service annotation");
 
         String source = SchemaDrivenSourceGenerator.buildFunctionSource(fn);
         Assert.assertTrue(source.contains("@smb:FunctionConfig {}"),

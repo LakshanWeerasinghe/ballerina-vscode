@@ -882,7 +882,7 @@ public final class TriggerModelSynthesizer {
                 ? simpleName(facted.typeConstraint()) : annotationName;
 
         TriggerModel.TypeMember member = new TriggerModel.TypeMember(
-                recordTypeName, packageInfoStr, pkgName, "RECORD_TYPE", false);
+                recordTypeName, packageInfoStr, pkgName, "RECORD_TYPE", true);
         TriggerModel.PropertyType propertyType = new TriggerModel.PropertyType(
                 "RECORD_MAP_EXPRESSION", true, aliasOf(pkgModule) + ":" + recordTypeName, null, List.of(member),
                 null, null, null);
