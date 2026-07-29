@@ -77,19 +77,23 @@ public class FunctionBuilderRouter {
     }
 
     /**
-     * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar
-     * (no network/bala-cache cost). A connector is never checked for a self-shipped {@code .bala}
-     * schema. Mirrors {@code ServiceBuilderRouter} (hardcoded wins unless a bundled schema is available).
+     * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar,
+     * or -- on a miss, when {@code orgName} is known -- synthesizable from the connector's own shipped
+     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
+     * (see {@link ConnectorModelReader#getSchemaDrivenTriggerModel}). Mirrors
+     * {@code ServiceBuilderRouter} (the hardcoded builder still wins whenever neither source has a
+     * model). {@code orgName == null} degrades to the bundled-only check -- {@link #getModelTemplate}
+     * has no org field to resolve a {@code .bala} with.
      */
-    private static boolean useSchemaDrivenPath(String moduleName) {
+    private static boolean useSchemaDrivenPath(String orgName, String moduleName) {
         if (moduleName == null) {
             return false;
         }
-        return ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName);
+        return ConnectorModelReader.getInstance().hasSchemaDrivenModel(orgName, moduleName);
     }
 
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
-        NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleName)
+        NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(null, moduleName)
                 ? new SchemaDrivenFunctionBuilder()
                 : getFunctionBuilder(moduleName);
         GetModelContext context = GetModelContext.fromServiceAndFunctionType(moduleName, functionType);
@@ -103,7 +107,8 @@ public class FunctionBuilderRouter {
         // Schema-driven connectors add handlers via the generic builder; route by the function's
         // stamped connector identity (codedata), mirroring updateFunction.
         Codedata fnCodedata = function.getCodedata();
-        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(moduleName)
+        NodeBuilder<Function> functionBuilder = fnCodedata != null
+                        && useSchemaDrivenPath(fnCodedata.getOrgName(), moduleName)
                         ? new SchemaDrivenFunctionBuilder()
                         : getFunctionBuilder(moduleName);
         Project project = document != null ? document.module().project() : null;
@@ -121,7 +126,8 @@ public class FunctionBuilderRouter {
             moduleName = DEFAULT;
         }
         Codedata fnCodedata = function.getCodedata();
-        NodeBuilder<Function> functionBuilder = fnCodedata != null && useSchemaDrivenPath(moduleName)
+        NodeBuilder<Function> functionBuilder = fnCodedata != null
+                        && useSchemaDrivenPath(fnCodedata.getOrgName(), moduleName)
                         ? new SchemaDrivenFunctionBuilder()
                         : getFunctionBuilder(moduleName);
         UpdateModelContext context =
@@ -138,7 +144,7 @@ public class FunctionBuilderRouter {
             context = new ModelFromSourceContext(functionNode, null, semanticModel, null, "",
                     metadata.serviceTypeIdentifier(), moduleID.orgName(), moduleID.packageName(),
                     moduleID.moduleName(), moduleID.version());
-            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.moduleName())
+            NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(), moduleID.moduleName())
                             ? new SchemaDrivenFunctionBuilder()
                             : getFunctionBuilder(moduleID.moduleName());
             Function function = functionBuilder.getModelFromSource(context);

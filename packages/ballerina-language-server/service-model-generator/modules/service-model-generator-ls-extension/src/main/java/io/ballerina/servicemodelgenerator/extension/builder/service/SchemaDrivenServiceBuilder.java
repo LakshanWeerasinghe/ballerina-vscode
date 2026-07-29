@@ -83,9 +83,11 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
-        // The bundled schema (classpath resource): its init form is derived from `initProperties`.
+        // Bundled classpath resource, or (on a miss) synthesized from the connector's own
+        // trigger-authoring.json + introspection: either way, its init form is derived from
+        // `initProperties`.
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getBundledServiceInitModel(context.moduleName());
+                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName());
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -99,9 +101,10 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     public Map<String, List<TextEdit>> addServiceInitSource(AddServiceInitModelContext context) {
         ServiceInitModel filledModel = context.serviceInitModel();
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
-        // The bundled schema (classpath resource).
+        // Bundled classpath resource, or (on a miss) synthesized from the connector's own
+        // trigger-authoring.json + introspection.
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(filledModel.getModuleName());
+                .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
@@ -111,10 +114,10 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public Service getModelFromSource(ModelFromSourceContext context) {
-        // The bundled schema: build the designer template from its serviceTypes[], then merge the
-        // user's source (functions present, base path, listeners, line ranges).
+        // Bundled or synthesized schema: build the designer template from its serviceTypes[], then
+        // merge the user's source (functions present, base path, listeners, line ranges).
         Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName());
+                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.
             return super.getModelFromSource(context);

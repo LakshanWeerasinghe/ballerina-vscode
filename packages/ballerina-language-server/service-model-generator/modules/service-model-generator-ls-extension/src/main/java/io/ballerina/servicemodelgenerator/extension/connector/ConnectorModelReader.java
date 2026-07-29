@@ -25,8 +25,20 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.PackageUtil;
+import io.ballerina.modelgenerator.commons.TriggerAuthoringModel;
+import io.ballerina.modelgenerator.commons.TriggerAuthoringResolver;
+import io.ballerina.modelgenerator.commons.TriggerLibraryFacts;
+import io.ballerina.modelgenerator.commons.TriggerLibraryIntrospector;
+import io.ballerina.projects.Package;
+import io.ballerina.projects.PackageDescriptor;
 import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.servicemodelgenerator.extension.model.Codedata;
+import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
+import io.ballerina.servicemodelgenerator.extension.util.ListenerUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,14 +51,25 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reads the unified {@code trigger-model.json} for a connector from a bundled classpath resource
- * shipped in this jar.
+ * Reads the unified {@code trigger-model.json} for a connector, either from a bundled classpath
+ * resource shipped in this jar, or -- on a miss -- synthesized at request time from a connector's own
+ * shipped {@code resources/trigger-authoring.json} plus semantic-API introspection of its compiled
+ * {@code .bala}.
  *
- * <p>This is the entry point of the schema-driven trigger path: a connector's schema is bundled here
- * (registered in {@code bundled_trigger_models.json}) rather than resolved from the connector's own
- * {@code .bala} -- there is no support for a connector shipping its own {@code trigger-model.json}. A
- * module with no bundled schema resolves to {@link Optional#empty()}, so the routers fall back to the
- * existing hardcoded builder path.
+ * <p>The bundled path (registered in {@code bundled_trigger_models.json}) is the entry point of the
+ * schema-driven trigger path for connectors curated (or {@code generate-trigger-model}-authored) into
+ * this jar; {@link #getBundledTriggerModel} / {@link #hasBundledTriggerModel} consult only that
+ * classpath registry, keyed by bare {@code moduleName} (a small curated set, so no org/version is
+ * needed to disambiguate). {@link #getSchemaDrivenTriggerModel(String, String)} /
+ * {@link #hasSchemaDrivenModel(String, String)} are the org-aware superset: they check the bundled
+ * registry first (unchanged, zero regression), and on a miss resolve the module's own
+ * {@code trigger-authoring.json} (via {@link TriggerAuthoringResolver}), introspect its compiled
+ * {@link SemanticModel} (via {@link TriggerLibraryIntrospector}), and synthesize a {@link TriggerModel}
+ * (via {@link io.ballerina.servicemodelgenerator.extension.connector.TriggerModelSynthesizer}) --
+ * caching the result per {@code orgName/moduleName} so the resolve+introspect+synthesize cost is paid
+ * at most once per module. A module with neither a bundled schema nor a resolvable
+ * {@code trigger-authoring.json} resolves to {@link Optional#empty()}, so the routers fall back to the
+ * existing hardcoded builder path exactly as before.
  *
  * @since 1.8.0
  */
@@ -94,6 +117,10 @@ public class ConnectorModelReader {
     private final Gson gson = new Gson();
     private final Map<String, Optional<TriggerModel>> bundledTriggerCache = new ConcurrentHashMap<>();
     private final Map<String, Optional<ServiceInitModel>> bundledInitCache = new ConcurrentHashMap<>();
+    // Keyed by "orgName/moduleName" -- the resolve+introspect+synthesize path, cached separately from
+    // the bundled caches above since a synthesized model's source (a resolved .bala) differs entirely
+    // from a bundled classpath resource.
+    private final Map<String, Optional<TriggerModel>> schemaDrivenTriggerCache = new ConcurrentHashMap<>();
 
     private ConnectorModelReader() {
     }
@@ -167,6 +194,136 @@ public class ConnectorModelReader {
             return Optional.of(JsonParser.parseString(json));
         } catch (IOException | JsonParseException e) {
             return Optional.empty();
+        }
+    }
+
+    // --- schema-driven trigger models (bundled-by-name, falling back to resolve+synthesize) ---
+
+    /**
+     * Cheap presence check across both tiers: the bundled classpath registry, then (on a miss, and only
+     * when {@code orgName} is known) a synthesized model resolved from the module's own {@code .bala}.
+     */
+    public boolean hasSchemaDrivenModel(String orgName, String moduleName) {
+        return getSchemaDrivenTriggerModel(orgName, moduleName).isPresent();
+    }
+
+    /**
+     * The connector's {@link TriggerModel} -- bundled-by-name first (unchanged, zero regression), then
+     * (on a miss) resolved from its own shipped {@code resources/trigger-authoring.json} plus semantic
+     * introspection of its compiled {@code .bala}, synthesized via {@link TriggerModelSynthesizer}, and
+     * cached per {@code orgName/moduleName}. {@code orgName == null} short-circuits to the bundled-only
+     * result -- some call sites (e.g. a request DTO with no org field) genuinely have no org to resolve
+     * a {@code .bala} with.
+     */
+    public Optional<TriggerModel> getSchemaDrivenTriggerModel(String orgName, String moduleName) {
+        Optional<TriggerModel> bundled = getBundledTriggerModel(moduleName);
+        if (bundled.isPresent() || orgName == null || moduleName == null) {
+            return bundled;
+        }
+        return schemaDrivenTriggerCache.computeIfAbsent(orgName + "/" + moduleName,
+                ignored -> synthesizeTriggerModel(orgName, moduleName));
+    }
+
+    /**
+     * The connector's add-trigger init form -- the {@link #getSchemaDrivenTriggerModel} counterpart of
+     * {@link #getBundledServiceInitModel}, remapping a synthesized model's {@code initProperties} the
+     * same way {@link #buildServiceInitModelFromJson} does for a bundled one.
+     */
+    public Optional<ServiceInitModel> getSchemaDrivenServiceInitModel(String orgName, String moduleName) {
+        Optional<ServiceInitModel> bundled = getBundledServiceInitModel(moduleName);
+        if (bundled.isPresent() || orgName == null || moduleName == null) {
+            return bundled;
+        }
+        return getSchemaDrivenTriggerModel(orgName, moduleName)
+                .flatMap(model -> buildServiceInitModelFromJson(gson.toJsonTree(model)));
+    }
+
+    /**
+     * Resolves and synthesizes a {@link TriggerModel} for a non-bundled module: reads the module's
+     * package once (so the authoring-rules file and the semantic model agree on the exact same
+     * resolved version), reads its {@code trigger-authoring.json} from that package root, introspects
+     * its {@link SemanticModel}, and combines both via {@link TriggerModelSynthesizer}. Identity fields
+     * a bundled model would carry (display name, icon) have no non-bundled source yet -- see
+     * {@code TriggerMetadataResolver}'s own note that a connector's shipped {@code trigger-metadata.json}
+     * is not yet consulted either -- so a humanized module name and the derived Central icon URL stand
+     * in.
+     *
+     * <p>Wrapped in a blanket {@code catch (Throwable)}: {@code PackageUtil.getModulePackage}'s
+     * version-less overload falls through to a live Central version lookup on an
+     * offline-metadata miss, which <b>throws</b> (rather than returning empty) for an org/module that
+     * doesn't exist there or when offline -- this method runs on the hot {@code useSchemaDrivenPath}
+     * path for every unrecognized module, so any such failure must degrade to "not schema-driven," not
+     * propagate and break routing for every service/function request.
+     */
+    private Optional<TriggerModel> synthesizeTriggerModel(String orgName, String moduleName) {
+        try {
+            return doSynthesizeTriggerModel(orgName, moduleName);
+        } catch (Throwable e) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<TriggerModel> doSynthesizeTriggerModel(String orgName, String moduleName) {
+        Optional<Package> pkg = PackageUtil.getModulePackage(PackageUtil.getSampleProject(), orgName, moduleName);
+        if (pkg.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<TriggerAuthoringModel> authoring = TriggerAuthoringResolver.readResource(
+                pkg.get().project().sourceRoot());
+        if (authoring.isEmpty()) {
+            return Optional.empty();
+        }
+        SemanticModel semanticModel = PackageUtil.getCompilation(pkg.get())
+                .getSemanticModel(pkg.get().getDefaultModule().moduleId());
+
+        PackageDescriptor descriptor = pkg.get().descriptor();
+        String resolvedOrg = descriptor.org().value();
+        String resolvedPackageName = descriptor.name().value();
+        String resolvedVersion = descriptor.version().value().toString();
+        // No "home" module: every type signature the introspector produces is emitted into a
+        // *different* file (the user's own service file, which has the connector only as an imported
+        // dependency), so even a reference to the connector's own type (e.g. a handler's Event payload,
+        // or the listener's own ListenerConfig) needs its module prefix (e.g. "calendar:Event") --
+        // never bare. Passing null means CommonUtils.getTypeSignature never strips a prefix, only
+        // shortens a dotted module part to its last segment (the connector's natural import alias).
+        TriggerLibraryFacts facts = TriggerLibraryIntrospector.introspect(semanticModel, null);
+
+        Listener listenerModel = resolveListenerModel(authoring.get(), semanticModel, resolvedOrg,
+                resolvedPackageName, moduleName, resolvedVersion);
+
+        String displayName = TriggerModelSynthesizer.humanize(moduleName);
+        String icon = CommonUtils.generateIcon(resolvedOrg, resolvedPackageName, resolvedVersion);
+
+        return TriggerModelSynthesizer.synthesize(authoring.get(), facts, listenerModel, moduleName, displayName,
+                icon, "event", resolvedOrg, resolvedPackageName, moduleName, resolvedVersion);
+    }
+
+    /**
+     * Resolves the listener init-form template for the authoring schema's declared listener class via
+     * {@link ListenerUtil#getListenerModelByName} -- the same utility the non-schema-driven "add
+     * listener" flow already uses, so init params (including record-typed/union-typed ones) get their
+     * widget correctly resolved without this reader/synthesizer duplicating that logic. {@code null}
+     * "userModuleInfo" is deliberate: there is no specific target file here (this model is cached and
+     * reused across every file that might add a service for this connector), so every type keeps its
+     * full module-qualified form rather than being stripped bare for a particular file's own module.
+     * Returns {@code null} (not a thrown exception) on any resolution failure -- the caller still
+     * renders a listener choice, just with no init params beyond its name.
+     */
+    private static Listener resolveListenerModel(TriggerAuthoringModel authoring, SemanticModel semanticModel,
+                                                 String orgName, String packageName, String moduleName,
+                                                 String version) {
+        try {
+            String listenerType = authoring.listeners().get(0).type().name();
+            Codedata codedata = new Codedata.Builder()
+                    .setType(listenerType)
+                    .setOrgName(orgName)
+                    .setPackageName(packageName)
+                    .setModuleName(moduleName)
+                    .setVersion(version)
+                    .build();
+            return ListenerUtil.getListenerModelByName(codedata, semanticModel, null).orElse(null);
+        } catch (Throwable e) {
+            return null;
         }
     }
 }

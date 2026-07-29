@@ -260,7 +260,7 @@ public final class SchemaDrivenSourceGenerator {
         collectAnnotationFields(filledInitForm.getProperties(), byAnnotation);
         List<String> annotations = new ArrayList<>();
         for (AnnotationFields annotation : byAnnotation.values()) {
-            if (!annotation.fields.isEmpty()) {
+            if (annotation.wholeValue != null || !annotation.fields.isEmpty()) {
                 annotations.add(annotation.render(selfPrefix, emitAlias));
             }
         }
@@ -268,9 +268,13 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /**
-     * Recursively collects {@code SERVICE_ANNOTATION} leaf fields (a {@code path} names the field)
-     * from a filled form, e.g. the init form's {@code queueName}, grouping same-annotation fields
-     * ({@code moduleName}/{@code originalName}) together.
+     * Recursively collects {@code SERVICE_ANNOTATION} fields from a filled form, grouping same-annotation
+     * fields ({@code moduleName}/{@code originalName}) together. Two shapes exist: a {@code path}-carrying
+     * leaf (e.g. the init form's flat {@code queueName}) contributes one field to a per-field mapping
+     * tree; a synthesized whole-record field (a single {@code RECORD_MAP_EXPRESSION} the user edits as
+     * one expression — see {@code TriggerModelSynthesizer}, no {@code path}) supplies its own raw value
+     * as the entire attachment body directly, matching how the read-back path already treats such a
+     * container (see {@code Utils#findServiceAnnotationContainer}).
      */
     private static void collectAnnotationFields(Map<String, Value> properties,
                                                 Map<String, AnnotationFields> byAnnotation) {
@@ -287,14 +291,17 @@ public final class SchemaDrivenSourceGenerator {
             }
             Codedata codedata = field.getCodedata();
             if (codedata != null && Constants.CD_TYPE_SERVICE_ANNOTATION.equals(codedata.getType())
-                    && codedata.getPath() != null && !codedata.getPath().isBlank()
                     && field.isEnabledWithValue()) {
                 String rendered = qualifiedValue(field);
                 if (!rendered.isEmpty()) {
                     String key = codedata.getModuleName() + COLON + codedata.getOriginalName();
-                    byAnnotation.computeIfAbsent(key,
-                            k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()))
-                            .fields.add(Map.entry(codedata.getPath(), rendered));
+                    AnnotationFields annotation = byAnnotation.computeIfAbsent(key,
+                            k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()));
+                    if (codedata.getPath() == null || codedata.getPath().isBlank()) {
+                        annotation.wholeValue = rendered;
+                    } else {
+                        annotation.fields.add(Map.entry(codedata.getPath(), rendered));
+                    }
                 }
             }
             if (isGroup(field)) {
@@ -308,6 +315,9 @@ public final class SchemaDrivenSourceGenerator {
         private final String moduleName;
         private final String originalName;
         private final List<Map.Entry<String, String>> fields = new ArrayList<>();
+        // Set instead of `fields` for a synthesized whole-record annotation field (a single
+        // RECORD_MAP_EXPRESSION with no per-field `path`) -- its own raw value IS the attachment body.
+        private String wholeValue;
 
         private AnnotationFields(String moduleName, String originalName) {
             this.moduleName = moduleName;
@@ -317,9 +327,10 @@ public final class SchemaDrivenSourceGenerator {
         /** Renders the attachment, mapping a self-module qualifier onto the emitted import alias. */
         private String render(String selfPrefix, String emitAlias) {
             String qualifier = selfPrefix.equals(moduleName) ? emitAlias : moduleName;
+            String body = wholeValue != null ? wholeValue : renderFieldTree(buildFieldTree(fields));
             String prefix = qualifier == null || qualifier.isBlank()
                     ? "@" + originalName : "@" + qualifier + COLON + originalName;
-            return prefix + " " + renderFieldTree(buildFieldTree(fields));
+            return prefix + " " + body;
         }
     }
 

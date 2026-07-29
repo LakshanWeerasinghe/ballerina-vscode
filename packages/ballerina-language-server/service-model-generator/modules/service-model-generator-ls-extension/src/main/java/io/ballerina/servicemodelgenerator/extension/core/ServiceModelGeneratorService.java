@@ -1147,18 +1147,21 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     }
 
     /**
-     * Resolves a trigger's basic info, preferring the bundled schema-driven {@code TriggerModel} over
-     * the legacy sqlite index derived from {@code service_artifacts.json}. This lets a bundled
+     * Resolves a trigger's basic info, preferring a schema-driven {@code TriggerModel} -- bundled in
+     * this jar, or (on a miss) synthesized from the connector's own shipped
+     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala} --
+     * over the legacy sqlite index derived from {@code service_artifacts.json}. This lets a
      * schema-driven trigger appear in the picker with no {@code service_artifacts.json} entry or index
-     * rebuild; a trigger with no bundled model (e.g. HTTP, AI, TCP, GraphQL, Solace) falls through to
-     * the legacy index. There is no support for a connector shipping its own schema in its {@code .bala}.
+     * rebuild; a trigger with neither source (e.g. HTTP, AI, TCP, GraphQL, Solace) falls through to the
+     * legacy index.
      *
      * <p>Package-visible for unit testing without a full LS bootstrap.
      */
     Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
-        Optional<TriggerModel> bundled = ConnectorModelReader.getInstance().getBundledTriggerModel(name);
-        if (bundled.isPresent()) {
-            return bundled.map(this::toTriggerBasicInfo);
+        Optional<TriggerModel> schemaDriven = ConnectorModelReader.getInstance()
+                .getSchemaDrivenTriggerModel(orgName, name);
+        if (schemaDriven.isPresent()) {
+            return schemaDriven.map(this::toTriggerBasicInfo);
         }
 
         return getTriggerBasicInfoFromLegacyIndex(orgName, name);

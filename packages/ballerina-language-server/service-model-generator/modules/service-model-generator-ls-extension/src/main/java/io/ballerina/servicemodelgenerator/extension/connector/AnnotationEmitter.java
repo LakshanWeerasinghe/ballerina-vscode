@@ -63,6 +63,12 @@ public final class AnnotationEmitter {
      * A node whose body renders empty (every optional field unchecked) is skipped entirely, matching
      * {@link #annotationBody}'s behavior for the update-time path — an attachment with nothing to say
      * should not be emitted at all.
+     *
+     * <p>Also recognizes a whole-value {@code ANNOTATION_ATTACHMENT} node — a single
+     * {@code RECORD_MAP_EXPRESSION} the user edits as one expression (a connector-synthesized
+     * function-level annotation, e.g. an SMB-shaped handler annotation; see
+     * {@code TriggerModelSynthesizer}), whose own {@code value} already IS the complete mapping-
+     * constructor body, unlike {@code COMPLEX_FUNCTION_ANNOTATION}'s per-field {@code properties} tree.
      */
     public static List<String> annotationsOf(Map<String, TriggerModel.Property> properties) {
         List<String> annotations = new ArrayList<>();
@@ -71,11 +77,29 @@ public final class AnnotationEmitter {
         }
         for (TriggerModel.Property node : properties.values()) {
             TriggerModel.Codedata cd = node.codedata();
-            if (cd != null && "COMPLEX_FUNCTION_ANNOTATION".equals(cd.type())) {
+            if (cd == null) {
+                continue;
+            }
+            if ("COMPLEX_FUNCTION_ANNOTATION".equals(cd.type())) {
                 emitAnnotation(node).ifPresent(annotations::add);
+            } else if ("ANNOTATION_ATTACHMENT".equals(cd.type()) && isEnabledWithValue(node)) {
+                annotations.add(emitWholeValueAnnotation(node));
             }
         }
         return annotations;
+    }
+
+    private static boolean isEnabledWithValue(TriggerModel.Property node) {
+        return node.enabled() && node.value() != null && !String.valueOf(node.value()).isBlank();
+    }
+
+    /** {@code @<module>:<name> <value>} — the node's own value is already the complete attachment body. */
+    private static String emitWholeValueAnnotation(TriggerModel.Property node) {
+        TriggerModel.Codedata cd = node.codedata();
+        String module = cd.moduleName();
+        String name = cd.originalName();
+        String prefix = module == null || module.isBlank() ? "@" + name : "@" + module + ":" + name;
+        return prefix + " " + node.value();
     }
 
     /** The rendered annotation attachment, or empty when {@link #annotationBody} has nothing to emit. */

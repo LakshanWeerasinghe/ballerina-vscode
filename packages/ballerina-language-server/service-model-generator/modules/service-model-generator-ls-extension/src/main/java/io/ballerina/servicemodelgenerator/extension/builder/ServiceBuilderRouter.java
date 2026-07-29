@@ -86,17 +86,18 @@ public class ServiceBuilderRouter {
     }
 
     /**
-     * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar
-     * (no network/bala-cache cost; lets a hardcoded builder migrate onto the schema-driven path
-     * module-by-module). A connector is never checked for a self-shipped {@code .bala} schema —
-     * otherwise the hardcoded builder wins (zero regression).
+     * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar,
+     * or -- on a miss, when {@code orgName} is known -- synthesizable from the connector's own shipped
+     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
+     * (see {@link ConnectorModelReader#getSchemaDrivenTriggerModel}). The hardcoded builder still wins
+     * whenever neither source has a model, so an unrecognized connector's behavior is unchanged.
      */
-    private static boolean useSchemaDrivenPath(String moduleName) {
-        return ConnectorModelReader.getInstance().hasBundledTriggerModel(moduleName);
+    private static boolean useSchemaDrivenPath(String orgName, String moduleName) {
+        return ConnectorModelReader.getInstance().hasSchemaDrivenModel(orgName, moduleName);
     }
 
     public static Optional<Service> getModelTemplate(String orgName, String moduleName) {
-        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(moduleName)
+        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(orgName, moduleName)
                 ? new SchemaDrivenServiceBuilder()
                 : getServiceBuilder(moduleName);
         GetModelContext context = GetModelContext.fromOrgAndModule(orgName, moduleName);
@@ -117,7 +118,7 @@ public class ServiceBuilderRouter {
         }
         ModuleID moduleID = serviceMetadata.moduleId();
 
-        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(moduleID.moduleName())
+        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(moduleID.orgName(), moduleID.moduleName())
                         ? new SchemaDrivenServiceBuilder()
                         : getServiceBuilder(moduleID.moduleName());
         ModelFromSourceContext context = new ModelFromSourceContext(node, project, semanticModel,
@@ -134,7 +135,7 @@ public class ServiceBuilderRouter {
                                                          SemanticModel semanticModel, Project project,
                                                          WorkspaceManager workspaceManager,
                                                          String filePath, Document document) throws Exception {
-        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(service.getModuleName())
+        NodeBuilder<Service> serviceBuilder = useSchemaDrivenPath(service.getOrgName(), service.getModuleName())
                         ? new SchemaDrivenServiceBuilder()
                         : getServiceBuilder(service.getModuleName());
         AddModelContext context = new AddModelContext(service, null, semanticModel, project,
@@ -147,7 +148,7 @@ public class ServiceBuilderRouter {
                                                             WorkspaceManager workspaceManager,
                                                             String filePath, Document document,
                                                             ServiceDeclarationNode serviceNode) throws Exception {
-        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(service.getModuleName())
+        NodeBuilder<?> serviceBuilder = useSchemaDrivenPath(service.getOrgName(), service.getModuleName())
                         ? new SchemaDrivenServiceBuilder()
                         : getServiceBuilder(service.getModuleName());
         UpdateModelContext context = new UpdateModelContext(service, null, semanticModel, null,
@@ -161,7 +162,7 @@ public class ServiceBuilderRouter {
                 request.orgName(), request.pkgName(), request.moduleName(), request.version(),
                 project, semanticModel, document);
         ServiceNodeBuilder serviceBuilder =
-                useSchemaDrivenPath(request.moduleName())
+                useSchemaDrivenPath(request.orgName(), request.moduleName())
                         ? new SchemaDrivenServiceBuilder()
                         : getServiceBuilder(request.moduleName());
         return serviceBuilder.getServiceInitModel(context);
@@ -175,7 +176,8 @@ public class ServiceBuilderRouter {
             throws Exception {
         AddServiceInitModelContext context = new AddServiceInitModelContext(serviceInitModel, semanticModel, project,
                 workspaceManager, filePath, document);
-        ServiceNodeBuilder serviceBuilder = useSchemaDrivenPath(serviceInitModel.getModuleName())
+        ServiceNodeBuilder serviceBuilder = useSchemaDrivenPath(
+                        serviceInitModel.getOrgName(), serviceInitModel.getModuleName())
                         ? new SchemaDrivenServiceBuilder()
                         : getServiceBuilder(serviceInitModel.getModuleName());
         return serviceBuilder.addServiceInitSource(context);
