@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wso2.github.io/ballerina-vscode/schemas/trigger-authoring.schema.json",
-  "title": "Ballerina Trigger Authoring Rules",
-  "description": "Machine contract for a connector's resources/trigger-authoring.json: the authoring rules (presence, oneOf relationships, identifier semantics, non-concrete handler shapes) that sit above the syntax tree and semantic model and cannot be recovered by introspecting the library alone. See README.md/spec.md for the governing DRY principle and field-by-field rationale.",
+  "$id": "https://wso2.github.io/ballerina-vscode/schemas/trigger-metadata.schema.json",
+  "title": "Ballerina Trigger Metadata",
+  "description": "Machine contract for a connector's resources/trigger-metadata.json: the authoring rules (presence, oneOf relationships, identifier semantics, non-concrete handler shapes) that sit above the syntax tree and semantic model and cannot be recovered by introspecting the library alone. See README.md/spec.md for the governing DRY principle and field-by-field rationale.",
   "type": "object",
   "additionalProperties": false,
   "required": ["listeners", "serviceTypes"],

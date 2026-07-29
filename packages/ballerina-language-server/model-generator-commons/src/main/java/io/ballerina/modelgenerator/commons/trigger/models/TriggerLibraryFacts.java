@@ -16,7 +16,7 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.models;
 
 import java.util.List;
 
@@ -25,8 +25,8 @@ import java.util.List;
  * model: its listener's init-parameter <b>structure</b> (names, kind, optionality, and
  * included-record field expansion -- but deliberately not a rendered widget), its service object
  * types (with their remote/resource functions), and declared annotations. Facts only -- no labels,
- * defaults, or curation. A {@code TriggerModel} synthesizer combines these with a connector's
- * {@link TriggerAuthoringModel} to fill in what the authoring-rules document only references by name
+ * defaults, or curation. A {@code TriggerUISchemaModel} synthesizer combines these with a connector's
+ * {@link TriggerMetadataModel} to fill in what the authoring-rules document only references by name
  * (the governing DRY principle behind both documents: introspectable facts live here, never restated
  * there).
  *

@@ -16,7 +16,7 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -26,14 +26,16 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The {@link Gson} instance for deserializing a {@code trigger-authoring.json} document into a
- * {@link TriggerAuthoringModel}.
+ * The {@link Gson} instance for deserializing a {@code trigger-metadata.json} document into a
+ * {@link TriggerMetadataModel}.
  *
  * <p>The schema's one shape ambiguity (spec {@code README.md}/{@code spec.md} &sect;1 — "Every place
  * a Ballerina type is referenced ... uses the same shape"): a slot that may hold either a single type
@@ -45,7 +47,7 @@ import java.util.List;
  *
  * @since 1.10.0
  */
-public final class TriggerAuthoringGson {
+public final class TriggerMetadataGson {
 
     private static final Type TYPE_REF_LIST = new TypeToken<List<TypeRef>>() { }.getType();
 
@@ -63,10 +65,10 @@ public final class TriggerAuthoringGson {
             .registerTypeAdapter(TYPE_REF_LIST, new TypeRefListDeserializer())
             .create();
 
-    private TriggerAuthoringGson() {
+    private TriggerMetadataGson() {
     }
 
-    /** The shared, preconfigured {@link Gson} instance for {@code trigger-authoring.json} documents. */
+    /** The shared, preconfigured {@link Gson} instance for {@code trigger-metadata.json} documents. */
     public static Gson instance() {
         return INSTANCE;
     }

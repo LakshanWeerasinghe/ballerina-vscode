@@ -18,8 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerReadOnlyMetadataAdapter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -49,8 +49,8 @@ public class TriggerReadOnlyMetadataAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     public void testStringLiteralKindResolvesFromServiceModel() {
-        TriggerModel.ReadOnlyMetadata definition =
-                new TriggerModel.ReadOnlyMetadata("path", "Monitored Path", "STRING_LITERAL", null, null);
+        TriggerUISchemaModel.ReadOnlyMetadata definition =
+                new TriggerUISchemaModel.ReadOnlyMetadata("path", "Monitored Path", "STRING_LITERAL", null, null);
         Service service = service("\"/home/in\"");
 
         Value result = TriggerReadOnlyMetadataAdapter.build(List.of(definition), service, null, null);
@@ -64,8 +64,8 @@ public class TriggerReadOnlyMetadataAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     public void testUnknownKindResolvesToEmptyList() {
-        TriggerModel.ReadOnlyMetadata definition =
-                new TriggerModel.ReadOnlyMetadata("key", "Some Chip", "NOT_A_REAL_KIND", null, null);
+        TriggerUISchemaModel.ReadOnlyMetadata definition =
+                new TriggerUISchemaModel.ReadOnlyMetadata("key", "Some Chip", "NOT_A_REAL_KIND", null, null);
 
         Value result = TriggerReadOnlyMetadataAdapter.build(List.of(definition), service(null), null, null);
 
@@ -76,8 +76,8 @@ public class TriggerReadOnlyMetadataAdapterTest {
     @Test
     @SuppressWarnings("unchecked")
     public void testDisplayNameFallsBackToKeyWhenBlank() {
-        TriggerModel.ReadOnlyMetadata definition =
-                new TriggerModel.ReadOnlyMetadata("queueName", "", "STRING_LITERAL", null, null);
+        TriggerUISchemaModel.ReadOnlyMetadata definition =
+                new TriggerUISchemaModel.ReadOnlyMetadata("queueName", "", "STRING_LITERAL", null, null);
         Service service = service("\"orders\"");
 
         Value result = TriggerReadOnlyMetadataAdapter.build(List.of(definition), service, null, null);
@@ -91,10 +91,10 @@ public class TriggerReadOnlyMetadataAdapterTest {
     @SuppressWarnings("unchecked")
     public void testDefinitionsSharingDisplayNameAggregateUnderOneChip() {
         // Mirrors RabbitMQ's two "Queue Name" definitions: both resolve into the same chip's bucket.
-        TriggerModel.ReadOnlyMetadata first =
-                new TriggerModel.ReadOnlyMetadata("queueName", "Queue Name", "STRING_LITERAL", null, null);
-        TriggerModel.ReadOnlyMetadata second =
-                new TriggerModel.ReadOnlyMetadata("altQueueName", "Queue Name", "STRING_LITERAL", null, null);
+        TriggerUISchemaModel.ReadOnlyMetadata first =
+                new TriggerUISchemaModel.ReadOnlyMetadata("queueName", "Queue Name", "STRING_LITERAL", null, null);
+        TriggerUISchemaModel.ReadOnlyMetadata second =
+                new TriggerUISchemaModel.ReadOnlyMetadata("altQueueName", "Queue Name", "STRING_LITERAL", null, null);
         Service service = service("\"orders\"");
 
         Value result = TriggerReadOnlyMetadataAdapter.build(List.of(first, second), service, null, null);

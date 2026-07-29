@@ -186,7 +186,7 @@ public final class LsRuleValidators {
 
     private static Optional<String> subtype(Value node, Map<String, Object> args, ValidationContext ctx) {
         // The catalog also allows falling back to `codedata.typeConstraint`, but the wire Codedata
-        // does not carry that field today (it lives only on the TriggerModel records, and
+        // does not carry that field today (it lives only on the TriggerUISchemaModel records, and
         // PropertyValueAdapter does not map it across), so the arg is the only source. Wiring the
         // fallback means extending Codedata + the adapter first.
         String constraint = CommonRuleValidators.argToString(args.get("typeConstraint"));

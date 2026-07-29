@@ -19,7 +19,7 @@
 package io.ballerina.servicemodelgenerator.extension.connector;
 
 import com.google.gson.Gson;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * Unit test for {@link PayloadComposer}: the effective parameter type computed from a {@code type}
- * {@link TriggerModel.Property} tree — data-binding element + base wrap + active modifier, FLAG
+ * {@link TriggerUISchemaModel.Property} tree — data-binding element + base wrap + active modifier, FLAG
  * framework params, and VARIATION_SELECTOR variant navigation.
  *
  * @since 1.9.0
@@ -36,11 +36,11 @@ public class PayloadComposerTest {
 
     private final Gson gson = new Gson();
 
-    private TriggerModel model(String moduleName) {
+    private TriggerUISchemaModel model(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
-    private TriggerModel.FunctionModel schemaFunction(TriggerModel model, String name) {
+    private TriggerUISchemaModel.FunctionModel schemaFunction(TriggerUISchemaModel model, String name) {
         return model.serviceTypes().getFirst().schemaFunctions().stream()
                 .filter(f -> name.equals(f.name())).findFirst().orElseThrow();
     }
@@ -49,15 +49,16 @@ public class PayloadComposerTest {
     public void testKafkaDataBindingIncludedRecord() throws Exception {
         // records: DATA_BINDING -> PAYLOAD_TYPE_INCLUDED_RECORD (default kafka:AnydataConsumerRecord,
         // modifiers.template "T[]") -> kafka:AnydataConsumerRecord[].
-        TriggerModel.Parameter records = schemaFunction(model("kafka"), "onConsumerRecord").parameters().getFirst();
+        TriggerUISchemaModel.Parameter records = schemaFunction(model("kafka"), "onConsumerRecord")
+                .parameters().getFirst();
         Assert.assertEquals(PayloadComposer.effectiveType(records.type()), "kafka:AnydataConsumerRecord[]");
     }
 
     @Test
     public void testKafkaCallerFlagType() throws Exception {
         // caller: FLAG framework param -> the type is the widget's ballerinaType.
-        List<TriggerModel.Parameter> params = schemaFunction(model("kafka"), "onConsumerRecord").parameters();
-        TriggerModel.Parameter caller = params.stream()
+        List<TriggerUISchemaModel.Parameter> params = schemaFunction(model("kafka"), "onConsumerRecord").parameters();
+        TriggerUISchemaModel.Parameter caller = params.stream()
                 .filter(p -> "caller".equals(p.name().value())).findFirst().orElseThrow();
         Assert.assertEquals(PayloadComposer.effectiveType(caller.type()), "kafka:Caller");
     }
@@ -66,7 +67,7 @@ public class PayloadComposerTest {
     public void testFtpCsvVariantDefaultPayload() throws Exception {
         // content: COMPLEX_PAYLOAD -> payload PAYLOAD_TYPE (default string[], base template {{type}}[])
         // with the stream modifier OFF -> string[][].
-        TriggerModel.Parameter content = schemaFunction(model("ftp"), "onFileCsv").parameters().stream()
+        TriggerUISchemaModel.Parameter content = schemaFunction(model("ftp"), "onFileCsv").parameters().stream()
                 .filter(p -> "content".equals(p.name().value())).findFirst().orElseThrow();
         Assert.assertEquals(PayloadComposer.effectiveType(content.type()), "string[][]");
     }
@@ -86,7 +87,7 @@ public class PayloadComposerTest {
                       "codedata":{"type":"PAYLOAD_MODIFIER","modifier":"stream",
                         "template":"stream<{{type}}, error?>","supersedes":["base"]}}
                   }}""";
-        TriggerModel.Property prop = gson.fromJson(json, TriggerModel.Property.class);
+        TriggerUISchemaModel.Property prop = gson.fromJson(json, TriggerUISchemaModel.Property.class);
         Assert.assertEquals(PayloadComposer.effectiveType(prop), "stream<string[], error?>");
     }
 
@@ -106,7 +107,7 @@ public class PayloadComposerTest {
                       "codedata":{"type":"PAYLOAD_MODIFIER","modifier":"stream",
                         "template":"stream<{{type}}, error?>","supersedes":["base"]}}
                   }}""";
-        TriggerModel.Property prop = gson.fromJson(json, TriggerModel.Property.class);
+        TriggerUISchemaModel.Property prop = gson.fromJson(json, TriggerUISchemaModel.Property.class);
         Assert.assertEquals(PayloadComposer.effectiveType(prop), "Order[]");
     }
 }

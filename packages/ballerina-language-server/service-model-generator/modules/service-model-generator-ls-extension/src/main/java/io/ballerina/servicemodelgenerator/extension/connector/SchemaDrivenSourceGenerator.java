@@ -19,7 +19,7 @@
 package io.ballerina.servicemodelgenerator.extension.connector;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
@@ -138,13 +138,13 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     // ==================================================================
-    // Unified TriggerModel path. The listener-arg walk below is shared across service descriptor
-    // resolution; the service descriptor and function block are sourced from the TriggerModel.
+    // Unified TriggerUISchemaModel path. The listener-arg walk below is shared across service descriptor
+    // resolution; the service descriptor and function block are sourced from the TriggerUISchemaModel.
     // ==================================================================
 
     /** {@code addServiceAndListener} for the unified model: import (if missing) + listener/service block. */
     public static Map<String, List<TextEdit>> buildAddServiceEditsForTrigger(ServiceInitModel filledInitForm,
-                                                                   TriggerModel triggerModel,
+                                                                   TriggerUISchemaModel triggerModel,
                                                                    ModulePartNode rootNode, String filePath) {
         List<TextEdit> edits = new ArrayList<>();
         // The connector module's emitted import prefix, resolved against the file so the service block
@@ -164,7 +164,7 @@ public final class SchemaDrivenSourceGenerator {
      * (each an {@code org/module} reference — e.g. a handler payload's or listener param's module such
      * as {@code ballerina/http}). Each is emitted only when not already present in the file.
      */
-    private static String buildImports(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    private static String buildImports(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                        ModulePartNode rootNode, String emitAlias) {
         StringBuilder imports = new StringBuilder();
         if (!Utils.importExists(rootNode, filledInitForm.getOrgName(), filledInitForm.getModuleName())) {
@@ -197,13 +197,14 @@ public final class SchemaDrivenSourceGenerator {
      * {@code service <descriptor> on &lt;var&gt; { <present functions> }}. Named distinctly from the
      * two-model {@code buildServiceBlock} so a {@code null} second argument stays unambiguous.
      */
-    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel) {
+    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm,
+                                                      TriggerUISchemaModel triggerModel) {
         return buildServiceBlockForTrigger(filledInitForm, triggerModel,
                 modelAliasOrDefault(triggerModel, filledInitForm.getModuleName()));
     }
 
     /**
-     * As {@link #buildServiceBlockForTrigger(ServiceInitModel, TriggerModel)}, but referencing the
+     * As {@link #buildServiceBlockForTrigger(ServiceInitModel, TriggerUISchemaModel)}, but referencing the
      * connector's own module under {@code emitAlias} — the prefix its import is (or will be) bound to.
      * For a dotted module whose natural prefix clashes with a base client (e.g. {@code trigger.twilio}
      * vs {@code ballerinax/twilio}) this is the safe alias {@code triggerTwilio}, and every self-module
@@ -211,7 +212,7 @@ public final class SchemaDrivenSourceGenerator {
      * emitted under it. For a single-segment module the alias equals the natural prefix and every
      * rewrite below is a no-op, so output is byte-identical to before.
      */
-    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                                      String emitAlias) {
         // The prefix the model's own strings are authored with (module's last dot-segment): the source
         // token that self-module references are rewritten FROM.
@@ -248,7 +249,7 @@ public final class SchemaDrivenSourceGenerator {
     /**
      * The service-level annotation attachments (e.g. {@code @rabbitmq:ServiceConfig {...}}), built
      * entirely from {@code SERVICE_ANNOTATION} fields present in the filled {@code ServiceInitModel}
-     * (the add-service init form) — the {@code TriggerModel}'s service-type properties are not
+     * (the add-service init form) — the {@code TriggerUISchemaModel}'s service-type properties are not
      * consulted here, since at add-time the only values available are the ones the user filled in the
      * init form (e.g. RabbitMQ's {@code queueName}). Fields are grouped by their annotation identity
      * ({@code moduleName}/{@code originalName}), so several init-form fields belonging to the same
@@ -375,15 +376,15 @@ public final class SchemaDrivenSourceGenerator {
      * form (ftp/github carry an already-qualified value); otherwise reads the selected/first
      * {@code serviceTypes[]} entry (kafka carries the descriptor on the type, not the init form).
      */
-    private static String resolveServiceDescriptor(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    private static String resolveServiceDescriptor(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                                    String selfPrefix, String emitAlias) {
         String fromForm = findServiceType(filledInitForm.getProperties());
         if (fromForm != null && !fromForm.isEmpty()) {
             return qualify(fromForm, selfPrefix, emitAlias);
         }
-        TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
+        TriggerUISchemaModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType != null) {
-            TriggerModel.Codedata cd = serviceType.codedata();
+            TriggerUISchemaModel.Codedata cd = serviceType.codedata();
             if (cd != null && cd.originalName() != null && !cd.originalName().isBlank()) {
                 String module = cd.moduleName() != null && !cd.moduleName().isBlank()
                         ? aliasOf(cd.moduleName()) : selfPrefix;
@@ -446,10 +447,10 @@ public final class SchemaDrivenSourceGenerator {
     // ------------------------------------------------------------------
 
     /**
-     * The alias the connector's module is referenced under: {@code TriggerModel.importPrefix} when the
+     * The alias the connector's module is referenced under: {@code TriggerUISchemaModel.importPrefix} when the
      * model pins one, else the generated default.
      */
-    private static String modelAliasOrDefault(TriggerModel triggerModel, String moduleName) {
+    private static String modelAliasOrDefault(TriggerUISchemaModel triggerModel, String moduleName) {
         if (triggerModel != null && triggerModel.importPrefix() != null
                 && !triggerModel.importPrefix().isBlank()) {
             return triggerModel.importPrefix();
@@ -468,7 +469,7 @@ public final class SchemaDrivenSourceGenerator {
      * already claimed. See {@link ModuleAliasResolver#resolve}.
      */
     private static String resolveEmitAlias(ModulePartNode rootNode, ServiceInitModel filledInitForm,
-                                           TriggerModel triggerModel) {
+                                           TriggerUISchemaModel triggerModel) {
         String moduleName = filledInitForm.getModuleName();
         String override = triggerModel != null && triggerModel.importPrefix() != null
                 && !triggerModel.importPrefix().isBlank() ? triggerModel.importPrefix() : null;
@@ -518,21 +519,21 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /** Picks the service type matching the init-form selection; else the enabled one; else the first. */
-    private static TriggerModel.ServiceTypeModel selectServiceType(ServiceInitModel filledInitForm,
-                                                                   TriggerModel triggerModel) {
+    private static TriggerUISchemaModel.ServiceTypeModel selectServiceType(ServiceInitModel filledInitForm,
+                                                                   TriggerUISchemaModel triggerModel) {
         if (triggerModel == null || triggerModel.serviceTypes() == null
                 || triggerModel.serviceTypes().isEmpty()) {
             return null;
         }
         String selected = findServiceType(filledInitForm.getProperties());
         if (selected != null && !selected.isEmpty()) {
-            for (TriggerModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
+            for (TriggerUISchemaModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
                 if (selected.equals(st.name())) {
                     return st;
                 }
             }
         }
-        for (TriggerModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
+        for (TriggerUISchemaModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
             if (Boolean.TRUE.equals(st.enabled())) {
                 return st;
             }
@@ -542,14 +543,14 @@ public final class SchemaDrivenSourceGenerator {
 
     /** Emits the present (enabled, non-optional) handlers of the selected service type. */
     private static List<String> buildRequiredFunctionSources(ServiceInitModel filledInitForm,
-                                                             TriggerModel triggerModel, String selfPrefix,
+                                                             TriggerUISchemaModel triggerModel, String selfPrefix,
                                                              String emitAlias) {
         List<String> functions = new ArrayList<>();
-        TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
+        TriggerUISchemaModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType == null || serviceType.functions() == null) {
             return functions;
         }
-        for (TriggerModel.FunctionModel function : serviceType.functions()) {
+        for (TriggerUISchemaModel.FunctionModel function : serviceType.functions()) {
             if (function.enabled() && !Boolean.TRUE.equals(function.optional())) {
                 functions.add(TAB + buildFunctionSource(function, selfPrefix, emitAlias)
                         .replace(NEW_LINE, NEW_LINE_WITH_TAB));
@@ -559,7 +560,7 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /** Renders one handler, leaving module-qualified types exactly as the model authored them. */
-    static String buildFunctionSource(TriggerModel.FunctionModel function) {
+    static String buildFunctionSource(TriggerUISchemaModel.FunctionModel function) {
         return buildFunctionSource(function, "", "");
     }
 
@@ -567,7 +568,7 @@ public final class SchemaDrivenSourceGenerator {
      * Renders one handler from the unified {@code FunctionModel} (params carry type/name as Property),
      * re-qualifying self-module references in parameter and return types onto {@code emitAlias}.
      */
-    private static String buildFunctionSource(TriggerModel.FunctionModel function, String selfPrefix,
+    private static String buildFunctionSource(TriggerUISchemaModel.FunctionModel function, String selfPrefix,
                                               String emitAlias) {
         StringBuilder builder = new StringBuilder();
         // Function-level annotations (COMPLEX_FUNCTION_ANNOTATION) sit above the function.
@@ -594,9 +595,9 @@ public final class SchemaDrivenSourceGenerator {
      * to the selected variant's {@code originalName} (e.g. onFileCsv / onFileJson); otherwise the
      * declared name.
      */
-    private static String effectiveFunctionName(TriggerModel.FunctionModel function) {
+    private static String effectiveFunctionName(TriggerUISchemaModel.FunctionModel function) {
         if (function.parameters() != null) {
-            for (TriggerModel.Parameter parameter : function.parameters()) {
+            for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
                 String variantName = selectedVariantOriginalName(parameter.type());
                 if (variantName != null && !variantName.isBlank()) {
                     return variantName;
@@ -606,21 +607,21 @@ public final class SchemaDrivenSourceGenerator {
         return function.name();
     }
 
-    private static String selectedVariantOriginalName(TriggerModel.Property typeProp) {
+    private static String selectedVariantOriginalName(TriggerUISchemaModel.Property typeProp) {
         if (typeProp == null || !"VARIATION_SELECTOR".equals(PayloadComposer.selectedFieldType(typeProp))) {
             return null;
         }
-        Map<String, TriggerModel.Property> variants = typeProp.properties();
+        Map<String, TriggerUISchemaModel.Property> variants = typeProp.properties();
         if (variants == null || variants.isEmpty()) {
             return null;
         }
-        TriggerModel.Property selected = null;
+        TriggerUISchemaModel.Property selected = null;
         Object value = typeProp.value();
         if (value != null && variants.containsKey(String.valueOf(value))) {
             selected = variants.get(String.valueOf(value));
         }
         if (selected == null) {
-            for (TriggerModel.Property variant : variants.values()) {
+            for (TriggerUISchemaModel.Property variant : variants.values()) {
                 if (variant.enabled()) {
                     selected = variant;
                     break;
@@ -630,7 +631,7 @@ public final class SchemaDrivenSourceGenerator {
         return selected == null || selected.codedata() == null ? null : selected.codedata().originalName();
     }
 
-    private static String qualifiers(TriggerModel.FunctionModel function) {
+    private static String qualifiers(TriggerUISchemaModel.FunctionModel function) {
         if (function.qualifiers() != null && !function.qualifiers().isEmpty()) {
             return String.join(SPACE, function.qualifiers()) + SPACE;
         }
@@ -647,13 +648,13 @@ public final class SchemaDrivenSourceGenerator {
         };
     }
 
-    private static String buildParameterList(TriggerModel.FunctionModel function, String selfPrefix,
+    private static String buildParameterList(TriggerUISchemaModel.FunctionModel function, String selfPrefix,
                                              String emitAlias) {
         if (function.parameters() == null) {
             return "";
         }
         List<String> params = new ArrayList<>();
-        for (TriggerModel.Parameter parameter : function.parameters()) {
+        for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
             if ("FLAG".equals(PayloadComposer.selectedFieldType(parameter.type()))) {
                 // Framework param (caller/context): emitted only when the checkbox is ticked.
                 if (!isFlagOn(parameter)) {
@@ -674,20 +675,21 @@ public final class SchemaDrivenSourceGenerator {
         return String.join(", ", params);
     }
 
-    private static boolean isFlagOn(TriggerModel.Parameter parameter) {
+    private static boolean isFlagOn(TriggerUISchemaModel.Parameter parameter) {
         Object value = parameter.type() == null ? null : parameter.type().value();
         return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 
-    private static String paramName(TriggerModel.Parameter parameter) {
-        TriggerModel.Property nameProp = parameter.name();
+    private static String paramName(TriggerUISchemaModel.Parameter parameter) {
+        TriggerUISchemaModel.Property nameProp = parameter.name();
         if (nameProp == null || nameProp.value() == null) {
             return "";
         }
         return String.valueOf(nameProp.value());
     }
 
-    private static String buildReturnType(TriggerModel.ReturnType returnType, String selfPrefix, String emitAlias) {
+    private static String buildReturnType(TriggerUISchemaModel.ReturnType returnType, String selfPrefix,
+                                           String emitAlias) {
         if (returnType == null || !returnType.enabled() || returnType.type() == null
                 || returnType.type().isBlank()) {
             return "";

@@ -18,8 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.PropertyValueAdapter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -27,7 +27,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 /**
- * Unit test for {@link PropertyValueAdapter}'s {@code TriggerModel.Property} <-> wire {@code Value}
+ * Unit test for {@link PropertyValueAdapter}'s {@code TriggerUISchemaModel.Property} <-> wire {@code Value}
  * conversion — the generic converter used for annotation-tree/composition-flag properties (as opposed
  * to the specialized payload-parameter construction in {@code TriggerFunctionAdapter}).
  *
@@ -37,7 +37,7 @@ public class PropertyValueAdapterTest {
 
     @Test
     public void testToValueMapsCoreFields() {
-        TriggerModel.Property property = leaf("hello", true, false, true, true);
+        TriggerUISchemaModel.Property property = leaf("hello", true, false, true, true);
 
         Value value = PropertyValueAdapter.toValue(property);
 
@@ -54,8 +54,8 @@ public class PropertyValueAdapterTest {
         // class fully supports it (dormant today only because the one schema usage of
         // codedata.nameEditable — PAYLOAD_TYPE/PAYLOAD_TYPE_INCLUDED_RECORD — bypasses this generic
         // converter via TriggerFunctionAdapter's own specialized construction).
-        TriggerModel.Codedata modelCodedata = codedata("SOME_TYPE", true);
-        TriggerModel.Property property = new TriggerModel.Property(null, true, true, false, false, null,
+        TriggerUISchemaModel.Codedata modelCodedata = codedata("SOME_TYPE", true);
+        TriggerUISchemaModel.Property property = new TriggerUISchemaModel.Property(null, true, true, false, false, null,
                 "x", null, null, null, null, modelCodedata, null);
 
         Value value = PropertyValueAdapter.toValue(property);
@@ -72,7 +72,7 @@ public class PropertyValueAdapterTest {
         Value value = new Value.ValueBuilder().value("x").setCodedata(wireCodedata)
                 .enabled(true).editable(true).build();
 
-        TriggerModel.Property property = PropertyValueAdapter.toProperty(value);
+        TriggerUISchemaModel.Property property = PropertyValueAdapter.toProperty(value);
 
         Assert.assertEquals(property.codedata().nameEditable(), Boolean.TRUE,
                 "nameEditable must round-trip through the generic wire-to-model conversion");
@@ -80,9 +80,9 @@ public class PropertyValueAdapterTest {
 
     @Test
     public void testWireFieldTypeMapsMetadataFlagToFlag() {
-        TriggerModel.PropertyType metadataFlag =
-                new TriggerModel.PropertyType("METADATA_FLAG", true, "boolean", null, null, null, null, null);
-        TriggerModel.Property property = new TriggerModel.Property(null, true, true, false, false, null,
+        TriggerUISchemaModel.PropertyType metadataFlag =
+                new TriggerUISchemaModel.PropertyType("METADATA_FLAG", true, "boolean", null, null, null, null, null);
+        TriggerUISchemaModel.Property property = new TriggerUISchemaModel.Property(null, true, true, false, false, null,
                 "true", List.of(metadataFlag), null, null, null, null, null);
 
         Value value = PropertyValueAdapter.toValue(property);
@@ -93,9 +93,10 @@ public class PropertyValueAdapterTest {
 
     @Test
     public void testWireFieldTypeFallsBackToExpressionForUnrecognizedFieldType() {
-        TriggerModel.PropertyType unknown =
-                new TriggerModel.PropertyType("SOME_FUTURE_WIDGET", true, "string", null, null, null, null, null);
-        TriggerModel.Property property = new TriggerModel.Property(null, true, true, false, false, null,
+        TriggerUISchemaModel.PropertyType unknown =
+                new TriggerUISchemaModel.PropertyType("SOME_FUTURE_WIDGET", true, "string", null, null, null, null,
+                        null);
+        TriggerUISchemaModel.Property property = new TriggerUISchemaModel.Property(null, true, true, false, false, null,
                 "x", List.of(unknown), null, null, null, null, null);
 
         Value value = PropertyValueAdapter.toValue(property);
@@ -106,9 +107,9 @@ public class PropertyValueAdapterTest {
 
     @Test
     public void testToValueRecursesThroughNestedPropertiesAndChoices() {
-        TriggerModel.Property child = leaf("child-value", true, true, false, false);
-        TriggerModel.Property choice = leaf("choice-value", true, true, false, false);
-        TriggerModel.Property parent = new TriggerModel.Property(null, true, true, false, false, null,
+        TriggerUISchemaModel.Property child = leaf("child-value", true, true, false, false);
+        TriggerUISchemaModel.Property choice = leaf("choice-value", true, true, false, false);
+        TriggerUISchemaModel.Property parent = new TriggerUISchemaModel.Property(null, true, true, false, false, null,
                 null, null, null, List.of(choice), java.util.Map.of("child", child), null, null);
 
         Value value = PropertyValueAdapter.toValue(parent);
@@ -117,14 +118,14 @@ public class PropertyValueAdapterTest {
         Assert.assertEquals(value.getChoices().getFirst().getValue(), "choice-value");
     }
 
-    private static TriggerModel.Property leaf(String value, boolean enabled, boolean editable,
+    private static TriggerUISchemaModel.Property leaf(String value, boolean enabled, boolean editable,
                                               boolean optional, boolean advanced) {
-        return new TriggerModel.Property(null, enabled, editable, optional, advanced, null, value,
+        return new TriggerUISchemaModel.Property(null, enabled, editable, optional, advanced, null, value,
                 null, null, null, null, null, null);
     }
 
-    private static TriggerModel.Codedata codedata(String type, boolean nameEditable) {
-        return new TriggerModel.Codedata(type, null, null, null, null, null, null, null, null, null,
+    private static TriggerUISchemaModel.Codedata codedata(String type, boolean nameEditable) {
+        return new TriggerUISchemaModel.Codedata(type, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 nameEditable);
     }

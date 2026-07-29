@@ -18,7 +18,7 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -55,7 +55,8 @@ public class ConnectorModelReaderSchemaDrivenTest {
     @Test
     public void testResolveGracefullyDegradesForUnpublishedPackage() {
         // testorg/triggerfixture is not a real Central package; this must resolve to empty, not throw.
-        Optional<TriggerModel> model = ConnectorModelReader.getInstance().getSchemaDrivenTriggerModel(ORG, MODULE);
+        Optional<TriggerUISchemaModel> model = ConnectorModelReader.getInstance()
+                .getSchemaDrivenTriggerModel(ORG, MODULE);
         Assert.assertTrue(model.isEmpty());
         Assert.assertFalse(ConnectorModelReader.getInstance().hasSchemaDrivenModel(ORG, MODULE));
 
@@ -68,7 +69,7 @@ public class ConnectorModelReaderSchemaDrivenTest {
     public void testBundledConnectorUnaffected() {
         // A bundled connector (e.g. kafka) must still resolve via the classpath registry, not the new
         // resolve+synthesize fallback -- zero regression for the existing curated set.
-        Optional<TriggerModel> kafka = ConnectorModelReader.getInstance()
+        Optional<TriggerUISchemaModel> kafka = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel("ballerinax", "kafka");
         Assert.assertTrue(kafka.isPresent());
         Assert.assertEquals(kafka.get().moduleName(), "kafka");
@@ -76,7 +77,7 @@ public class ConnectorModelReaderSchemaDrivenTest {
 
     @Test
     public void testUnknownConnectorResolvesEmpty() {
-        Optional<TriggerModel> unknown = ConnectorModelReader.getInstance()
+        Optional<TriggerUISchemaModel> unknown = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel("no-such-org", "no-such-module");
         Assert.assertTrue(unknown.isEmpty());
     }

@@ -20,13 +20,10 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import io.ballerina.modelgenerator.commons.AuthoringAnnotation;
-import io.ballerina.modelgenerator.commons.AuthoringDataBindingRule;
-import io.ballerina.modelgenerator.commons.AuthoringServiceType;
-import io.ballerina.modelgenerator.commons.TriggerAuthoringModel;
-import io.ballerina.modelgenerator.commons.TriggerLibraryFacts;
-import io.ballerina.modelgenerator.commons.TypeRef;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
@@ -123,24 +120,26 @@ public class TriggerModelSynthesizerTest {
 
     // ---- fixture-connector scenario (host, port = 9092, *ConsumerConfig config) ----
 
-    private TriggerAuthoringModel authoringModel() {
+    private TriggerMetadataModel authoringModel() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("service"), null);
 
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(true, null, List.of());
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(true, null,
+                List.of());
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), true, false, false, null, handlers, null);
 
         // Deliberately mirrors the real SMB shape that exposed the bug: the annotation's own declared
         // name ("ServiceConfig") differs from its backing record type's name ("ServiceConfigData").
         // `type.name` here references the ANNOTATION's own name (matching
         // TriggerLibraryFacts.Annotation#name(), i.e. AnnotationSymbol.getName()), not the record.
-        AuthoringAnnotation annotation = new AuthoringAnnotation(
-                "serviceConfig", new TypeRef("ServiceConfig", null), AuthoringAnnotation.ATTACH_POINT_SERVICE,
-                null, AuthoringAnnotation.PRESENCE_REQUIRED);
+        TriggerMetadataModel.Annotation annotation = new TriggerMetadataModel.Annotation(
+                "serviceConfig", new TypeRef("ServiceConfig", null),
+                TriggerMetadataModel.Annotation.ATTACH_POINT_SERVICE,
+                null, TriggerMetadataModel.Annotation.PRESENCE_REQUIRED);
 
-        return new TriggerAuthoringModel(
+        return new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), List.of(annotation), null);
     }
 
@@ -192,14 +191,14 @@ public class TriggerModelSynthesizerTest {
         return listenerModel(props);
     }
 
-    private TriggerModel synthesize() {
+    private TriggerUISchemaModel synthesize() {
         return TriggerModelSynthesizer.synthesize(authoringModel(), libraryFacts(), fixtureListenerModel(),
                 "999", "Trigger Fixture", "https://example.test/icon.png", "event",
                 "testorg", MODULE, MODULE, "0.1.0").orElseThrow();
     }
 
     /** Mirrors {@code ConnectorModelReader}'s private JSON-level {@code initProperties -> properties} remap. */
-    private ServiceInitModel toServiceInitModel(TriggerModel model) {
+    private ServiceInitModel toServiceInitModel(TriggerUISchemaModel model) {
         JsonObject root = GSON.toJsonTree(model).getAsJsonObject();
         JsonObject remapped = new JsonObject();
         for (String key : List.of("id", "displayName", "description", "orgName", "packageName", "moduleName",
@@ -214,22 +213,22 @@ public class TriggerModelSynthesizerTest {
 
     @Test
     public void testSynthesizedModelShape() {
-        TriggerModel model = synthesize();
+        TriggerUISchemaModel model = synthesize();
         Assert.assertEquals(model.moduleName(), MODULE);
         Assert.assertEquals(model.listenerKind(), "SINGLE_SELECT_LISTENER");
 
         Assert.assertTrue(model.initProperties().containsKey("listener"), "listener CHOICE should be present");
-        TriggerModel.Property listener = model.initProperties().get("listener");
+        TriggerUISchemaModel.Property listener = model.initProperties().get("listener");
         Assert.assertEquals(listener.codedata().type(), "LISTENER_CONFIG");
         Assert.assertEquals(listener.choices().size(), 2, "create-new + use-existing branches");
 
-        Map<String, TriggerModel.Property> createNewBranch = listener.choices().get(0).properties();
+        Map<String, TriggerUISchemaModel.Property> createNewBranch = listener.choices().get(0).properties();
         Assert.assertTrue(createNewBranch.containsKey("listenerConfig"),
                 "every listener init field lives inside one listenerConfig group");
-        TriggerModel.Property configGroup = createNewBranch.get("listenerConfig");
+        TriggerUISchemaModel.Property configGroup = createNewBranch.get("listenerConfig");
         Assert.assertEquals(configGroup.types().get(0).fieldType(), "GROUP_SECTION");
         Assert.assertFalse(configGroup.advanced());
-        Map<String, TriggerModel.Property> createNew = configGroup.properties();
+        Map<String, TriggerUISchemaModel.Property> createNew = configGroup.properties();
 
         Assert.assertTrue(createNew.containsKey("listenerVarName"));
         Assert.assertFalse(createNew.get("listenerVarName").advanced(), "listener name is never advanced");
@@ -255,13 +254,13 @@ public class TriggerModelSynthesizerTest {
                 "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD");
 
         Assert.assertEquals(model.serviceTypes().size(), 1);
-        TriggerModel.ServiceTypeModel serviceType = model.serviceTypes().get(0);
+        TriggerUISchemaModel.ServiceTypeModel serviceType = model.serviceTypes().get(0);
         Assert.assertEquals(serviceType.name(), "Service");
         Assert.assertEquals(serviceType.functions().size(), 2, "backedByConcreteType -> locked from introspection");
         Assert.assertTrue(serviceType.schemaFunctions().isEmpty());
 
         Assert.assertTrue(serviceType.properties().containsKey("serviceConfig"), "service annotation rendered");
-        TriggerModel.Property annotationProperty = serviceType.properties().get("serviceConfig");
+        TriggerUISchemaModel.Property annotationProperty = serviceType.properties().get("serviceConfig");
         Assert.assertEquals(annotationProperty.codedata().type(), "ANNOTATION_ATTACHMENT");
         Assert.assertEquals(annotationProperty.codedata().originalName(), "ServiceConfig",
                 "emission must use the annotation's own real name, not the schema's local id");
@@ -269,7 +268,7 @@ public class TriggerModelSynthesizerTest {
         Assert.assertFalse(annotationProperty.advanced(), "a required annotation must never be hidden");
         Assert.assertEquals(annotationProperty.value(), "{}",
                 "no per-field skeleton is pre-filled -- an empty record is enough, the user fills it in");
-        TriggerModel.TypeMember member = annotationProperty.types().get(0).typeMembers().get(0);
+        TriggerUISchemaModel.TypeMember member = annotationProperty.types().get(0).typeMembers().get(0);
         Assert.assertEquals(member.type(), "ServiceConfigData",
                 "typeMembers names the backing RECORD type, distinct from the annotation's own name");
         Assert.assertEquals(member.packageName(), MODULE);
@@ -284,7 +283,7 @@ public class TriggerModelSynthesizerTest {
         Assert.assertTrue(model.initProperties().containsKey("serviceConfig"),
                 "the service annotation must be visible at add-trigger time too, not just when editing "
                         + "an already-declared service");
-        TriggerModel.Property initAnnotation = model.initProperties().get("serviceConfig");
+        TriggerUISchemaModel.Property initAnnotation = model.initProperties().get("serviceConfig");
         Assert.assertEquals(initAnnotation.codedata().type(), "SERVICE_ANNOTATION",
                 "the init-form copy uses the role SchemaDrivenSourceGenerator scans the filled form for");
         Assert.assertEquals(initAnnotation.codedata().originalName(), "ServiceConfig");
@@ -297,7 +296,7 @@ public class TriggerModelSynthesizerTest {
 
     @Test
     public void testEmitsRealListenerDeclarationAndServiceBlock() throws Exception {
-        TriggerModel model = synthesize();
+        TriggerUISchemaModel model = synthesize();
         ServiceInitModel initModel = toServiceInitModel(model);
 
         Value listener = initModel.getProperties().get("listener");
@@ -319,40 +318,41 @@ public class TriggerModelSynthesizerTest {
     @Test
     public void testDataBindingParamComposition() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("service"), null);
 
-        AuthoringServiceType.Param recordsParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param recordsParam = new TriggerMetadataModel.ServiceType.Param(
                 "records", null, "required", null, "consumerRecordPayload", null);
-        AuthoringServiceType.HandlerOption option = new AuthoringServiceType.HandlerOption(
-                "onConsumerRecord", AuthoringServiceType.HandlerOption.KIND_REMOTE, "required", null,
+        TriggerMetadataModel.ServiceType.HandlerOption option = new TriggerMetadataModel.ServiceType.HandlerOption(
+                "onConsumerRecord", TriggerMetadataModel.ServiceType.HandlerOption.KIND_REMOTE, "required", null,
                 List.of(recordsParam), List.of(new TypeRef("error", null), new TypeRef("()", null)),
                 null, null, null, null, null);
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(
-                false, AuthoringServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(
+                false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), false, false, false, null, handlers, null);
 
-        AuthoringDataBindingRule.SupportedMode includedRecord = new AuthoringDataBindingRule.SupportedMode(
-                AuthoringDataBindingRule.SupportedMode.MODE_INCLUDED_RECORD, null, null,
-                new TypeRef("AnydataConsumerRecord", null), List.of("value"));
-        AuthoringDataBindingRule bindingRule = new AuthoringDataBindingRule(
+        TriggerMetadataModel.DataBindingRule.SupportedMode includedRecord =
+                new TriggerMetadataModel.DataBindingRule.SupportedMode(
+                        TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_INCLUDED_RECORD, null, null,
+                        new TypeRef("AnydataConsumerRecord", null), List.of("value"));
+        TriggerMetadataModel.DataBindingRule bindingRule = new TriggerMetadataModel.DataBindingRule(
                 "consumerRecordPayload", null, "array", List.of(includedRecord));
 
-        TriggerAuthoringModel authoring = new TriggerAuthoringModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), null, List.of(bindingRule));
 
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
         TriggerLibraryFacts facts = new TriggerLibraryFacts(List.of(listenerFacts), List.of(), List.of());
         Listener listenerModel = listenerModel(Map.of());
 
-        TriggerModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Kafka", null,
-                "event", "ballerinax", "kafka", "kafka", "4.5.0").orElseThrow();
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Kafka",
+                null, "event", "ballerinax", "kafka", "kafka", "4.5.0").orElseThrow();
 
-        TriggerModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
-        TriggerModel.Parameter param = fn.parameters().get(0);
+        TriggerUISchemaModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
+        TriggerUISchemaModel.Parameter param = fn.parameters().get(0);
         Assert.assertEquals(param.kind(), "DATA_BINDING");
-        TriggerModel.Codedata cd = param.type().codedata();
+        TriggerUISchemaModel.Codedata cd = param.type().codedata();
         Assert.assertEquals(cd.type(), "PAYLOAD_TYPE_INCLUDED_RECORD");
         Assert.assertEquals(cd.defaultType(), "kafka:AnydataConsumerRecord",
                 "a same-module included-record type is qualified too, same as any other handler param type");
@@ -362,7 +362,7 @@ public class TriggerModelSynthesizerTest {
 
     /**
      * Per direct product feedback ("for the onCSVFile handler data binding part we need a similar UX
-     * to what we have with the FTP csv method"): when a connector's own {@code AuthoringDataBindingRule}
+     * to what we have with the FTP csv method"): when a connector's own {@code TriggerMetadataModel.DataBindingRule}
      * declares a {@code streamable} mode alongside {@code direct} (i.e. the bound value may be read
      * either as {@code T[]} or {@code stream<T, error?>}), the synthesizer must compose the same
      * {@code COMPLEX_PAYLOAD} + {@code stream} {@code PAYLOAD_MODIFIER} shape FTP's real
@@ -371,50 +371,52 @@ public class TriggerModelSynthesizerTest {
     @Test
     public void testStreamableDataBindingComposesFtpLikeComplexPayload() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("service"), null);
 
-        AuthoringServiceType.Param contentParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param contentParam = new TriggerMetadataModel.ServiceType.Param(
                 "content", null, "required", null, "csvRowBinding", null);
-        AuthoringServiceType.HandlerOption option = new AuthoringServiceType.HandlerOption(
-                "onFileCsv", AuthoringServiceType.HandlerOption.KIND_REMOTE, "required", null,
+        TriggerMetadataModel.ServiceType.HandlerOption option = new TriggerMetadataModel.ServiceType.HandlerOption(
+                "onFileCsv", TriggerMetadataModel.ServiceType.HandlerOption.KIND_REMOTE, "required", null,
                 List.of(contentParam), List.of(new TypeRef("error", null), new TypeRef("()", null)),
                 null, null, null, null, null);
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(
-                false, AuthoringServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(
+                false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), false, false, false, null, handlers, null);
 
-        AuthoringDataBindingRule.SupportedMode direct = new AuthoringDataBindingRule.SupportedMode(
-                AuthoringDataBindingRule.SupportedMode.MODE_DIRECT, List.of(new TypeRef("anydata", null)),
-                null, null, null);
-        AuthoringDataBindingRule.SupportedMode streamable = new AuthoringDataBindingRule.SupportedMode(
-                AuthoringDataBindingRule.SupportedMode.MODE_STREAMABLE, List.of(new TypeRef("anydata", null)),
-                null, null, null);
-        AuthoringDataBindingRule bindingRule = new AuthoringDataBindingRule(
+        TriggerMetadataModel.DataBindingRule.SupportedMode direct =
+                new TriggerMetadataModel.DataBindingRule.SupportedMode(
+                        TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_DIRECT,
+                        List.of(new TypeRef("anydata", null)), null, null, null);
+        TriggerMetadataModel.DataBindingRule.SupportedMode streamable =
+                new TriggerMetadataModel.DataBindingRule.SupportedMode(
+                        TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_STREAMABLE,
+                        List.of(new TypeRef("anydata", null)), null, null, null);
+        TriggerMetadataModel.DataBindingRule bindingRule = new TriggerMetadataModel.DataBindingRule(
                 "csvRowBinding", null, "array", List.of(direct, streamable));
 
-        TriggerAuthoringModel authoring = new TriggerAuthoringModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), null, List.of(bindingRule));
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
         TriggerLibraryFacts facts = new TriggerLibraryFacts(List.of(listenerFacts), List.of(), List.of());
         Listener listenerModel = listenerModel(Map.of());
 
-        TriggerModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb", null,
-                "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb",
+                null, "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
 
-        TriggerModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
-        TriggerModel.Parameter param = fn.parameters().get(0);
-        TriggerModel.Property type = param.type();
+        TriggerUISchemaModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
+        TriggerUISchemaModel.Parameter param = fn.parameters().get(0);
+        TriggerUISchemaModel.Property type = param.type();
         Assert.assertEquals(type.types().get(0).fieldType(), "COMPLEX_PAYLOAD",
                 "a streamable-capable binding composes like FTP's onFileCsv, not a flat PAYLOAD_TYPE");
 
-        TriggerModel.Property payload = type.properties().get("payload");
+        TriggerUISchemaModel.Property payload = type.properties().get("payload");
         Assert.assertEquals(payload.codedata().type(), "PAYLOAD_TYPE");
         Assert.assertEquals(payload.codedata().defaultType(), "anydata");
         Assert.assertEquals(payload.codedata().template(), "{{type}}[]");
 
-        TriggerModel.Property stream = type.properties().get("stream");
+        TriggerUISchemaModel.Property stream = type.properties().get("stream");
         Assert.assertEquals(stream.codedata().type(), "PAYLOAD_MODIFIER");
         Assert.assertEquals(stream.codedata().modifier(), "stream");
         Assert.assertEquals(stream.codedata().template(), "stream<{{type}}, error?>");
@@ -423,13 +425,13 @@ public class TriggerModelSynthesizerTest {
 
         Assert.assertEquals(PayloadComposer.effectiveType(type), "anydata[]",
                 "default composition: base array template, stream modifier inactive");
-        TriggerModel.Property withStreamOn = new TriggerModel.Property(type.metadata(), type.enabled(),
+        TriggerUISchemaModel.Property withStreamOn = new TriggerUISchemaModel.Property(type.metadata(), type.enabled(),
                 type.editable(), type.optional(), type.advanced(), type.placeholder(), type.value(), type.types(),
                 type.items(), type.choices(),
-                Map.of("payload", payload, "stream", new TriggerModel.Property(stream.metadata(), stream.enabled(),
-                        stream.editable(), stream.optional(), stream.advanced(), stream.placeholder(), true,
-                        stream.types(), stream.items(), stream.choices(), stream.properties(), stream.codedata(),
-                        stream.validations())),
+                Map.of("payload", payload, "stream", new TriggerUISchemaModel.Property(stream.metadata(),
+                        stream.enabled(), stream.editable(), stream.optional(), stream.advanced(),
+                        stream.placeholder(), true, stream.types(), stream.items(), stream.choices(),
+                        stream.properties(), stream.codedata(), stream.validations())),
                 type.codedata(), type.validations());
         Assert.assertEquals(PayloadComposer.effectiveType(withStreamOn), "stream<anydata, error?>",
                 "toggling the stream flag on recomposes into the streaming wrap, superseding the array base");
@@ -448,42 +450,42 @@ public class TriggerModelSynthesizerTest {
     @Test
     public void testOptionalNamedHandlerParamRendersAsFlagWithQualifiedType() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("service"), null);
 
-        AuthoringServiceType.Param contentParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param contentParam = new TriggerMetadataModel.ServiceType.Param(
                 "content", List.of(new TypeRef("xml", null)), "required", null, null, null);
-        AuthoringServiceType.Param callerParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param callerParam = new TriggerMetadataModel.ServiceType.Param(
                 "caller", List.of(new TypeRef("Caller", null)), "optional", null, null, null);
-        AuthoringServiceType.Param fileInfoParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param fileInfoParam = new TriggerMetadataModel.ServiceType.Param(
                 "fileInfo", List.of(new TypeRef("FileInfo", null)), "optional", null, null, null);
-        AuthoringServiceType.HandlerOption option = new AuthoringServiceType.HandlerOption(
-                "onFileXml", AuthoringServiceType.HandlerOption.KIND_REMOTE, "required", null,
+        TriggerMetadataModel.ServiceType.HandlerOption option = new TriggerMetadataModel.ServiceType.HandlerOption(
+                "onFileXml", TriggerMetadataModel.ServiceType.HandlerOption.KIND_REMOTE, "required", null,
                 List.of(contentParam, callerParam, fileInfoParam),
                 List.of(new TypeRef("error", null), new TypeRef("()", null)),
                 null, null, null, null, null);
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(
-                false, AuthoringServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(
+                false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), false, false, false, null, handlers, null);
-        TriggerAuthoringModel authoring = new TriggerAuthoringModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), null, null);
 
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
         TriggerLibraryFacts facts = new TriggerLibraryFacts(List.of(listenerFacts), List.of(), List.of());
         Listener listenerModel = listenerModel(Map.of());
 
-        TriggerModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb", null,
-                "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb",
+                null, "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
 
-        TriggerModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
+        TriggerUISchemaModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
         Assert.assertEquals(fn.parameters().size(), 3);
 
-        TriggerModel.Parameter content = fn.parameters().get(0);
+        TriggerUISchemaModel.Parameter content = fn.parameters().get(0);
         Assert.assertEquals(content.kind(), "REQUIRED");
         Assert.assertEquals(content.type().value(), "xml", "a builtin type is never qualified");
 
-        TriggerModel.Parameter caller = fn.parameters().get(1);
+        TriggerUISchemaModel.Parameter caller = fn.parameters().get(1);
         Assert.assertEquals(caller.kind(), "OPTIONAL");
         Assert.assertFalse(caller.enabled(), "an opt-in framework param is not included by default");
         Assert.assertTrue(caller.advanced(), "tucked behind Advanced by default, matching Kafka's caller");
@@ -494,7 +496,7 @@ public class TriggerModelSynthesizerTest {
         Assert.assertEquals(caller.name().value(), "caller");
         Assert.assertFalse(caller.name().editable(), "the identifier is fixed, not user-renamed");
 
-        TriggerModel.Parameter fileInfo = fn.parameters().get(2);
+        TriggerUISchemaModel.Parameter fileInfo = fn.parameters().get(2);
         Assert.assertEquals(fileInfo.type().types().get(0).fieldType(), "FLAG");
         Assert.assertEquals(fileInfo.type().types().get(0).ballerinaType(), "smb:FileInfo");
         Assert.assertEquals(fileInfo.name().value(), "fileInfo");
@@ -510,24 +512,25 @@ public class TriggerModelSynthesizerTest {
     @Test
     public void testHandlerLevelAnnotationRendersAndEmits() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("service"), null);
 
-        AuthoringServiceType.Param contentParam = new AuthoringServiceType.Param(
+        TriggerMetadataModel.ServiceType.Param contentParam = new TriggerMetadataModel.ServiceType.Param(
                 "content", List.of(new TypeRef("xml", null)), "required", null, null, null);
-        AuthoringServiceType.HandlerOption option = new AuthoringServiceType.HandlerOption(
-                "onFileXml", AuthoringServiceType.HandlerOption.KIND_REMOTE, "required", List.of("fnConfig"),
-                List.of(contentParam), List.of(new TypeRef("error", null), new TypeRef("()", null)),
+        TriggerMetadataModel.ServiceType.HandlerOption option = new TriggerMetadataModel.ServiceType.HandlerOption(
+                "onFileXml", TriggerMetadataModel.ServiceType.HandlerOption.KIND_REMOTE, "required",
+                List.of("fnConfig"), List.of(contentParam),
+                List.of(new TypeRef("error", null), new TypeRef("()", null)),
                 null, null, null, null, null);
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(
-                false, AuthoringServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(
+                false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), false, false, false, null, handlers, null);
 
-        AuthoringAnnotation fnAnnotation = new AuthoringAnnotation(
-                "fnConfig", new TypeRef("FunctionConfig", null), AuthoringAnnotation.ATTACH_POINT_FUNCTION,
-                null, AuthoringAnnotation.PRESENCE_OPTIONAL);
-        TriggerAuthoringModel authoring = new TriggerAuthoringModel(
+        TriggerMetadataModel.Annotation fnAnnotation = new TriggerMetadataModel.Annotation(
+                "fnConfig", new TypeRef("FunctionConfig", null), TriggerMetadataModel.Annotation.ATTACH_POINT_FUNCTION,
+                null, TriggerMetadataModel.Annotation.PRESENCE_OPTIONAL);
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), List.of(fnAnnotation), null);
 
         TriggerLibraryFacts.Param mode = new TriggerLibraryFacts.Param(
@@ -539,13 +542,13 @@ public class TriggerModelSynthesizerTest {
                 List.of(listenerFacts), List.of(), List.of(fnAnnotationFacts));
         Listener listenerModel = listenerModel(Map.of());
 
-        TriggerModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb", null,
-                "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1", "Smb",
+                null, "event", "ballerina", "smb", "smb", "1.0.2").orElseThrow();
 
-        TriggerModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
+        TriggerUISchemaModel.FunctionModel fn = model.serviceTypes().get(0).schemaFunctions().get(0);
         Assert.assertTrue(fn.properties().containsKey("fnConfig"),
                 "handler-level annotation must render in the handler form, mirroring service annotations");
-        TriggerModel.Property annotation = fn.properties().get("fnConfig");
+        TriggerUISchemaModel.Property annotation = fn.properties().get("fnConfig");
         Assert.assertEquals(annotation.codedata().type(), "ANNOTATION_ATTACHMENT");
         Assert.assertEquals(annotation.codedata().originalName(), "FunctionConfig");
         Assert.assertEquals(annotation.value(), "{}", "no per-field skeleton -- an empty record is enough");
@@ -559,7 +562,7 @@ public class TriggerModelSynthesizerTest {
     }
 
     /**
-     * Regression test for the exact shape reported against a real trigger-authoring.json for
+     * Regression test for the exact shape reported against a real trigger-metadata.json for
      * {@code ballerinax/trigger.google.calendar}: {@code init(ListenerConfig listenerConfig,
      * int|http:Listener listenOn = 8090)} -- a plain (non-{@code *}-spread) record-typed param
      * alongside a defaultable union param. Per direct product feedback, {@code listenerConfig}'s
@@ -572,12 +575,13 @@ public class TriggerModelSynthesizerTest {
     @Test
     public void testRecordTypedListenerParamRendersAsSingleRecordField() {
         TypeRef listenerType = new TypeRef("Listener", null);
-        TriggerAuthoringModel.Listener listener = new TriggerAuthoringModel.Listener(
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 listenerType, List.of("calendarService"), null);
-        AuthoringServiceType.Handlers handlers = new AuthoringServiceType.Handlers(true, null, List.of());
-        AuthoringServiceType serviceType = new AuthoringServiceType(
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(true, null,
+                List.of());
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "calendarService", new TypeRef("CalendarService", null), true, true, false, null, handlers, null);
-        TriggerAuthoringModel authoring = new TriggerAuthoringModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
                 List.of(listener), List.of(serviceType), null, null);
 
         TriggerLibraryFacts.Param clientId = new TriggerLibraryFacts.Param(
@@ -603,12 +607,12 @@ public class TriggerModelSynthesizerTest {
         props.put("listenOn", numberValue("int", "int|http:Listener", true));
         Listener listenerModel = listenerModel(props);
 
-        TriggerModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1",
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel, "1",
                 "Google Calendar", null, "event", "ballerinax", "trigger.google.calendar",
                 "trigger.google.calendar", "0.12.0").orElseThrow();
 
-        TriggerModel.Property listenerProperty = model.initProperties().get("listener");
-        Map<String, TriggerModel.Property> createNew = listenerProperty.choices().get(0).properties()
+        TriggerUISchemaModel.Property listenerProperty = model.initProperties().get("listener");
+        Map<String, TriggerUISchemaModel.Property> createNew = listenerProperty.choices().get(0).properties()
                 .get("listenerConfig").properties();
 
         Assert.assertTrue(createNew.containsKey("listenerVarName"));
@@ -618,14 +622,14 @@ public class TriggerModelSynthesizerTest {
         Assert.assertFalse(createNew.containsKey("clientId"), "record fields must not be flattened");
         Assert.assertFalse(createNew.containsKey("calendarId"), "record fields must not be flattened");
 
-        TriggerModel.Property configProperty = createNew.get("listenerConfig");
+        TriggerUISchemaModel.Property configProperty = createNew.get("listenerConfig");
         Assert.assertEquals(configProperty.codedata().argType(), "LISTENER_PARAM_REQUIRED");
         Assert.assertEquals(configProperty.codedata().position(), Integer.valueOf(1));
         Assert.assertEquals(configProperty.types().size(), 2);
         Assert.assertEquals(configProperty.types().get(0).fieldType(), "RECORD_MAP_EXPRESSION");
         Assert.assertTrue(configProperty.types().get(0).selected());
         Assert.assertEquals(configProperty.types().get(0).ballerinaType(), "calendar:ListenerConfig");
-        TriggerModel.TypeMember member = configProperty.types().get(0).typeMembers().get(0);
+        TriggerUISchemaModel.TypeMember member = configProperty.types().get(0).typeMembers().get(0);
         Assert.assertEquals(member.type(), "ListenerConfig", "the type member is the simple (unqualified) name");
         Assert.assertEquals(member.packageInfo(), "ballerinax:trigger.google.calendar:0.12.0");
         Assert.assertEquals(member.packageName(), "trigger.google.calendar");
@@ -639,7 +643,7 @@ public class TriggerModelSynthesizerTest {
         Assert.assertFalse(configProperty.advanced());
 
         // listenOn is the next positional arg, with a NUMBER primary widget + EXPRESSION fallback.
-        TriggerModel.Property listenOnProperty = createNew.get("listenOn");
+        TriggerUISchemaModel.Property listenOnProperty = createNew.get("listenOn");
         Assert.assertEquals(listenOnProperty.codedata().position(), Integer.valueOf(2));
         Assert.assertEquals(listenOnProperty.types().size(), 2);
         Assert.assertEquals(listenOnProperty.types().get(0).fieldType(), "NUMBER");

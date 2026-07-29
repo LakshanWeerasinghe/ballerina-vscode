@@ -16,7 +16,7 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.utils;
 
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.api.symbols.AnnotationSymbol;
@@ -36,6 +36,10 @@ import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
 import io.ballerina.compiler.api.symbols.TypeReferenceTypeSymbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.UnionTypeSymbol;
+import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.ModuleInfo;
+import io.ballerina.modelgenerator.commons.PackageUtil;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,14 +49,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Resolves the {@link TriggerLibraryFacts} a {@code TriggerModel} synthesizer needs from a
+ * Resolves the {@link TriggerLibraryFacts} a {@code TriggerUISchemaModel} synthesizer needs from a
  * connector's compiled {@link SemanticModel}: a listener's init-parameter <b>structure</b>, service
  * object types (with their remote/resource functions), and declared annotations -- the introspectable
- * counterpart to a connector's hand-authored {@link TriggerAuthoringModel}.
+ * counterpart to a connector's hand-authored {@link TriggerMetadataModel}.
  *
  * <p>Ported from the {@code library-introspector} tool (used offline by the
  * {@code generate-trigger-model} authoring workflow to hand-curate the heavier
- * {@code trigger-model.json}) so the language server can resolve the same facts at request time,
+ * {@code trigger-ui-schema.json}) so the language server can resolve the same facts at request time,
  * directly from a {@link SemanticModel} it already has (e.g. via
  * {@link PackageUtil#getSemanticModel(ModuleInfo)}) -- no CLI shell-out, no separate
  * {@code BuildProject} of its own. The original tool's CLI entry point, argument parsing, and

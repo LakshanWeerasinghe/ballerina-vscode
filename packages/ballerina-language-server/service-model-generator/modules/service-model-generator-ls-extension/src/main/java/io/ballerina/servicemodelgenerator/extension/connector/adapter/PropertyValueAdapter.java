@@ -18,7 +18,7 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector.adapter;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.Option;
@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Recursive converter between the unified TriggerModel's {@link TriggerModel.Property} tree and the
+ * Recursive converter between the unified TriggerUISchemaModel's {@link TriggerUISchemaModel.Property} tree and the
  * wire {@link Value} tree the Integrator UI edits. The two shapes are structurally aligned; the
  * mapping preserves the fields the schema-driven flows depend on:
  *
@@ -55,7 +55,7 @@ public final class PropertyValueAdapter {
     }
 
     /** Converts a unified-model property tree into a wire {@link Value} tree. */
-    public static Value toValue(TriggerModel.Property property) {
+    public static Value toValue(TriggerUISchemaModel.Property property) {
         if (property == null) {
             return null;
         }
@@ -74,7 +74,7 @@ public final class PropertyValueAdapter {
         }
         if (property.types() != null) {
             List<PropertyType> types = new ArrayList<>();
-            for (TriggerModel.PropertyType type : property.types()) {
+            for (TriggerUISchemaModel.PropertyType type : property.types()) {
                 types.add(toPropertyType(type));
             }
             builder.types(types);
@@ -95,7 +95,7 @@ public final class PropertyValueAdapter {
         Value value = builder.build();
         if (property.choices() != null) {
             List<Value> choices = new ArrayList<>();
-            for (TriggerModel.Property choice : property.choices()) {
+            for (TriggerUISchemaModel.Property choice : property.choices()) {
                 choices.add(toValue(choice));
             }
             value.setChoices(choices);
@@ -104,70 +104,70 @@ public final class PropertyValueAdapter {
     }
 
     /** Converts an edited wire {@link Value} tree back into a unified-model property tree. */
-    public static TriggerModel.Property toProperty(Value value) {
+    public static TriggerUISchemaModel.Property toProperty(Value value) {
         if (value == null) {
             return null;
         }
-        TriggerModel.Metadata metadata = value.getMetadata() == null ? null
-                : new TriggerModel.Metadata(value.getMetadata().label(), value.getMetadata().description(),
+        TriggerUISchemaModel.Metadata metadata = value.getMetadata() == null ? null
+                : new TriggerUISchemaModel.Metadata(value.getMetadata().label(), value.getMetadata().description(),
                         null, null, null, null, null, null);
-        List<TriggerModel.PropertyType> types = null;
+        List<TriggerUISchemaModel.PropertyType> types = null;
         if (value.getTypes() != null) {
             types = new ArrayList<>();
             for (PropertyType type : value.getTypes()) {
-                types.add(new TriggerModel.PropertyType(
+                types.add(new TriggerUISchemaModel.PropertyType(
                         type.fieldType() == null ? null : type.fieldType().name(),
                         type.selected(), type.ballerinaType(), null,
                         toModelTypeMembers(type.typeMembers()), null, null, null));
             }
         }
-        Map<String, TriggerModel.Property> children = null;
+        Map<String, TriggerUISchemaModel.Property> children = null;
         if (value.getProperties() != null) {
             children = new LinkedHashMap<>();
             for (Map.Entry<String, Value> child : value.getProperties().entrySet()) {
                 children.put(child.getKey(), toProperty(child.getValue()));
             }
         }
-        List<TriggerModel.Property> choices = null;
+        List<TriggerUISchemaModel.Property> choices = null;
         if (value.getChoices() != null) {
             choices = new ArrayList<>();
             for (Value choice : value.getChoices()) {
                 choices.add(toProperty(choice));
             }
         }
-        return new TriggerModel.Property(metadata, value.isEnabled(), value.isEditable(), value.isOptional(),
+        return new TriggerUISchemaModel.Property(metadata, value.isEnabled(), value.isEditable(), value.isOptional(),
                 value.isAdvanced(), value.getPlaceholder(), leafValue(value), types, null, choices, children,
                 toModelCodedata(value.getCodedata()), null);
     }
 
-    private static List<TriggerModel.TypeMember> toModelTypeMembers(List<PropertyTypeMemberInfo> typeMembers) {
+    private static List<TriggerUISchemaModel.TypeMember> toModelTypeMembers(List<PropertyTypeMemberInfo> typeMembers) {
         if (typeMembers == null) {
             return null;
         }
-        List<TriggerModel.TypeMember> result = new ArrayList<>();
+        List<TriggerUISchemaModel.TypeMember> result = new ArrayList<>();
         for (PropertyTypeMemberInfo member : typeMembers) {
-            result.add(new TriggerModel.TypeMember(
+            result.add(new TriggerUISchemaModel.TypeMember(
                     member.type(), member.packageInfo(), member.packageName(),
                     member.kind(), member.selected()));
         }
         return result;
     }
 
-    private static PropertyType toPropertyType(TriggerModel.PropertyType type) {
+    private static PropertyType toPropertyType(TriggerUISchemaModel.PropertyType type) {
         PropertyType.Builder builder = new PropertyType.Builder()
                 .fieldType(wireFieldType(type.fieldType()))
                 .selected(type.selected())
                 .ballerinaType(type.ballerinaType());
         if (type.options() != null) {
             List<Option> options = new ArrayList<>();
-            for (TriggerModel.Option option : type.options()) {
+            for (TriggerUISchemaModel.Option option : type.options()) {
                 options.add(new Option(option.label(), option.value()));
             }
             builder.options(options);
         }
         if (type.typeMembers() != null) {
             List<PropertyTypeMemberInfo> typeMembers = new ArrayList<>();
-            for (TriggerModel.TypeMember member : type.typeMembers()) {
+            for (TriggerUISchemaModel.TypeMember member : type.typeMembers()) {
                 typeMembers.add(new PropertyTypeMemberInfo(
                         member.type(), member.packageInfo(), member.packageName(),
                         member.kind(), Boolean.TRUE.equals(member.selected())));
@@ -181,9 +181,9 @@ public final class PropertyValueAdapter {
     }
 
     /** Converts the model's validation rules into their wire form (passed through untouched). */
-    private static List<ValidationRule> toWireValidations(List<TriggerModel.ValidationRule> modelRules) {
+    private static List<ValidationRule> toWireValidations(List<TriggerUISchemaModel.ValidationRule> modelRules) {
         List<ValidationRule> validations = new ArrayList<>();
-        for (TriggerModel.ValidationRule rule : modelRules) {
+        for (TriggerUISchemaModel.ValidationRule rule : modelRules) {
             ValidationRule wireRule = new ValidationRule(rule.rule());
             wireRule.setArgs(rule.args());
             wireRule.setMessage(rule.message());
@@ -212,7 +212,7 @@ public final class PropertyValueAdapter {
         }
     }
 
-    private static Codedata toCodedata(TriggerModel.Codedata cd) {
+    private static Codedata toCodedata(TriggerUISchemaModel.Codedata cd) {
         Codedata codedata = new Codedata.Builder()
                 .setType(cd.type())
                 .setArgType(cd.argType())
@@ -237,13 +237,14 @@ public final class PropertyValueAdapter {
         return codedata;
     }
 
-    private static TriggerModel.Codedata toModelCodedata(Codedata cd) {
+    private static TriggerUISchemaModel.Codedata toModelCodedata(Codedata cd) {
         if (cd == null) {
             return null;
         }
-        return new TriggerModel.Codedata(cd.getType(), cd.getArgType(), cd.getOriginalName(), cd.getModuleName(),
-                cd.getOrgName(), cd.getPackageName(), cd.getPosition(), cd.getPath(), cd.getDefaultType(),
-                cd.getBoundType(), cd.getBindable(), null, null, cd.getTemplate(), cd.getModifier(), null,
+        return new TriggerUISchemaModel.Codedata(cd.getType(), cd.getArgType(), cd.getOriginalName(),
+                cd.getModuleName(), cd.getOrgName(), cd.getPackageName(), cd.getPosition(), cd.getPath(),
+                cd.getDefaultType(), cd.getBoundType(), cd.getBindable(), null, null, cd.getTemplate(),
+                cd.getModifier(), null,
                 cd.getTargetParam(), null, cd.getField(), cd.getOptional(), cd.getValue(),
                 cd.getValueQualifier(), null, null, cd.getNameEditable());
     }

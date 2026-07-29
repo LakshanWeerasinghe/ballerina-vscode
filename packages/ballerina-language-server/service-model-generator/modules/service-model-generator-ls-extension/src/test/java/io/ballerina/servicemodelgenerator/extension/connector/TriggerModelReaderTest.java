@@ -18,11 +18,11 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.FunctionModel;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.Parameter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.Property;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.ServiceTypeModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.FunctionModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.Parameter;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.Property;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.ServiceTypeModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Unit test for the unified {@code trigger-model.json} reader on {@link ConnectorModelReader}:
+ * Unit test for the unified {@code trigger-ui-schema.json} reader on {@link ConnectorModelReader}:
  * deserializes the bundled worked examples (kafka / ftp / trigger.github / trigger.hubspot) from their
  * classpath resources without spinning up the language server. Verifies the distinctive shapes survive
  * Gson: the listener CHOICE, structured parameters (type/name as {@code Property} sub-nodes),
@@ -42,11 +42,11 @@ import java.util.Map;
  */
 public class TriggerModelReaderTest {
 
-    private TriggerModel read(String moduleName) {
+    private TriggerUISchemaModel read(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
-    private String listenerFieldType(TriggerModel model) {
+    private String listenerFieldType(TriggerUISchemaModel model) {
         Property listener = model.initProperties().get("listener");
         Assert.assertNotNull(listener, "initProperties.listener should be present");
         Assert.assertNotNull(listener.codedata());
@@ -67,7 +67,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadKafka() {
-        TriggerModel model = read("kafka");
+        TriggerUISchemaModel model = read("kafka");
         Assert.assertEquals(model.orgName(), "ballerinax");
         Assert.assertEquals(model.moduleName(), "kafka");
         // Kafka does not support attaching to an existing listener, so there is no create/reuse
@@ -101,7 +101,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadFtp() {
-        TriggerModel model = read("ftp");
+        TriggerUISchemaModel model = read("ftp");
         Assert.assertEquals(model.moduleName(), "ftp");
         Assert.assertEquals(model.orgName(), "ballerina");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
@@ -123,7 +123,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadGithub() {
-        TriggerModel model = read("trigger.github");
+        TriggerUISchemaModel model = read("trigger.github");
         Assert.assertEquals(model.moduleName(), "trigger.github");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
         // Multi-service-type connector: a serviceType selector in the init form.
@@ -220,6 +220,6 @@ public class TriggerModelReaderTest {
     public void testMissingModelReturnsEmpty() {
         Assert.assertTrue(
                 ConnectorModelReader.getInstance().getBundledTriggerModel("no-such-module").isEmpty(),
-                "a module with no bundled trigger-model.json must yield empty (so the router falls back)");
+                "a module with no bundled trigger-ui-schema.json must yield empty (so the router falls back)");
     }
 }

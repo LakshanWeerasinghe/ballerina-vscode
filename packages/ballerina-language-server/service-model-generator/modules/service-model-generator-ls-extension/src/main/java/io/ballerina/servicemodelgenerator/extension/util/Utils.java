@@ -873,7 +873,7 @@ public final class Utils {
                 continue;
             }
             // CD_TYPE_ANNOTATION_ATTACHMENT is the legacy hardcoded-builder convention (property keyed
-            // `annot<Name>`); CD_TYPE_SERVICE_ANNOTATION is the schema-driven (unified TriggerModel)
+            // `annot<Name>`); CD_TYPE_SERVICE_ANNOTATION is the schema-driven (unified TriggerUISchemaModel)
             // container (e.g. RabbitMQ's `serviceConfig`, keyed by its own schema key) — both hold the
             // raw `{...}` mapping-constructor body as their value, so both render the same way. Without
             // this, a schema-driven service's annotation is invisible to this method, so the caller

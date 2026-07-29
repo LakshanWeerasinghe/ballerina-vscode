@@ -18,15 +18,15 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector.adapter;
 
+import io.ballerina.modelgenerator.commons.trigger.models.Repeatable;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.PayloadComposer;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.FunctionReturnType;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
-import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ import java.util.Map;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_RESOURCE;
 
 /**
- * Adapts a unified {@link TriggerModel.FunctionModel} into the wire {@link Function} POJOs the
+ * Adapts a unified {@link TriggerUISchemaModel.FunctionModel} into the wire {@link Function} POJOs the
  * Integrator understands ({@code Value}-wrapped name/type/return). In the unified model a
  * parameter's {@code type} and {@code name} are already {@code Property} sub-nodes, so this reads
  * their value/rendering directly instead of wrapping flat strings.
@@ -69,15 +69,15 @@ public final class TriggerFunctionAdapter {
      * Converts one unified function model into its wire {@link Function}(s) — one per format variant
      * when the handler carries a VARIANT parameter, else a single function.
      */
-    public static List<Function> toFunctions(TriggerModel.FunctionModel model) {
-        TriggerModel.Parameter variantParameter = findVariantParameter(model);
+    public static List<Function> toFunctions(TriggerUISchemaModel.FunctionModel model) {
+        TriggerUISchemaModel.Parameter variantParameter = findVariantParameter(model);
         if (variantParameter == null || variantParameter.type() == null
                 || variantParameter.type().properties() == null
                 || variantParameter.type().properties().isEmpty()) {
             return List.of(toFunction(model, null, null));
         }
         List<Function> functions = new ArrayList<>();
-        for (Map.Entry<String, TriggerModel.Property> variant
+        for (Map.Entry<String, TriggerUISchemaModel.Property> variant
                 : variantParameter.type().properties().entrySet()) {
             functions.add(toFunction(model, variantParameter, variant.getValue()));
         }
@@ -85,13 +85,13 @@ public final class TriggerFunctionAdapter {
     }
 
     /** Converts one unified function model into a single wire {@link Function} (no variant fan-out). */
-    public static Function toFunction(TriggerModel.FunctionModel model) {
+    public static Function toFunction(TriggerUISchemaModel.FunctionModel model) {
         return toFunction(model, null, null);
     }
 
-    private static Function toFunction(TriggerModel.FunctionModel model,
-                                       TriggerModel.Parameter variantParameter,
-                                       TriggerModel.Property variant) {
+    private static Function toFunction(TriggerUISchemaModel.FunctionModel model,
+                                       TriggerUISchemaModel.Parameter variantParameter,
+                                       TriggerUISchemaModel.Property variant) {
         String label = label(model.metadata(), model.name());
         String description = description(model.metadata());
         String notice = model.metadata() == null ? null : model.metadata().notice();
@@ -150,9 +150,10 @@ public final class TriggerFunctionAdapter {
      * {@code headerName} where the kind uses them). Cloning one of these per user "+ Add" click, then
      * appending the clone to the function's own {@code parameters}, is exactly how
      * {@code functions/http_resource.json}'s non-schema-driven {@code schema} map already works —
-     * this generalizes the same mechanism into the unified {@link TriggerModel}.
+     * this generalizes the same mechanism into the unified {@link TriggerUISchemaModel}.
      */
-    private static Map<String, Parameter> toParameterSchema(Map<String, TriggerModel.Parameter> parameterSchema) {
+    private static Map<String, Parameter> toParameterSchema(
+            Map<String, TriggerUISchemaModel.Parameter> parameterSchema) {
         if (parameterSchema == null || parameterSchema.isEmpty()) {
             return null;
         }
@@ -161,7 +162,7 @@ public final class TriggerFunctionAdapter {
         return schema;
     }
 
-    private static Parameter toParameterSchemaTemplate(TriggerModel.Parameter model) {
+    private static Parameter toParameterSchemaTemplate(TriggerUISchemaModel.Parameter model) {
         if (model == null) {
             return null;
         }
@@ -199,11 +200,11 @@ public final class TriggerFunctionAdapter {
     }
 
     /** The parameter whose selection fans the handler out into per-format variants, if any. */
-    private static TriggerModel.Parameter findVariantParameter(TriggerModel.FunctionModel model) {
+    private static TriggerUISchemaModel.Parameter findVariantParameter(TriggerUISchemaModel.FunctionModel model) {
         if (model.parameters() == null) {
             return null;
         }
-        for (TriggerModel.Parameter parameter : model.parameters()) {
+        for (TriggerUISchemaModel.Parameter parameter : model.parameters()) {
             if (KIND_VARIANT.equals(parameter.kind())
                     || FIELD_TYPE_VARIATION_SELECTOR.equals(PayloadComposer.selectedFieldType(parameter.type()))) {
                 return parameter;
@@ -212,7 +213,8 @@ public final class TriggerFunctionAdapter {
         return null;
     }
 
-    private static String variantLabel(TriggerModel.FunctionModel model, TriggerModel.Property variant) {
+    private static String variantLabel(TriggerUISchemaModel.FunctionModel model,
+                                        TriggerUISchemaModel.Property variant) {
         if (variant != null) {
             if (variant.codedata() != null && notBlank(variant.codedata().variantLabel())) {
                 return variant.codedata().variantLabel();
@@ -229,8 +231,8 @@ public final class TriggerFunctionAdapter {
      * functionConfig}) plus, for an expanded variant, its composition flags (the PAYLOAD_MODIFIER
      * {@code stream} toggle, METADATA_FLAG markers) so the UI can render/toggle them.
      */
-    private static Map<String, Value> toWireProperties(TriggerModel.FunctionModel model,
-                                                       TriggerModel.Property variant) {
+    private static Map<String, Value> toWireProperties(TriggerUISchemaModel.FunctionModel model,
+                                                       TriggerUISchemaModel.Property variant) {
         Map<String, Value> properties = new LinkedHashMap<>();
         if (model.properties() != null) {
             model.properties().forEach((key, property) ->
@@ -246,7 +248,7 @@ public final class TriggerFunctionAdapter {
             // siblings (the `stream` PAYLOAD_MODIFIER toggle, the `rows` METADATA_FLAG marker) live
             // on the parameter's own type tree and must surface as wire properties just as a
             // variant's do — otherwise the handler form drops the toggle/marker entirely.
-            for (TriggerModel.Parameter parameter : model.parameters()) {
+            for (TriggerUISchemaModel.Parameter parameter : model.parameters()) {
                 if (PayloadComposer.payloadNode(parameter.type()) != null) {
                     addCompositionSiblings(parameter.type(), properties);
                 }
@@ -255,20 +257,20 @@ public final class TriggerFunctionAdapter {
         return properties;
     }
 
-    private static void addCompositionSiblings(TriggerModel.Property payloadTree,
+    private static void addCompositionSiblings(TriggerUISchemaModel.Property payloadTree,
                                                Map<String, Value> properties) {
         PayloadComposer.compositionSiblings(payloadTree).forEach((key, sibling) ->
                 properties.put(key, PropertyValueAdapter.toValue(sibling)));
     }
 
-    private static List<Parameter> toParameters(List<TriggerModel.Parameter> parameters,
-                                                TriggerModel.Parameter variantParameter,
-                                                TriggerModel.Property variant) {
+    private static List<Parameter> toParameters(List<TriggerUISchemaModel.Parameter> parameters,
+                                                TriggerUISchemaModel.Parameter variantParameter,
+                                                TriggerUISchemaModel.Property variant) {
         List<Parameter> result = new ArrayList<>();
         if (parameters == null) {
             return result;
         }
-        for (TriggerModel.Parameter parameter : parameters) {
+        for (TriggerUISchemaModel.Parameter parameter : parameters) {
             if (parameter == variantParameter && variant != null) {
                 result.add(toPayloadParameter(parameter, variant));
             } else if (PayloadComposer.payloadNode(parameter.type()) != null) {
@@ -288,9 +290,10 @@ public final class TriggerFunctionAdapter {
      * template, default/bound element type, bindability) ride on the type's {@code codedata} so the
      * UI can recompose when the user toggles a modifier or binds a custom schema.
      */
-    private static Parameter toPayloadParameter(TriggerModel.Parameter model, TriggerModel.Property payloadTree) {
-        TriggerModel.Property payload = PayloadComposer.payloadNode(payloadTree);
-        TriggerModel.Codedata payloadCodedata = payload == null ? null : payload.codedata();
+    private static Parameter toPayloadParameter(TriggerUISchemaModel.Parameter model,
+                                                 TriggerUISchemaModel.Property payloadTree) {
+        TriggerUISchemaModel.Property payload = PayloadComposer.payloadNode(payloadTree);
+        TriggerUISchemaModel.Codedata payloadCodedata = payload == null ? null : payload.codedata();
 
         String label = payload != null && payload.metadata() != null && notBlank(payload.metadata().label())
                 ? payload.metadata().label() : label(model.metadata(), paramNameText(model));
@@ -344,7 +347,8 @@ public final class TriggerFunctionAdapter {
      * on the payload {@code codedata} or inside its {@code modifiers} map, checked under the given
      * keys (the schema's historical {@code typeIndentidier} spelling included).
      */
-    private static String includedRecordHint(TriggerModel.Codedata payloadCodedata, String direct, String... keys) {
+    private static String includedRecordHint(TriggerUISchemaModel.Codedata payloadCodedata, String direct,
+                                              String... keys) {
         if (notBlank(direct)) {
             return direct;
         }
@@ -371,7 +375,7 @@ public final class TriggerFunctionAdapter {
         return template.replaceAll("\\bT\\b", "{{type}}");
     }
 
-    private static Parameter toParameter(TriggerModel.Parameter model) {
+    private static Parameter toParameter(TriggerUISchemaModel.Parameter model) {
         String label = label(model.metadata(), paramNameText(model));
         String description = description(model.metadata());
 
@@ -392,7 +396,7 @@ public final class TriggerFunctionAdapter {
         // enabled — on initial add or when toggled on later on an already-existing function. Same principle
         // FunctionForm/ResourceForm already use for a user-picked type's import, just server-populated here
         // since this type is fixed by the schema rather than chosen through the type editor.
-        TriggerModel.Codedata typeCodedata = model.type() == null ? null : model.type().codedata();
+        TriggerUISchemaModel.Codedata typeCodedata = model.type() == null ? null : model.type().codedata();
         if (typeCodedata != null && notBlank(typeCodedata.moduleName()) && notBlank(typeCodedata.orgName())) {
             typeBuilder.addImport(typeCodedata.moduleName(),
                     typeCodedata.orgName() + "/" + typeCodedata.moduleName());
@@ -411,7 +415,7 @@ public final class TriggerFunctionAdapter {
                 .build();
     }
 
-    private static FunctionReturnType toReturnType(TriggerModel.ReturnType model) {
+    private static FunctionReturnType toReturnType(TriggerUISchemaModel.ReturnType model) {
         if (model == null) {
             return null;
         }
@@ -430,7 +434,7 @@ public final class TriggerFunctionAdapter {
         return returnType;
     }
 
-    private static String renderReturnType(TriggerModel.ReturnType model) {
+    private static String renderReturnType(TriggerUISchemaModel.ReturnType model) {
         String type = model.type() == null ? "" : model.type();
         if (Boolean.TRUE.equals(model.hasError()) && !type.contains("error")) {
             type = type.isEmpty() ? "error" : type + "|error";
@@ -441,13 +445,13 @@ public final class TriggerFunctionAdapter {
         return type;
     }
 
-    private static String paramTypeText(TriggerModel.Parameter parameter) {
+    private static String paramTypeText(TriggerUISchemaModel.Parameter parameter) {
         // The effective type: plain value for TYPE, ballerinaType for FLAG, or the composed
         // payload type (element + template + active modifier) for DATA_BINDING / VARIANT / PAYLOAD_TYPE.
         return PayloadComposer.effectiveType(parameter.type());
     }
 
-    private static String paramNameText(TriggerModel.Parameter parameter) {
+    private static String paramNameText(TriggerUISchemaModel.Parameter parameter) {
         if (parameter.name() == null || parameter.name().value() == null) {
             return "";
         }
@@ -470,14 +474,14 @@ public final class TriggerFunctionAdapter {
                 .build();
     }
 
-    private static String label(TriggerModel.Metadata metadata, String fallback) {
+    private static String label(TriggerUISchemaModel.Metadata metadata, String fallback) {
         if (metadata != null && notBlank(metadata.label())) {
             return metadata.label();
         }
         return fallback;
     }
 
-    private static String description(TriggerModel.Metadata metadata) {
+    private static String description(TriggerUISchemaModel.Metadata metadata) {
         return metadata == null || metadata.description() == null ? "" : metadata.description();
     }
 

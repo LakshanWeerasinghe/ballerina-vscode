@@ -18,7 +18,7 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -37,8 +37,8 @@ import java.util.Map;
  */
 public class AnnotationEmitterTest {
 
-    private TriggerModel.FunctionModel onFileCsv() {
-        TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
+    private TriggerUISchemaModel.FunctionModel onFileCsv() {
+        TriggerUISchemaModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
         return model.serviceTypes().getFirst().schemaFunctions().stream()
                 .filter(f -> "onFileCsv".equals(f.name())).findFirst().orElseThrow();
     }
@@ -60,10 +60,10 @@ public class AnnotationEmitterTest {
         // body (e.g. `@ftp:FunctionConfig {}`), unlike annotationBody (update-time) which already
         // skipped it. No bundled schema hits this today (every COMPLEX_FUNCTION_ANNOTATION ships at
         // least one field enabled by default) but the two entry points must agree once one does.
-        Map<String, TriggerModel.Property> fields = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> fields = new LinkedHashMap<>();
         fields.put("afterProcess", leaf(false, null, "afterProcess", true));
         fields.put("afterError", leaf(false, null, "afterError", true));
-        Map<String, TriggerModel.Property> properties = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> properties = new LinkedHashMap<>();
         properties.put("config", annotationNode("ftp", "FunctionConfig", fields));
 
         List<String> annotations = AnnotationEmitter.annotationsOf(properties);
@@ -72,20 +72,20 @@ public class AnnotationEmitterTest {
                         + "skipped entirely, matching annotationBody's behavior, got: " + annotations);
     }
 
-    private static TriggerModel.Property leaf(boolean enabled, String value, String field, boolean optional) {
-        TriggerModel.Codedata codedata = new TriggerModel.Codedata(null, null, null, null, null, null,
+    private static TriggerUISchemaModel.Property leaf(boolean enabled, String value, String field, boolean optional) {
+        TriggerUISchemaModel.Codedata codedata = new TriggerUISchemaModel.Codedata(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, field, optional,
                 null, null, null, null, null);
-        return new TriggerModel.Property(null, enabled, true, optional, false, null, value, null, null,
+        return new TriggerUISchemaModel.Property(null, enabled, true, optional, false, null, value, null, null,
                 null, null, codedata, null);
     }
 
-    private static TriggerModel.Property annotationNode(String module, String name,
-                                                         Map<String, TriggerModel.Property> fields) {
-        TriggerModel.Codedata codedata = new TriggerModel.Codedata("COMPLEX_FUNCTION_ANNOTATION", null,
+    private static TriggerUISchemaModel.Property annotationNode(String module, String name,
+                                                         Map<String, TriggerUISchemaModel.Property> fields) {
+        TriggerUISchemaModel.Codedata codedata = new TriggerUISchemaModel.Codedata("COMPLEX_FUNCTION_ANNOTATION", null,
                 name, module, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null);
-        return new TriggerModel.Property(null, true, true, false, false, null, null, null, null, null,
+        return new TriggerUISchemaModel.Property(null, true, true, false, false, null, null, null, null, null,
                 fields, codedata, null);
     }
 

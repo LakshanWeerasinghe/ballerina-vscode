@@ -20,6 +20,7 @@ package io.ballerina.servicemodelgenerator.extension.builder.service;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
@@ -27,7 +28,6 @@ import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSource
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerReadOnlyMetadataAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
@@ -59,7 +59,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getServiceTypeIdentifier;
 
 /**
- * Generic, schema-driven service builder for connectors whose unified {@link TriggerModel} is bundled
+ * Generic, schema-driven service builder for connectors whose unified {@link TriggerUISchemaModel} is bundled
  * as a classpath resource in this jar. It serves the add-event-integration flow
  * ({@code getServiceInitModel} + {@code addServiceAndListener}) with no per-connector code: the init
  * form comes straight from the model's {@code initProperties}, and the source is emitted by
@@ -84,7 +84,7 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
         // Bundled classpath resource, or (on a miss) synthesized from the connector's own
-        // trigger-authoring.json + introspection: either way, its init form is derived from
+        // trigger-metadata.json + introspection: either way, its init form is derived from
         // `initProperties`.
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
                 .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName());
@@ -102,8 +102,8 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         ServiceInitModel filledModel = context.serviceInitModel();
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
         // Bundled classpath resource, or (on a miss) synthesized from the connector's own
-        // trigger-authoring.json + introspection.
-        Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
+        // trigger-metadata.json + introspection.
+        Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName());
         if (triggerModel.isEmpty()) {
             return Map.of();
@@ -116,7 +116,7 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     public Service getModelFromSource(ModelFromSourceContext context) {
         // Bundled or synthesized schema: build the designer template from its serviceTypes[], then
         // merge the user's source (functions present, base path, listeners, line ranges).
-        Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
+        Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.

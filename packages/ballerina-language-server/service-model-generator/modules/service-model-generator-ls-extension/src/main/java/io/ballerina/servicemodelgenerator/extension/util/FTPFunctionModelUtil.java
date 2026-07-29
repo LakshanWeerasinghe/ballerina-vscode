@@ -35,7 +35,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.FTP;
  * Shared FTP annotation resolution, used by {@link FTPListenerUtil}. The function-model
  * synchronization and post-process-action mapping this class used to carry (for the FTP
  * service/function source-extraction builders) were removed with those builders once every
- * connector with a bundled TriggerModel schema — FTP included — moved onto the generic
+ * connector with a bundled TriggerUISchemaModel schema — FTP included — moved onto the generic
  * schema-driven builders.
  *
  * @since 1.6.0

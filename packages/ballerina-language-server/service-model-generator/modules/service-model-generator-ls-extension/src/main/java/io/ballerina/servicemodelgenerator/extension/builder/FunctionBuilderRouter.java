@@ -62,7 +62,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
  */
 public class FunctionBuilderRouter {
     // FTP/KAFKA/RABBITMQ/MSSQL/POSTGRESQL/MYSQL/MCP are deliberately absent: each now ships a bundled
-    // TriggerModel schema (see ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so
+    // TriggerUISchemaModel schema (see ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so
     // useSchemaDrivenPath always routes them to SchemaDrivenFunctionBuilder before this map is
     // consulted — a hardcoded entry here would be dead code. HTTP/GRAPHQL/SOLACE are not (yet)
     // schema-driven and keep their dedicated builders.

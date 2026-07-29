@@ -37,7 +37,8 @@ import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
-import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.utils.TriggerArtifactResolver;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.ModuleId;
@@ -47,7 +48,6 @@ import io.ballerina.projects.Project;
 import io.ballerina.servicemodelgenerator.extension.builder.FunctionBuilderRouter;
 import io.ballerina.servicemodelgenerator.extension.builder.ServiceBuilderRouter;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
@@ -1147,9 +1147,9 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     }
 
     /**
-     * Resolves a trigger's basic info, preferring a schema-driven {@code TriggerModel} -- bundled in
+     * Resolves a trigger's basic info, preferring a schema-driven {@code TriggerUISchemaModel} -- bundled in
      * this jar, or (on a miss) synthesized from the connector's own shipped
-     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala} --
+     * {@code resources/trigger-metadata.json} plus semantic-API introspection of its {@code .bala} --
      * over the legacy sqlite index derived from {@code service_artifacts.json}. This lets a
      * schema-driven trigger appear in the picker with no {@code service_artifacts.json} entry or index
      * rebuild; a trigger with neither source (e.g. HTTP, AI, TCP, GraphQL, Solace) falls through to the
@@ -1158,7 +1158,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
      * <p>Package-visible for unit testing without a full LS bootstrap.
      */
     Optional<TriggerBasicInfo> getTriggerBasicInfoByName(String orgName, String name) {
-        Optional<TriggerModel> schemaDriven = ConnectorModelReader.getInstance()
+        Optional<TriggerUISchemaModel> schemaDriven = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel(orgName, name);
         if (schemaDriven.isPresent()) {
             return schemaDriven.map(this::toTriggerBasicInfo);
@@ -1167,15 +1167,15 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         return getTriggerBasicInfoFromLegacyIndex(orgName, name);
     }
 
-    /** Builds {@link TriggerBasicInfo} straight from a resolved schema-driven {@link TriggerModel}. */
-    TriggerBasicInfo toTriggerBasicInfo(TriggerModel model) {
+    /** Builds {@link TriggerBasicInfo} straight from a resolved schema-driven {@link TriggerUISchemaModel}. */
+    TriggerBasicInfo toTriggerBasicInfo(TriggerUISchemaModel model) {
         String protocol = getProtocol(model.moduleName());
         String label = model.displayName();
         String icon = (model.icon() == null || model.icon().isBlank())
-                ? TriggerMetadataResolver.resolveIcon(
+                ? TriggerArtifactResolver.resolveIcon(
                         model.orgName(), model.packageName(), model.moduleName(), model.version()).url()
                 : model.icon();
-        // TriggerModel.id is a String catalog id and is inconsistently populated across real models
+        // TriggerUISchemaModel.id is a String catalog id and is inconsistently populated across real models
         // (null / numeric / a slug), so it can't be reused as TriggerBasicInfo's int id. Nothing
         // downstream looks a trigger up by this id (the frontend only uses it as a list key, and
         // getTriggerModel's id-based lookup keys off the separate trigger_properties.json entry id),
@@ -1186,7 +1186,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     }
 
     /** The legacy sqlite-index lookup (seeded from {@code service_artifacts.json}), reached only when
-     * no bundled {@link TriggerModel} resolves for {@code orgName}/{@code name}. */
+     * no bundled {@link TriggerUISchemaModel} resolves for {@code orgName}/{@code name}. */
     private Optional<TriggerBasicInfo> getTriggerBasicInfoFromLegacyIndex(String orgName, String name) {
         Optional<ServiceDeclaration> serviceDeclaration = ServiceDatabaseManager.getInstance()
                 .getServiceDeclaration(orgName, name); // TODO: improve this to use a single query
@@ -1198,7 +1198,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         ServiceDeclaration.Package pkg = serviceTemplate.packageInfo();
         String protocol = getProtocol(name);
         String label = serviceTemplate.displayName();
-        String icon = TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), pkg.name(), pkg.version()).url();
+        String icon = TriggerArtifactResolver.resolveIcon(pkg.org(), pkg.name(), pkg.name(), pkg.version()).url();
         TriggerBasicInfo triggerBasicInfo = new TriggerBasicInfo(pkg.packageId(),
                 label, pkg.org(), pkg.name(), pkg.name(),
                 pkg.version(), serviceTemplate.kind(), label, "",
@@ -1210,7 +1210,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     /**
      * Resolves a trigger picker entry's basic info. When {@code trigger_properties.json} already
      * carries {@code version}/{@code icon}/{@code kind} for this entry, builds {@link TriggerBasicInfo}
-     * straight from those scalars -- no {@code TriggerModel} is parsed or cached, so listing the full
+     * straight from those scalars -- no {@code TriggerUISchemaModel} is parsed or cached, so listing the full
      * picker never pays the cost of reading every connector's (potentially large, deeply-nested) schema
      * just to render a list row. Only an entry missing those fields (a legacy trigger with no
      * schema-driven model, e.g. Solace, or one not yet backfilled) falls back to the fuller

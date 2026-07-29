@@ -16,28 +16,22 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.models;
 
 import java.util.List;
 
 /**
- * A requiredness + legal-shape pair shared by several slots in a {@link TriggerAuthoringModel}
- * document that describe a syntactic form rather than a Ballerina type: a service type's own
- * {@code identifier} (the string/path after {@code service}), and a resource-kind handler's
- * {@code path}/{@code fieldName} extras. {@code form} enumerates the legal shapes for the slot, e.g.
- * {@code "basePath"}, {@code "stringLiteral"}, {@code "identifierSegment"}.
+ * A requiredness + closed-vocabulary pair for a resource-kind handler's own syntactic slots: HTTP's
+ * {@code method} (the legal verbs) and GraphQL's {@code accessor} ({@code "get"} for a query field,
+ * {@code "subscribe"} for a subscription). Sibling of {@link PresenceForm}, which is used where the
+ * legal shapes are structural forms rather than a closed set of literal values.
  *
  * @param presence {@code "required"} or {@code "optional"}
- * @param form     the legal shapes for this slot; more than one entry means either is syntactically
- *                 valid
+ * @param values   the closed set of legal literal values for this slot
  * @since 1.10.0
  */
-public record PresenceForm(String presence, List<String> form) {
+public record PresenceValues(String presence, List<String> values) {
 
     public static final String PRESENCE_REQUIRED = "required";
     public static final String PRESENCE_OPTIONAL = "optional";
-
-    public static final String FORM_BASE_PATH = "basePath";
-    public static final String FORM_STRING_LITERAL = "stringLiteral";
-    public static final String FORM_IDENTIFIER_SEGMENT = "identifierSegment";
 }

@@ -16,21 +16,21 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.models;
 
 /**
- * A reference to a Ballerina type from within a {@link TriggerAuthoringModel} document — a listener
+ * A reference to a Ballerina type from within a {@link TriggerMetadataModel} document — a listener
  * class, a service type, an annotation type, or a parameter/return type. Every such reference across
  * the whole document uses this one shape, so a consumer only needs one resolution rule.
  *
  * <p>{@link #packageInfo} is present only for a <b>cross-module</b> reference (a type that belongs to
- * a different module than the one the {@code trigger-authoring.json} file is scoped to, e.g. a
+ * a different module than the one the {@code trigger-metadata.json} file is scoped to, e.g. a
  * connector's handler reusing {@code ballerina/http}'s {@code Headers}). A bare {@code {"name": ...}}
  * always means "same module as this connector's own types."
  *
  * <p>A slot that may hold either a single type or a union of types (e.g. a handler's {@code returns},
  * or a parameter's {@code type}) is always modeled as {@code List<TypeRef>} at the field level —
- * see {@link TriggerAuthoringGson} for how a bare single-object JSON value is normalized into a
+ * see {@link TriggerMetadataGson} for how a bare single-object JSON value is normalized into a
  * singleton list. Order matters for a union: the first element is the codegen default when nothing
  * else disambiguates.
  *

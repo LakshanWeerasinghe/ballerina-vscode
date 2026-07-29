@@ -19,14 +19,11 @@
 package io.ballerina.servicemodelgenerator.extension.connector;
 
 import com.google.gson.Gson;
-import io.ballerina.modelgenerator.commons.AuthoringAnnotation;
-import io.ballerina.modelgenerator.commons.AuthoringDataBindingRule;
-import io.ballerina.modelgenerator.commons.AuthoringServiceType;
-import io.ballerina.modelgenerator.commons.PresenceForm;
-import io.ballerina.modelgenerator.commons.TriggerAuthoringModel;
-import io.ballerina.modelgenerator.commons.TriggerLibraryFacts;
-import io.ballerina.modelgenerator.commons.TypeRef;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.PresenceForm;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 
@@ -39,20 +36,20 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Synthesizes a {@link TriggerModel} at request time from a connector's own hand-authored
- * {@link TriggerAuthoringModel} (its {@code resources/trigger-authoring.json} — presence rules,
+ * Synthesizes a {@link TriggerUISchemaModel} at request time from a connector's own hand-authored
+ * {@link TriggerMetadataModel} (its {@code resources/trigger-metadata.json} — presence rules,
  * {@code oneOf} relationships, identifier semantics, non-concrete handler shapes),
  * {@link TriggerLibraryFacts} introspected from its compiled {@code SemanticModel} (real declared
  * service-type methods, real annotation declarations), and a listener init-form template already
  * resolved by {@code ListenerUtil#getListenerModelByName} (real init params, already correctly
  * widget-typed — records, unions, numbers — for the connector's declared listener class).
  *
- * <p>The output is deliberately the <b>same</b> {@link TriggerModel} class the hand-authored and
+ * <p>The output is deliberately the <b>same</b> {@link TriggerUISchemaModel} class the hand-authored and
  * {@code generate-trigger-model}-produced connectors already use, so it flows through
  * {@code SchemaDrivenServiceBuilder}, {@code SchemaDrivenFunctionBuilder}, {@code TriggerServiceAdapter},
  * {@code TriggerSourceMerger}, and {@link SchemaDrivenSourceGenerator} completely unmodified — every
  * existing init/create/view/add-handler code path (and the whole TypeScript/extension layer, which is
- * generic over {@code TriggerModel} already) works on a synthesized model exactly as it does on a
+ * generic over {@code TriggerUISchemaModel} already) works on a synthesized model exactly as it does on a
  * hand-curated one.
  *
  * <h2>What this class does NOT attempt</h2>
@@ -99,9 +96,9 @@ public final class TriggerModelSynthesizer {
     }
 
     /**
-     * Synthesizes a {@link TriggerModel} for one connector.
+     * Synthesizes a {@link TriggerUISchemaModel} for one connector.
      *
-     * @param authoring     the connector's own {@code resources/trigger-authoring.json}
+     * @param authoring     the connector's own {@code resources/trigger-metadata.json}
      * @param facts         the service-type/annotation facts introspected from the connector's
      *                      compiled {@code SemanticModel} (see {@link TriggerLibraryFacts})
      * @param listenerModel the listener init-form template resolved via
@@ -110,8 +107,8 @@ public final class TriggerModelSynthesizer {
      *                      choice still renders, just with no init params beyond its name)
      * @param id            the catalog identifier to stamp on the result (caller's choice; this class
      *                      has no catalog of its own)
-     * @param displayName   the connector's display name (e.g. from {@code TriggerMetadataResolver})
-     * @param icon          the connector's icon URL (e.g. from {@code TriggerMetadataResolver})
+     * @param displayName   the connector's display name (e.g. from {@code TriggerArtifactResolver})
+     * @param icon          the connector's icon URL (e.g. from {@code TriggerArtifactResolver})
      * @param kind          the entry-point kind bucket (e.g. {@code event}/{@code file}/{@code http})
      * @param orgName       the connector's organization
      * @param packageName   the connector's package name
@@ -120,7 +117,7 @@ public final class TriggerModelSynthesizer {
      * @return the synthesized model, or {@link Optional#empty()} if the authoring model declares no
      *     listeners or no service types (a malformed/empty document nothing can be built from)
      */
-    public static Optional<TriggerModel> synthesize(TriggerAuthoringModel authoring, TriggerLibraryFacts facts,
+    public static Optional<TriggerUISchemaModel> synthesize(TriggerMetadataModel authoring, TriggerLibraryFacts facts,
                                                      Listener listenerModel,
                                                      String id, String displayName, String icon, String kind,
                                                      String orgName, String packageName, String moduleName,
@@ -131,13 +128,13 @@ public final class TriggerModelSynthesizer {
             return Optional.empty();
         }
 
-        List<AuthoringServiceType> serviceTypes = authoring.serviceTypes();
+        List<TriggerMetadataModel.ServiceType> serviceTypes = authoring.serviceTypes();
         boolean multiType = serviceTypes.size() > 1;
-        AuthoringServiceType primary = serviceTypes.get(0);
+        TriggerMetadataModel.ServiceType primary = serviceTypes.get(0);
         ConnectorIdentity identity = new ConnectorIdentity(orgName, packageName, moduleName, version);
 
         TriggerLibraryFacts.Listener listenerFacts = findListener(authoring.listeners().get(0), facts);
-        Map<String, TriggerModel.Property> initProperties = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> initProperties = new LinkedHashMap<>();
         buildListenerChoice(listenerFacts, listenerModel, moduleName, initProperties);
         buildInitServiceAnnotations(primary, authoring, facts, identity, initProperties);
         buildIdentifierField(primary, initProperties);
@@ -145,63 +142,71 @@ public final class TriggerModelSynthesizer {
             initProperties.put(SERVICE_TYPE_KEY, buildServiceTypeSelector(serviceTypes));
         }
 
-        List<TriggerModel.ServiceTypeModel> serviceTypeModels = new ArrayList<>();
+        List<TriggerUISchemaModel.ServiceTypeModel> serviceTypeModels = new ArrayList<>();
         for (int i = 0; i < serviceTypes.size(); i++) {
-            AuthoringServiceType st = serviceTypes.get(i);
+            TriggerMetadataModel.ServiceType st = serviceTypes.get(i);
             serviceTypeModels.add(buildServiceType(st, facts, authoring, identity, i == 0, multiType));
         }
 
         String listenerKind = primary.multipleListenersAllowed()
                 ? "MULTIPLE_SELECT_LISTENER" : "SINGLE_SELECT_LISTENER";
 
-        return Optional.of(new TriggerModel(
+        return Optional.of(new TriggerUISchemaModel(
                 SCHEMA_VERSION, id, displayName, "", orgName, packageName, moduleName, version,
                 kind, icon, kind, listenerKind, initProperties, serviceTypeModels, List.of(), List.of(), null));
     }
 
-    /** The connector's own coordinates, threaded to wherever a same-module type/annotation needs qualifying. */
+    /**
+     * The connector's own coordinates, threaded to wherever a same-module type/annotation needs qualifying.
+     *
+     * @param orgName     the connector's organization
+     * @param packageName the connector's package name
+     * @param moduleName  the connector's module name
+     * @param version     the connector's version
+     */
     private record ConnectorIdentity(String orgName, String packageName, String moduleName, String version) {
     }
 
     // ---- Codedata helpers (25-field record; centralized here so every call site is counted once) ----
 
-    private static TriggerModel.Codedata cd() {
-        return new TriggerModel.Codedata(null, null, null, null, null, null, null, null, null, null, null,
+    private static TriggerUISchemaModel.Codedata cd() {
+        return new TriggerUISchemaModel.Codedata(null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
-    private static TriggerModel.Codedata cdType(String type) {
-        return new TriggerModel.Codedata(type, null, null, null, null, null, null, null, null, null, null,
+    private static TriggerUISchemaModel.Codedata cdType(String type) {
+        return new TriggerUISchemaModel.Codedata(type, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
-    private static TriggerModel.Codedata cdListenerParam(String argType, Integer position, String path) {
-        return new TriggerModel.Codedata(null, argType, null, null, null, null, position, path, null, null,
+    private static TriggerUISchemaModel.Codedata cdListenerParam(String argType, Integer position, String path) {
+        return new TriggerUISchemaModel.Codedata(null, argType, null, null, null, null, position, path, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
-    private static TriggerModel.Codedata cdFunction(String originalName, String moduleName) {
-        return new TriggerModel.Codedata("FUNCTION", null, originalName, moduleName, null, null, null, null,
+    private static TriggerUISchemaModel.Codedata cdFunction(String originalName, String moduleName) {
+        return new TriggerUISchemaModel.Codedata("FUNCTION", null, originalName, moduleName, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null);
     }
 
-    private static TriggerModel.Codedata cdServiceType(String originalName, String moduleName) {
-        return new TriggerModel.Codedata("SERVICE_TYPE_DESCRIPTOR", null, originalName, moduleName, null, null,
+    private static TriggerUISchemaModel.Codedata cdServiceType(String originalName, String moduleName) {
+        return new TriggerUISchemaModel.Codedata("SERVICE_TYPE_DESCRIPTOR", null, originalName, moduleName, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null);
     }
 
-    private static TriggerModel.Codedata cdAnnotation(String codedataType, String originalName, String moduleName,
-                                                       String orgName, String packageName, boolean optional) {
-        return new TriggerModel.Codedata(codedataType, null, originalName, moduleName, orgName,
+    private static TriggerUISchemaModel.Codedata cdAnnotation(String codedataType, String originalName,
+                                                       String moduleName, String orgName, String packageName,
+                                                       boolean optional) {
+        return new TriggerUISchemaModel.Codedata(codedataType, null, originalName, moduleName, orgName,
                 packageName, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 optional, null, null, null, null, null);
     }
 
-    private static TriggerModel.Codedata cdPayload(String type, String defaultType, String template, String field,
-                                                    String typeConstraint) {
-        return new TriggerModel.Codedata(type, null, null, null, null, null, null, null, defaultType, "", true,
+    private static TriggerUISchemaModel.Codedata cdPayload(String type, String defaultType, String template,
+                                                    String field, String typeConstraint) {
+        return new TriggerUISchemaModel.Codedata(type, null, null, null, null, null, null, null, defaultType, "", true,
                 "USER_SELECTED", typeConstraint, template, null, null, null, null, field, null, null, null,
                 null, null, true);
     }
@@ -227,54 +232,55 @@ public final class TriggerModelSynthesizer {
      * codedata -- see {@link #walkListenerParams}.
      */
     private static void buildListenerChoice(TriggerLibraryFacts.Listener listenerFacts, Listener listenerModel,
-                                            String moduleName, Map<String, TriggerModel.Property> initProperties) {
-        Map<String, TriggerModel.Property> groupProps = new LinkedHashMap<>();
+                                            String moduleName,
+                                            Map<String, TriggerUISchemaModel.Property> initProperties) {
+        Map<String, TriggerUISchemaModel.Property> groupProps = new LinkedHashMap<>();
         groupProps.put(LISTENER_VAR_NAME_KEY, listenerVarNameProperty(moduleName));
         if (listenerFacts != null && listenerModel != null && listenerModel.getProperties() != null) {
             walkListenerParams(listenerFacts.initParams(), listenerModel, 1, groupProps);
         }
-        TriggerModel.Property configGroup = groupSectionProperty("Listener Configuration",
+        TriggerUISchemaModel.Property configGroup = groupSectionProperty("Listener Configuration",
                 "Configure the listener.", groupProps);
 
-        Map<String, TriggerModel.Property> createNewProps = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> createNewProps = new LinkedHashMap<>();
         createNewProps.put(LISTENER_CONFIG_GROUP_KEY, configGroup);
-        TriggerModel.Property createNew = new TriggerModel.Property(
-                new TriggerModel.Metadata("Create New Listener", "Create a new listener", null, null, null, null,
-                        null, null),
+        TriggerUISchemaModel.Property createNew = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Create New Listener", "Create a new listener", null, null,
+                        null, null, null, null),
                 true, true, false, false, null, null, null, null, null, createNewProps, cd(), null);
 
-        Map<String, TriggerModel.Property> useExistingProps = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> useExistingProps = new LinkedHashMap<>();
         useExistingProps.put(LISTENER_KEY, existingListenerSelector());
-        TriggerModel.Property useExisting = new TriggerModel.Property(
-                new TriggerModel.Metadata("Use Existing Listener", "Attach to an already-declared listener",
+        TriggerUISchemaModel.Property useExisting = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Use Existing Listener", "Attach to an already-declared listener",
                         null, null, null, null, null, null),
                 false, false, false, false, null, null, null, null, null, useExistingProps, cd(), null);
 
-        TriggerModel.PropertyType choiceType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType choiceType = new TriggerUISchemaModel.PropertyType(
                 "CHOICE", true, null, null, null, null, null, null);
-        TriggerModel.Property choice = new TriggerModel.Property(
-                new TriggerModel.Metadata("Listener", "The listener this service attaches to", null, null, null,
+        TriggerUISchemaModel.Property choice = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Listener", "The listener this service attaches to", null, null, null,
                         null, null, null),
                 true, true, false, false, null, null, List.of(choiceType), null,
                 List.of(createNew, useExisting), null, cdType("LISTENER_CONFIG"), null);
         initProperties.put(LISTENER_KEY, choice);
     }
 
-    private static TriggerModel.Property groupSectionProperty(String label, String description,
-                                                              Map<String, TriggerModel.Property> properties) {
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+    private static TriggerUISchemaModel.Property groupSectionProperty(String label, String description,
+                                                              Map<String, TriggerUISchemaModel.Property> properties) {
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "GROUP_SECTION", true, null, null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata(label, description, null, null, null, null, null, null),
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata(label, description, null, null, null, null, null, null),
                 true, true, false, false, null, null, List.of(type), null, null, properties, null, null);
     }
 
-    private static TriggerModel.Property listenerVarNameProperty(String moduleName) {
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+    private static TriggerUISchemaModel.Property listenerVarNameProperty(String moduleName) {
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "IDENTIFIER", true, moduleName + ":Listener", null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata("Listener Name", "Provide a name for the listener being created", null,
-                        null, null, null, null, null),
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Listener Name", "Provide a name for the listener being created",
+                        null, null, null, null, null, null),
                 true, true, false, false, null, moduleName + "Listener", List.of(type), null, null, null,
                 cdType("LISTENER_VAR_NAME"), null);
     }
@@ -302,7 +308,8 @@ public final class TriggerModelSynthesizer {
      * is skipped defensively rather than emitting a broken field.
      */
     private static void walkListenerParams(List<TriggerLibraryFacts.Param> initParams, Listener listenerModel,
-                                           int startPosition, Map<String, TriggerModel.Property> createNewProps) {
+                                           int startPosition,
+                                           Map<String, TriggerUISchemaModel.Property> createNewProps) {
         int position = startPosition;
         for (TriggerLibraryFacts.Param param : initParams) {
             if ("INCLUDED_RECORD".equals(param.kind())) {
@@ -330,7 +337,7 @@ public final class TriggerModelSynthesizer {
 
     /**
      * Converts one listener init-param {@link Value} (from {@code ListenerUtil.getListenerModelByName})
-     * into a {@link TriggerModel.Property} via a JSON round-trip -- the two classes are designed as
+     * into a {@link TriggerUISchemaModel.Property} via a JSON round-trip -- the two classes are designed as
      * JSON-shape-compatible siblings throughout this codebase (the same pattern
      * {@code ConnectorModelReader#buildServiceInitModelFromJson} already relies on) -- keeping its
      * already-correct {@code metadata}/{@code types}/{@code placeholder}/{@code value}/{@code optional}
@@ -342,21 +349,22 @@ public final class TriggerModelSynthesizer {
      * precedent (e.g. HubSpot's {@code listenOn}) keeps every listener init param visible by default,
      * never tucked behind an "Advanced" toggle.
      */
-    private static TriggerModel.Property enrichListenerParam(Value value, String argType, Integer position) {
-        TriggerModel.Property property = GSON.fromJson(GSON.toJsonTree(value), TriggerModel.Property.class);
-        return new TriggerModel.Property(property.metadata(), property.enabled(), property.editable(),
+    private static TriggerUISchemaModel.Property enrichListenerParam(Value value, String argType, Integer position) {
+        TriggerUISchemaModel.Property property = GSON.fromJson(GSON.toJsonTree(value),
+                TriggerUISchemaModel.Property.class);
+        return new TriggerUISchemaModel.Property(property.metadata(), property.enabled(), property.editable(),
                 property.optional(), false, property.placeholder(), property.value(),
                 property.types(), property.items(), property.choices(), property.properties(),
                 cdListenerParam(argType, position, null), property.validations());
     }
 
     /** The "use existing" branch's selector; the LS injects the project's existing listeners at request time. */
-    private static TriggerModel.Property existingListenerSelector() {
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+    private static TriggerUISchemaModel.Property existingListenerSelector() {
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "SINGLE_SELECT_LISTENER", true, null, null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata("Listener", "The existing listener to attach to", null, null, null, null,
-                        null, null),
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Listener", "The existing listener to attach to", null, null,
+                        null, null, null, null),
                 true, true, false, false, null, null, List.of(type), null, null, null,
                 cdType("KEY_EXISTING_LISTENER"), null);
     }
@@ -367,8 +375,8 @@ public final class TriggerModelSynthesizer {
      * Adds an {@code identifier}/base-path field when the primary service type declares one and it is
      * not already resolved (per the v1 {@code oneOf} rule) by a preferred annotation-field alternative.
      */
-    private static void buildIdentifierField(AuthoringServiceType serviceType,
-                                             Map<String, TriggerModel.Property> initProperties) {
+    private static void buildIdentifierField(TriggerMetadataModel.ServiceType serviceType,
+                                             Map<String, TriggerUISchemaModel.Property> initProperties) {
         PresenceForm identifier = serviceType.identifier();
         if (identifier == null) {
             return;
@@ -379,10 +387,10 @@ public final class TriggerModelSynthesizer {
         boolean isBasePath = identifier.form() != null && identifier.form().contains(PresenceForm.FORM_BASE_PATH);
         String fieldType = isBasePath ? "SERVICE_PATH" : "IDENTIFIER";
         boolean optional = PresenceForm.PRESENCE_OPTIONAL.equals(identifier.presence());
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 fieldType, true, "string", null, null, null, null, null);
-        TriggerModel.Property property = new TriggerModel.Property(
-                new TriggerModel.Metadata(isBasePath ? "Service Path" : "Identifier",
+        TriggerUISchemaModel.Property property = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata(isBasePath ? "Service Path" : "Identifier",
                         isBasePath ? "The base path this service is exposed on"
                                 : "The identifier for this service", null, null, null, null, null, null),
                 true, true, optional, false, isBasePath ? "/" : null, null, List.of(type), null, null, null,
@@ -391,20 +399,20 @@ public final class TriggerModelSynthesizer {
     }
 
     /** True when a {@code oneOf} rule on this service type prefers an annotation field over the identifier. */
-    private static boolean isSupersededByPreferredAnnotation(AuthoringServiceType serviceType) {
+    private static boolean isSupersededByPreferredAnnotation(TriggerMetadataModel.ServiceType serviceType) {
         if (serviceType.rules() == null) {
             return false;
         }
-        for (AuthoringServiceType.Rule rule : serviceType.rules()) {
-            if (!AuthoringServiceType.Rule.TYPE_ONE_OF.equals(rule.type())) {
+        for (TriggerMetadataModel.ServiceType.Rule rule : serviceType.rules()) {
+            if (!TriggerMetadataModel.ServiceType.Rule.TYPE_ONE_OF.equals(rule.type())) {
                 continue;
             }
             boolean hasIdentifierMember = rule.members().stream()
-                    .anyMatch(m -> AuthoringServiceType.Rule.RuleMember.PART_IDENTIFIER.equals(m.part()));
+                    .anyMatch(m -> TriggerMetadataModel.ServiceType.Rule.RuleMember.PART_IDENTIFIER.equals(m.part()));
             if (!hasIdentifierMember) {
                 continue;
             }
-            AuthoringServiceType.Rule.RuleMember preferred = preferredMember(rule);
+            TriggerMetadataModel.ServiceType.Rule.RuleMember preferred = preferredMember(rule);
             if (preferred.annotation() != null) {
                 return true;
             }
@@ -413,7 +421,8 @@ public final class TriggerModelSynthesizer {
     }
 
     /** The {@code preferred:true} member of a {@code oneOf} rule, or its first member if none is marked. */
-    private static AuthoringServiceType.Rule.RuleMember preferredMember(AuthoringServiceType.Rule rule) {
+    private static TriggerMetadataModel.ServiceType.Rule.RuleMember preferredMember(
+            TriggerMetadataModel.ServiceType.Rule rule) {
         return rule.members().stream()
                 .filter(m -> Boolean.TRUE.equals(m.preferred()))
                 .findFirst()
@@ -422,35 +431,36 @@ public final class TriggerModelSynthesizer {
 
     // ---- service type selector (multi-type connectors) -------------------------
 
-    private static TriggerModel.Property buildServiceTypeSelector(List<AuthoringServiceType> serviceTypes) {
-        List<TriggerModel.Option> options = new ArrayList<>();
-        for (AuthoringServiceType st : serviceTypes) {
-            options.add(new TriggerModel.Option(humanize(st.id()), st.id(), null));
+    private static TriggerUISchemaModel.Property buildServiceTypeSelector(
+            List<TriggerMetadataModel.ServiceType> serviceTypes) {
+        List<TriggerUISchemaModel.Option> options = new ArrayList<>();
+        for (TriggerMetadataModel.ServiceType st : serviceTypes) {
+            options.add(new TriggerUISchemaModel.Option(humanize(st.id()), st.id(), null));
         }
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "SINGLE_SELECT", true, null, options, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata("Service Type", "The kind of service to create", null, null, null, null,
-                        null, null),
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Service Type", "The kind of service to create", null, null,
+                        null, null, null, null),
                 true, true, false, false, null, serviceTypes.get(0).id(), List.of(type), null, null, null,
                 cdType("SERVICE_TYPE_DESCRIPTOR"), null);
     }
 
     // ---- service types & handlers ------------------------------------------------
 
-    private static TriggerModel.ServiceTypeModel buildServiceType(AuthoringServiceType serviceType,
+    private static TriggerUISchemaModel.ServiceTypeModel buildServiceType(TriggerMetadataModel.ServiceType serviceType,
                                                                   TriggerLibraryFacts facts,
-                                                                  TriggerAuthoringModel authoring,
+                                                                  TriggerMetadataModel authoring,
                                                                   ConnectorIdentity identity, boolean isFirst,
                                                                   boolean multiType) {
         String moduleName = identity.moduleName();
         String typeName = serviceType.type().name();
-        Map<String, TriggerModel.Property> properties = buildServiceAnnotations(serviceType, authoring, facts,
+        Map<String, TriggerUISchemaModel.Property> properties = buildServiceAnnotations(serviceType, authoring, facts,
                 identity);
 
-        List<TriggerModel.FunctionModel> functions = new ArrayList<>();
-        List<TriggerModel.FunctionModel> schemaFunctions = new ArrayList<>();
-        AuthoringServiceType.Handlers handlers = serviceType.handlers();
+        List<TriggerUISchemaModel.FunctionModel> functions = new ArrayList<>();
+        List<TriggerUISchemaModel.FunctionModel> schemaFunctions = new ArrayList<>();
+        TriggerMetadataModel.ServiceType.Handlers handlers = serviceType.handlers();
         if (handlers != null && handlers.backedByConcreteType()) {
             TriggerLibraryFacts.ServiceType stFacts = findServiceType(typeName, facts);
             if (stFacts != null) {
@@ -459,14 +469,14 @@ public final class TriggerModelSynthesizer {
                 }
             }
         } else if (handlers != null && handlers.options() != null) {
-            for (AuthoringServiceType.HandlerOption option : handlers.options()) {
+            for (TriggerMetadataModel.ServiceType.HandlerOption option : handlers.options()) {
                 schemaFunctions.add(buildFunctionFromAuthoring(option, handlers.addMode(), authoring, moduleName,
                         facts, identity));
             }
         }
 
-        return new TriggerModel.ServiceTypeModel(
-                new TriggerModel.Metadata(humanize(serviceType.id()), null, null, null, null, null, null, null),
+        return new TriggerUISchemaModel.ServiceTypeModel(
+                new TriggerUISchemaModel.Metadata(humanize(serviceType.id()), null, null, null, null, null, null, null),
                 typeName, null, isFirst, multiType, properties, functions, schemaFunctions,
                 cdServiceType(typeName, moduleName));
     }
@@ -486,7 +496,7 @@ public final class TriggerModelSynthesizer {
      * class. Falls back to the first introspected listener when there is no exact name match (a
      * single-listener connector's own name may differ slightly in casing/spelling from the schema).
      */
-    private static TriggerLibraryFacts.Listener findListener(TriggerAuthoringModel.Listener listener,
+    private static TriggerLibraryFacts.Listener findListener(TriggerMetadataModel.Listener listener,
                                                               TriggerLibraryFacts facts) {
         if (facts.listeners() == null || facts.listeners().isEmpty()) {
             return null;
@@ -503,36 +513,36 @@ public final class TriggerModelSynthesizer {
     }
 
     /** A locked handler for a {@code backedByConcreteType} service type -- entirely from introspection. */
-    private static TriggerModel.FunctionModel buildFunctionFromFacts(TriggerLibraryFacts.Function fn,
+    private static TriggerUISchemaModel.FunctionModel buildFunctionFromFacts(TriggerLibraryFacts.Function fn,
                                                                      String moduleName) {
-        List<TriggerModel.Parameter> parameters = new ArrayList<>();
+        List<TriggerUISchemaModel.Parameter> parameters = new ArrayList<>();
         for (TriggerLibraryFacts.Param param : fn.parameters()) {
             parameters.add(buildParameterFromFacts(param));
         }
-        TriggerModel.ReturnType returnType = buildReturnType(fn.returnType(), fn.returnsError());
+        TriggerUISchemaModel.ReturnType returnType = buildReturnType(fn.returnType(), fn.returnsError());
         String description = fn.doc() == null || fn.doc().isBlank() ? "The `" + fn.name() + "` handler." : fn.doc();
-        return new TriggerModel.FunctionModel(
-                new TriggerModel.Metadata(fn.name(), description, null, null, null, null, null, null),
+        return new TriggerUISchemaModel.FunctionModel(
+                new TriggerUISchemaModel.Metadata(fn.name(), description, null, null, null, null, null, null),
                 fn.name(), false, null, fn.kind(), null, fn.qualifiers(), null, null, true, false, false, false,
                 null, null, null, parameters, null, Map.of(), returnType, cdFunction(fn.name(), moduleName), null);
     }
 
-    private static TriggerModel.Parameter buildParameterFromFacts(TriggerLibraryFacts.Param param) {
-        TriggerModel.Property typeProperty = plainTypeProperty(param.type());
-        TriggerModel.Property nameProperty = identifierProperty(param.name(), true);
-        return new TriggerModel.Parameter(
-                new TriggerModel.Metadata(humanize(param.name()),
+    private static TriggerUISchemaModel.Parameter buildParameterFromFacts(TriggerLibraryFacts.Param param) {
+        TriggerUISchemaModel.Property typeProperty = plainTypeProperty(param.type());
+        TriggerUISchemaModel.Property nameProperty = identifierProperty(param.name(), true);
+        return new TriggerUISchemaModel.Parameter(
+                new TriggerUISchemaModel.Metadata(humanize(param.name()),
                         param.doc() == null || param.doc().isBlank() ? null : param.doc(), null, null, null, null,
                         null, null),
                 "REQUIRED", typeProperty, nameProperty, null, null, null, null, true, false, param.optional(),
                 false, false, cdType("FUNCTION_PARAM"), null);
     }
 
-    private static TriggerModel.Property identifierProperty(String name, boolean editable) {
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+    private static TriggerUISchemaModel.Property identifierProperty(String name, boolean editable) {
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "IDENTIFIER", true, null, null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata(name, null, null, null, null, null, null, null),
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata(name, null, null, null, null, null, null, null),
                 true, editable, false, false, name, name, List.of(type), null, null, null, null, null);
     }
 
@@ -542,29 +552,26 @@ public final class TriggerModelSynthesizer {
      * there is nothing to introspect; the option's {@code params}/{@code returns} are already fully
      * resolved {@link TypeRef}s).
      */
-    private static TriggerModel.FunctionModel buildFunctionFromAuthoring(AuthoringServiceType.HandlerOption option,
-                                                                         String addMode,
-                                                                         TriggerAuthoringModel authoring,
-                                                                         String moduleName,
-                                                                         TriggerLibraryFacts facts,
-                                                                         ConnectorIdentity identity) {
-        boolean many = AuthoringServiceType.Handlers.ADD_MODE_MANY.equals(addMode);
+    private static TriggerUISchemaModel.FunctionModel buildFunctionFromAuthoring(
+            TriggerMetadataModel.ServiceType.HandlerOption option, String addMode, TriggerMetadataModel authoring,
+            String moduleName, TriggerLibraryFacts facts, ConnectorIdentity identity) {
+        boolean many = TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_MANY.equals(addMode);
         boolean required = "required".equals(option.presence());
 
-        List<TriggerModel.Parameter> parameters = new ArrayList<>();
+        List<TriggerUISchemaModel.Parameter> parameters = new ArrayList<>();
         if (option.params() != null) {
-            for (AuthoringServiceType.Param param : option.params()) {
+            for (TriggerMetadataModel.ServiceType.Param param : option.params()) {
                 parameters.add(buildParameterFromAuthoring(param, authoring, moduleName));
             }
         }
-        TriggerModel.ReturnType returnType = buildReturnTypeFromRefs(option.returns(), moduleName);
-        Map<String, TriggerModel.Property> properties = buildFunctionAnnotations(option.annotations(), authoring,
-                facts, identity);
+        TriggerUISchemaModel.ReturnType returnType = buildReturnTypeFromRefs(option.returns(), moduleName);
+        Map<String, TriggerUISchemaModel.Property> properties = buildFunctionAnnotations(option.annotations(),
+                authoring, facts, identity);
 
         String name = many ? "" : option.name();
         String label = many ? "Handler" : option.name();
-        return new TriggerModel.FunctionModel(
-                new TriggerModel.Metadata(label, "The `" + option.name() + "` handler.", null, null, null,
+        return new TriggerUISchemaModel.FunctionModel(
+                new TriggerUISchemaModel.Metadata(label, "The `" + option.name() + "` handler.", null, null, null,
                         many ? "Add Handler" : null, null, null),
                 name, many, null, option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
                 null, option.kind() == null ? null : List.of(option.kind()), null, null, false, true, !required,
@@ -580,11 +587,11 @@ public final class TriggerModelSynthesizer {
      * connector-declared handler annotation (e.g. a per-handler config record) is editable in the add/
      * update-handler form and emitted above the function by {@code AnnotationEmitter#annotationsOf}.
      */
-    private static Map<String, TriggerModel.Property> buildFunctionAnnotations(List<String> annotationIds,
-                                                                                TriggerAuthoringModel authoring,
+    private static Map<String, TriggerUISchemaModel.Property> buildFunctionAnnotations(List<String> annotationIds,
+                                                                                TriggerMetadataModel authoring,
                                                                                 TriggerLibraryFacts facts,
                                                                                 ConnectorIdentity identity) {
-        Map<String, TriggerModel.Property> properties = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> properties = new LinkedHashMap<>();
         if (annotationIds == null || annotationIds.isEmpty() || authoring.annotations() == null) {
             return properties;
         }
@@ -596,7 +603,8 @@ public final class TriggerModelSynthesizer {
         return properties;
     }
 
-    private static Optional<AuthoringAnnotation> findAnnotationDeclaration(String id, TriggerAuthoringModel authoring) {
+    private static Optional<TriggerMetadataModel.Annotation> findAnnotationDeclaration(
+            String id, TriggerMetadataModel authoring) {
         return authoring.annotations().stream().filter(a -> id.equals(a.id())).findFirst();
     }
 
@@ -608,12 +616,11 @@ public final class TriggerModelSynthesizer {
      * (see the {@code generate-trigger-model} skill's "Framework param (caller/context)" rule). Every
      * other parameter (required, data-bound, or unnamed/positional) renders as a normal typed field.
      */
-    private static TriggerModel.Parameter buildParameterFromAuthoring(AuthoringServiceType.Param param,
-                                                                      TriggerAuthoringModel authoring,
-                                                                      String moduleName) {
+    private static TriggerUISchemaModel.Parameter buildParameterFromAuthoring(
+            TriggerMetadataModel.ServiceType.Param param, TriggerMetadataModel authoring, String moduleName) {
         boolean optional = "optional".equals(param.presence());
         String name = param.name() == null ? "" : param.name();
-        AuthoringDataBindingRule bindingRule = param.dataBinding() == null ? null
+        TriggerMetadataModel.DataBindingRule bindingRule = param.dataBinding() == null ? null
                 : findDataBindingRule(param.dataBinding(), authoring);
 
         if (bindingRule == null && optional && !name.isEmpty()) {
@@ -621,14 +628,14 @@ public final class TriggerModelSynthesizer {
         }
 
         String typeName = typeRefName(param.type(), moduleName);
-        TriggerModel.Property typeProperty = bindingRule == null
+        TriggerUISchemaModel.Property typeProperty = bindingRule == null
                 ? plainTypeProperty(typeName)
                 : dataBindingTypeProperty(bindingRule, typeName, moduleName, name.isEmpty() ? "value" : name);
-        TriggerModel.Property nameProperty = identifierProperty(name.isEmpty() ? "value" : name, true);
+        TriggerUISchemaModel.Property nameProperty = identifierProperty(name.isEmpty() ? "value" : name, true);
         String kind = bindingRule != null ? "DATA_BINDING" : (optional ? "OPTIONAL" : "REQUIRED");
-        return new TriggerModel.Parameter(
-                new TriggerModel.Metadata(humanize(name.isEmpty() ? "value" : name), null, null, null, null, null,
-                        null, null),
+        return new TriggerUISchemaModel.Parameter(
+                new TriggerUISchemaModel.Metadata(humanize(name.isEmpty() ? "value" : name), null, null, null,
+                        null, null, null, null),
                 kind, typeProperty, nameProperty, null, null, null, null, true, true,
                 optional, false, false, cdType("FUNCTION_PARAM"), null);
     }
@@ -639,35 +646,35 @@ public final class TriggerModelSynthesizer {
      * identifier. Not included by default and tucked behind "advanced" -- matching Kafka's real
      * {@code caller} parameter, the corpus's only concrete precedent for this shape.
      */
-    private static TriggerModel.Parameter buildFlagParameter(String name, String qualifiedType) {
+    private static TriggerUISchemaModel.Parameter buildFlagParameter(String name, String qualifiedType) {
         String label = humanize(name);
-        TriggerModel.PropertyType flagType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType flagType = new TriggerUISchemaModel.PropertyType(
                 "FLAG", true, qualifiedType, null, null, null, null, null);
-        TriggerModel.Property typeProperty = new TriggerModel.Property(
-                new TriggerModel.Metadata("Include " + label,
+        TriggerUISchemaModel.Property typeProperty = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Include " + label,
                         "Tick to include the " + label.toLowerCase(Locale.ROOT) + " parameter in the handler "
                                 + "signature.", null, null, null, null, null, null),
                 true, true, true, false, null, false, List.of(flagType), null, null, null, cd(), null);
-        TriggerModel.Property nameProperty = identifierProperty(name, false);
-        return new TriggerModel.Parameter(
-                new TriggerModel.Metadata(label, "The " + label.toLowerCase(Locale.ROOT) + " object.", null, null,
-                        null, null, null, null),
+        TriggerUISchemaModel.Property nameProperty = identifierProperty(name, false);
+        return new TriggerUISchemaModel.Parameter(
+                new TriggerUISchemaModel.Metadata(label, "The " + label.toLowerCase(Locale.ROOT) + " object.", null,
+                        null, null, null, null, null),
                 "OPTIONAL", typeProperty, nameProperty, null, null, null, null, false, true, true, true, false,
                 cdType("FUNCTION_PARAM"), null);
     }
 
-    private static TriggerModel.Property plainTypeProperty(String typeName) {
-        TriggerModel.PropertyType type = new TriggerModel.PropertyType(
+    private static TriggerUISchemaModel.Property plainTypeProperty(String typeName) {
+        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
                 "TYPE", true, typeName, null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata("Parameter Type", "The type of the parameter", null, null, null, null,
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Parameter Type", "The type of the parameter", null, null, null, null,
                         null, null),
                 true, false, false, false, null, typeName, List.of(type), null, null, null, cd(), null);
     }
 
     /**
      * The {@code PAYLOAD_TYPE}/{@code PAYLOAD_TYPE_INCLUDED_RECORD} composition for a data-bound
-     * parameter, per {@code AuthoringDataBindingRule}'s {@code direct}/{@code includedRecord} modes.
+     * parameter, per {@code TriggerMetadataModel.DataBindingRule}'s {@code direct}/{@code includedRecord} modes.
      * When the rule ALSO declares a {@code streamable} mode (e.g. a CSV/array binding that may be read
      * either as {@code T[]} or {@code stream<T, error?>}), the payload is nested one level under a
      * {@code COMPLEX_PAYLOAD} container alongside a {@code stream} {@code PAYLOAD_MODIFIER} toggle --
@@ -675,26 +682,28 @@ public final class TriggerModelSynthesizer {
      * connector whose data-binding rule models both cardinalities gets the identical large-file
      * streaming UX for free, generically, without per-connector code.
      */
-    private static TriggerModel.Property dataBindingTypeProperty(AuthoringDataBindingRule rule, String typeName,
-                                                                  String moduleName, String paramName) {
-        Optional<AuthoringDataBindingRule.SupportedMode> includedRecord = rule.supportedModes().stream()
-                .filter(m -> AuthoringDataBindingRule.SupportedMode.MODE_INCLUDED_RECORD.equals(m.mode()))
+    private static TriggerUISchemaModel.Property dataBindingTypeProperty(TriggerMetadataModel.DataBindingRule rule,
+                                                                  String typeName, String moduleName,
+                                                                  String paramName) {
+        Optional<TriggerMetadataModel.DataBindingRule.SupportedMode> includedRecord = rule.supportedModes().stream()
+                .filter(m -> TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_INCLUDED_RECORD.equals(m.mode()))
                 .findFirst();
-        Optional<AuthoringDataBindingRule.SupportedMode> direct = rule.supportedModes().stream()
-                .filter(m -> AuthoringDataBindingRule.SupportedMode.MODE_DIRECT.equals(m.mode()))
+        Optional<TriggerMetadataModel.DataBindingRule.SupportedMode> direct = rule.supportedModes().stream()
+                .filter(m -> TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_DIRECT.equals(m.mode()))
                 .findFirst();
-        Optional<AuthoringDataBindingRule.SupportedMode> streamable = rule.supportedModes().stream()
-                .filter(m -> AuthoringDataBindingRule.SupportedMode.MODE_STREAMABLE.equals(m.mode()))
+        Optional<TriggerMetadataModel.DataBindingRule.SupportedMode> streamable = rule.supportedModes().stream()
+                .filter(m -> TriggerMetadataModel.DataBindingRule.SupportedMode.MODE_STREAMABLE.equals(m.mode()))
                 .findFirst();
 
         String cdType = includedRecord.isPresent() ? "PAYLOAD_TYPE_INCLUDED_RECORD" : "PAYLOAD_TYPE";
         String defaultType;
         String template = rule.cardinality() != null
-                && AuthoringDataBindingRule.CARDINALITY_ARRAY.equals(rule.cardinality()) ? "{{type}}[]" : "{{type}}";
+                && TriggerMetadataModel.DataBindingRule.CARDINALITY_ARRAY.equals(rule.cardinality())
+                ? "{{type}}[]" : "{{type}}";
         String field = null;
         String typeConstraint = null;
         if (includedRecord.isPresent()) {
-            AuthoringDataBindingRule.SupportedMode mode = includedRecord.get();
+            TriggerMetadataModel.DataBindingRule.SupportedMode mode = includedRecord.get();
             defaultType = mode.includes() == null ? typeName : qualifyTypeRef(mode.includes(), moduleName);
             field = mode.bindableFields() == null || mode.bindableFields().isEmpty()
                     ? null : mode.bindableFields().get(0);
@@ -705,24 +714,25 @@ public final class TriggerModelSynthesizer {
             defaultType = typeName;
         }
 
-        TriggerModel.PropertyType propertyType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType propertyType = new TriggerUISchemaModel.PropertyType(
                 "PAYLOAD_TYPE", true, null, null, null, null,
-                List.of(new TriggerModel.PayloadFormat(List.of("schema", "browse", "json", "xml"), "json")), null);
-        TriggerModel.Property payload = new TriggerModel.Property(
-                new TriggerModel.Metadata("Payload", "The shape of the received payload", null, null, null, null,
-                        null, null),
+                List.of(new TriggerUISchemaModel.PayloadFormat(List.of("schema", "browse", "json", "xml"), "json")),
+                null);
+        TriggerUISchemaModel.Property payload = new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Payload", "The shape of the received payload", null, null,
+                        null, null, null, null),
                 true, true, false, false, null, "", List.of(propertyType), null, null, null,
                 cdPayload(cdType, defaultType, template, field, typeConstraint), null);
 
         if (streamable.isEmpty()) {
             return payload;
         }
-        Map<String, TriggerModel.Property> children = new LinkedHashMap<>();
+        Map<String, TriggerUISchemaModel.Property> children = new LinkedHashMap<>();
         children.put("payload", payload);
         children.put("stream", buildStreamModifierProperty(paramName));
-        TriggerModel.PropertyType complexType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType complexType = new TriggerUISchemaModel.PropertyType(
                 "COMPLEX_PAYLOAD", true, null, null, null, null, null, null);
-        return new TriggerModel.Property(payload.metadata(), true, true, false, false, null, "",
+        return new TriggerUISchemaModel.Property(payload.metadata(), true, true, false, false, null, "",
                 List.of(complexType), null, null, children, cd(), null);
     }
 
@@ -731,24 +741,24 @@ public final class TriggerModelSynthesizer {
      * base array template ({@code T[]}) to {@code stream<T, error?>} for large files -- unchecked by
      * default, so the array form remains the default composition.
      */
-    private static TriggerModel.Property buildStreamModifierProperty(String targetParam) {
+    private static TriggerUISchemaModel.Property buildStreamModifierProperty(String targetParam) {
         String template = "stream<{{type}}, error?>";
-        TriggerModel.PropertyType flagType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType flagType = new TriggerUISchemaModel.PropertyType(
                 "FLAG", true, null, null, null, template, null, null);
-        TriggerModel.Codedata modifierCodedata = new TriggerModel.Codedata(
+        TriggerUISchemaModel.Codedata modifierCodedata = new TriggerUISchemaModel.Codedata(
                 "PAYLOAD_MODIFIER", null, null, null, null, null, null, null, null, null, null, null, null,
                 template, "stream", List.of("base"), targetParam, null, null, null, null, null, null, null, null);
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata("Stream (Large Files)", "Process the file content in chunks", null,
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata("Stream (Large Files)", "Process the file content in chunks", null,
                         null, null, null, null, null),
                 true, true, false, false, null, false, List.of(flagType), null, null, null, modifierCodedata, null);
     }
 
-    private static AuthoringDataBindingRule findDataBindingRule(String id, TriggerAuthoringModel authoring) {
+    private static TriggerMetadataModel.DataBindingRule findDataBindingRule(String id, TriggerMetadataModel authoring) {
         if (authoring.dataBindingRules() == null) {
             return null;
         }
-        for (AuthoringDataBindingRule rule : authoring.dataBindingRules()) {
+        for (TriggerMetadataModel.DataBindingRule rule : authoring.dataBindingRules()) {
             if (rule.id().equals(id)) {
                 return rule;
             }
@@ -756,15 +766,15 @@ public final class TriggerModelSynthesizer {
         return null;
     }
 
-    private static TriggerModel.ReturnType buildReturnType(String type, boolean hasError) {
+    private static TriggerUISchemaModel.ReturnType buildReturnType(String type, boolean hasError) {
         boolean enabled = type != null && !"()".equals(type);
-        return new TriggerModel.ReturnType(
-                new TriggerModel.Metadata("Return Type", "The return type of the function.", null, null, null,
+        return new TriggerUISchemaModel.ReturnType(
+                new TriggerUISchemaModel.Metadata("Return Type", "The return type of the function.", null, null, null,
                         null, null, null),
                 type, false, null, enabled, false, enabled, hasError, "", cd(), null);
     }
 
-    private static TriggerModel.ReturnType buildReturnTypeFromRefs(List<TypeRef> refs, String moduleName) {
+    private static TriggerUISchemaModel.ReturnType buildReturnTypeFromRefs(List<TypeRef> refs, String moduleName) {
         if (refs == null || refs.isEmpty()) {
             return buildReturnType(null, false);
         }
@@ -780,14 +790,14 @@ public final class TriggerModelSynthesizer {
      * init-form field ({@link #buildInitServiceAnnotations}) and the service-type's own view/update
      * properties ({@link #buildServiceAnnotations}), so the two stay in lockstep by construction.
      */
-    private static List<AuthoringAnnotation> applicableServiceAnnotations(AuthoringServiceType serviceType,
-                                                                          TriggerAuthoringModel authoring) {
-        List<AuthoringAnnotation> applicable = new ArrayList<>();
+    private static List<TriggerMetadataModel.Annotation> applicableServiceAnnotations(
+            TriggerMetadataModel.ServiceType serviceType, TriggerMetadataModel authoring) {
+        List<TriggerMetadataModel.Annotation> applicable = new ArrayList<>();
         if (authoring.annotations() == null) {
             return applicable;
         }
-        for (AuthoringAnnotation annotation : authoring.annotations()) {
-            if (!AuthoringAnnotation.ATTACH_POINT_SERVICE.equals(annotation.attachPoint())) {
+        for (TriggerMetadataModel.Annotation annotation : authoring.annotations()) {
+            if (!TriggerMetadataModel.Annotation.ATTACH_POINT_SERVICE.equals(annotation.attachPoint())) {
                 continue;
             }
             if (annotation.appliesTo() != null && !annotation.appliesTo().contains(serviceType.id())) {
@@ -807,12 +817,11 @@ public final class TriggerModelSynthesizer {
      * path (e.g. {@code Utils#getAnnotationEdits(Service, ModulePartNode)}), distinct from the add-time
      * copy {@link #buildInitServiceAnnotations} places directly in the init form.
      */
-    private static Map<String, TriggerModel.Property> buildServiceAnnotations(AuthoringServiceType serviceType,
-                                                                              TriggerAuthoringModel authoring,
-                                                                              TriggerLibraryFacts facts,
-                                                                              ConnectorIdentity identity) {
-        Map<String, TriggerModel.Property> properties = new LinkedHashMap<>();
-        for (AuthoringAnnotation annotation : applicableServiceAnnotations(serviceType, authoring)) {
+    private static Map<String, TriggerUISchemaModel.Property> buildServiceAnnotations(
+            TriggerMetadataModel.ServiceType serviceType, TriggerMetadataModel authoring, TriggerLibraryFacts facts,
+            ConnectorIdentity identity) {
+        Map<String, TriggerUISchemaModel.Property> properties = new LinkedHashMap<>();
+        for (TriggerMetadataModel.Annotation annotation : applicableServiceAnnotations(serviceType, authoring)) {
             properties.put(annotation.id(), buildAnnotationProperty(annotation, facts, identity,
                     "ANNOTATION_ATTACHMENT"));
         }
@@ -827,17 +836,18 @@ public final class TriggerModelSynthesizer {
      * {@code SchemaDrivenSourceGenerator#buildServiceAnnotations} actually scans the filled init form
      * for at add-time.
      */
-    private static void buildInitServiceAnnotations(AuthoringServiceType serviceType, TriggerAuthoringModel authoring,
-                                                    TriggerLibraryFacts facts, ConnectorIdentity identity,
-                                                    Map<String, TriggerModel.Property> initProperties) {
-        for (AuthoringAnnotation annotation : applicableServiceAnnotations(serviceType, authoring)) {
+    private static void buildInitServiceAnnotations(TriggerMetadataModel.ServiceType serviceType,
+                                                    TriggerMetadataModel authoring, TriggerLibraryFacts facts,
+                                                    ConnectorIdentity identity,
+                                                    Map<String, TriggerUISchemaModel.Property> initProperties) {
+        for (TriggerMetadataModel.Annotation annotation : applicableServiceAnnotations(serviceType, authoring)) {
             initProperties.put(annotation.id(), buildAnnotationProperty(annotation, facts, identity,
                     "SERVICE_ANNOTATION"));
         }
     }
 
     /**
-     * The declared {@code type.name} in {@code trigger-authoring.json} references the annotation's own
+     * The declared {@code type.name} in {@code trigger-metadata.json} references the annotation's own
      * introspected name (e.g. {@code "ServiceConfig"} -- {@link TriggerLibraryFacts.Annotation#name()}
      * is literally {@code AnnotationSymbol.getName()}), NOT its backing record type's name (which can
      * legitimately differ, e.g. SMB's {@code annotation SmbServiceConfig ServiceConfig on service;}).
@@ -865,7 +875,7 @@ public final class TriggerModelSynthesizer {
      * its own role ({@code SERVICE_ANNOTATION} for the init form, {@code ANNOTATION_ATTACHMENT}
      * elsewhere).
      */
-    private static TriggerModel.Property buildAnnotationProperty(AuthoringAnnotation annotation,
+    private static TriggerUISchemaModel.Property buildAnnotationProperty(TriggerMetadataModel.Annotation annotation,
                                                                   TriggerLibraryFacts facts,
                                                                   ConnectorIdentity identity,
                                                                   String codedataType) {
@@ -881,16 +891,16 @@ public final class TriggerModelSynthesizer {
         String recordTypeName = facted != null && facted.typeConstraint() != null
                 ? simpleName(facted.typeConstraint()) : annotationName;
 
-        TriggerModel.TypeMember member = new TriggerModel.TypeMember(
+        TriggerUISchemaModel.TypeMember member = new TriggerUISchemaModel.TypeMember(
                 recordTypeName, packageInfoStr, pkgName, "RECORD_TYPE", true);
-        TriggerModel.PropertyType propertyType = new TriggerModel.PropertyType(
+        TriggerUISchemaModel.PropertyType propertyType = new TriggerUISchemaModel.PropertyType(
                 "RECORD_MAP_EXPRESSION", true, aliasOf(pkgModule) + ":" + recordTypeName, null, List.of(member),
                 null, null, null);
-        boolean optional = AuthoringAnnotation.PRESENCE_OPTIONAL.equals(annotation.presence());
+        boolean optional = TriggerMetadataModel.Annotation.PRESENCE_OPTIONAL.equals(annotation.presence());
         // Deliberately no per-field skeleton (e.g. "{topic: \"\"}") -- the LS does not need to guess
         // field defaults; an empty "{}" record is enough for the user to fill in via the record editor.
-        return new TriggerModel.Property(
-                new TriggerModel.Metadata(humanize(annotation.id()), "Configuration for this service", null,
+        return new TriggerUISchemaModel.Property(
+                new TriggerUISchemaModel.Metadata(humanize(annotation.id()), "Configuration for this service", null,
                         null, null, null, null, null),
                 true, true, optional, false, "{}", "{}", List.of(propertyType), null, null, null,
                 cdAnnotation(codedataType, annotationName, pkgModule, pkgOrg, pkgName, optional), null);
@@ -911,7 +921,7 @@ public final class TriggerModelSynthesizer {
     }
 
     /**
-     * Qualifies a {@link TypeRef} for emission into the <b>user's</b> file: {@code trigger-authoring.json}
+     * Qualifies a {@link TypeRef} for emission into the <b>user's</b> file: {@code trigger-metadata.json}
      * never restates a same-module reference's prefix ({@code packageInfo: null} means "same module as
      * this connector's own types" -- see {@link TypeRef}'s own javadoc), but the generated source lands
      * in a different file where the connector is only an imported dependency, so even the connector's

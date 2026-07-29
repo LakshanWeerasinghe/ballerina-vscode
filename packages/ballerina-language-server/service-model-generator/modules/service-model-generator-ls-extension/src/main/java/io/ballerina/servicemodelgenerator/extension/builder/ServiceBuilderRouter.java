@@ -68,7 +68,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.TCP;
 public class ServiceBuilderRouter {
 
     // RABBITMQ/KAFKA/MSSQL/POSTGRESQL/MYSQL/FTP/TRIGGER_GITHUB/TRIGGER_SHOPIFY/MCP (and ASB, never
-    // registered here) are deliberately absent: each now ships a bundled TriggerModel schema (see
+    // registered here) are deliberately absent: each now ships a bundled TriggerUISchemaModel schema (see
     // ConnectorModelReader.BUNDLED_TRIGGER_MODEL_RESOURCES), so useSchemaDrivenPath always routes
     // them to SchemaDrivenServiceBuilder before this map is consulted — a hardcoded entry here
     // would be dead code. HTTP/AI/TCP/GRAPHQL/SOLACE are not (yet) schema-driven and keep their

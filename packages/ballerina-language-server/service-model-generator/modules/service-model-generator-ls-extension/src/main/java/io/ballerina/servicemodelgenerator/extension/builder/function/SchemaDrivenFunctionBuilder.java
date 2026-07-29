@@ -19,12 +19,12 @@
 package io.ballerina.servicemodelgenerator.extension.builder.function;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.projects.Document;
 import io.ballerina.servicemodelgenerator.extension.connector.AnnotationEmitter;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.PropertyValueAdapter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
@@ -47,7 +47,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYP
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getServiceTypeIdentifier;
 
 /**
- * Generic, schema-driven function builder for connectors that ship a unified {@link TriggerModel}.
+ * Generic, schema-driven function builder for connectors that ship a unified {@link TriggerUISchemaModel}.
  * Function <b>source generation</b> (add/update) is already connector-agnostic in {@link AbstractFunctionBuilder}
  * (via {@code Utils.generateFunctionDefSource}), so this builder inherits it. Its own contributions:
  *
@@ -247,7 +247,7 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         // The bundled schema. Stamp the connector identity so the follow-up addFunction/updateFunction
         // routes back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's
         // Codedata).
-        Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
+        Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
         if (triggerModel.isPresent()) {
             overlayConnectorMetadata(function, triggerModel.get(), context.serviceType());
@@ -258,12 +258,12 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
 
     /**
      * Overlays the connector's curated function/parameter metadata onto a source-parsed function from
-     * the bundled unified {@link TriggerModel}. The source parse
+     * the bundled unified {@link TriggerUISchemaModel}. The source parse
      * yields the real names/types/ranges; the connector model supplies the human labels, descriptions
      * and type constraints the raw source cannot. Package-visible for testing.
      */
-    static void overlayConnectorMetadata(Function function, TriggerModel triggerModel, String serviceType) {
-        TriggerModel.FunctionModel model = findFunctionModel(triggerModel, serviceType,
+    static void overlayConnectorMetadata(Function function, TriggerUISchemaModel triggerModel, String serviceType) {
+        TriggerUISchemaModel.FunctionModel model = findFunctionModel(triggerModel, serviceType,
                 function.getName() != null ? function.getName().getValue() : null);
         if (model == null) {
             return;
@@ -291,23 +291,24 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         }
     }
 
-    private static TriggerModel.FunctionModel findFunctionModel(TriggerModel triggerModel, String serviceType,
-                                                                  String functionName) {
+    private static TriggerUISchemaModel.FunctionModel findFunctionModel(TriggerUISchemaModel triggerModel,
+                                                                  String serviceType, String functionName) {
         if (triggerModel == null || triggerModel.serviceTypes() == null || functionName == null) {
             return null;
         }
-        TriggerModel.ServiceTypeModel type = findServiceType(triggerModel, serviceType);
+        TriggerUISchemaModel.ServiceTypeModel type = findServiceType(triggerModel, serviceType);
         if (type == null) {
             return null;
         }
-        TriggerModel.FunctionModel found = findByName(type.functions(), functionName);
+        TriggerUISchemaModel.FunctionModel found = findByName(type.functions(), functionName);
         return found != null ? found : findByName(type.schemaFunctions(), functionName);
     }
 
-    private static TriggerModel.ServiceTypeModel findServiceType(TriggerModel triggerModel, String serviceType) {
+    private static TriggerUISchemaModel.ServiceTypeModel findServiceType(TriggerUISchemaModel triggerModel,
+                                                                          String serviceType) {
         String typeKey = serviceType == null ? null : getServiceTypeIdentifier(serviceType);
         if (typeKey != null) {
-            for (TriggerModel.ServiceTypeModel candidate : triggerModel.serviceTypes()) {
+            for (TriggerUISchemaModel.ServiceTypeModel candidate : triggerModel.serviceTypes()) {
                 if (typeKey.equals(candidate.name())
                         || (candidate.name() != null && candidate.name().endsWith(":" + typeKey))
                         || (candidate.codedata() != null && typeKey.equals(candidate.codedata().originalName()))) {
@@ -318,7 +319,8 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         return triggerModel.serviceTypes().size() == 1 ? triggerModel.serviceTypes().get(0) : null;
     }
 
-    private static TriggerModel.FunctionModel findByName(List<TriggerModel.FunctionModel> functions, String name) {
+    private static TriggerUISchemaModel.FunctionModel findByName(List<TriggerUISchemaModel.FunctionModel> functions,
+                                                                   String name) {
         if (functions == null) {
             return null;
         }

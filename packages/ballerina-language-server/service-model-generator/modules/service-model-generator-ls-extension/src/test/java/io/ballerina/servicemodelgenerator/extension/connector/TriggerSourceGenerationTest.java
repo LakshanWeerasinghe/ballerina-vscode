@@ -19,7 +19,7 @@
 package io.ballerina.servicemodelgenerator.extension.connector;
 
 import com.google.gson.Gson;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -28,8 +28,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 /**
- * Unit test for {@link SchemaDrivenSourceGenerator}'s unified {@code TriggerModel} path: given the
- * derived init form (the user's filled listener choices) + the connector's {@code TriggerModel}, it
+ * Unit test for {@link SchemaDrivenSourceGenerator}'s unified {@code TriggerUISchemaModel} path: given the
+ * derived init form (the user's filled listener choices) + the connector's {@code TriggerUISchemaModel}, it
  * emits the {@code service <descriptor> on <listener> { ... }} block. Pure (no LS): exercises service
  * descriptor resolution and function rendering from the unified model.
  *
@@ -49,7 +49,7 @@ public class TriggerSourceGenerationTest {
         return gson.fromJson(gson.toJsonTree(cached), ServiceInitModel.class);
     }
 
-    private TriggerModel triggerModel(String moduleName) {
+    private TriggerUISchemaModel triggerModel(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
