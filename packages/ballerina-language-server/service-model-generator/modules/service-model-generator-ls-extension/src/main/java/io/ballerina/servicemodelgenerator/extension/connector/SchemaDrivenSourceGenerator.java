@@ -518,7 +518,14 @@ public final class SchemaDrivenSourceGenerator {
         }
     }
 
-    /** Picks the service type matching the init-form selection; else the enabled one; else the first. */
+    /**
+     * Picks the service type matching the init-form selection; else the enabled one; else the first.
+     *
+     * <p>A model carrying a type that must not be offered for new services (e.g. mcp's deprecated
+     * {@code Service} alongside {@code StreamableHttpService}) pins the choice with a hidden
+     * {@code SERVICE_TYPE_DESCRIPTOR} field in its {@code initProperties}, so the selection is
+     * explicit here rather than resting on {@code serviceTypes[]} order.
+     */
     private static TriggerUISchemaModel.ServiceTypeModel selectServiceType(ServiceInitModel filledInitForm,
                                                                    TriggerUISchemaModel triggerModel) {
         if (triggerModel == null || triggerModel.serviceTypes() == null

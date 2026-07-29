@@ -22,6 +22,7 @@ import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorVersionResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
@@ -83,11 +84,14 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
-        // Bundled classpath resource, or (on a miss) synthesized from the connector's own
-        // trigger-metadata.json + introspection: either way, its init form is derived from
-        // `initProperties`.
+        // Bundled classpath resource (version-gated), or (on a miss) synthesized from the connector's
+        // own trigger-metadata.json + introspection: either way, its init form is derived from
+        // `initProperties`. Modelled against the version the project will actually compile against, so
+        // a project pinned to an older connector gets that release's form rather than the newest one.
+        String version = ConnectorVersionResolver.resolve(context.project(), context.orgName(),
+                context.packageName(), context.version());
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName());
+                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName(), version);
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -101,10 +105,11 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     public Map<String, List<TextEdit>> addServiceInitSource(AddServiceInitModelContext context) {
         ServiceInitModel filledModel = context.serviceInitModel();
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
-        // Bundled classpath resource, or (on a miss) synthesized from the connector's own
-        // trigger-metadata.json + introspection.
+        // Bundled classpath resource (version-gated by the filled model's own version), or (on a miss)
+        // synthesized from the connector's own trigger-metadata.json + introspection.
         Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
-                .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName());
+                .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName(),
+                        filledModel.getVersion());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
@@ -114,10 +119,12 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public Service getModelFromSource(ModelFromSourceContext context) {
-        // Bundled or synthesized schema: build the designer template from its serviceTypes[], then
-        // merge the user's source (functions present, base path, listeners, line ranges).
+        // Bundled (version-gated) or synthesized schema: build the designer template from its
+        // serviceTypes[], then merge the user's source (functions present, base path, listeners, line
+        // ranges). Reading an existing service already knows the exact version from the source's
+        // ModuleID (context.version()).
         Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
-                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
+                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName(), context.version());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.
             return super.getModelFromSource(context);

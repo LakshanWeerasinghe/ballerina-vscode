@@ -36,6 +36,7 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.modelgenerator.commons.trigger.utils.TriggerLibraryIntrospector;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageDescriptor;
+import io.ballerina.projects.SemanticVersion;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
@@ -46,6 +47,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +89,32 @@ public class ConnectorModelReader {
             "id", "displayName", "description", "orgName", "packageName", "moduleName", "version", "type", "icon");
 
     private static final String BUNDLED_TRIGGER_MODEL_REGISTRY_RESOURCE = "bundled_trigger_models.json";
-    private static final Type BUNDLED_REGISTRY_TYPE = new TypeToken<Map<String, String>>() { }.getType();
+    private static final Type BUNDLED_REGISTRY_TYPE = new TypeToken<Map<String, JsonElement>>() { }.getType();
+    private static final String KEY_MIN_VERSION = "minVersion";
+    private static final String KEY_RESOURCE = "resource";
+
+    /**
+     * One version-gated variant of a connector's bundled schema.
+     *
+     * @param minVersion the lowest connector version this document describes; a variant without one
+     *                   matches any version and so acts as the floor
+     * @param resource   the classpath resource path of the schema document
+     */
+    private record ModelVariant(String minVersion, String resource) {
+
+        boolean matches(String version) {
+            if (minVersion == null || minVersion.isBlank()) {
+                return true;
+            }
+            try {
+                return SemanticVersion.from(version).greaterThanOrEqualTo(SemanticVersion.from(minVersion));
+            } catch (RuntimeException e) {
+                // An unparsable version can't be gated on -> treat the variant as a match, which
+                // (given declaration order) resolves to the newest document.
+                return true;
+            }
+        }
+    }
 
     /**
      * Modules for which a {@code trigger-ui-schema.json} is bundled as a classpath resource in this
@@ -100,23 +128,76 @@ public class ConnectorModelReader {
      * the resource is missing or malformed, so a broken/absent file degrades to the legacy-index
      * fallback rather than failing the class to load.
      *
+     * <p>An entry is either a single resource path
+     * <pre>{@code "kafka": "trigger-models/kafka.json"}</pre>
+     * or, for a connector whose UI surface changed across releases, an array of variants <b>ordered
+     * newest first</b>, each gated by the lowest connector version it describes:
+     * <pre>{@code
+     * "mcp": [
+     *   { "minVersion": "1.2.0", "resource": "trigger-models/mcp.json" },
+     *   { "resource": "trigger-models/mcp_1.0.3.json" }
+     * ]}</pre>
+     * The first variant whose {@code minVersion} the resolved connector version satisfies wins; the
+     * unconstrained trailing entry is the floor. Callers with no version in hand get the first
+     * (newest) variant — see {@link #getBundledTriggerModel(String)}.
+     *
      * <p>The registry's resource paths are rooted at {@code trigger-models/}.
      */
-    private static final Map<String, String> BUNDLED_TRIGGER_MODEL_RESOURCES = loadBundledTriggerModelRegistry();
+    private static final Map<String, List<ModelVariant>> BUNDLED_TRIGGER_MODEL_RESOURCES =
+            loadBundledTriggerModelRegistry();
 
-    private static Map<String, String> loadBundledTriggerModelRegistry() {
+    private static Map<String, List<ModelVariant>> loadBundledTriggerModelRegistry() {
         try (InputStream is = ConnectorModelReader.class.getClassLoader()
                 .getResourceAsStream(BUNDLED_TRIGGER_MODEL_REGISTRY_RESOURCE)) {
             if (is == null) {
                 return Map.of();
             }
             try (JsonReader reader = new JsonReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                Map<String, String> loaded = new Gson().fromJson(reader, BUNDLED_REGISTRY_TYPE);
-                return loaded == null ? Map.of() : Map.copyOf(loaded);
+                Map<String, JsonElement> loaded = new Gson().fromJson(reader, BUNDLED_REGISTRY_TYPE);
+                if (loaded == null) {
+                    return Map.of();
+                }
+                Map<String, List<ModelVariant>> registry = new LinkedHashMap<>();
+                loaded.forEach((moduleName, entry) -> {
+                    List<ModelVariant> variants = parseVariants(entry);
+                    if (!variants.isEmpty()) {
+                        registry.put(moduleName, variants);
+                    }
+                });
+                return Map.copyOf(registry);
             }
         } catch (IOException | JsonParseException e) {
             return Map.of();
         }
+    }
+
+    /** Normalizes both registry entry forms (a bare resource path, or an ordered variant array). */
+    private static List<ModelVariant> parseVariants(JsonElement entry) {
+        if (entry == null || entry.isJsonNull()) {
+            return List.of();
+        }
+        if (entry.isJsonPrimitive()) {
+            return List.of(new ModelVariant(null, entry.getAsString()));
+        }
+        if (!entry.isJsonArray()) {
+            return List.of();
+        }
+        List<ModelVariant> variants = new ArrayList<>();
+        for (JsonElement element : entry.getAsJsonArray()) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject variant = element.getAsJsonObject();
+            JsonElement resource = variant.get(KEY_RESOURCE);
+            if (resource == null || !resource.isJsonPrimitive()) {
+                continue;
+            }
+            JsonElement minVersion = variant.get(KEY_MIN_VERSION);
+            variants.add(new ModelVariant(
+                    minVersion != null && minVersion.isJsonPrimitive() ? minVersion.getAsString() : null,
+                    resource.getAsString()));
+        }
+        return List.copyOf(variants);
     }
 
     private final Gson gson = new Gson();
@@ -163,34 +244,75 @@ public class ConnectorModelReader {
     // Lets a connector with a hardcoded Java builder migrate onto the schema-driven path without a
     // Central release: the schema is bundled here instead of being resolved from a .bala.
 
-    /** Cheap presence check for a bundled schema, used by the routers at dispatch time. */
+    /**
+     * Cheap presence check for a bundled schema, used by the routers at dispatch time. Deliberately
+     * version-free: it only decides <i>which builder</i> handles the module, and every variant of a
+     * connector's schema is served by the same schema-driven builder.
+     */
     public boolean hasBundledTriggerModel(String moduleName) {
         return getBundledTriggerModel(moduleName).isPresent();
     }
 
-    /** Reads and caches the bundled {@code trigger-ui-schema.json} for {@code moduleName}, if any. */
+    /**
+     * Reads and caches the bundled {@code trigger-ui-schema.json} for {@code moduleName}, if any,
+     * choosing the newest variant. For a connector whose schema is version-gated, prefer
+     * {@link #getBundledTriggerModel(String, String)} wherever the version the project actually
+     * resolves is known — the newest variant may describe types the project's version does not have.
+     */
     public Optional<TriggerUISchemaModel> getBundledTriggerModel(String moduleName) {
-        if (moduleName == null) {
-            return Optional.empty();
-        }
-        return bundledTriggerCache.computeIfAbsent(moduleName, m ->
-                parseBundledResource(m).map(json -> gson.fromJson(json, TriggerUISchemaModel.class)));
+        return getBundledTriggerModel(moduleName, null);
     }
 
-    /** Reads and caches the bundled model's init form for {@code moduleName}, if any. */
+    /**
+     * Reads and caches the bundled {@code trigger-ui-schema.json} variant that describes
+     * {@code moduleName} at {@code version}. A {@code null}/blank version selects the newest variant.
+     */
+    public Optional<TriggerUISchemaModel> getBundledTriggerModel(String moduleName, String version) {
+        return resolveResource(moduleName, version).flatMap(resource ->
+                bundledTriggerCache.computeIfAbsent(resource, r ->
+                        parseBundledResource(r).map(json -> gson.fromJson(json, TriggerUISchemaModel.class))));
+    }
+
+    /** Reads and caches the newest bundled model's init form for {@code moduleName}, if any. */
     public Optional<ServiceInitModel> getBundledServiceInitModel(String moduleName) {
+        return getBundledServiceInitModel(moduleName, null);
+    }
+
+    /**
+     * Reads and caches the init form of the bundled model variant that describes {@code moduleName} at
+     * {@code version}. A {@code null}/blank version selects the newest variant.
+     */
+    public Optional<ServiceInitModel> getBundledServiceInitModel(String moduleName, String version) {
+        return resolveResource(moduleName, version).flatMap(resource ->
+                bundledInitCache.computeIfAbsent(resource, r ->
+                        parseBundledResource(r).flatMap(this::buildServiceInitModelFromJson)));
+    }
+
+    /**
+     * The resource path of the variant describing {@code moduleName} at {@code version}: the first
+     * declared variant the version satisfies. When no version is supplied the newest (first) variant
+     * wins; when the version is below every declared floor the oldest (last) variant is the closest
+     * fit — a model authored without an unconstrained trailing entry still resolves to something.
+     */
+    private static Optional<String> resolveResource(String moduleName, String version) {
         if (moduleName == null) {
             return Optional.empty();
         }
-        return bundledInitCache.computeIfAbsent(moduleName, m ->
-                parseBundledResource(m).flatMap(this::buildServiceInitModelFromJson));
-    }
-
-    private Optional<JsonElement> parseBundledResource(String moduleName) {
-        String resourcePath = BUNDLED_TRIGGER_MODEL_RESOURCES.get(moduleName);
-        if (resourcePath == null) {
+        List<ModelVariant> variants = BUNDLED_TRIGGER_MODEL_RESOURCES.get(moduleName);
+        if (variants == null || variants.isEmpty()) {
             return Optional.empty();
         }
+        if (version == null || version.isBlank()) {
+            return Optional.of(variants.getFirst().resource());
+        }
+        return Optional.of(variants.stream()
+                .filter(variant -> variant.matches(version))
+                .findFirst()
+                .orElseGet(variants::getLast)
+                .resource());
+    }
+
+    private Optional<JsonElement> parseBundledResource(String resourcePath) {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null) {
                 return Optional.empty();
@@ -222,10 +344,24 @@ public class ConnectorModelReader {
      * its compiled {@code .bala}, via {@link TriggerModelSynthesizer} -- caching the resolved result per
      * {@code orgName/moduleName}. {@code orgName == null} short-circuits to the bundled-only result --
      * some call sites (e.g. a request DTO with no org field) genuinely have no org to resolve a
-     * {@code .bala} with.
+     * {@code .bala} with. Equivalent to {@link #getSchemaDrivenTriggerModel(String, String, String)}
+     * with a {@code null} version -- the newest bundled variant.
      */
     public Optional<TriggerUISchemaModel> getSchemaDrivenTriggerModel(String orgName, String moduleName) {
-        Optional<TriggerUISchemaModel> bundled = getBundledTriggerModel(moduleName);
+        return getSchemaDrivenTriggerModel(orgName, moduleName, null);
+    }
+
+    /**
+     * Version-aware counterpart of {@link #getSchemaDrivenTriggerModel(String, String)}: the bundled
+     * variant that describes {@code moduleName} at {@code version} (see
+     * {@link #getBundledTriggerModel(String, String)}), falling back to the same shipped-schema/
+     * synthesis tiers on a miss. The synthesis tier is version-agnostic -- it resolves the connector's
+     * actual compiled {@code .bala}, which already IS the requested version -- so only the bundled tier
+     * needs the version threaded through.
+     */
+    public Optional<TriggerUISchemaModel> getSchemaDrivenTriggerModel(String orgName, String moduleName,
+                                                                       String version) {
+        Optional<TriggerUISchemaModel> bundled = getBundledTriggerModel(moduleName, version);
         if (bundled.isPresent() || orgName == null || moduleName == null) {
             return bundled;
         }
@@ -236,14 +372,21 @@ public class ConnectorModelReader {
     /**
      * The connector's add-trigger init form -- the {@link #getSchemaDrivenTriggerModel} counterpart of
      * {@link #getBundledServiceInitModel}, remapping a resolved model's {@code initProperties} the same
-     * way {@link #buildServiceInitModelFromJson} does for a bundled one.
+     * way {@link #buildServiceInitModelFromJson} does for a bundled one. Equivalent to
+     * {@link #getSchemaDrivenServiceInitModel(String, String, String)} with a {@code null} version.
      */
     public Optional<ServiceInitModel> getSchemaDrivenServiceInitModel(String orgName, String moduleName) {
-        Optional<ServiceInitModel> bundled = getBundledServiceInitModel(moduleName);
+        return getSchemaDrivenServiceInitModel(orgName, moduleName, null);
+    }
+
+    /** Version-aware counterpart of {@link #getSchemaDrivenServiceInitModel(String, String)}. */
+    public Optional<ServiceInitModel> getSchemaDrivenServiceInitModel(String orgName, String moduleName,
+                                                                       String version) {
+        Optional<ServiceInitModel> bundled = getBundledServiceInitModel(moduleName, version);
         if (bundled.isPresent() || orgName == null || moduleName == null) {
             return bundled;
         }
-        return getSchemaDrivenTriggerModel(orgName, moduleName)
+        return getSchemaDrivenTriggerModel(orgName, moduleName, version)
                 .flatMap(model -> buildServiceInitModelFromJson(gson.toJsonTree(model)));
     }
 

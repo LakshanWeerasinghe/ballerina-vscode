@@ -247,8 +247,10 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         // The bundled schema. Stamp the connector identity so the follow-up addFunction/updateFunction
         // routes back to this builder (FunctionBuilderRouter reads org/pkg/module off the function's
         // Codedata).
+        // Reading an existing function already knows the exact version from the source's ModuleID
+        // (context.version()), so the bundled tier can pick the version-appropriate variant directly.
         Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
-                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName());
+                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName(), context.version());
         if (triggerModel.isPresent()) {
             overlayConnectorMetadata(function, triggerModel.get(), context.serviceType());
             stampCodedata(function, context);

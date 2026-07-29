@@ -88,7 +88,7 @@ public final class LibraryMetadataReader {
     // A connector's trigger-ui-schema.json carries no TypeRef-or-union slots (unlike
     // trigger-metadata.json), so it needs no custom deserializer -- a plain Gson suffices, matching
     // ConnectorModelReader's existing plain-Gson parse of the same shape.
-    private final Gson GSON = new Gson();
+    private final Gson plainGson = new Gson();
 
     private LibraryMetadataReader() {
     }
@@ -151,7 +151,7 @@ public final class LibraryMetadataReader {
     private Optional<TriggerUISchemaModel> readTriggerUISchemaModel(Path packageRoot) {
         return readResourceFile(packageRoot, TRIGGER_UI_SCHEMA_RESOURCE_PATH).flatMap(json -> {
             try {
-                return Optional.ofNullable(GSON.fromJson(json, TriggerUISchemaModel.class));
+                return Optional.ofNullable(plainGson.fromJson(json, TriggerUISchemaModel.class));
             } catch (JsonParseException e) {
                 return Optional.empty();
             }
