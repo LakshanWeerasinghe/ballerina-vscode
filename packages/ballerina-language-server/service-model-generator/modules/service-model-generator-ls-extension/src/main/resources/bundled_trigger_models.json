@@ -12,6 +12,7 @@
   "mssql": "trigger-models/mssql.json",
   "mysql": "trigger-models/mysql.json",
   "postgresql": "trigger-models/postgresql.json",
+  "oracledb": "trigger-models/oracledb.json",
   "trigger.hubspot": "trigger-models/trigger.hubspot.json",
   "mcp": [
     { "minVersion": "1.2.0", "resource": "trigger-models/mcp.json" },

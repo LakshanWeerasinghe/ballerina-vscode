@@ -115,6 +115,21 @@
     "kind": "event"
   },
   "9": {
+    "name": "oracledb",
+    "orgName": "ballerinax",
+    "packageName": "oracledb",
+    "keywords": [
+      "oracledb",
+      "oracle",
+      "cdc",
+      "event"
+    ],
+    "triggerName": "CDC for Oracle",
+    "version": "1.16.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_oracledb_1.16.0.png",
+    "kind": "event"
+  },
+  "10": {
     "name": "postgresql",
     "orgName": "ballerinax",
     "packageName": "postgresql",
@@ -129,7 +144,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_postgresql_1.18.0.png",
     "kind": "event"
   },
-  "10": {
+  "11": {
     "name": "trigger.github",
     "orgName": "ballerinax",
     "packageName": "trigger.github",
@@ -142,7 +157,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.github_0.10.0.png",
     "kind": "event"
   },
-  "11": {
+  "12": {
     "name": "trigger.hubspot",
     "orgName": "ballerinax",
     "packageName": "trigger.hubspot",
@@ -155,7 +170,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.hubspot_0.12.0.png",
     "kind": "event"
   },
-  "12": {
+  "13": {
     "name": "salesforce",
     "orgName": "ballerinax",
     "packageName": "salesforce",
@@ -168,7 +183,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_salesforce_8.7.0.png",
     "kind": "event"
   },
-  "13": {
+  "14": {
     "name": "trigger.shopify",
     "orgName": "ballerinax",
     "packageName": "trigger.shopify",
@@ -181,7 +196,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.shopify_1.6.0.png",
     "kind": "event"
   },
-  "14": {
+  "15": {
     "name": "trigger.twilio",
     "orgName": "ballerinax",
     "packageName": "trigger.twilio",
@@ -195,7 +210,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.twilio_0.10.0.png",
     "kind": "event"
   },
-  "15": {
+  "16": {
     "name": "sap.jco",
     "orgName": "ballerinax",
     "packageName": "sap.jco",
@@ -211,7 +226,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_sap.jco_2.0.1.png",
     "kind": "event"
   },
-  "16": {
+  "17": {
     "name": "ftp",
     "orgName": "ballerina",
     "packageName": "ftp",
@@ -227,7 +242,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.19.0.png",
     "kind": "file"
   },
-  "17": {
+  "18": {
     "name": "file",
     "orgName": "ballerina",
     "packageName": "file",
@@ -242,7 +257,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_file_1.13.0.png",
     "kind": "file"
   },
-  "18": {
+  "19": {
     "name": "mcp",
     "orgName": "ballerina",
     "packageName": "mcp",
