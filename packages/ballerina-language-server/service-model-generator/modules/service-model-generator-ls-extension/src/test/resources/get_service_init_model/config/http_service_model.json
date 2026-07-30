@@ -52,7 +52,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -64,7 +65,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             {
               "metadata": {
@@ -94,7 +96,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": true,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 },
                 "serviceTypeName": {
                   "metadata": {
@@ -115,7 +118,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -127,7 +131,8 @@
               "enabled": false,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             }
           ],
           "types": [
@@ -139,7 +144,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "configureListener": {
           "metadata": {
@@ -167,7 +173,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             {
               "metadata": {
@@ -202,7 +209,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 },
                 "listenerVarName": {
                   "metadata": {
@@ -224,7 +232,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -236,7 +245,8 @@
               "enabled": false,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             }
           ],
           "properties": {},
@@ -249,7 +259,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": true
+          "advanced": true,
+          "hidden": false
         }
       }
     }

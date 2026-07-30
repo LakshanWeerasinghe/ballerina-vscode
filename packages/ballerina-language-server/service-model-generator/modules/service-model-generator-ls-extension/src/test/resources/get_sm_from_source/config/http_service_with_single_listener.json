@@ -36,7 +36,8 @@
       "enabled": true,
       "editable": true,
       "optional": true,
-      "advanced": false
+      "advanced": false,
+      "hidden": false
     },
     "properties": {
       "listener": {
@@ -68,7 +69,8 @@
             "enabled": false,
             "editable": false,
             "optional": false,
-            "advanced": false
+            "advanced": false,
+            "hidden": false
           }
         },
         "types": [
@@ -94,7 +96,8 @@
         "enabled": true,
         "editable": false,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "basePath": {
         "metadata": {
@@ -116,7 +119,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "annotServiceConfig": {
         "metadata": {
@@ -148,7 +152,8 @@
         "enabled": true,
         "editable": true,
         "optional": true,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "readOnlyMetadata": {
         "codedata": {
@@ -169,7 +174,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       }
     },
     "codedata": {

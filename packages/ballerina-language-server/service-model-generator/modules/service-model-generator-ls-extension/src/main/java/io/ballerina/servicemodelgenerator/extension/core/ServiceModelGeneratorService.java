@@ -1135,7 +1135,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
      * Resolves a trigger's basic info, preferring the bundled schema-driven {@code TriggerModel} over
      * the legacy sqlite index derived from {@code service_artifacts.json}. This lets a bundled
      * schema-driven trigger appear in the picker with no {@code service_artifacts.json} entry or index
-     * rebuild; a trigger with no bundled model (e.g. HTTP, AI, TCP, GraphQL, Solace) falls through to
+     * rebuild; a trigger with no bundled model (e.g. HTTP, AI, TCP, GraphQL) falls through to
      * the legacy index. There is no support for a connector shipping its own schema in its {@code .bala}.
      *
      * <p>Package-visible for unit testing without a full LS bootstrap.
@@ -1195,7 +1195,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
      * straight from those scalars -- no {@code TriggerModel} is parsed or cached, so listing the full
      * picker never pays the cost of reading every connector's (potentially large, deeply-nested) schema
      * just to render a list row. Only an entry missing those fields (a legacy trigger with no
-     * schema-driven model, e.g. Solace, or one not yet backfilled) falls back to the fuller
+     * schema-driven model, or one not yet backfilled) falls back to the fuller
      * {@link #getTriggerBasicInfoByName(String, String)} resolution chain.
      *
      * <p>Package-visible for unit testing without a full LS bootstrap.

@@ -51,6 +51,7 @@ public class Value {
     private boolean editable;
     private boolean optional;
     private boolean advanced;
+    private boolean hidden;
 
     public Value(Value value) {
         this.metadata = value.metadata;
@@ -61,6 +62,7 @@ public class Value {
         this.placeholder = value.placeholder;
         this.optional = value.optional;
         this.advanced = value.advanced;
+        this.hidden = value.hidden;
         this.properties = value.properties;
         this.items = value.items;
         this.codedata = value.codedata;
@@ -312,6 +314,14 @@ public class Value {
         this.advanced = advanced;
     }
 
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
+    }
+
     public Map<String, Value> getProperties() {
         return properties;
     }
@@ -375,6 +385,7 @@ public class Value {
         private boolean editable = false;
         private boolean optional = false;
         private boolean advanced = false;
+        private boolean hidden = false;
 
         public ValueBuilder metadata(String label, String description) {
             this.metadata = new MetaData(label, description);
@@ -425,6 +436,11 @@ public class Value {
             return this;
         }
 
+        public ValueBuilder setHidden(boolean hidden) {
+            this.hidden = hidden;
+            return this;
+        }
+
         public ValueBuilder setProperties(Map<String, Value> properties) {
             this.properties = properties;
             return this;
@@ -467,6 +483,7 @@ public class Value {
             Value built = new Value(metadata, enabled, editable, value, values, placeholder, optional, advanced,
                     properties, items, codedata, types, imports);
             built.setValidations(validations);
+            built.setHidden(hidden);
             return built;
         }
     }

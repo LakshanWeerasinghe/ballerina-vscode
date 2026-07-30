@@ -18,7 +18,7 @@
     "orgName": "ballerina",
     "packageName": "grpc",
     "listenerProtocol": "grpc",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.5.png",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png",
     "documentation": {
       "metadata": {
         "label": "Description",
@@ -36,7 +36,8 @@
       "enabled": true,
       "editable": true,
       "optional": true,
-      "advanced": false
+      "advanced": false,
+      "hidden": false
     },
     "properties": {
       "listener": {
@@ -68,7 +69,8 @@
             "enabled": false,
             "editable": false,
             "optional": false,
-            "advanced": false
+            "advanced": false,
+            "hidden": false
           }
         },
         "types": [
@@ -81,7 +83,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "stringLiteral": {
         "metadata": {
@@ -102,7 +105,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "annotDescriptor": {
         "metadata": {
@@ -124,7 +128,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       }
     },
     "codedata": {
@@ -164,7 +169,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "name": {
           "metadata": {
@@ -181,7 +187,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -205,7 +212,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -222,7 +230,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "defaultValue": {
               "metadata": {
@@ -238,7 +247,8 @@
               "enabled": true,
               "editable": true,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "documentation": {
               "metadata": {
@@ -254,7 +264,8 @@
               "enabled": true,
               "editable": true,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -280,7 +291,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -296,7 +308,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "defaultValue": {
               "metadata": {
@@ -312,7 +325,8 @@
               "enabled": true,
               "editable": true,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "documentation": {
               "metadata": {
@@ -328,7 +342,8 @@
               "enabled": true,
               "editable": true,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -355,7 +370,8 @@
           "enabled": true,
           "editable": true,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,

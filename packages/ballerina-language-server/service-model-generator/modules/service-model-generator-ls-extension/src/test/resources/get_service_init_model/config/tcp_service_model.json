@@ -41,7 +41,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "listenerVarName": {
           "metadata": {
@@ -61,7 +62,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": true
+          "advanced": true,
+          "hidden": false
         }
       }
     }

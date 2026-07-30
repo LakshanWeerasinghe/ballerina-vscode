@@ -50,7 +50,8 @@
             "enabled": false,
             "editable": false,
             "optional": false,
-            "advanced": false
+            "advanced": false,
+            "hidden": false
           }
         },
         "types": [
@@ -68,7 +69,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "serviceType": {
         "metadata": {
@@ -86,7 +88,8 @@
         "enabled": true,
         "editable": false,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "readOnlyMetadata": {
         "codedata": {
@@ -107,7 +110,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       }
     },
     "codedata": {
@@ -149,7 +153,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -174,7 +179,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -192,7 +198,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -220,7 +227,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -270,7 +278,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -295,7 +304,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -313,7 +323,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -341,7 +352,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -391,7 +403,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -416,7 +429,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -434,7 +448,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -462,7 +477,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -512,7 +528,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -537,7 +554,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -555,7 +573,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -583,7 +602,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -633,7 +653,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -658,7 +679,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -676,7 +698,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -704,7 +727,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -754,7 +778,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -779,7 +804,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -797,7 +823,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -825,7 +852,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,
@@ -875,7 +903,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -900,7 +929,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -918,7 +948,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -946,7 +977,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": false,

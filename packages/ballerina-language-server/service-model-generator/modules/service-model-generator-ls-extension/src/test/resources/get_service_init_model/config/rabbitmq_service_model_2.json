@@ -56,7 +56,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     },
                     "host": {
                       "metadata": {
@@ -84,7 +85,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     },
                     "port": {
                       "metadata": {
@@ -123,7 +125,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     }
                   },
                   "types": [
@@ -135,7 +138,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -147,7 +151,8 @@
               "enabled": false,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             {
               "metadata": {
@@ -205,7 +210,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             },
                             "port": {
                               "metadata": {
@@ -244,7 +250,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             }
                           },
                           "types": [
@@ -256,7 +263,8 @@
                           "enabled": true,
                           "editable": false,
                           "optional": false,
-                          "advanced": false
+                          "advanced": false,
+                          "hidden": false
                         },
                         "deliveryListener": {
                           "metadata": {
@@ -291,7 +299,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             },
                             "port": {
                               "metadata": {
@@ -330,7 +339,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             }
                           },
                           "types": [
@@ -342,7 +352,8 @@
                           "enabled": true,
                           "editable": false,
                           "optional": false,
-                          "advanced": false
+                          "advanced": false,
+                          "hidden": false
                         }
                       },
                       "types": [
@@ -354,7 +365,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     }
                   },
                   "types": [
@@ -366,7 +378,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -378,7 +391,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             }
           ],
           "types": [
@@ -390,7 +404,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "queueName": {
           "metadata": {
@@ -420,7 +435,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         }
       }
     }

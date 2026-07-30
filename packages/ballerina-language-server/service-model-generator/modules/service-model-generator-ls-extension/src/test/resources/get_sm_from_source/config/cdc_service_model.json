@@ -50,7 +50,8 @@
             "enabled": false,
             "editable": false,
             "optional": false,
-            "advanced": false
+            "advanced": false,
+            "hidden": false
           }
         },
         "types": [
@@ -68,7 +69,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "serviceType": {
         "metadata": {
@@ -86,7 +88,8 @@
         "enabled": false,
         "editable": false,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       },
       "serviceConfig": {
         "metadata": {
@@ -119,7 +122,8 @@
         "enabled": true,
         "editable": true,
         "optional": false,
-        "advanced": false
+        "advanced": false,
+        "hidden": false
       }
     },
     "codedata": {
@@ -161,7 +165,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -194,7 +199,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -212,7 +218,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -243,7 +250,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -261,7 +269,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -289,7 +298,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": true,
@@ -339,7 +349,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -372,7 +383,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -390,7 +402,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -429,7 +442,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -447,7 +461,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -478,7 +493,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -496,7 +512,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -524,7 +541,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": true,
         "optional": true,
@@ -576,7 +594,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -609,7 +628,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -627,7 +647,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -658,7 +679,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -676,7 +698,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": false,
             "editable": true,
@@ -704,7 +727,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": false,
         "optional": true,
@@ -743,7 +767,8 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
@@ -776,7 +801,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -794,7 +820,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": true,
@@ -825,7 +852,8 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
@@ -843,7 +871,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": false,
             "editable": true,
@@ -871,7 +900,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": false,
         "optional": true,
@@ -910,12 +940,13 @@
           "enabled": true,
           "editable": false,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "parameters": [
           {
             "metadata": {
-              "label": "err",
+              "label": "cdcError",
               "description": "The error that occurred during event processing."
             },
             "kind": "REQUIRED",
@@ -924,8 +955,8 @@
                 "label": "Parameter Type",
                 "description": "The type of the parameter"
               },
-              "placeholder": "cdc:Error?",
-              "value": "cdc:Error?",
+              "placeholder": "cdc:Error",
+              "value": "cdc:Error",
               "types": [
                 {
                   "fieldType": "TYPE",
@@ -935,15 +966,16 @@
               "enabled": true,
               "editable": false,
               "optional": true,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "name": {
               "metadata": {
-                "label": "err",
+                "label": "cdcError",
                 "description": "The error that occurred during event processing."
               },
-              "placeholder": "err",
-              "value": "err",
+              "placeholder": "cdcError",
+              "value": "cdcError",
               "types": [
                 {
                   "fieldType": "IDENTIFIER",
@@ -953,7 +985,8 @@
               "enabled": true,
               "editable": false,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             "enabled": true,
             "editable": false,
@@ -981,7 +1014,8 @@
           "enabled": true,
           "editable": false,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "enabled": false,
         "optional": true,

@@ -27,9 +27,18 @@ import java.util.List;
  * trigger (transcribed from its {@code trigger-model.json}'s own top-level fields at onboarding time).
  * When present, {@link ServiceModelGeneratorService} builds the trigger's {@link TriggerBasicInfo}
  * directly from these scalars, without parsing/caching the connector's full (potentially large,
- * deeply-nested) {@code TriggerModel} just to populate the picker list. A legacy trigger (e.g. Solace,
+ * deeply-nested) {@code TriggerModel} just to populate the picker list. A legacy trigger (e.g. HTTP,
  * which has no schema-driven model at all) simply omits them, falling back to the sqlite index derived
  * from {@code service_artifacts.json}.
+ *
+ * @param name        the trigger's display name
+ * @param orgName     the organization name of the connector package
+ * @param packageName the connector package name
+ * @param keywords    keywords used to search/filter this trigger in the picker
+ * @param triggerName the trigger's unique identifier
+ * @param version     the connector package version, populated only for a schema-driven trigger
+ * @param icon        the trigger's icon path, populated only for a schema-driven trigger
+ * @param kind        the trigger kind, populated only for a schema-driven trigger
  */
 public record TriggerProperty(String name, String orgName, String packageName, List<String> keywords,
                               String triggerName, String version, String icon, String kind) {

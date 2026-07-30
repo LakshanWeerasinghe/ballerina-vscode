@@ -35,7 +35,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": true
+          "advanced": true,
+          "hidden": false
         },
         "listenOn": {
           "metadata": {
@@ -64,7 +65,8 @@
           "enabled": true,
           "editable": true,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "serviceType": {
           "metadata": {
@@ -96,7 +98,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         }
       }
     }

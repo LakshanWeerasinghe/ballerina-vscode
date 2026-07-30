@@ -35,7 +35,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": true
+          "advanced": true,
+          "hidden": false
         },
         "bootstrapServers": {
           "metadata": {
@@ -76,7 +77,8 @@
                 "enabled": false,
                 "editable": true,
                 "optional": false,
-                "advanced": false
+                "advanced": false,
+                "hidden": false
               },
               "selected": false
             },
@@ -89,7 +91,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "topics": {
           "metadata": {
@@ -130,7 +133,8 @@
                 "enabled": false,
                 "editable": true,
                 "optional": false,
-                "advanced": false
+                "advanced": false,
+                "hidden": false
               },
               "selected": false
             },
@@ -143,7 +147,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         }
       }
     }

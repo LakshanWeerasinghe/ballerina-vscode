@@ -35,7 +35,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": true
+          "advanced": true,
+          "hidden": false
         },
         "path": {
           "metadata": {
@@ -63,7 +64,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         },
         "recursive": {
           "metadata": {
@@ -90,7 +92,8 @@
           "enabled": true,
           "editable": true,
           "optional": true,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         }
       }
     }

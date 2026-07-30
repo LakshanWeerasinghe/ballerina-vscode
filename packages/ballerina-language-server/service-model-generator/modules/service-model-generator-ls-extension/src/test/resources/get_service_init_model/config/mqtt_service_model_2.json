@@ -57,7 +57,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": true
+                      "advanced": true,
+                      "hidden": false
                     },
                     "serverUri": {
                       "metadata": {
@@ -85,7 +86,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     },
                     "clientId": {
                       "metadata": {
@@ -113,7 +115,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     },
                     "subscriptions": {
                       "metadata": {
@@ -154,7 +157,8 @@
                             "enabled": false,
                             "editable": true,
                             "optional": false,
-                            "advanced": false
+                            "advanced": false,
+                            "hidden": false
                           },
                           "selected": false
                         },
@@ -167,7 +171,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     }
                   },
                   "types": [
@@ -179,7 +184,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -191,7 +197,8 @@
               "enabled": false,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             },
             {
               "metadata": {
@@ -248,7 +255,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             },
                             "clientId": {
                               "metadata": {
@@ -276,7 +284,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             },
                             "subscriptions": {
                               "metadata": {
@@ -317,7 +326,8 @@
                                     "enabled": false,
                                     "editable": true,
                                     "optional": false,
-                                    "advanced": false
+                                    "advanced": false,
+                                    "hidden": false
                                   },
                                   "selected": false
                                 },
@@ -330,7 +340,8 @@
                               "enabled": true,
                               "editable": false,
                               "optional": false,
-                              "advanced": false
+                              "advanced": false,
+                              "hidden": false
                             }
                           },
                           "types": [
@@ -342,7 +353,8 @@
                           "enabled": true,
                           "editable": false,
                           "optional": false,
-                          "advanced": false
+                          "advanced": false,
+                          "hidden": false
                         }
                       },
                       "types": [
@@ -354,7 +366,8 @@
                       "enabled": true,
                       "editable": true,
                       "optional": false,
-                      "advanced": false
+                      "advanced": false,
+                      "hidden": false
                     }
                   },
                   "types": [
@@ -366,7 +379,8 @@
                   "enabled": true,
                   "editable": true,
                   "optional": false,
-                  "advanced": false
+                  "advanced": false,
+                  "hidden": false
                 }
               },
               "types": [
@@ -378,7 +392,8 @@
               "enabled": true,
               "editable": true,
               "optional": false,
-              "advanced": false
+              "advanced": false,
+              "hidden": false
             }
           ],
           "types": [
@@ -390,7 +405,8 @@
           "enabled": true,
           "editable": true,
           "optional": false,
-          "advanced": false
+          "advanced": false,
+          "hidden": false
         }
       }
     }

@@ -49,6 +49,7 @@ export const BRAND_ICON_REGISTRY: Record<string, BrandIcon> = {
     http: { glyph: "bi-globe" },
     mcp: { glyph: "bi-mcp" },
     solace: { glyph: "bi-solace", color: "#00C895" },
+    "solace.jms": { glyph: "bi-solace", color: "#00C895" },
     ftp: { glyph: "bi-ftp" },
     file: { glyph: "bi-file" },
     mssql: { glyph: "bi-mssql", color: "#b61d1c" },

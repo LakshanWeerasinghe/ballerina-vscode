@@ -13,5 +13,7 @@
   "mysql": "trigger-models/mysql.json",
   "postgresql": "trigger-models/postgresql.json",
   "trigger.hubspot": "trigger-models/trigger.hubspot.json",
-  "mcp": "trigger-models/mcp.json"
+  "mcp": "trigger-models/mcp.json",
+  "solace": "trigger-models/solace.json",
+  "solace.jms": "trigger-models/solace.jms.json"
 }
