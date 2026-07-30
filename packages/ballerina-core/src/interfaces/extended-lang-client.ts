@@ -1352,10 +1352,17 @@ export interface TriggerModelsRequest {
     packageName?: string;
     query?: string;
     keyWord?: string;
+    // Experimental: also search the Ballerina local repository (~/.ballerina/repositories/local) for
+    // packages shipping their trigger schema directly, gated behind the client's own setting.
+    includeLocalRepository?: boolean;
 }
 
 export interface TriggerModelsResponse {
     local: ServiceModel[];
+    // Matches found in the Ballerina local repository when includeLocalRepository was set - kept
+    // separate from `local`, never merged, since the same org/name may resolve differently from
+    // Central vs. the local repository.
+    localRepositoryResults?: ServiceModel[];
 }
 
 // <-------- Trigger Related ------->
@@ -1405,6 +1412,10 @@ export interface ServiceModelRequest {
     orgName?: string;
     pkgName?: string;
     version?: string;
+    // Whether the connector was picked from a search result found in the Ballerina local repository
+    // (~/.ballerina/repositories/local) rather than Central - must be supplied explicitly, since a
+    // brand-new local connector has no Ballerina.toml entry yet to infer it from.
+    isLocalRepository?: boolean;
 }
 export interface ServiceModelResponse {
     service: ServiceModel;

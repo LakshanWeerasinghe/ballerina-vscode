@@ -19,9 +19,6 @@ import io.ballerina.projects.BallerinaToml;
 import io.ballerina.projects.PackageVersion;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.util.ProjectConstants;
-import io.ballerina.toml.syntax.tree.DocumentNode;
-import io.ballerina.toml.syntax.tree.SyntaxKind;
-import io.ballerina.toml.syntax.tree.TableNode;
 import io.ballerina.tools.diagnostics.Diagnostic;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.LSPackageLoader;
@@ -31,12 +28,10 @@ import org.ballerinalang.langserver.common.constants.CommandConstants;
 import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagnosticBasedCodeActionProvider;
-import org.ballerinalang.langserver.commons.toml.common.TomlSyntaxTreeUtil;
+import org.ballerinalang.langserver.util.BallerinaTomlDependencyUtil;
 import org.ballerinalang.util.diagnostic.DiagnosticErrorCode;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionKind;
-import org.eclipse.lsp4j.Position;
-import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
 import java.util.ArrayList;
@@ -92,11 +87,9 @@ public class AddModuleToBallerinaTomlCodeAction implements DiagnosticBasedCodeAc
             return Collections.emptyList();
         }
         
-        Position dependencyStart = new Position(getDependencyStartLine(toml.get()), 0);
-        String dependency = String.format("[[dependency]]%norg = \"%s\"%nname = \"%s\"%nversion = " +
-                "\"%s\"%nrepository = \"local\"%n%n", org, pkg, getLatestVersion(loadedPackageVersions));
-        TextEdit textEdit = new TextEdit(new Range(dependencyStart, dependencyStart), dependency);
-        CodeAction action = CodeActionUtil.createCodeAction(CommandConstants.ADD_MODULE_TO_BALLERINA_TOML, 
+        TextEdit textEdit = BallerinaTomlDependencyUtil.createLocalDependencyEdit(
+                toml.get(), org, pkg, getLatestVersion(loadedPackageVersions));
+        CodeAction action = CodeActionUtil.createCodeAction(CommandConstants.ADD_MODULE_TO_BALLERINA_TOML,
                 List.of(textEdit), project.get().sourceRoot().resolve(ProjectConstants.BALLERINA_TOML).toString(), 
                 CodeActionKind.QuickFix);
         return Collections.singletonList(action);
@@ -149,15 +142,5 @@ public class AddModuleToBallerinaTomlCodeAction implements DiagnosticBasedCodeAc
             }
         }
         return latestVersion.toString();
-    }
-    
-    private int getDependencyStartLine(BallerinaToml toml) {
-        DocumentNode tomlSyntaxTree = toml.tomlDocument().syntaxTree().rootNode();
-        return tomlSyntaxTree.members().stream()
-                .filter(member -> member.kind().equals(SyntaxKind.TABLE) &&
-                        TomlSyntaxTreeUtil.toQualifiedName(((TableNode) member).identifier().value()).equals("package"))
-                .findFirst()
-                .map(member -> member.lineRange().endLine().line() + 2)
-                .orElse(0);
     }
 }

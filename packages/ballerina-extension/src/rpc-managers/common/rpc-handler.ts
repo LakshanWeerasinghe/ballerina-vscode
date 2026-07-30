@@ -45,6 +45,7 @@ import {
     goToSource,
     hasCentralPATConfigured,
     isNPSupported,
+    localCentralSearchEnabled,
     openExternalUrl,
     publishToCentral,
     runBackgroundTerminalCommand,
@@ -72,6 +73,7 @@ export function registerCommonRpcHandlers(messenger: Messenger) {
     messenger.onRequest(selectFileOrDirPath, (args: FileOrDirRequest) => rpcManger.selectFileOrDirPath(args));
     messenger.onRequest(selectFileOrFolderPath, () => rpcManger.selectFileOrFolderPath());
     messenger.onRequest(experimentalEnabled, () => rpcManger.experimentalEnabled());
+    messenger.onRequest(localCentralSearchEnabled, () => rpcManger.localCentralSearchEnabled());
     messenger.onRequest(isNPSupported, () => rpcManger.isNPSupported());
     messenger.onRequest(getWorkspaceRoot, () => rpcManger.getWorkspaceRoot());
     messenger.onNotification(showErrorMessage, (args: ShowErrorMessageRequest) => rpcManger.showErrorMessage(args));

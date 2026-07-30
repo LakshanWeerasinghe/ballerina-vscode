@@ -25,6 +25,7 @@ import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelRead
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorVersionResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
+import io.ballerina.servicemodelgenerator.extension.connector.LocalDependencyEditUtil;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerReadOnlyMetadataAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
@@ -91,7 +92,8 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         String version = ConnectorVersionResolver.resolve(context.project(), context.orgName(),
                 context.packageName(), context.version());
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName(), version);
+                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName(), version,
+                        context.isLocalRepository());
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -109,12 +111,17 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         // synthesized from the connector's own trigger-metadata.json + introspection.
         Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
                 .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName(),
-                        filledModel.getVersion());
+                        filledModel.getVersion(), filledModel.isLocalRepository());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
-        return SchemaDrivenSourceGenerator.buildAddServiceEditsForTrigger(
-                filledModel, triggerModel.get(), rootNode, context.filePath());
+        Map<String, List<TextEdit>> edits = new LinkedHashMap<>(SchemaDrivenSourceGenerator
+                .buildAddServiceEditsForTrigger(filledModel, triggerModel.get(), rootNode, context.filePath()));
+        if (filledModel.isLocalRepository()) {
+            LocalDependencyEditUtil.addIfMissing(edits, context.project(), filledModel.getOrgName(),
+                    filledModel.getPackageName(), filledModel.getVersion());
+        }
+        return edits;
     }
 
     @Override

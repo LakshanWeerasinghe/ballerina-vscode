@@ -610,6 +610,7 @@ const MainPanel = () => {
                                     packageName={value?.artifactInfo.packageName}
                                     moduleName={value?.artifactInfo.moduleName}
                                     version={value?.artifactInfo.version}
+                                    isLocalRepository={value?.artifactInfo.isLocalRepository}
                                 />
                             );
                             break;
