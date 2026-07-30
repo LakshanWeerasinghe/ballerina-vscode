@@ -272,6 +272,52 @@ public class TriggerSchemaServiceLoaderTest {
     }
 
     @Test
+    public void testBuildOptionMethodsSkipsHandlersWithUndeclaredTypes() {
+        // Metadata authored against a future release: "HubError" is not declared by the resolved
+        // package — the handler must be skipped, not rendered uncompilable.
+        JsonArray skipped = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onHubError", "remote", "optional",
+                        List.of(param(null, "HubError", "required", null)), ERROR_NIL)),
+                "SubscriberService", NONE, TriggerUiDocs.empty(), "websub");
+        Assert.assertTrue(skipped.isEmpty());
+
+        // Same handler with the type declared: kept, with the type-derived param name.
+        JsonArray kept = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onHubError", "remote", "optional",
+                        List.of(param(null, "HubError", "required", null)), ERROR_NIL)),
+                "SubscriberService", Set.of("HubError")::contains, TriggerUiDocs.empty(), "websub");
+        Assert.assertEquals(kept.get(0).getAsJsonObject().getAsJsonArray("parameters")
+                .get(0).getAsJsonObject().get("name").getAsString(), "hubError");
+
+        // Undeclared bare user types in the returns are equally disqualifying.
+        Assert.assertTrue(TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onEvent", "remote", "optional", null,
+                        List.of(new TypeRef("Acknowledgement", null)))),
+                "Service", NONE, TriggerUiDocs.empty(), "websub").isEmpty());
+    }
+
+    @Test
+    public void testDeriveParamNameReservedWordsAndCollisions() {
+        // A declared type whose lower-camel form is a reserved word must not be derived.
+        JsonArray reserved = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onError", "remote", "optional",
+                        List.of(param(null, "Error", "required", null)), null)),
+                "Service", Set.of("Error")::contains, TriggerUiDocs.empty(), "testmod");
+        Assert.assertEquals(reserved.get(0).getAsJsonObject().getAsJsonArray("parameters")
+                .get(0).getAsJsonObject().get("name").getAsString(), "param1");
+
+        // A derived name colliding with a sibling's explicit name falls back positionally.
+        JsonArray collision = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onTwo", "remote", "optional",
+                        List.of(param("event", "Event", "required", null),
+                                param(null, "Event", "optional", null)), null)),
+                "Service", Set.of("Event")::contains, TriggerUiDocs.empty(), "testmod");
+        JsonArray params = collision.get(0).getAsJsonObject().getAsJsonArray("parameters");
+        Assert.assertEquals(params.get(0).getAsJsonObject().get("name").getAsString(), "event");
+        Assert.assertEquals(params.get(1).getAsJsonObject().get("name").getAsString(), "param2");
+    }
+
+    @Test
     public void testBuildOptionMethodsSkipsRepeatableParamsAndNilReturns() {
         JsonArray methods = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onTool", "remote", "optional",

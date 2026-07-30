@@ -167,7 +167,7 @@ public class CopilotLibraryManager {
             }
             library.setServices(services);
 
-            JsonArray annotationsJson = AnnotationLoader.loadFromServiceIndex(libraryName);
+            JsonArray annotationsJson = AnnotationLoader.loadAnnotations(libraryName, semanticModel);
             List<Annotation> annotations = new ArrayList<>();
             for (JsonElement annotationElement : annotationsJson) {
                 annotations.add(GSON.fromJson(annotationElement, Annotation.class));
