@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "displayName": "Test Module",
+  "packageName": "testmod",
+  "moduleName": "testmod",
+  "version": "1.0.0",
+  "serviceTypes": [
+    {
+      "name": "Service",
+      "schemaFunctions": [
+        {
+          "name": "onEvent",
+          "kind": "REMOTE",
+          "enabled": false,
+          "metadata": { "label": "onEvent", "description": "Test event handler." },
+          "parameters": [
+            {
+              "metadata": { "label": "event", "description": "The test event." },
+              "kind": "REQUIRED",
+              "name": { "value": "event", "enabled": false, "editable": true,
+                        "optional": false, "advanced": false },
+              "enabled": false, "editable": true, "optional": false, "advanced": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

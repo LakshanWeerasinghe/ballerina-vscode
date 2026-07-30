@@ -1,0 +1,396 @@
+/*
+ *  Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com)
+ *
+ *  WSO2 LLC. licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ */
+
+package io.ballerina.flowmodelgenerator.extension;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.flowmodelgenerator.core.copilot.service.ServiceLoader;
+import io.ballerina.modelgenerator.commons.PackageUtil;
+import io.ballerina.projects.Package;
+import org.testng.Assert;
+import org.testng.SkipException;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * End-to-end tests for the schema-driven Copilot service loader: trigger metadata (structure) +
+ * semantic model (listener params, concrete methods, validation) + bundled trigger UI models
+ * (handler/param docs), entered through the public
+ * {@link ServiceLoader#loadAllServices(String, Package, SemanticModel)} overload — exactly the call
+ * {@code CopilotLibraryManager} makes.
+ *
+ * <p>Each library resolves its latest cached/central package, so assertions pin only
+ * version-stable facts (handler vocabulary, param names, doc presence, type link shapes) rather
+ * than full golden documents.
+ *
+ * @since 1.7.0
+ */
+public class CopilotSchemaServicesTest {
+
+    private static final Gson PRETTY = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path OUTPUT_DIR = Path.of("build", "services-comparison");
+
+    private final Map<String, JsonArray> cache = new HashMap<>();
+
+    private JsonArray load(String libraryName) {
+        return cache.computeIfAbsent(libraryName, lib -> {
+            String[] parts = lib.split("/");
+            Optional<Package> pkgOpt = PackageUtil.getModulePackage(
+                    PackageUtil.getSampleProject(), parts[0], parts[1]);
+            if (pkgOpt.isEmpty()) {
+                throw new SkipException("Could not resolve package for " + lib);
+            }
+            Package pkg = pkgOpt.get();
+            SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
+                    .getSemanticModel(pkg.getDefaultModule().moduleId());
+            JsonArray services = ServiceLoader.loadAllServices(lib, pkg, semanticModel);
+            dump(lib, services);
+            return services;
+        });
+    }
+
+    private void dump(String libraryName, JsonArray services) {
+        try {
+            Path dir = OUTPUT_DIR.resolve(libraryName.replace('/', '_').replace('.', '_') + "_schema");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve("services.json"), PRETTY.toJson(services));
+        } catch (IOException e) {
+            // Dumps are for manual review only; never fail the test on IO.
+        }
+    }
+
+    // ---- helpers -------------------------------------------------------------------
+
+    private static JsonObject serviceNamed(JsonArray services, String name) {
+        for (JsonElement element : services) {
+            JsonObject svc = element.getAsJsonObject();
+            if (svc.has("name") && name.equals(svc.get("name").getAsString())) {
+                return svc;
+            }
+        }
+        Assert.fail("No service named " + name + " in " + services);
+        return null;
+    }
+
+    private static JsonObject methodNamed(JsonObject service, String name) {
+        for (JsonElement element : service.getAsJsonArray("methods")) {
+            JsonObject method = element.getAsJsonObject();
+            if (name.equals(method.get("name").getAsString())) {
+                return method;
+            }
+        }
+        Assert.fail("No method named " + name + " in " + service);
+        return null;
+    }
+
+    private static List<String> methodNames(JsonObject service) {
+        List<String> names = new ArrayList<>();
+        if (!service.has("methods")) {
+            return names;
+        }
+        service.getAsJsonArray("methods").forEach(m ->
+                names.add(m.getAsJsonObject().get("name").getAsString()));
+        return names;
+    }
+
+    private static JsonObject paramNamed(JsonObject method, String name) {
+        for (JsonElement element : method.getAsJsonArray("parameters")) {
+            JsonObject param = element.getAsJsonObject();
+            if (name.equals(param.get("name").getAsString())) {
+                return param;
+            }
+        }
+        Assert.fail("No parameter named " + name + " in " + method);
+        return null;
+    }
+
+    private static List<String> paramNames(JsonObject method) {
+        List<String> names = new ArrayList<>();
+        if (!method.has("parameters")) {
+            return names;
+        }
+        method.getAsJsonArray("parameters").forEach(p ->
+                names.add(p.getAsJsonObject().get("name").getAsString()));
+        return names;
+    }
+
+    private static void assertInternalLink(JsonObject typed, String recordName) {
+        JsonObject type = typed.getAsJsonObject("type");
+        Assert.assertTrue(type.has("links"), "Expected links on type " + type);
+        JsonObject link = type.getAsJsonArray("links").get(0).getAsJsonObject();
+        Assert.assertEquals(link.get("category").getAsString(), "internal");
+        Assert.assertEquals(link.get("recordName").getAsString(), recordName);
+    }
+
+    // ---- kafka -----------------------------------------------------------------------
+
+    @Test
+    public void testKafkaSchemaServices() {
+        JsonArray services = load("ballerinax/kafka");
+        Assert.assertEquals(services.size(), 1);
+
+        JsonObject service = serviceNamed(services, "Service");
+        Assert.assertEquals(service.get("type").getAsString(), "fixed");
+
+        JsonObject listener = service.getAsJsonObject("listener");
+        Assert.assertEquals(listener.get("name").getAsString(), "kafka:Listener");
+        List<String> initParams = new ArrayList<>();
+        listener.getAsJsonArray("parameters").forEach(p ->
+                initParams.add(p.getAsJsonObject().get("name").getAsString()));
+        Assert.assertTrue(initParams.contains("bootstrapServers"),
+                "Expected bootstrapServers in " + initParams);
+        Assert.assertTrue(initParams.contains("config"), "Expected config in " + initParams);
+        JsonObject bootstrapServers = null;
+        for (JsonElement p : listener.getAsJsonArray("parameters")) {
+            if ("bootstrapServers".equals(p.getAsJsonObject().get("name").getAsString())) {
+                bootstrapServers = p.getAsJsonObject();
+            }
+        }
+        Assert.assertNotNull(bootstrapServers);
+        Assert.assertFalse(bootstrapServers.get("description").getAsString().isEmpty(),
+                "Listener param docs must come from the init method's parameterMap");
+
+        Assert.assertEquals(methodNames(service), List.of("onConsumerRecord", "onError"));
+
+        JsonObject onConsumerRecord = methodNamed(service, "onConsumerRecord");
+        Assert.assertEquals(onConsumerRecord.get("type").getAsString(), "remote");
+        Assert.assertFalse(onConsumerRecord.get("description").getAsString().isEmpty(),
+                "Marker-type handler docs must come from the bundled UI model");
+        Assert.assertFalse(onConsumerRecord.has("optional"),
+                "Function-level optional must never be emitted");
+
+        // Param names come from the UI model (metadata carries none); first union member is the type.
+        Assert.assertEquals(paramNames(onConsumerRecord), List.of("records", "caller"));
+        JsonObject records = paramNamed(onConsumerRecord, "records");
+        Assert.assertEquals(records.getAsJsonObject("type").get("name").getAsString(),
+                "AnydataConsumerRecord[]");
+        assertInternalLink(records, "AnydataConsumerRecord[]");
+        JsonObject caller = paramNamed(onConsumerRecord, "caller");
+        Assert.assertTrue(caller.get("optional").getAsBoolean(),
+                "presence: optional must map to the param optional flag");
+
+        Assert.assertEquals(onConsumerRecord.getAsJsonObject("return")
+                .getAsJsonObject("type").get("name").getAsString(), "error?");
+
+        JsonObject onError = methodNamed(service, "onError");
+        Assert.assertEquals(paramNames(onError), List.of("kafkaError"));
+        Assert.assertEquals(paramNamed(onError, "kafkaError").getAsJsonObject("type")
+                .get("name").getAsString(), "Error");
+    }
+
+    // ---- rabbitmq ----------------------------------------------------------------------
+
+    @Test
+    public void testRabbitmqSchemaServices() {
+        JsonArray services = load("ballerinax/rabbitmq");
+        JsonObject service = serviceNamed(services, "Service");
+
+        Assert.assertEquals(methodNames(service), List.of("onMessage", "onRequest", "onError"));
+
+        JsonObject onRequest = methodNamed(service, "onRequest");
+        Assert.assertEquals(paramNames(onRequest), List.of("message", "caller"));
+        Assert.assertEquals(onRequest.getAsJsonObject("return")
+                .getAsJsonObject("type").get("name").getAsString(), "anydata|error");
+        Assert.assertFalse(onRequest.get("description").getAsString().isEmpty());
+
+        JsonObject onError = methodNamed(service, "onError");
+        Assert.assertEquals(paramNames(onError), List.of("message", "rabbitmqError"));
+    }
+
+    // ---- ftp ---------------------------------------------------------------------------
+
+    @Test
+    public void testFtpSchemaServices() {
+        JsonArray services = load("ballerina/ftp");
+        JsonObject service = serviceNamed(services, "Service");
+
+        // The metadata's handler vocabulary, including onFileChange (absent from the old index).
+        Assert.assertEquals(methodNames(service), List.of("onFileCsv", "onFileJson", "onFileXml",
+                "onFileText", "onFile", "onFileDelete", "onError", "onFileChange"));
+
+        // Metadata structure wins: onFileJson has no caller; names come from the metadata file.
+        JsonObject onFileJson = methodNamed(service, "onFileJson");
+        Assert.assertEquals(paramNames(onFileJson), List.of("content", "fileInfo"));
+        Assert.assertEquals(paramNamed(onFileJson, "content").getAsJsonObject("type")
+                .get("name").getAsString(), "json");
+        assertInternalLink(paramNamed(onFileJson, "fileInfo"), "FileInfo");
+
+        // First union member is the codegen default for the CSV content type.
+        JsonObject onFileCsv = methodNamed(service, "onFileCsv");
+        Assert.assertEquals(paramNamed(onFileCsv, "contents").getAsJsonObject("type")
+                .get("name").getAsString(), "string[][]");
+        Assert.assertTrue(paramNamed(onFileCsv, "caller").get("optional").getAsBoolean());
+    }
+
+    // ---- mssql (metadata keyed as mssql.cdc) ---------------------------------------------
+
+    @Test
+    public void testMssqlSchemaServices() {
+        JsonArray services = load("ballerinax/mssql");
+        JsonObject service = serviceNamed(services, "Service");
+
+        JsonObject listener = service.getAsJsonObject("listener");
+        Assert.assertEquals(listener.get("name").getAsString(), "mssql:CdcListener",
+                "The metadata-declared CdcListener must validate against the resolved package");
+
+        Assert.assertEquals(methodNames(service),
+                List.of("onRead", "onCreate", "onUpdate", "onDelete", "onError"));
+
+        JsonObject onUpdate = methodNamed(service, "onUpdate");
+        Assert.assertEquals(paramNames(onUpdate), List.of("beforeEntry", "afterEntry", "tableName"));
+        Assert.assertEquals(paramNamed(onUpdate, "beforeEntry").getAsJsonObject("type")
+                .get("name").getAsString(), "record {}");
+
+        // Cross-module TypeRef: prefixed with the foreign alias and never linked.
+        JsonObject onError = methodNamed(service, "onError");
+        JsonObject cdcError = paramNamed(onError, "cdcError");
+        Assert.assertEquals(cdcError.getAsJsonObject("type").get("name").getAsString(), "cdc:Error");
+        Assert.assertFalse(cdcError.getAsJsonObject("type").has("links"));
+
+        // Metadata declares returns: () — a nil return carries no information and must be omitted.
+        Assert.assertFalse(onError.has("return"));
+    }
+
+    // ---- mcp ---------------------------------------------------------------------------
+
+    @Test
+    public void testMcpSchemaServices() {
+        JsonArray services = load("ballerina/mcp");
+
+        List<String> names = new ArrayList<>();
+        services.forEach(s -> names.add(s.getAsJsonObject().get("name").getAsString()));
+        Assert.assertTrue(names.contains("Service"), "Expected Service in " + names);
+        Assert.assertFalse(names.contains("StreamableHttpService"),
+                "Service types absent from the resolved package version must be skipped: " + names);
+        Assert.assertFalse(names.contains("StreamableHttpAdvancedService"),
+                "Service types absent from the resolved package version must be skipped: " + names);
+
+        for (JsonElement element : services) {
+            JsonObject svc = element.getAsJsonObject();
+            Assert.assertEquals(svc.getAsJsonObject("listener").get("name").getAsString(), "mcp:Listener",
+                    "The metadata's unreleased StreamableHttpListener must fall back to the real class");
+            if ("Service".equals(svc.get("name").getAsString())) {
+                Assert.assertFalse(svc.has("methods"),
+                        "Wildcard (addMode: many) handlers must not surface as literal methods");
+            }
+            if ("AdvancedService".equals(svc.get("name").getAsString())) {
+                Assert.assertEquals(methodNames(svc), List.of("onListTools", "onCallTool"),
+                        "Concrete service types must introspect their declared methods");
+            }
+        }
+    }
+
+    // ---- trigger.github ---------------------------------------------------------------
+
+    @Test
+    public void testTriggerGithubSchemaServices() {
+        JsonArray services = load("ballerinax/trigger.github");
+        Assert.assertEquals(services.size(), 10);
+
+        JsonObject issues = serviceNamed(services, "IssuesService");
+        Assert.assertEquals(issues.getAsJsonObject("listener").get("name").getAsString(),
+                "github:Listener");
+        Assert.assertTrue(methodNames(issues).contains("onOpened"));
+
+        JsonObject onOpened = methodNamed(issues, "onOpened");
+        Assert.assertEquals(onOpened.get("type").getAsString(), "remote");
+        // The library declares no doc comments; descriptions are filled from the bundled UI model —
+        // a strict improvement over the old index, which served github methods without any.
+        Assert.assertTrue(onOpened.has("description"),
+                "Concrete methods without doc comments must fall back to UI-model docs");
+        Assert.assertEquals(paramNames(onOpened), List.of("payload"));
+        JsonObject payload = paramNamed(onOpened, "payload");
+        Assert.assertEquals(payload.getAsJsonObject("type").get("name").getAsString(), "IssuesEvent");
+        assertInternalLink(payload, "IssuesEvent");
+        Assert.assertEquals(onOpened.getAsJsonObject("return")
+                .getAsJsonObject("type").get("name").getAsString(), "error?");
+    }
+
+    @Test
+    public void testMcpServiceModelRoundTrip() {
+        // CopilotLibraryManager Gson-round-trips every service through the Service model class.
+        // mcp's marker Service legitimately has no methods: the model keeps methods == null and the
+        // re-serialized JSON omits the key — the shape the TS renderer's `?? []` guards handle.
+        JsonArray services = load("ballerina/mcp");
+        Gson gson = new Gson();
+        for (JsonElement element : services) {
+            io.ballerina.flowmodelgenerator.core.copilot.model.Service service =
+                    gson.fromJson(element, io.ballerina.flowmodelgenerator.core.copilot.model.Service.class);
+            JsonObject reSerialized = gson.toJsonTree(service).getAsJsonObject();
+            if ("Service".equals(service.getName())) {
+                Assert.assertNull(service.getMethods());
+                Assert.assertFalse(reSerialized.has("methods"),
+                        "A method-less fixed service must omit the methods key after the round trip");
+            }
+            if ("AdvancedService".equals(service.getName())) {
+                Assert.assertEquals(service.getMethods().size(), 2);
+                Assert.assertTrue(reSerialized.has("methods"));
+            }
+            Assert.assertEquals(reSerialized.getAsJsonObject("listener").get("name").getAsString(),
+                    "mcp:Listener");
+        }
+    }
+
+    // ---- fallback & pinning --------------------------------------------------------------
+
+    @Test
+    public void testNonSchemaDrivenLibraryStaysOnServiceIndex() {
+        // asb is not schema-driven: the overload must produce exactly the SQLite-path output.
+        String library = "ballerinax/asb";
+        JsonArray viaOverload = load(library);
+        JsonArray viaIndex = ServiceLoader.loadAllServices(library);
+        Assert.assertEquals(viaOverload, viaIndex);
+    }
+
+    @Test
+    public void testTriggerSourcePropertyPinsToIndex() {
+        System.setProperty("ballerina.copilot.triggerSource", "index");
+        try {
+            String library = "ballerinax/kafka";
+            // Bypass the cache: this assertion needs the pinned-property behavior.
+            String[] parts = library.split("/");
+            Optional<Package> pkgOpt = PackageUtil.getModulePackage(
+                    PackageUtil.getSampleProject(), parts[0], parts[1]);
+            if (pkgOpt.isEmpty()) {
+                throw new SkipException("Could not resolve package for " + library);
+            }
+            Package pkg = pkgOpt.get();
+            SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
+                    .getSemanticModel(pkg.getDefaultModule().moduleId());
+            JsonArray pinned = ServiceLoader.loadAllServices(library, pkg, semanticModel);
+            JsonArray viaIndex = ServiceLoader.loadAllServices(library);
+            Assert.assertEquals(pinned, viaIndex,
+                    "triggerSource=index must force the SQLite path even for schema-driven libraries");
+        } finally {
+            System.clearProperty("ballerina.copilot.triggerSource");
+        }
+    }
+}
