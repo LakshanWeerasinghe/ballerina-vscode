@@ -28,9 +28,11 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 import io.ballerina.projects.Package;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 
@@ -79,7 +81,11 @@ final class TriggerSchemaServiceLoader {
             "ballerina/ftp", "ftp",
             "ballerina/mcp", "mcp",
             "ballerinax/mssql", "mssql.cdc",
-            "ballerinax/trigger.github", "trigger.github");
+            "ballerinax/trigger.github", "trigger.github",
+            // Net-new to the Copilot: these were never in the SQLite service-index.
+            "ballerina/smb", "smb",
+            "ballerina/websub", "websub",
+            "ballerinax/trigger.google.calendar", "trigger.google.calendar");
 
     private TriggerSchemaServiceLoader() {
         // Prevent instantiation
@@ -282,6 +288,14 @@ final class TriggerSchemaServiceLoader {
                     || TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(option.name())) {
                 continue;
             }
+            // Same validation philosophy as service types: a handler whose signature references a
+            // same-module type the resolved package does not declare (metadata authored against a
+            // different/future release) would render an uncompilable prompt — skip it.
+            if (referencesUndeclaredModuleType(option, declaresType)) {
+                LOGGER.warning("Skipping handler " + option.name() + " of " + typeName
+                        + ": its signature references a type the resolved package does not declare");
+                continue;
+            }
             Optional<TriggerUiDocs.FunctionDocs> functionDocs = uiDocs.functionDocs(typeName, option.name());
 
             JsonObject method = new JsonObject();
@@ -298,6 +312,12 @@ final class TriggerSchemaServiceLoader {
             List<TriggerMetadataModel.ServiceType.Param> optionParams = option.params();
             if (optionParams != null && !optionParams.isEmpty()) {
                 JsonArray params = new JsonArray();
+                Set<String> usedNames = new HashSet<>();
+                for (TriggerMetadataModel.ServiceType.Param p : optionParams) {
+                    if (p != null && p.name() != null) {
+                        usedNames.add(p.name());
+                    }
+                }
                 for (int i = 0; i < optionParams.size(); i++) {
                     TriggerMetadataModel.ServiceType.Param param = optionParams.get(i);
                     // A repeatable (addMode: "many") slot is an open-ended, user-named group — a
@@ -314,8 +334,9 @@ final class TriggerSchemaServiceLoader {
                     String name = param.name() != null ? param.name()
                             : paramDocs.map(TriggerUiDocs.ParamDocs::name).orElse(null);
                     if (name == null) {
-                        name = "param" + (i + 1);
+                        name = deriveParamName(firstTypeRef(param.type()), declaresType, i, usedNames);
                     }
+                    usedNames.add(name);
                     String paramDescription = paramDocs.map(TriggerUiDocs.ParamDocs::description).orElse("");
                     String typeSignature = renderTypeRef(firstTypeRef(param.type()), packageName,
                             declaresType);
@@ -415,6 +436,75 @@ final class TriggerSchemaServiceLoader {
             joined.append(renderTypeRef(returns.get(i), packageName, declaresType));
         }
         return joined.toString();
+    }
+
+    /**
+     * Ballerina reserved/contextual words a derived parameter name must never be — the rendered
+     * prompt would not be valid source (e.g. a type named {@code Error} deriving {@code error}).
+     */
+    private static final Set<String> RESERVED_WORDS = Set.of(
+            "error", "service", "client", "listener", "type", "function", "record", "object", "table",
+            "map", "stream", "string", "int", "float", "decimal", "boolean", "byte", "json", "xml",
+            "anydata", "any", "never", "readonly", "distinct", "worker", "fork", "transaction", "retry",
+            "new", "isolated", "final", "const", "var", "if", "else", "while", "foreach", "in", "return",
+            "returns", "break", "continue", "fail", "panic", "trap", "from", "where", "select", "let",
+            "on", "do", "is", "null", "true", "false", "import", "public", "private", "remote",
+            "resource", "abstract", "class", "enum", "annotation", "external", "check", "checkpanic",
+            "future", "typedesc", "handle", "match", "source", "field", "start", "wait", "flush",
+            "lock", "commit", "rollback", "version", "key", "limit", "order", "group", "join");
+
+    /**
+     * Fallback name for a parameter slot the metadata deliberately leaves unnamed and no UI model
+     * documents (e.g. websub's handlers): the lower-camel-cased declared type name
+     * ({@code SubscriptionVerification} → {@code subscriptionVerification}) — idiomatic, compilable
+     * Ballerina — or a positional {@code paramN} when the type is not a module-declared named type,
+     * the derived name is a reserved word, or it would collide with a sibling parameter.
+     */
+    static String deriveParamName(TypeRef ref, Predicate<String> declaresType, int index,
+                                  Set<String> usedNames) {
+        if (ref != null && ref.name() != null && ref.packageInfo() == null) {
+            String base = baseIdentifier(ref.name());
+            if (base != null && base.equals(ref.name()) && declaresType.test(base)) {
+                String derived = Character.toLowerCase(base.charAt(0)) + base.substring(1);
+                if (!RESERVED_WORDS.contains(derived) && !usedNames.contains(derived)) {
+                    return derived;
+                }
+            }
+        }
+        return "param" + (index + 1);
+    }
+
+    /**
+     * Whether the handler's emitted signature (first type member of each parameter, every return
+     * member) references a bare, capitalized — i.e. user-defined-looking — same-module type the
+     * resolved package does not declare.
+     */
+    static boolean referencesUndeclaredModuleType(TriggerMetadataModel.ServiceType.HandlerOption option,
+                                                  Predicate<String> declaresType) {
+        if (option.params() != null) {
+            for (TriggerMetadataModel.ServiceType.Param param : option.params()) {
+                if (param != null && isUndeclaredBareUserType(firstTypeRef(param.type()), declaresType)) {
+                    return true;
+                }
+            }
+        }
+        if (option.returns() != null) {
+            for (TypeRef ref : option.returns()) {
+                if (isUndeclaredBareUserType(ref, declaresType)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isUndeclaredBareUserType(TypeRef ref, Predicate<String> declaresType) {
+        if (ref == null || ref.name() == null || ref.packageInfo() != null) {
+            return false;
+        }
+        String base = baseIdentifier(ref.name());
+        return base != null && !base.isEmpty() && Character.isUpperCase(base.charAt(0))
+                && !declaresType.test(base);
     }
 
     /** Leading identifier of a type name: {@code "AnydataConsumerRecord[]"} → {@code "AnydataConsumerRecord"}. */

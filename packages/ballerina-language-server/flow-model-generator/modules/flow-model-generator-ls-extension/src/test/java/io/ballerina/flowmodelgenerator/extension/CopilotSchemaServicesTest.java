@@ -359,6 +359,135 @@ public class CopilotSchemaServicesTest {
         }
     }
 
+    // ---- net-new libraries (never in the SQLite index) -----------------------------------
+
+    @Test
+    public void testSmbSchemaServices() {
+        JsonArray services = load("ballerina/smb");
+        JsonObject service = serviceNamed(services, "Service");
+
+        JsonObject listener = service.getAsJsonObject("listener");
+        Assert.assertEquals(listener.get("name").getAsString(), "smb:Listener");
+        Assert.assertTrue(listener.getAsJsonArray("parameters").size() > 0,
+                "Listener init params must be introspected");
+
+        Assert.assertEquals(methodNames(service), List.of("onFileChange", "onFileText", "onFileJson",
+                "onFileXml", "onFileCsv", "onFile"));
+
+        JsonObject onFileJson = methodNamed(service, "onFileJson");
+        Assert.assertEquals(paramNames(onFileJson), List.of("content", "caller", "fileInfo"));
+        Assert.assertTrue(paramNamed(onFileJson, "caller").get("optional").getAsBoolean());
+        assertInternalLink(paramNamed(onFileJson, "fileInfo"), "FileInfo");
+        // No UI model and no doc comments exist for smb's marker handlers — no fabricated text.
+        Assert.assertFalse(onFileJson.has("description"));
+    }
+
+    @Test
+    public void testWebsubSchemaServices() {
+        JsonArray services = load("ballerina/websub");
+        JsonObject service = serviceNamed(services, "SubscriberService");
+
+        Assert.assertEquals(service.getAsJsonObject("listener").get("name").getAsString(),
+                "websub:Listener");
+        // onHubError is skipped: the metadata declares param type "HubError", which websub 2.15.0
+        // does not declare (the compiler plugin expects InternalHubError) — emitting it would
+        // render an uncompilable prompt. Reported upstream; it reappears once the metadata is fixed.
+        Assert.assertEquals(methodNames(service), List.of("onEventNotification",
+                "onSubscriptionVerification", "onUnsubscriptionVerification",
+                "onSubscriptionValidationDenied"));
+
+        // The metadata deliberately leaves these params unnamed and no UI model exists: names are
+        // derived from the declared type — idiomatic, compilable Ballerina.
+        JsonObject onEventNotification = methodNamed(service, "onEventNotification");
+        Assert.assertEquals(paramNames(onEventNotification), List.of("contentDistributionMessage"));
+        assertInternalLink(paramNamed(onEventNotification, "contentDistributionMessage"),
+                "ContentDistributionMessage");
+
+        JsonObject onSubscriptionVerification = methodNamed(service, "onSubscriptionVerification");
+        Assert.assertEquals(onSubscriptionVerification.getAsJsonObject("return")
+                        .getAsJsonObject("type").get("name").getAsString(),
+                "SubscriptionVerificationSuccess|SubscriptionVerificationError");
+    }
+
+    @Test
+    public void testGoogleCalendarSchemaServices() {
+        JsonArray services = load("ballerinax/trigger.google.calendar");
+        JsonObject service = serviceNamed(services, "CalendarService");
+
+        Assert.assertEquals(service.getAsJsonObject("listener").get("name").getAsString(),
+                "calendar:Listener");
+        Assert.assertEquals(methodNames(service),
+                List.of("onNewEvent", "onEventUpdate", "onEventDelete"));
+
+        JsonObject onNewEvent = methodNamed(service, "onNewEvent");
+        Assert.assertEquals(onNewEvent.get("type").getAsString(), "remote");
+        Assert.assertEquals(paramNames(onNewEvent), List.of("payload"));
+        assertInternalLink(paramNamed(onNewEvent, "payload"), "Event");
+        Assert.assertEquals(onNewEvent.getAsJsonObject("return")
+                .getAsJsonObject("type").get("name").getAsString(), "error?");
+    }
+
+    @Test
+    public void testNetNewLibraryAnnotationsIntrospected() {
+        // These libraries have no SQLite Annotation rows; the loader introspects the module instead.
+        JsonArray smbAnnotations = loadAnnotations("ballerina/smb");
+        Assert.assertEquals(smbAnnotations.size(), 2, "smb declares ServiceConfig + FunctionConfig");
+        JsonObject serviceConfig = annotationNamed(smbAnnotations, "ServiceConfig");
+        Assert.assertEquals(serviceConfig.get("attachmentPoint").getAsString(), "SERVICE");
+        Assert.assertFalse(serviceConfig.get("description").getAsString().isEmpty(),
+                "Introspected annotations carry the library's doc comment");
+        assertInternalLink(mapTypeConstraint(serviceConfig), "SmbServiceConfig");
+        JsonObject functionConfig = annotationNamed(smbAnnotations, "FunctionConfig");
+        Assert.assertEquals(functionConfig.get("attachmentPoint").getAsString(), "OBJECT_METHOD",
+                "A plain 'on function' attach point must surface as OBJECT_METHOD");
+
+        JsonArray websubAnnotations = loadAnnotations("ballerina/websub");
+        JsonObject subscriberConfig = annotationNamed(websubAnnotations, "SubscriberServiceConfig");
+        Assert.assertEquals(subscriberConfig.get("attachmentPoint").getAsString(), "SERVICE");
+
+        // The introspection fallback never overrides curated index rows nor fires for
+        // schema-driven libraries whose module declares no SERVICE/OBJECT_METHOD annotations.
+        Assert.assertTrue(loadAnnotations("ballerinax/kafka").isEmpty(),
+                "kafka's Payload annotation (on parameter) must stay filtered out");
+        JsonArray ftpAnnotations = loadAnnotations("ballerina/ftp");
+        Assert.assertEquals(ftpAnnotations.size(), 2,
+                "ftp's curated index rows must win over introspection");
+        Assert.assertTrue(annotationNamed(ftpAnnotations, "ServiceConfig").has("displayName"),
+                "index-sourced annotations keep their curated displayName");
+    }
+
+    private JsonArray loadAnnotations(String libraryName) {
+        String[] parts = libraryName.split("/");
+        Optional<Package> pkgOpt = PackageUtil.getModulePackage(
+                PackageUtil.getSampleProject(), parts[0], parts[1]);
+        if (pkgOpt.isEmpty()) {
+            throw new SkipException("Could not resolve package for " + libraryName);
+        }
+        Package pkg = pkgOpt.get();
+        SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
+                .getSemanticModel(pkg.getDefaultModule().moduleId());
+        return io.ballerina.flowmodelgenerator.core.copilot.service.AnnotationLoader
+                .loadAnnotations(libraryName, semanticModel);
+    }
+
+    private static JsonObject annotationNamed(JsonArray annotations, String name) {
+        for (JsonElement element : annotations) {
+            JsonObject annotation = element.getAsJsonObject();
+            if (name.equals(annotation.get("name").getAsString())) {
+                return annotation;
+            }
+        }
+        Assert.fail("No annotation named " + name + " in " + annotations);
+        return null;
+    }
+
+    private static JsonObject mapTypeConstraint(JsonObject annotation) {
+        // Adapts an annotation's typeConstraint to the shape assertInternalLink expects.
+        JsonObject wrapper = new JsonObject();
+        wrapper.add("type", annotation.getAsJsonObject("typeConstraint"));
+        return wrapper;
+    }
+
     // ---- fallback & pinning --------------------------------------------------------------
 
     @Test
