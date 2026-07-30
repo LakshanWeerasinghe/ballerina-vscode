@@ -77,6 +77,16 @@
       "tables"
     ]
   },
+  "oracledb": {
+    "displayName": "CDC Oracle Service",
+    "icon": {
+      "glyph": "bi-oracledb",
+      "kind": "event"
+    },
+    "labelFields": [
+      "tables"
+    ]
+  },
   "postgresql": {
     "displayName": "CDC PostgreSQL Service",
     "icon": {
