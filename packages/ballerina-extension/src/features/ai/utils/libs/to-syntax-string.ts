@@ -437,10 +437,12 @@ function renderFixedService(service: FixedService): string {
         : "";
     lines.push(`service ${serviceTypePrefix}on new ${service.listener.name}(${listenerParams}) {`);
 
-    for (const method of service.methods) {
+    for (const method of service.methods ?? []) {
         const desc = method.description ? `    # ${method.description}\n` : "";
         const dep = method.isDeprecated ? "    @deprecated\n" : "";
-        const params = method.parameters.map((p) => renderParamDef(p as ParameterDef & { name?: string })).join(", ");
+        const params = (method.parameters ?? [])
+            .map((p) => renderParamDef(p as ParameterDef & { name?: string }))
+            .join(", ");
         const returnStr = method.return?.type ? ` returns ${method.return.type.name}` : "";
         const optionalComment = method.optional ? " // optional" : "";
 

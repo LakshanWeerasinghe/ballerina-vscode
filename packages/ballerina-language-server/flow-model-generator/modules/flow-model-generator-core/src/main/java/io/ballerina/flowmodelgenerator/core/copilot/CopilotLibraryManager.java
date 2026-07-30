@@ -156,7 +156,7 @@ public class CopilotLibraryManager {
             library.setFunctions(symbolResult.getFunctions());
             library.setTypeDefs(symbolResult.getTypeDefs());
 
-            JsonArray servicesJson = ServiceLoader.loadAllServices(libraryName);
+            JsonArray servicesJson = ServiceLoader.loadAllServices(libraryName, pkg, semanticModel);
             List<Symbol> moduleSymbols = semanticModel.moduleSymbols();
             CopilotDeprecationEnricher.enrich(servicesJson, moduleSymbols);
             CopilotListenerNameEnricher.enrich(servicesJson, moduleSymbols);

@@ -367,7 +367,7 @@ function filteredServicesForRequest(services?: Service[]): MinifiedService[] | u
             result.name = svc.name;
         }
         if (svc.type === "fixed") {
-            const methodNames = (svc as FixedService).methods.map((m) => m.name);
+            const methodNames = ((svc as FixedService).methods ?? []).map((m) => m.name);
             if (methodNames.length > 0) {
                 result.methods = methodNames;
             }
@@ -615,8 +615,8 @@ function getOwnRecordRefs(functions: AbstractFunction[], allTypeDefs: TypeDefini
             }
             if (service.type === "fixed") {
                 const fixedService = service as FixedService;
-                for (const method of fixedService.methods) {
-                    for (const param of method.parameters) {
+                for (const method of fixedService.methods ?? []) {
+                    for (const param of method.parameters ?? []) {
                         addInternalRecord(param.type, ownRecords, allTypeDefs);
                     }
                     if (method.return?.type) {
@@ -780,8 +780,8 @@ function getExternalTypeDefRefs(
             }
             if (service.type === "fixed") {
                 const fixedService = service as FixedService;
-                for (const method of fixedService.methods) {
-                    for (const param of method.parameters) {
+                for (const method of fixedService.methods ?? []) {
+                    for (const param of method.parameters ?? []) {
                         addExternalRecord(param.type, externalRecords);
                     }
                     if (method.return?.type) {

@@ -168,7 +168,8 @@ export interface GenericService extends Service {
 
 export interface FixedService extends Service {
     type: "fixed";
-    methods: ServiceRemoteFunction[];
+    // Absent for fixed services whose service type declares no methods (e.g. mcp's marker Service).
+    methods?: ServiceRemoteFunction[];
 }
 
 export interface Library {
