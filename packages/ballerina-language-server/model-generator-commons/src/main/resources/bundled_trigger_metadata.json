@@ -105,6 +105,13 @@
       "kind": "event"
     }
   },
+  "sap.jco": {
+    "displayName": "SAP JCo Event Integration",
+    "icon": {
+      "glyph": "bi-server",
+      "kind": "event"
+    }
+  },
   "solace": {
     "displayName": "Solace Event Integration",
     "icon": {

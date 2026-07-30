@@ -733,6 +733,11 @@ public final class SchemaDrivenSourceGenerator {
                     }
                 }
                 if (branch != null) {
+                    Codedata branchCodedata = branch.getCodedata();
+                    if (branchCodedata != null && branchCodedata.getCastType() != null
+                            && branchCodedata.getPosition() != null) {
+                        args.addCast(branchCodedata.getPosition(), branchCodedata.getCastType());
+                    }
                     collect(branch.getProperties(), args);
                 }
                 continue;
@@ -1104,6 +1109,7 @@ public final class SchemaDrivenSourceGenerator {
     private static final class ListenerArgs {
         private final TreeMap<Integer, String> byPosition = new TreeMap<>();
         private final TreeMap<Integer, Map<String, Object>> configFieldsByPosition = new TreeMap<>();
+        private final Map<Integer, String> castByPosition = new LinkedHashMap<>();
         private final List<String> noPosition = new ArrayList<>();
         private final List<String> included = new ArrayList<>();
         private final Map<String, Object> looseConfig = new LinkedHashMap<>();
@@ -1123,6 +1129,13 @@ public final class SchemaDrivenSourceGenerator {
                 byPosition.put(position, rendered);
             } else {
                 noPosition.add(rendered);
+            }
+        }
+
+        /** Records a cast to apply to whatever value ends up at this positional slot (see field doc). */
+        private void addCast(Integer position, String castType) {
+            if (position != null && castType != null && !castType.isBlank()) {
+                castByPosition.put(position, castType);
             }
         }
 
@@ -1191,6 +1204,10 @@ public final class SchemaDrivenSourceGenerator {
             TreeMap<Integer, String> positional = new TreeMap<>(byPosition);
             for (Map.Entry<Integer, Map<String, Object>> entry : configFieldsByPosition.entrySet()) {
                 positional.put(entry.getKey(), renderIncludedValue(entry.getValue()));
+            }
+            for (Map.Entry<Integer, String> cast : castByPosition.entrySet()) {
+                positional.computeIfPresent(cast.getKey(), (position, rendered) -> "<" + cast.getValue() + ">"
+                        + rendered);
             }
             List<String> args = new ArrayList<>(positional.values());
             args.addAll(noPosition);
