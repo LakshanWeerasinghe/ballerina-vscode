@@ -22,6 +22,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.api.symbols.ClassSymbol;
+import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.trigger.LibraryMetadataReader;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
@@ -38,7 +39,7 @@ import java.util.logging.Logger;
 
 /**
  * Schema-driven Copilot service loader: builds the Copilot's per-library {@code services} JSON from
- * three read-only sources instead of the SQLite service-index —
+ * exactly two read-only sources instead of the SQLite service-index —
  * <ol>
  *   <li><b>{@code trigger-metadata.json}</b> (the LS-bundled authoring metadata, resolved through
  *       {@link LibraryMetadataReader#getPackagedTriggerMetadataModel}): the structural truth — which
@@ -46,21 +47,37 @@ import java.util.logging.Logger;
  *       and return types;</li>
  *   <li><b>the semantic model</b> of the same resolved package the manager already compiles:
  *       listener class + init parameters (docs via the init method's {@code parameterMap()},
- *       declared defaults via the syntax tree), the declared methods of concrete service types, and
- *       validation that every metadata claim (listener class, service-type names) actually exists in
- *       the resolved package version;</li>
- *   <li><b>the bundled trigger UI models</b> ({@link TriggerUiDocs}): handler and parameter
- *       descriptions/names for marker service types, whose methods are never declared in the library
- *       source (compiler-plugin contracts) and therefore have no semantic-model documentation.</li>
+ *       declared defaults via the syntax tree), the declared methods <i>and doc comments</i> of
+ *       concrete service types, and validation that every metadata claim (listener class,
+ *       service-type names, handler signature types) actually exists in the resolved package
+ *       version.</li>
  * </ol>
+ * The trigger UI models ({@code trigger-models/*.json}) are deliberately <b>not</b> consumed: the
+ * authoring metadata plus the library itself are the single source of truth for the Copilot.
+ *
+ * <p><b>FLAG — documentation gaps this leaves.</b> A marker service type (kafka/rabbitmq/ftp/smb/
+ * websub/cdc {@code Service}) declares no methods in the library source — its handler contract is
+ * enforced by a compiler plugin at user-code compile time — so there is no symbol carrying a doc
+ * comment for a handler or its parameters, and {@code trigger-metadata.json} does not model
+ * descriptions. Consequently <b>handler and handler-parameter descriptions are unavailable for
+ * marker service types</b> and are simply omitted (never fabricated). Concrete service types are
+ * unaffected: their declared methods' doc comments are read from the semantic model. Closing this
+ * gap requires either optional {@code description} fields in the authoring schema or doc comments on
+ * declared handler contracts in the connectors.
+ *
+ * <p><b>FLAG — handler parameter names are generated.</b> A handler parameter's name is chosen by
+ * whoever writes the service, so the authoring schema intentionally omits it for such slots. Where
+ * the metadata does state a name it always wins; otherwise a name is synthesized by
+ * {@link HandlerParamNameGenerator} (handler parameters only — never listener init params, concrete
+ * methods, client methods or type fields, all of which carry declared names).
  *
  * <p>Only libraries in {@link #SCHEMA_DRIVEN_LIBRARIES} are served here; everything else stays on
  * {@link ServiceIndexLoader}. Output shape is exactly the Copilot service contract
  * ({@code type/name/listener/methods}), so downstream enrichers, the generic-services merge, and the
  * TS prompt renderer are untouched. Function-level {@code optional} is deliberately never emitted
- * (matching today's output), and metadata constructs with no Copilot counterpart
- * ({@code dataBindingRules}, {@code rules}, {@code identifier}, wildcard {@code "*"} handlers) are
- * ignored.
+ * (matching the previous output), and metadata constructs with no Copilot counterpart
+ * ({@code dataBindingRules}, {@code rules}, {@code identifier}, wildcard {@code "*"} handlers,
+ * repeatable {@code addMode: "many"} slots) are ignored.
  *
  * @since 1.7.0
  */
@@ -126,8 +143,6 @@ final class TriggerSchemaServiceLoader {
             }
 
             TriggerSemanticFacts facts = new TriggerSemanticFacts(semanticModel, pkg);
-            TriggerUiDocs uiDocs = TriggerUiDocs.load(packageName,
-                    pkg.packageVersion() != null ? pkg.packageVersion().value().toString() : null);
 
             // An unresolvable listener class means the resolved package no longer matches the
             // metadata's world view — hard-fail so the caller falls back to the SQLite path instead
@@ -181,9 +196,9 @@ final class TriggerSchemaServiceLoader {
                 svc.add("listener", listenerJson);
 
                 JsonArray methods = concrete
-                        ? buildConcreteMethods(typeName, facts, uiDocs, packageName)
+                        ? buildConcreteMethods(typeName, facts, packageName)
                         : buildOptionMethods(handlers.options(), typeName, facts::declaresType,
-                                uiDocs, packageName);
+                                packageName);
                 if (!methods.isEmpty()) {
                     svc.add("methods", methods);
                 }
@@ -226,44 +241,34 @@ final class TriggerSchemaServiceLoader {
 
     // ---- methods ---------------------------------------------------------------
 
-    /** Concrete service types: methods and docs from the semantic model; UI docs fill blanks. */
+    /**
+     * Concrete service types: the type declares its own methods, so everything — names, parameter
+     * names, types, and doc comments — comes from the semantic model. Nothing is generated here.
+     *
+     * <p>FLAG: when the library ships no doc comments on a declared handler (e.g.
+     * {@code trigger.github}'s event methods), the {@code description} key is simply omitted; no
+     * text is invented.
+     */
     private static JsonArray buildConcreteMethods(String typeName, TriggerSemanticFacts facts,
-                                                  TriggerUiDocs uiDocs, String packageName) {
+                                                  String packageName) {
         JsonArray methods = new JsonArray();
-        Optional<io.ballerina.compiler.api.symbols.ObjectTypeSymbol> objectType =
-                facts.serviceObjectType(typeName);
+        Optional<ObjectTypeSymbol> objectType = facts.serviceObjectType(typeName);
         if (objectType.isEmpty()) {
             return methods;
         }
         for (TriggerSemanticFacts.DeclaredMethod declared : facts.declaredMethods(objectType.get())) {
-            Optional<TriggerUiDocs.FunctionDocs> functionDocs = uiDocs.functionDocs(typeName, declared.name());
-
             JsonObject method = new JsonObject();
             method.addProperty("name", declared.name());
             method.addProperty("type", declared.kind());
 
-            String description = declared.description();
-            if ((description == null || description.isEmpty()) && functionDocs.isPresent()) {
-                description = functionDocs.get().description();
-            }
-            if (description != null && !description.isEmpty()) {
-                method.addProperty("description", description);
+            if (declared.description() != null && !declared.description().isEmpty()) {
+                method.addProperty("description", declared.description());
             }
 
             if (!declared.params().isEmpty()) {
                 JsonArray params = new JsonArray();
-                for (int i = 0; i < declared.params().size(); i++) {
-                    TriggerSemanticFacts.DeclaredParam param = declared.params().get(i);
-                    String paramDescription = param.description();
-                    if (paramDescription == null || paramDescription.isEmpty()) {
-                        int index = i;
-                        paramDescription = functionDocs
-                                .flatMap(docs -> docs.paramNamed(param.name())
-                                        .or(() -> docs.paramAt(index)))
-                                .map(TriggerUiDocs.ParamDocs::description)
-                                .orElse("");
-                    }
-                    params.add(buildParam(param.name(), paramDescription, param.typeSignature(),
+                for (TriggerSemanticFacts.DeclaredParam param : declared.params()) {
+                    params.add(buildParam(param.name(), param.description(), param.typeSignature(),
                             param.optional(), packageName));
                 }
                 method.add("parameters", params);
@@ -275,10 +280,23 @@ final class TriggerSchemaServiceLoader {
         return methods;
     }
 
-    /** Marker service types: structure from metadata handler options; docs/names from UI models. */
+    /**
+     * Marker service types: the type declares no methods, so the handler vocabulary, parameter types,
+     * optionality and returns all come from the metadata document.
+     *
+     * <p>FLAG — two things the metadata document cannot supply here, by design:
+     * <ul>
+     *   <li><b>descriptions</b> — neither the document (no {@code description} field) nor the library
+     *       (no declared method to document) has them, so handler and parameter {@code description}
+     *       keys are omitted rather than fabricated;</li>
+     *   <li><b>parameter names</b> — a handler parameter's name is the service author's choice, so
+     *       the document states it only where a conventional name exists. Where it does, it wins;
+     *       otherwise {@link HandlerParamNameGenerator} synthesizes a deterministic, idiomatic one.</li>
+     * </ul>
+     */
     static JsonArray buildOptionMethods(List<TriggerMetadataModel.ServiceType.HandlerOption> options,
                                         String typeName, Predicate<String> declaresType,
-                                        TriggerUiDocs uiDocs, String packageName) {
+                                        String packageName) {
         JsonArray methods = new JsonArray();
         if (options == null) {
             return methods;
@@ -296,18 +314,12 @@ final class TriggerSchemaServiceLoader {
                         + ": its signature references a type the resolved package does not declare");
                 continue;
             }
-            Optional<TriggerUiDocs.FunctionDocs> functionDocs = uiDocs.functionDocs(typeName, option.name());
-
             JsonObject method = new JsonObject();
             method.addProperty("name", option.name());
             method.addProperty("type",
                     TriggerMetadataModel.ServiceType.HandlerOption.KIND_RESOURCE.equals(option.kind())
                             ? "resource" : "remote");
-
-            String description = functionDocs.map(TriggerUiDocs.FunctionDocs::description).orElse("");
-            if (!description.isEmpty()) {
-                method.addProperty("description", description);
-            }
+            // No description key: see the FLAG in this method's javadoc.
 
             List<TriggerMetadataModel.ServiceType.Param> optionParams = option.params();
             if (optionParams != null && !optionParams.isEmpty()) {
@@ -325,26 +337,23 @@ final class TriggerSchemaServiceLoader {
                     if (TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_MANY.equals(param.addMode())) {
                         continue;
                     }
-                    int index = i;
-                    Optional<TriggerUiDocs.ParamDocs> paramDocs = functionDocs
-                            .flatMap(docs -> param.name() != null
-                                    ? docs.paramNamed(param.name()).or(() -> docs.paramAt(index))
-                                    : docs.paramAt(index));
-
+                    // The authored name wins; otherwise generate one (handler params only).
                     String name = param.name() != null ? param.name()
-                            : paramDocs.map(TriggerUiDocs.ParamDocs::name).orElse(null);
-                    if (name == null) {
-                        name = deriveParamName(firstTypeRef(param.type()), declaresType, i, usedNames);
-                    }
+                            : HandlerParamNameGenerator.generate(firstTypeRef(param.type()),
+                                    param.dataBinding() != null, getAlias(packageName), i, usedNames);
                     usedNames.add(name);
-                    String paramDescription = paramDocs.map(TriggerUiDocs.ParamDocs::description).orElse("");
                     String typeSignature = renderTypeRef(firstTypeRef(param.type()), packageName,
                             declaresType);
                     boolean optional = "optional".equals(param.presence());
 
-                    params.add(buildParam(name, paramDescription, typeSignature, optional, packageName));
+                    // No description argument: see the FLAG in this method's javadoc.
+                    params.add(buildParam(name, null, typeSignature, optional, packageName));
                 }
-                method.add("parameters", params);
+                // Guard against an all-repeatable option emitting an empty array (every slot skipped
+                // above), matching how the concrete path omits the key when there are no parameters.
+                if (!params.isEmpty()) {
+                    method.add("parameters", params);
+                }
             }
 
             addReturn(method, renderReturns(option.returns(), packageName, declaresType), packageName);
@@ -436,42 +445,6 @@ final class TriggerSchemaServiceLoader {
             joined.append(renderTypeRef(returns.get(i), packageName, declaresType));
         }
         return joined.toString();
-    }
-
-    /**
-     * Ballerina reserved/contextual words a derived parameter name must never be — the rendered
-     * prompt would not be valid source (e.g. a type named {@code Error} deriving {@code error}).
-     */
-    private static final Set<String> RESERVED_WORDS = Set.of(
-            "error", "service", "client", "listener", "type", "function", "record", "object", "table",
-            "map", "stream", "string", "int", "float", "decimal", "boolean", "byte", "json", "xml",
-            "anydata", "any", "never", "readonly", "distinct", "worker", "fork", "transaction", "retry",
-            "new", "isolated", "final", "const", "var", "if", "else", "while", "foreach", "in", "return",
-            "returns", "break", "continue", "fail", "panic", "trap", "from", "where", "select", "let",
-            "on", "do", "is", "null", "true", "false", "import", "public", "private", "remote",
-            "resource", "abstract", "class", "enum", "annotation", "external", "check", "checkpanic",
-            "future", "typedesc", "handle", "match", "source", "field", "start", "wait", "flush",
-            "lock", "commit", "rollback", "version", "key", "limit", "order", "group", "join");
-
-    /**
-     * Fallback name for a parameter slot the metadata deliberately leaves unnamed and no UI model
-     * documents (e.g. websub's handlers): the lower-camel-cased declared type name
-     * ({@code SubscriptionVerification} → {@code subscriptionVerification}) — idiomatic, compilable
-     * Ballerina — or a positional {@code paramN} when the type is not a module-declared named type,
-     * the derived name is a reserved word, or it would collide with a sibling parameter.
-     */
-    static String deriveParamName(TypeRef ref, Predicate<String> declaresType, int index,
-                                  Set<String> usedNames) {
-        if (ref != null && ref.name() != null && ref.packageInfo() == null) {
-            String base = baseIdentifier(ref.name());
-            if (base != null && base.equals(ref.name()) && declaresType.test(base)) {
-                String derived = Character.toLowerCase(base.charAt(0)) + base.substring(1);
-                if (!RESERVED_WORDS.contains(derived) && !usedNames.contains(derived)) {
-                    return derived;
-                }
-            }
-        }
-        return "param" + (index + 1);
     }
 
     /**

@@ -134,22 +134,10 @@ task copyServiceIndex(type: Copy) {
     into "${buildDir}/resources/test"
 }
 
-// The schema-driven Copilot trigger loader reads the bundled trigger UI models (documentation
-// source) from the classpath; at LS runtime they ship in the service-model-generator jar, so the
-// tests need their own copy.
-task copyTriggerUiModels(type: Copy) {
-    from("${rootDir}/service-model-generator/modules/service-model-generator-ls-extension/src/main/resources") {
-        include 'bundled_trigger_models.json'
-        include 'trigger-models/**'
-    }
-    into "${buildDir}/resources/test"
-}
-
 checkstyleTest.dependsOn copyServiceIndex
-checkstyleTest.dependsOn copyTriggerUiModels
 
 test {
-    dependsOn copyStdlibs, copyServiceIndex, copyTriggerUiModels
+    dependsOn copyStdlibs, copyServiceIndex
     systemProperty "ballerina.home", balDistribution
     // Allocate a larger heap for the test JVM as the suite compiles full Ballerina projects.
     maxHeapSize = "2g"

@@ -42,8 +42,8 @@ import java.util.Optional;
 
 /**
  * End-to-end tests for the schema-driven Copilot service loader: trigger metadata (structure) +
- * semantic model (listener params, concrete methods, validation) + bundled trigger UI models
- * (handler/param docs), entered through the public
+ * semantic model (listener params, concrete methods + their doc comments, validation), entered
+ * through the public
  * {@link ServiceLoader#loadAllServices(String, Package, SemanticModel)} overload — exactly the call
  * {@code CopilotLibraryManager} makes.
  *
@@ -182,14 +182,18 @@ public class CopilotSchemaServicesTest {
 
         JsonObject onConsumerRecord = methodNamed(service, "onConsumerRecord");
         Assert.assertEquals(onConsumerRecord.get("type").getAsString(), "remote");
-        Assert.assertFalse(onConsumerRecord.get("description").getAsString().isEmpty(),
-                "Marker-type handler docs must come from the bundled UI model");
+        // FLAG: a marker service type declares no methods, so neither the metadata document nor the
+        // library carries a handler description — the key is omitted, never fabricated.
+        Assert.assertFalse(onConsumerRecord.has("description"),
+                "Marker-type handlers have no description source");
         Assert.assertFalse(onConsumerRecord.has("optional"),
                 "Function-level optional must never be emitted");
 
-        // Param names come from the UI model (metadata carries none); first union member is the type.
-        Assert.assertEquals(paramNames(onConsumerRecord), List.of("records", "caller"));
-        JsonObject records = paramNamed(onConsumerRecord, "records");
+        // The metadata document states no names for these slots (a handler param name is the service
+        // author's choice), so they are generated: the AnydataX|BytesX union collapses to one stable
+        // name, and the first union member supplies the type.
+        Assert.assertEquals(paramNames(onConsumerRecord), List.of("consumerRecords", "caller"));
+        JsonObject records = paramNamed(onConsumerRecord, "consumerRecords");
         Assert.assertEquals(records.getAsJsonObject("type").get("name").getAsString(),
                 "AnydataConsumerRecord[]");
         assertInternalLink(records, "AnydataConsumerRecord[]");
@@ -201,6 +205,7 @@ public class CopilotSchemaServicesTest {
                 .getAsJsonObject("type").get("name").getAsString(), "error?");
 
         JsonObject onError = methodNamed(service, "onError");
+        // A bare `Error` slot is generated as <alias>Error — never the keyword `error`.
         Assert.assertEquals(paramNames(onError), List.of("kafkaError"));
         Assert.assertEquals(paramNamed(onError, "kafkaError").getAsJsonObject("type")
                 .get("name").getAsString(), "Error");
@@ -216,10 +221,11 @@ public class CopilotSchemaServicesTest {
         Assert.assertEquals(methodNames(service), List.of("onMessage", "onRequest", "onError"));
 
         JsonObject onRequest = methodNamed(service, "onRequest");
+        // Generated names, which here reproduce exactly what the retired service-index carried.
         Assert.assertEquals(paramNames(onRequest), List.of("message", "caller"));
         Assert.assertEquals(onRequest.getAsJsonObject("return")
                 .getAsJsonObject("type").get("name").getAsString(), "anydata|error");
-        Assert.assertFalse(onRequest.get("description").getAsString().isEmpty());
+        Assert.assertFalse(onRequest.has("description"), "Marker-type handler: no description source");
 
         JsonObject onError = methodNamed(service, "onError");
         Assert.assertEquals(paramNames(onError), List.of("message", "rabbitmqError"));
@@ -322,10 +328,10 @@ public class CopilotSchemaServicesTest {
 
         JsonObject onOpened = methodNamed(issues, "onOpened");
         Assert.assertEquals(onOpened.get("type").getAsString(), "remote");
-        // The library declares no doc comments; descriptions are filled from the bundled UI model —
-        // a strict improvement over the old index, which served github methods without any.
-        Assert.assertTrue(onOpened.has("description"),
-                "Concrete methods without doc comments must fall back to UI-model docs");
+        // FLAG: github's declared handlers carry no doc comments, so no description is available
+        // (matching what the retired service-index served for this library).
+        Assert.assertFalse(onOpened.has("description"),
+                "No doc comment in source means no description is emitted");
         Assert.assertEquals(paramNames(onOpened), List.of("payload"));
         JsonObject payload = paramNamed(onOpened, "payload");
         Assert.assertEquals(payload.getAsJsonObject("type").get("name").getAsString(), "IssuesEvent");
@@ -378,7 +384,7 @@ public class CopilotSchemaServicesTest {
         Assert.assertEquals(paramNames(onFileJson), List.of("content", "caller", "fileInfo"));
         Assert.assertTrue(paramNamed(onFileJson, "caller").get("optional").getAsBoolean());
         assertInternalLink(paramNamed(onFileJson, "fileInfo"), "FileInfo");
-        // No UI model and no doc comments exist for smb's marker handlers — no fabricated text.
+        // FLAG: no description source exists for smb's marker handlers — no fabricated text.
         Assert.assertFalse(onFileJson.has("description"));
     }
 
@@ -396,8 +402,8 @@ public class CopilotSchemaServicesTest {
                 "onSubscriptionVerification", "onUnsubscriptionVerification",
                 "onSubscriptionValidationDenied"));
 
-        // The metadata deliberately leaves these params unnamed and no UI model exists: names are
-        // derived from the declared type — idiomatic, compilable Ballerina.
+        // The metadata deliberately leaves these params unnamed: names are generated from the
+        // declared type — idiomatic, compilable Ballerina.
         JsonObject onEventNotification = methodNamed(service, "onEventNotification");
         Assert.assertEquals(paramNames(onEventNotification), List.of("contentDistributionMessage"));
         assertInternalLink(paramNamed(onEventNotification, "contentDistributionMessage"),

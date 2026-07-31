@@ -304,8 +304,11 @@ final class TriggerSemanticFacts {
 
             List<DeclaredParam> params = new ArrayList<>();
             method.typeDescriptor().params().ifPresent(list -> {
-                for (ParameterSymbol param : list) {
-                    String paramName = param.getName().orElse("param");
+                for (int i = 0; i < list.size(); i++) {
+                    ParameterSymbol param = list.get(i);
+                    // A declared method parameter always carries a name; the positional fallback is
+                    // defensive only, and is indexed so two of them could never collide.
+                    String paramName = param.getName().orElse("param" + (i + 1));
                     params.add(new DeclaredParam(
                             paramName,
                             CommonUtils.getTypeSignature(semanticModel, param.typeDescriptor(), false),
