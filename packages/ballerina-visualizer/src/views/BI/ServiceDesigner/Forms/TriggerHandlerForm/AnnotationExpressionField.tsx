@@ -25,6 +25,7 @@ import {
     ExpressionProperty,
     LineRange,
     PropertyModel,
+    RecordTypeField,
     TriggerCharacter,
     TRIGGER_CHARACTERS,
 } from "@wso2/ballerina-core";
@@ -36,11 +37,14 @@ import {
     FormValues,
     Provider as FormContextProvider,
     evaluateClientRules,
+    getRecordTypeFields,
     useDiagnosticsStoreState,
 } from "@wso2/ballerina-side-panel";
 import { CompletionItem } from "@wso2/ui-toolkit";
 
 import { getHelperPaneNew } from "../../../HelperPaneNew";
+import { ConfigureRecordPage } from "../../../HelperPaneNew/Views/RecordConfigModal";
+import DynamicModal from "../../../../../components/Modal";
 import { EXPRESSION_EXTRACTION_REGEX } from "../../../../../constants";
 import { calculateExpressionOffsets, convertBalCompletion, removeDuplicateDiagnostics } from "../../../../../utils/bi";
 
@@ -161,6 +165,36 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
             codedata: property?.codedata as any,
             imports: property?.imports,
         }) as FormField, [property, value, required]);
+
+        // A RECORD_MAP_EXPRESSION field whose sole type member is a RECORD_TYPE (the shape a
+        // schema-driven annotation always renders as, whether hand-authored or synthesized) is a
+        // "record type field": this is what lets FieldFactory/ExpressionEditor offer the guided
+        // record-config editor instead of a bare expression box, the same way FormArrayEditor and
+        // FormMapEditorNew do for their own record-typed elements.
+        const recordTypeFields = useMemo(() => getRecordTypeFields([field]), [field]);
+
+        // ----- record config modal -----
+        // Mirrors FlowNodeForm/ArtifactForm's onOpenRecordConfigPage wiring: ExpressionEditor calls
+        // this on focus when the field is in guided RECORD mode and resolves to a record type field
+        // (see recordTypeFields above), opening a full field-by-field editor instead of asking the
+        // user to hand-type the record literal.
+        const [recordConfigPageState, setRecordConfigPageState] = useState<{
+            isOpen: boolean;
+            currentValue?: string;
+            recordTypeField?: RecordTypeField;
+            onChangeCallback?: (value: string) => void;
+        }>({ isOpen: false });
+
+        const openRecordConfigPage = useCallback((
+            _fieldKey: string, currentValue: string, recordTypeField: RecordTypeField,
+            onChangeCallback: (value: string) => void,
+        ) => {
+            setRecordConfigPageState({ isOpen: true, currentValue, recordTypeField, onChangeCallback });
+        }, []);
+
+        const closeRecordConfigPage = useCallback(() => {
+            setRecordConfigPageState({ isOpen: false });
+        }, []);
 
         // ----- diagnostics -----
         // Three independent producers feed the parent's save gate: compiler diagnostics for the
@@ -380,8 +414,10 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
                 setCompletions([]);
                 setFilteredCompletions([]);
             },
+            onOpenRecordConfigPage: openRecordConfigPage,
         }) as unknown as FormExpressionEditorProps, [
             filteredCompletions, handleRetrieveCompletions, debouncedDiagnostics, handleGetHelperPane, rpcClient,
+            openRecordConfigPage,
         ]);
 
         const formContextValue = useMemo(() => ({
@@ -445,8 +481,40 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
                         field={field}
                         autoFocus={false}
                         handleFormValidation={handleFormValidation}
+                        recordTypeFields={recordTypeFields}
                     />
                 </FormContextProvider>
+                {recordConfigPageState.isOpen
+                    && recordConfigPageState.recordTypeField
+                    && recordConfigPageState.onChangeCallback && (
+                        <DynamicModal
+                            width={800}
+                            height={600}
+                            anchorRef={undefined}
+                            title="Record Configuration"
+                            openState={recordConfigPageState.isOpen}
+                            setOpenState={(isOpen: boolean) => {
+                                if (!isOpen) {
+                                    closeRecordConfigPage();
+                                }
+                            }}
+                            closeOnBackdropClick={true}
+                            closeButtonIcon="minimize"
+                        >
+                            <ConfigureRecordPage
+                                fileName={filePath ?? ""}
+                                targetLineRange={effectiveTargetLineRange}
+                                onChange={(recordValue: string) => recordConfigPageState.onChangeCallback!(recordValue)}
+                                currentValue={recordConfigPageState.currentValue || ""}
+                                recordTypeField={recordConfigPageState.recordTypeField}
+                                onClose={closeRecordConfigPage}
+                                getHelperPane={handleGetHelperPane}
+                                field={field}
+                                triggerCharacters={TRIGGER_CHARACTERS}
+                                formContext={formContextValue as any}
+                            />
+                        </DynamicModal>
+                    )}
             </DiagnosticsStoreContext.Provider>
         );
     }

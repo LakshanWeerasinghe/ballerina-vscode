@@ -16,9 +16,13 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.utils;
 
 import io.ballerina.compiler.api.ModuleID;
+import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.IconDescriptor;
+import io.ballerina.modelgenerator.commons.PackageUtil;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerArtifactModel;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Metadata is resolved per module through {@link #metadata(ModuleID)}: the LS's bundled
  * classpath resource first (the hardcoded entry-point modules), then — for a <b>non-bundled</b>
- * connector — the {@code resources/trigger-metadata.json} the connector ships inside its own package,
+ * connector — the {@code resources/trigger-artifact.json} the connector ships inside its own package,
  * read from its resolved package root. Without this second step non-bundled triggers silently lose
  * their declared display name and label fields in the artifact tree.
  *
@@ -49,32 +53,32 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @since 1.9.0
  */
-public final class TriggerMetadataResolver {
+public final class TriggerArtifactResolver {
 
     // Package roots are resolved lazily (only on a bundled-metadata miss) and cached by module
     // coordinates so the artifact-tree hot path pays the bala-cache resolution at most once per module.
     private static final Map<String, Optional<Path>> PACKAGE_ROOT_CACHE = new ConcurrentHashMap<>();
 
-    private TriggerMetadataResolver() {
+    private TriggerArtifactResolver() {
     }
 
-    private static Optional<TriggerMetadata> metadata(ModuleID moduleId) {
+    private static Optional<TriggerArtifactModel> metadata(ModuleID moduleId) {
         return moduleId == null ? Optional.empty()
                 : metadata(moduleId.orgName(), moduleId.packageName(), moduleId.moduleName(), moduleId.version());
     }
 
     /**
      * The trigger metadata for a module: the LS's bundled classpath resource only. Reading a
-     * connector's own shipped {@code resources/trigger-metadata.json} from its resolved {@code .bala}
+     * connector's own shipped {@code resources/trigger-artifact.json} from its resolved {@code .bala}
      * is not supported in this phase — a non-bundled connector simply has no metadata (no display name,
      * no label-field suffix).
      */
-    private static Optional<TriggerMetadata> metadata(String orgName, String packageName, String moduleName,
+    private static Optional<TriggerArtifactModel> metadata(String orgName, String packageName, String moduleName,
                                                       String version) {
         if (moduleName == null) {
             return Optional.empty();
         }
-        return TriggerMetadataReader.getInstance().getBundledMetadata(moduleName);
+        return TriggerArtifactReader.getInstance().getBundledMetadata(moduleName);
     }
 
     /** The resolved package root of the module (its bala source root), if it can be resolved locally. */
@@ -93,7 +97,7 @@ public final class TriggerMetadataResolver {
 
     /** The display label for a module, e.g. {@code "RabbitMQ Event Integration"}; empty if unknown. */
     public static Optional<String> resolveDisplayName(ModuleID moduleId) {
-        return metadata(moduleId).map(TriggerMetadata::displayName);
+        return metadata(moduleId).map(TriggerArtifactModel::displayName);
     }
 
     /**
@@ -102,7 +106,7 @@ public final class TriggerMetadataResolver {
      */
     public static List<String> resolveLabelFields(ModuleID moduleId) {
         return metadata(moduleId)
-                .map(TriggerMetadata::labelFields)
+                .map(TriggerArtifactModel::labelFields)
                 .filter(Objects::nonNull)
                 .orElse(List.of());
     }
@@ -125,7 +129,7 @@ public final class TriggerMetadataResolver {
      */
     public static IconDescriptor resolveIcon(String orgName, String packageName, String moduleName, String version) {
         IconDescriptor declared = metadata(orgName, packageName, moduleName, version)
-                .map(TriggerMetadata::icon).orElse(null);
+                .map(TriggerArtifactModel::icon).orElse(null);
         String glyph = declared == null ? null : trimToNull(declared.glyph());
         String color = declared == null ? null : trimToNull(declared.color());
         String kind = declared == null ? null : trimToNull(declared.kind());

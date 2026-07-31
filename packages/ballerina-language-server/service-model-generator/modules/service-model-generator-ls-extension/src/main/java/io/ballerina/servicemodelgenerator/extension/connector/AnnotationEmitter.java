@@ -18,7 +18,7 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,27 +58,61 @@ public final class AnnotationEmitter {
     private AnnotationEmitter() {
     }
 
-    /** The annotation attachment strings (e.g. {@code @ftp:FunctionConfig {...}}) in a properties map. */
-    public static List<String> annotationsOf(Map<String, TriggerModel.Property> properties) {
+    /**
+     * The annotation attachment strings (e.g. {@code @ftp:FunctionConfig {...}}) in a properties map.
+     * A node whose body renders empty (every optional field unchecked) is skipped entirely, matching
+     * {@link #annotationBody}'s behavior for the update-time path — an attachment with nothing to say
+     * should not be emitted at all.
+     *
+     * <p>Also recognizes a whole-value {@code ANNOTATION_ATTACHMENT} node — a single
+     * {@code RECORD_MAP_EXPRESSION} the user edits as one expression (a connector-synthesized
+     * function-level annotation, e.g. an SMB-shaped handler annotation; see
+     * {@code TriggerModelSynthesizer}), whose own {@code value} already IS the complete mapping-
+     * constructor body, unlike {@code COMPLEX_FUNCTION_ANNOTATION}'s per-field {@code properties} tree.
+     */
+    public static List<String> annotationsOf(Map<String, TriggerUISchemaModel.Property> properties) {
         List<String> annotations = new ArrayList<>();
         if (properties == null) {
             return annotations;
         }
-        for (TriggerModel.Property node : properties.values()) {
-            TriggerModel.Codedata cd = node.codedata();
-            if (cd != null && "COMPLEX_FUNCTION_ANNOTATION".equals(cd.type())) {
-                annotations.add(emitAnnotation(node));
+        for (TriggerUISchemaModel.Property node : properties.values()) {
+            TriggerUISchemaModel.Codedata cd = node.codedata();
+            if (cd == null) {
+                continue;
+            }
+            if ("COMPLEX_FUNCTION_ANNOTATION".equals(cd.type())) {
+                emitAnnotation(node).ifPresent(annotations::add);
+            } else if ("ANNOTATION_ATTACHMENT".equals(cd.type()) && isEnabledWithValue(node)) {
+                annotations.add(emitWholeValueAnnotation(node));
             }
         }
         return annotations;
     }
 
-    private static String emitAnnotation(TriggerModel.Property node) {
-        TriggerModel.Codedata cd = node.codedata();
+    private static boolean isEnabledWithValue(TriggerUISchemaModel.Property node) {
+        return node.enabled() && node.value() != null && !String.valueOf(node.value()).isBlank();
+    }
+
+    /** {@code @<module>:<name> <value>} — the node's own value is already the complete attachment body. */
+    private static String emitWholeValueAnnotation(TriggerUISchemaModel.Property node) {
+        TriggerUISchemaModel.Codedata cd = node.codedata();
         String module = cd.moduleName();
         String name = cd.originalName();
         String prefix = module == null || module.isBlank() ? "@" + name : "@" + module + ":" + name;
-        return prefix + " " + mappingBody(node.properties());
+        return prefix + " " + node.value();
+    }
+
+    /** The rendered annotation attachment, or empty when {@link #annotationBody} has nothing to emit. */
+    private static Optional<String> emitAnnotation(TriggerUISchemaModel.Property node) {
+        Optional<String> body = annotationBody(node);
+        if (body.isEmpty()) {
+            return Optional.empty();
+        }
+        TriggerUISchemaModel.Codedata cd = node.codedata();
+        String module = cd.moduleName();
+        String name = cd.originalName();
+        String prefix = module == null || module.isBlank() ? "@" + name : "@" + module + ":" + name;
+        return Optional.of(prefix + " " + body.get());
     }
 
     /**
@@ -86,16 +120,16 @@ public final class AnnotationEmitter {
      * node, or empty when no field is emitted (all optional fields unchecked) — in which case the
      * annotation attachment should be skipped entirely.
      */
-    public static Optional<String> annotationBody(TriggerModel.Property node) {
+    public static Optional<String> annotationBody(TriggerUISchemaModel.Property node) {
         String body = mappingBody(node.properties());
         return "{}".equals(body) ? Optional.empty() : Optional.of(body);
     }
 
     /** {@code {field: value, ...}} from the MAPPING_FIELD children of a container. */
-    private static String mappingBody(Map<String, TriggerModel.Property> properties) {
+    private static String mappingBody(Map<String, TriggerUISchemaModel.Property> properties) {
         List<String> fields = new ArrayList<>();
         if (properties != null) {
-            for (TriggerModel.Property child : properties.values()) {
+            for (TriggerUISchemaModel.Property child : properties.values()) {
                 String field = emitMappingField(child);
                 if (field != null) {
                     fields.add(field);
@@ -106,8 +140,8 @@ public final class AnnotationEmitter {
     }
 
     /** {@code <field>: <value>}, or {@code null} when an optional field's flag is unchecked. */
-    private static String emitMappingField(TriggerModel.Property node) {
-        TriggerModel.Codedata cd = node.codedata();
+    private static String emitMappingField(TriggerUISchemaModel.Property node) {
+        TriggerUISchemaModel.Codedata cd = node.codedata();
         if (cd == null || cd.field() == null) {
             return null;
         }
@@ -124,7 +158,7 @@ public final class AnnotationEmitter {
      * the payload, so inclusion is its {@code enabled} state plus a non-empty value, e.g. SMB's
      * {@code fileNamePattern}).
      */
-    private static boolean isIncluded(TriggerModel.Property node) {
+    private static boolean isIncluded(TriggerUISchemaModel.Property node) {
         if (isLeaf(node)) {
             String raw = node.value() == null ? "" : String.valueOf(node.value());
             return node.enabled() && !raw.isBlank() && !"\"\"".equals(raw);
@@ -133,12 +167,12 @@ public final class AnnotationEmitter {
     }
 
     /** A mapping field is a leaf when it renders its own value — it has no nested value node. */
-    private static boolean isLeaf(TriggerModel.Property node) {
+    private static boolean isLeaf(TriggerUISchemaModel.Property node) {
         return node.properties() == null || node.properties().isEmpty();
     }
 
     /** The value side of a mapping field: a rendered leaf, or a nested value node. */
-    private static String fieldValue(TriggerModel.Property node) {
+    private static String fieldValue(TriggerUISchemaModel.Property node) {
         if (isLeaf(node)) {
             return renderLeaf(node);
         }
@@ -147,8 +181,8 @@ public final class AnnotationEmitter {
     }
 
     /** Renders a value node by its {@code codedata.type}. */
-    private static String emitValue(TriggerModel.Property node) {
-        TriggerModel.Codedata cd = node.codedata();
+    private static String emitValue(TriggerUISchemaModel.Property node) {
+        TriggerUISchemaModel.Codedata cd = node.codedata();
         String type = cd == null ? null : cd.type();
         if (type == null) {
             return renderLeaf(node);
@@ -157,24 +191,24 @@ public final class AnnotationEmitter {
             case "MAPPING_CONSTRUCTOR" -> mappingBody(node.properties());
             case "ENUM_LITERAL" -> enumLiteral(cd);
             case "FIELD_VALUE_CHOICE" -> {
-                TriggerModel.Property selected = selectedChoice(node);
+                TriggerUISchemaModel.Property selected = selectedChoice(node);
                 yield selected == null ? "" : emitValue(selected);
             }
             default -> renderLeaf(node);
         };
     }
 
-    private static String enumLiteral(TriggerModel.Codedata cd) {
+    private static String enumLiteral(TriggerUISchemaModel.Codedata cd) {
         String value = cd.value() == null ? "" : cd.value();
         return cd.valueQualifier() == null || cd.valueQualifier().isBlank()
                 ? value : cd.valueQualifier() + ":" + value;
     }
 
-    private static TriggerModel.Property selectedChoice(TriggerModel.Property choiceNode) {
+    private static TriggerUISchemaModel.Property selectedChoice(TriggerUISchemaModel.Property choiceNode) {
         if (choiceNode.choices() == null) {
             return null;
         }
-        for (TriggerModel.Property choice : choiceNode.choices()) {
+        for (TriggerUISchemaModel.Property choice : choiceNode.choices()) {
             if (choice.enabled()) {
                 return choice;
             }
@@ -187,7 +221,7 @@ public final class AnnotationEmitter {
      * (idempotently — a value normalized upstream, e.g. a {@code string `x`} template collapsed to
      * {@code "x"} by the wire model, must not be double-quoted); everything else renders raw.
      */
-    private static String renderLeaf(TriggerModel.Property node) {
+    private static String renderLeaf(TriggerUISchemaModel.Property node) {
         String raw = node.value() == null ? "" : String.valueOf(node.value());
         if (!isStringTyped(node)) {
             return raw;
@@ -196,11 +230,11 @@ public final class AnnotationEmitter {
     }
 
     /** Whether the node's selected (or sole) declared type is a plain {@code string}. */
-    private static boolean isStringTyped(TriggerModel.Property node) {
+    private static boolean isStringTyped(TriggerUISchemaModel.Property node) {
         if (node.types() == null || node.types().isEmpty()) {
             return false;
         }
-        TriggerModel.PropertyType selected = node.types().stream()
+        TriggerUISchemaModel.PropertyType selected = node.types().stream()
                 .filter(type -> Boolean.TRUE.equals(type.selected()))
                 .findFirst()
                 .orElse(node.types().getFirst());

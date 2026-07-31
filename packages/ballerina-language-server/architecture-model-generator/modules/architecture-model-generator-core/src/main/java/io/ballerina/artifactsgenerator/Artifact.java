@@ -25,7 +25,7 @@ import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.designmodelgenerator.core.CommonUtils;
 import io.ballerina.modelgenerator.commons.IconDescriptor;
-import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
+import io.ballerina.modelgenerator.commons.trigger.utils.TriggerArtifactResolver;
 import io.ballerina.runtime.api.utils.IdentifierUtils;
 import io.ballerina.tools.text.LineRange;
 
@@ -220,7 +220,7 @@ public record Artifact(String id, LineRange location, String type, String name, 
             }
             ModuleID moduleId = moduleSymbol.get().id();
             this.moduleId = moduleId;
-            this.icon = TriggerMetadataResolver.resolveIcon(moduleId);
+            this.icon = TriggerArtifactResolver.resolveIcon(moduleId);
             this.module = moduleId.moduleName();
             return this;
         }
@@ -234,14 +234,14 @@ public record Artifact(String id, LineRange location, String type, String name, 
 
         public Builder serviceNameWithPath(String path) {
             Optional<String> displayName = moduleId == null
-                    ? Optional.empty() : TriggerMetadataResolver.resolveDisplayName(moduleId);
+                    ? Optional.empty() : TriggerArtifactResolver.resolveDisplayName(moduleId);
             this.name = displayName.map(dn -> dn + " - " + path).orElse(path);
             return this;
         }
 
         public Builder serviceName(String name) {
             Optional<String> displayName = moduleId == null
-                    ? Optional.empty() : TriggerMetadataResolver.resolveDisplayName(moduleId);
+                    ? Optional.empty() : TriggerArtifactResolver.resolveDisplayName(moduleId);
             this.name = displayName.orElse(name);
             return this;
         }
@@ -269,11 +269,11 @@ public record Artifact(String id, LineRange location, String type, String name, 
             if (moduleId == null) {
                 return false;
             }
-            List<String> fieldNames = TriggerMetadataResolver.resolveLabelFields(moduleId);
+            List<String> fieldNames = TriggerArtifactResolver.resolveLabelFields(moduleId);
             for (String fieldName : fieldNames) {
                 Optional<String> extractedValue = CommonUtils.extractServiceAnnotationField(serviceNode, fieldName);
                 if (extractedValue.isPresent()) {
-                    String displayName = TriggerMetadataResolver.resolveDisplayName(moduleId).orElse("");
+                    String displayName = TriggerArtifactResolver.resolveDisplayName(moduleId).orElse("");
                     this.name = displayName + " - " + extractedValue.get();
                     return true;
                 }

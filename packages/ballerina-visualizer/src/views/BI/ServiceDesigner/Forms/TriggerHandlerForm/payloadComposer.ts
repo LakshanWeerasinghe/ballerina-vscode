@@ -40,6 +40,10 @@ export const CODEDATA_PAYLOAD_MODIFIER = "PAYLOAD_MODIFIER";
 export const CODEDATA_METADATA_FLAG = "METADATA_FLAG";
 export const CODEDATA_COMPLEX_ANNOTATION = "COMPLEX_FUNCTION_ANNOTATION";
 export const CODEDATA_FIELD_VALUE_CHOICE = "FIELD_VALUE_CHOICE";
+// A connector-synthesized handler annotation with no granular per-field authoring -- a single
+// RECORD_MAP_EXPRESSION the user edits as one expression, unlike CODEDATA_COMPLEX_ANNOTATION's
+// MAPPING_FIELD tree. Rendered by the same AnnotationConfigSection, just as one expression field.
+export const CODEDATA_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
 
 /** The group id linking a handler's format variants (falls back to its display label). */
 export function handlerGroupId(fn: FunctionModel): string | undefined {
@@ -219,7 +223,8 @@ export function hasConfigurableFields(fn: FunctionModel): boolean {
     const isPayloadBindable = payloadParam?.type?.codedata?.bindable === true;
     const hasMetadataFlags = propertiesOfRole(fn, CODEDATA_METADATA_FLAG).length > 0;
     const hasModifierFlags = propertiesOfRole(fn, CODEDATA_PAYLOAD_MODIFIER).length > 0;
-    const hasAnnotations = propertiesOfRole(fn, CODEDATA_COMPLEX_ANNOTATION).length > 0;
+    const hasAnnotations = propertiesOfRole(fn, CODEDATA_COMPLEX_ANNOTATION).length > 0
+        || propertiesOfRole(fn, CODEDATA_ANNOTATION_ATTACHMENT).length > 0;
     const hasAdvancedParams = fn.parameters?.some((p) => p.advanced === true) ?? false;
     const hasEditableName = fn.name?.editable === true;
     const hasEditableReturnType = fn.returnType?.editable === true;

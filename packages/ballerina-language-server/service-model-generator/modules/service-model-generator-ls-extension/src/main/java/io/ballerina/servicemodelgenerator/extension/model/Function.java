@@ -24,6 +24,7 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.google.gson.annotations.JsonAdapter;
 import io.ballerina.modelgenerator.commons.Annotation;
+import io.ballerina.modelgenerator.commons.trigger.models.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.util.Constants;
 import io.ballerina.servicemodelgenerator.extension.util.ServiceClassUtil;
 
@@ -66,7 +67,7 @@ public class Function {
     private boolean canAddParameters;
     private Codedata codedata;
     private Map<String, Value> properties;
-    // Handler-catalog fields carried by the unified TriggerModel (phase6): functions sharing a
+    // Handler-catalog fields carried by the unified TriggerUISchemaModel (phase6): functions sharing a
     // `group` are format variants of one logical handler (each labelled by `variantLabel`, offered
     // to the user under `addLabel`); `repeatable` says whether/how the handler can be added more
     // than once (see Repeatable) and `nameEditable:false` locks the emitted function name to the

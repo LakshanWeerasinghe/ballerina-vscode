@@ -18,8 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
@@ -28,14 +28,14 @@ import org.testng.annotations.Test;
 
 /**
  * Unit test for {@link TriggerServiceAdapter}: builds the designer wire {@link Service} template from
- * a unified {@link TriggerModel}. Pure (no LS): verifies the service descriptor and the wire
+ * a unified {@link TriggerUISchemaModel}. Pure (no LS): verifies the service descriptor and the wire
  * {@link Function}s (name/kind/params/return) produced from the unified {@code serviceTypes[]}.
  *
  * @since 1.9.0
  */
 public class TriggerServiceAdapterTest {
 
-    private TriggerModel model(String moduleName) {
+    private TriggerUISchemaModel model(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 

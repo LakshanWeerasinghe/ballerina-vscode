@@ -18,12 +18,12 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
+import io.ballerina.modelgenerator.commons.trigger.models.Repeatable;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.builder.function.SchemaDrivenFunctionBuilder;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
-import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import io.ballerina.servicemodelgenerator.extension.util.Utils;
@@ -42,7 +42,7 @@ import java.util.List;
  * form consumes. Also covers the save-side collapse of an edited COMPLEX_FUNCTION_ANNOTATION tree into
  * an emitted {@code @ftp:FunctionConfig {...}} attachment.
  *
- * <p>These handlers are pre-expanded in FTP's own {@code trigger-model.json} (each format is its own
+ * <p>These handlers are pre-expanded in FTP's own {@code trigger-ui-schema.json} (each format is its own
  * top-level schemaFunction), not fanned out at runtime from a single VARIATION_SELECTOR parameter.
  * None of the 15 currently bundled trigger models use the runtime VARIANT-parameter expansion mechanism
  * {@link TriggerServiceAdapter} still supports (FTP itself was refactored away from it), so this class
@@ -54,7 +54,7 @@ public class TriggerFunctionExpansionTest {
 
     /** The shipped FTP model: file-format handlers pre-expanded, sharing the {@code onCreate} group. */
     private Service ftpTemplate() {
-        TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
+        TriggerUISchemaModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
         return TriggerServiceAdapter.toServiceTemplate(model, "Service", "ballerina", "ftp", "ftp");
     }
 

@@ -20,7 +20,7 @@ package io.ballerina.servicemodelgenerator.extension.connector.adapter;
 
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
 import io.ballerina.modelgenerator.commons.ReadOnlyMetaData;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.extractor.AnnotationExtractor;
 import io.ballerina.servicemodelgenerator.extension.extractor.ListenerParamExtractor;
 import io.ballerina.servicemodelgenerator.extension.extractor.ServiceDescriptionExtractor;
@@ -40,7 +40,7 @@ import java.util.Map;
  * chips ("Monitored Path", "Queue Name", ...) the designer renders in the service-card header, resolved
  * from the user's source.
  *
- * <p>The chip definitions ship in the unified {@link TriggerModel}'s {@code readOnlyMetadata} list
+ * <p>The chip definitions ship in the unified {@link TriggerUISchemaModel}'s {@code readOnlyMetadata} list
  * ({@code key}/{@code displayName}/{@code kind}/{@code path}); this resolves each one's value(s) from
  * the service declaration and packs them into a {@code READONLY} {@link Value} whose {@code value} is a
  * map of {@code displayName -> resolved values}, matching the DB-backed builders'
@@ -86,7 +86,7 @@ public final class TriggerReadOnlyMetadataAdapter {
      * resolving each chip's value(s) from the source. Returns {@code null} when the model ships no
      * definitions, so callers can leave the property off entirely.
      */
-    public static Value build(List<TriggerModel.ReadOnlyMetadata> definitions, Service serviceModel,
+    public static Value build(List<TriggerUISchemaModel.ReadOnlyMetadata> definitions, Service serviceModel,
                               ServiceDeclarationNode serviceNode, ModelFromSourceContext context) {
         if (definitions == null || definitions.isEmpty()) {
             return null;
@@ -95,7 +95,7 @@ public final class TriggerReadOnlyMetadataAdapter {
         // LinkedHashMap: preserve the model's declaration order; aggregate values sharing a display name
         // (e.g. the two "Queue Name" definitions RabbitMQ ships) under a single chip.
         Map<String, List<String>> resolved = new LinkedHashMap<>();
-        for (TriggerModel.ReadOnlyMetadata definition : definitions) {
+        for (TriggerUISchemaModel.ReadOnlyMetadata definition : definitions) {
             if (definition == null) {
                 continue;
             }
@@ -116,7 +116,7 @@ public final class TriggerReadOnlyMetadataAdapter {
                 .build();
     }
 
-    private static List<String> resolveValues(TriggerModel.ReadOnlyMetadata definition, Service serviceModel,
+    private static List<String> resolveValues(TriggerUISchemaModel.ReadOnlyMetadata definition, Service serviceModel,
                                                ServiceDeclarationNode serviceNode, ModelFromSourceContext context) {
         String kind = definition.kind() == null ? "" : definition.kind();
         String displayName = displayNameOf(definition);
@@ -139,7 +139,7 @@ public final class TriggerReadOnlyMetadataAdapter {
      * The annotation field the value lives in: the trailing segment of {@code path} (e.g.
      * {@code ServiceConfig.path} &rarr; {@code path}) when present, otherwise the definition {@code key}.
      */
-    private static String annotationField(TriggerModel.ReadOnlyMetadata definition) {
+    private static String annotationField(TriggerUISchemaModel.ReadOnlyMetadata definition) {
         String path = definition.path();
         if (path != null && !path.isBlank()) {
             int lastDot = path.lastIndexOf('.');
@@ -168,7 +168,7 @@ public final class TriggerReadOnlyMetadataAdapter {
         return value;
     }
 
-    private static String displayNameOf(TriggerModel.ReadOnlyMetadata definition) {
+    private static String displayNameOf(TriggerUISchemaModel.ReadOnlyMetadata definition) {
         String displayName = definition.displayName();
         return displayName != null && !displayName.isBlank() ? displayName : definition.key();
     }

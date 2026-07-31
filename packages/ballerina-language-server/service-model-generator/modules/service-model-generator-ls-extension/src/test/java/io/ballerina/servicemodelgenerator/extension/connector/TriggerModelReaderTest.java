@@ -18,11 +18,11 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.FunctionModel;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.Parameter;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.Property;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel.ServiceTypeModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.FunctionModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.Parameter;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.Property;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel.ServiceTypeModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Unit test for the unified {@code trigger-model.json} reader on {@link ConnectorModelReader}:
+ * Unit test for the unified {@code trigger-ui-schema.json} reader on {@link ConnectorModelReader}:
  * deserializes the bundled worked examples (kafka / ftp / trigger.github / trigger.hubspot) from their
  * classpath resources without spinning up the language server. Verifies the distinctive shapes survive
  * Gson: the listener CHOICE, structured parameters (type/name as {@code Property} sub-nodes),
@@ -42,11 +42,11 @@ import java.util.Map;
  */
 public class TriggerModelReaderTest {
 
-    private TriggerModel read(String moduleName) {
+    private TriggerUISchemaModel read(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 
-    private String listenerFieldType(TriggerModel model) {
+    private String listenerFieldType(TriggerUISchemaModel model) {
         Property listener = model.initProperties().get("listener");
         Assert.assertNotNull(listener, "initProperties.listener should be present");
         Assert.assertNotNull(listener.codedata());
@@ -67,7 +67,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadKafka() {
-        TriggerModel model = read("kafka");
+        TriggerUISchemaModel model = read("kafka");
         Assert.assertEquals(model.orgName(), "ballerinax");
         Assert.assertEquals(model.moduleName(), "kafka");
         // Kafka does not support attaching to an existing listener, so there is no create/reuse
@@ -101,7 +101,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadFtp() {
-        TriggerModel model = read("ftp");
+        TriggerUISchemaModel model = read("ftp");
         Assert.assertEquals(model.moduleName(), "ftp");
         Assert.assertEquals(model.orgName(), "ballerina");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
@@ -123,7 +123,7 @@ public class TriggerModelReaderTest {
 
     @Test
     public void testReadGithub() {
-        TriggerModel model = read("trigger.github");
+        TriggerUISchemaModel model = read("trigger.github");
         Assert.assertEquals(model.moduleName(), "trigger.github");
         Assert.assertEquals(listenerFieldType(model), "CHOICE");
         // Multi-service-type connector: a serviceType selector in the init form.
@@ -220,6 +220,85 @@ public class TriggerModelReaderTest {
     public void testMissingModelReturnsEmpty() {
         Assert.assertTrue(
                 ConnectorModelReader.getInstance().getBundledTriggerModel("no-such-module").isEmpty(),
-                "a module with no bundled trigger-model.json must yield empty (so the router falls back)");
+                "a module with no bundled trigger-ui-schema.json must yield empty (so the router falls back)");
+    }
+
+    /**
+     * mcp is registered as an ordered variant list: the {@code StreamableHttpService} surface only exists
+     * from 1.2.0, and 1.0.3 has {@code mcp:Service} alone. The resolved connector version — not the
+     * newest bundled document — must decide which one a caller sees.
+     */
+    @Test
+    public void testVersionGatedVariantSelection() {
+        ConnectorModelReader reader = ConnectorModelReader.getInstance();
+
+        TriggerUISchemaModel current = reader.getBundledTriggerModel("mcp", "1.2.0").orElseThrow();
+        Assert.assertEquals(current.version(), "1.2.0");
+        Assert.assertEquals(serviceTypeNames(current), List.of("StreamableHttpService", "Service"),
+                "1.2.0 keeps the deprecated Service type so an existing service still reads back");
+        Assert.assertEquals(findServiceType(current, "Service").codedata().originalName(), "Service",
+                "each type's originalName must be its own -- it is what the emitted descriptor is built from");
+
+        TriggerUISchemaModel legacy = reader.getBundledTriggerModel("mcp", "1.0.3").orElseThrow();
+        Assert.assertEquals(legacy.version(), "1.0.3");
+        Assert.assertEquals(serviceTypeNames(legacy), List.of("Service"),
+                "1.0.3 has no StreamableHttpService");
+        Assert.assertEquals(legacy.initProperties().get("serviceName").codedata().originalName(),
+                "ServiceConfig", "1.0.3 predates the @mcp:StreamableHttpServiceConfig annotation");
+        Assert.assertEquals(
+                legacy.initProperties().get("listenerVarName").types().getFirst().ballerinaType(),
+                "mcp:Listener", "1.0.3 predates mcp:StreamableHttpListener");
+
+        // A version below every declared floor still resolves -- to the oldest variant.
+        Assert.assertEquals(reader.getBundledTriggerModel("mcp", "1.0.0").orElseThrow().version(), "1.0.3");
+        // 1.2.0's floor is inclusive, and anything above it stays on the newest variant.
+        Assert.assertEquals(reader.getBundledTriggerModel("mcp", "1.3.1").orElseThrow().version(), "1.2.0");
+        // No version in hand (e.g. the trigger picker) -> the newest variant.
+        Assert.assertEquals(reader.getBundledTriggerModel("mcp").orElseThrow().version(), "1.2.0");
+        // The init form is gated by the same resolution.
+        Assert.assertEquals(reader.getBundledServiceInitModel("mcp", "1.0.3").orElseThrow().getVersion(),
+                "1.0.3");
+    }
+
+    /**
+     * Each mcp variant pins its own service type through a hidden {@code SERVICE_TYPE_DESCRIPTOR}
+     * field in the init form, so the type a new service is written against never rests on
+     * {@code serviceTypes[]} order. The value must stay unqualified: the source generator matches it
+     * against {@code serviceTypes[].name} (unqualified for mcp) and qualifies it on emit.
+     */
+    @Test
+    public void testInitFormPinsServiceType() {
+        ConnectorModelReader reader = ConnectorModelReader.getInstance();
+        for (String[] expected : new String[][] {{"1.2.0", "StreamableHttpService"}, {"1.0.3", "Service"}}) {
+            ServiceInitModel init = reader.getBundledServiceInitModel("mcp", expected[0]).orElseThrow();
+            Value serviceType = init.getProperties().get("serviceType");
+            Assert.assertNotNull(serviceType, expected[0] + " pins a service type");
+            Assert.assertEquals(serviceType.getCodedata().getType(), "SERVICE_TYPE_DESCRIPTOR");
+            Assert.assertEquals(serviceType.getValue(), expected[1]);
+            Assert.assertFalse(serviceType.getValue().contains(":"),
+                    "the pinned value must be unqualified so it matches serviceTypes[].name");
+            Assert.assertTrue(serviceType.isHidden(), "the user must not see the pinned type");
+            Assert.assertTrue(serviceType.isEnabledWithValue(),
+                    "hidden must not be expressed as enabled:false -- the resolver skips disabled fields");
+        }
+    }
+
+    /** A single-variant registry entry (the plain-string form) ignores the version entirely. */
+    @Test
+    public void testUngatedModuleIgnoresVersion() {
+        ConnectorModelReader reader = ConnectorModelReader.getInstance();
+        Assert.assertEquals(reader.getBundledTriggerModel("kafka", "0.0.1").orElseThrow().moduleName(),
+                reader.getBundledTriggerModel("kafka").orElseThrow().moduleName());
+    }
+
+    private static List<String> serviceTypeNames(TriggerUISchemaModel model) {
+        return model.serviceTypes().stream().map(ServiceTypeModel::name).toList();
+    }
+
+    private static ServiceTypeModel findServiceType(TriggerUISchemaModel model, String name) {
+        return model.serviceTypes().stream()
+                .filter(st -> name.equals(st.name()))
+                .findFirst()
+                .orElseThrow();
     }
 }

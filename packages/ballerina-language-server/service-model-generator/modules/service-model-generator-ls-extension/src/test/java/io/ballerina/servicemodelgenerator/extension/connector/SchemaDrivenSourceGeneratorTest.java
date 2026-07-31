@@ -81,6 +81,19 @@ public class SchemaDrivenSourceGeneratorTest {
     }
 
     @Test
+    public void testCreateNewListenerWithAllOptionalParamsBlankStillDeclaresListener() throws Exception {
+        Path creationPath = resource("connector_models/smb/resources/service-creation-blank-listener.json");
+        ServiceInitModel creation = gson.fromJson(
+                Files.readString(creationPath, StandardCharsets.UTF_8), ServiceInitModel.class);
+
+        String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(creation, null);
+        Assert.assertTrue(block.contains("listener smb:Listener smbListener = new ();"),
+                "an empty-arg listener declaration must still be emitted, got:\n" + block);
+        Assert.assertTrue(block.contains("on smbListener {"),
+                "the service must attach to the declared listener, got:\n" + block);
+    }
+
+    @Test
     public void testListenerVarNameBallerinaTypeOverridesDefaultListenerTypeName() throws Exception {
         // MSSQL CDC's listener type is `mssql:CdcListener`, not `mssql:Listener` (the assumed default
         // for every other connector). The listenerVarName field's IDENTIFIER type carries the real

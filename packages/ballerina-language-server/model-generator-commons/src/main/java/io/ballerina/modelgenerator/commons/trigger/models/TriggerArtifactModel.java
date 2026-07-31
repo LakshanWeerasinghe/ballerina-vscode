@@ -16,21 +16,23 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.models;
+
+import io.ballerina.modelgenerator.commons.IconDescriptor;
 
 import java.util.List;
 
 /**
- * Deserialization target for a connector's <b>Trigger Metadata</b>
- * ({@code resources/trigger-metadata.json}) — a small, display-only sibling of the (much larger)
- * {@code trigger-model.json}. It carries what a project-tree / left-panel renderer needs to show an
+ * Deserialization target for a connector's <b>Trigger Artifact</b> metadata
+ * ({@code resources/trigger-artifact.json}) — a small, display-only sibling of the (much larger)
+ * {@code trigger-ui-schema.json}. It carries what a project-tree / left-panel renderer needs to show an
  * entry-point artifact: its display name, an {@link IconDescriptor} (any of url/glyph/color/kind), and
  * the annotation field(s) (in preference order) that supply the instance-label suffix (e.g.
  * {@code "FTP Integration - /home/in"}).
  *
- * <p>Deliberately kept separate from {@code TriggerModel}: reading the full form/service-type/handler
- * schema just to paint a tree node would mean deserializing a document an order of magnitude larger
- * than what the tree actually needs.
+ * <p>Deliberately kept separate from {@code TriggerUISchemaModel}: reading the full form/service-type/
+ * handler schema just to paint a tree node would mean deserializing a document an order of magnitude
+ * larger than what the tree actually needs.
  *
  * @param displayName  the label shown for the artifact, e.g. {@code "RabbitMQ Event Integration"}
  * @param icon         the connector-declared {@link IconDescriptor} (any of {@code url}, {@code glyph},
@@ -40,5 +42,5 @@ import java.util.List;
  *                     (e.g. {@code ["queueName", "topicName"]}); {@code null}/empty means no suffix
  * @since 1.9.0
  */
-public record TriggerMetadata(String displayName, IconDescriptor icon, List<String> labelFields) {
+public record TriggerArtifactModel(String displayName, IconDescriptor icon, List<String> labelFields) {
 }

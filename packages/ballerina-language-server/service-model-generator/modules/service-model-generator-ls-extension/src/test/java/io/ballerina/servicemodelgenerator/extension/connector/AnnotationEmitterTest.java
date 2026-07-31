@@ -18,11 +18,13 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Unit test for {@link AnnotationEmitter} and the annotation wiring in
@@ -35,8 +37,8 @@ import java.util.List;
  */
 public class AnnotationEmitterTest {
 
-    private TriggerModel.FunctionModel onFileCsv() {
-        TriggerModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
+    private TriggerUISchemaModel.FunctionModel onFileCsv() {
+        TriggerUISchemaModel model = ConnectorModelReader.getInstance().getBundledTriggerModel("ftp").orElseThrow();
         return model.serviceTypes().getFirst().schemaFunctions().stream()
                 .filter(f -> "onFileCsv".equals(f.name())).findFirst().orElseThrow();
     }
@@ -50,6 +52,41 @@ public class AnnotationEmitterTest {
         Assert.assertEquals(annotations.getFirst(),
                 "@ftp:FunctionConfig {afterProcess: {moveTo: \"/home/processed\"}, "
                         + "afterError: {moveTo: \"/home/failed\"}}");
+    }
+
+    @Test
+    public void testAnnotationsOfSkipsAttachmentWhenEveryOptionalFieldIsUnchecked() {
+        // Regression: annotationsOf (add-time) used to always emit the attachment even with an empty
+        // body (e.g. `@ftp:FunctionConfig {}`), unlike annotationBody (update-time) which already
+        // skipped it. No bundled schema hits this today (every COMPLEX_FUNCTION_ANNOTATION ships at
+        // least one field enabled by default) but the two entry points must agree once one does.
+        Map<String, TriggerUISchemaModel.Property> fields = new LinkedHashMap<>();
+        fields.put("afterProcess", leaf(false, null, "afterProcess", true));
+        fields.put("afterError", leaf(false, null, "afterError", true));
+        Map<String, TriggerUISchemaModel.Property> properties = new LinkedHashMap<>();
+        properties.put("config", annotationNode("ftp", "FunctionConfig", fields));
+
+        List<String> annotations = AnnotationEmitter.annotationsOf(properties);
+        Assert.assertTrue(annotations.isEmpty(),
+                "an annotation whose body renders empty (every optional field unchecked) must be "
+                        + "skipped entirely, matching annotationBody's behavior, got: " + annotations);
+    }
+
+    private static TriggerUISchemaModel.Property leaf(boolean enabled, String value, String field, boolean optional) {
+        TriggerUISchemaModel.Codedata codedata = new TriggerUISchemaModel.Codedata(null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, field, optional,
+                null, null, null, null, null);
+        return new TriggerUISchemaModel.Property(null, enabled, true, optional, false, null, value, null, null,
+                null, null, codedata, null);
+    }
+
+    private static TriggerUISchemaModel.Property annotationNode(String module, String name,
+                                                         Map<String, TriggerUISchemaModel.Property> fields) {
+        TriggerUISchemaModel.Codedata codedata = new TriggerUISchemaModel.Codedata("COMPLEX_FUNCTION_ANNOTATION", null,
+                name, module, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null);
+        return new TriggerUISchemaModel.Property(null, true, true, false, false, null, null, null, null, null,
+                fields, codedata, null);
     }
 
     @Test
