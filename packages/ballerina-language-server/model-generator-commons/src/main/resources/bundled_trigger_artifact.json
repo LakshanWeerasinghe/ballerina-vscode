@@ -108,7 +108,8 @@
   "sap.jco": {
     "displayName": "SAP JCo Event Integration",
     "icon": {
-      "glyph": "bi-server",
+      "glyph": "bi-sap",
+      "color": "#0070F2",
       "kind": "event"
     }
   },
