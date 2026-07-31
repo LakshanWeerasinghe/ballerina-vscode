@@ -7,6 +7,8 @@
             <class name="io.ballerina.flowmodelgenerator.core.ConnectionActionProviderTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.DiagnosticHandlerTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.copilot.service.ServiceIndexLoaderTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.TriggerSchemaServiceLoaderTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.HandlerParamNameGeneratorTest"/>
         </classes>
     </test>
 </suite>

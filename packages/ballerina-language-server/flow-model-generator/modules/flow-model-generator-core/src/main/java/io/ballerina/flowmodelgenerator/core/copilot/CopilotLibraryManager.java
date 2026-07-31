@@ -156,7 +156,7 @@ public class CopilotLibraryManager {
             library.setFunctions(symbolResult.getFunctions());
             library.setTypeDefs(symbolResult.getTypeDefs());
 
-            JsonArray servicesJson = ServiceLoader.loadAllServices(libraryName);
+            JsonArray servicesJson = ServiceLoader.loadAllServices(libraryName, pkg, semanticModel);
             List<Symbol> moduleSymbols = semanticModel.moduleSymbols();
             CopilotDeprecationEnricher.enrich(servicesJson, moduleSymbols);
             CopilotListenerNameEnricher.enrich(servicesJson, moduleSymbols);
@@ -167,7 +167,7 @@ public class CopilotLibraryManager {
             }
             library.setServices(services);
 
-            JsonArray annotationsJson = AnnotationLoader.loadFromServiceIndex(libraryName);
+            JsonArray annotationsJson = AnnotationLoader.loadAnnotations(libraryName, semanticModel);
             List<Annotation> annotations = new ArrayList<>();
             for (JsonElement annotationElement : annotationsJson) {
                 annotations.add(GSON.fromJson(annotationElement, Annotation.class));
