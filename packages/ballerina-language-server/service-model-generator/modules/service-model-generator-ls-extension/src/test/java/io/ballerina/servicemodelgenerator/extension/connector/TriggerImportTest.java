@@ -21,7 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 import com.google.gson.Gson;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
 import io.ballerina.tools.text.TextDocuments;
 import org.eclipse.lsp4j.TextEdit;
@@ -65,7 +65,7 @@ public class TriggerImportTest {
                 ServiceInitModel.class);
     }
 
-    private TriggerModel triggerFor(String org, String module, String qualifiedServiceType,
+    private TriggerUISchemaModel triggerFor(String org, String module, String qualifiedServiceType,
                                     String qualifiedParamType) {
         return gson.fromJson(("""
                 { "schemaVersion":"1.0","displayName":"T","description":"d","orgName":"%s",
@@ -83,7 +83,7 @@ public class TriggerImportTest {
                         "enabled":true,"editable":false,"optional":false,"advanced":false}],
                       "returnType":{"type":"error?","enabled":true,"hasError":true,"optional":true}}]}]}""")
                 .formatted(org, module, module, qualifiedServiceType, qualifiedParamType),
-                TriggerModel.class);
+                TriggerUISchemaModel.class);
     }
 
     private String generate(ModulePartNode root, String org, String module, String serviceType,
@@ -184,7 +184,7 @@ public class TriggerImportTest {
                   "serviceTypes":[{"name":"Service","enabled":true,"functions":[],"schemaFunctions":[],
                     "codedata":{"type":"SERVICE_TYPE_DESCRIPTOR","moduleName":"kafka","originalName":"Service"}}]}""";
         ServiceInitModel init = gson.fromJson(initJson, ServiceInitModel.class);
-        TriggerModel trigger = gson.fromJson(triggerJson, TriggerModel.class);
+        TriggerUISchemaModel trigger = gson.fromJson(triggerJson, TriggerUISchemaModel.class);
 
         Map<String, List<TextEdit>> edits = SchemaDrivenSourceGenerator.buildAddServiceEditsForTrigger(
                 init, trigger, emptyRoot(), "svc.bal");

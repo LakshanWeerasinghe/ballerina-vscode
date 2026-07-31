@@ -18,7 +18,7 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +26,7 @@ import java.util.Map;
 
 /**
  * Computes the effective Ballerina type text of a parameter from its {@code type} {@link
- * TriggerModel.Property} tree — the payload-composition algorithm of the phase-6 spec:
+ * TriggerUISchemaModel.Property} tree — the payload-composition algorithm of the phase-6 spec:
  *
  * <pre>
  *   element = codedata.boundType (if set) else codedata.defaultType
@@ -50,7 +50,7 @@ public final class PayloadComposer {
     }
 
     /** The emitted Ballerina type of a parameter, from its {@code type} Property. */
-    public static String effectiveType(TriggerModel.Property typeProp) {
+    public static String effectiveType(TriggerUISchemaModel.Property typeProp) {
         if (typeProp == null) {
             return "";
         }
@@ -67,12 +67,12 @@ public final class PayloadComposer {
             return stringValue(typeProp.value());
         }
 
-        TriggerModel.Codedata cd = located.payload.codedata();
+        TriggerUISchemaModel.Codedata cd = located.payload.codedata();
         String element = element(cd);
         // An active modifier (a checked FLAG sibling tagged PAYLOAD_MODIFIER) supersedes the base wrap.
         if (located.siblings != null) {
-            for (TriggerModel.Property sibling : located.siblings) {
-                TriggerModel.Codedata sc = sibling.codedata();
+            for (TriggerUISchemaModel.Property sibling : located.siblings) {
+                TriggerUISchemaModel.Codedata sc = sibling.codedata();
                 if (sc != null && "PAYLOAD_MODIFIER".equals(sc.type()) && isTrue(sibling.value())
                         && sc.template() != null && !sc.template().isBlank()) {
                     return applyTemplate(sc.template(), element);
@@ -88,25 +88,25 @@ public final class PayloadComposer {
      * bound type) wrapped by the base template only (ignoring active modifiers). This is the
      * "placeholder" type the UI resets to when the user removes a custom schema.
      */
-    public static String defaultComposedType(TriggerModel.Property typeProp) {
+    public static String defaultComposedType(TriggerUISchemaModel.Property typeProp) {
         Located located = locatePayload(typeProp);
         if (located == null) {
             return effectiveType(typeProp);
         }
-        TriggerModel.Codedata cd = located.payload.codedata();
+        TriggerUISchemaModel.Codedata cd = located.payload.codedata();
         String element = cd == null || cd.defaultType() == null ? "" : cd.defaultType();
         String base = applyTemplate(templateOf(cd), element);
         return base.isEmpty() ? element : base;
     }
 
     /** The PAYLOAD_TYPE node backing a parameter's type tree (a variant sub-form or the type itself). */
-    public static TriggerModel.Property payloadNode(TriggerModel.Property typeProp) {
+    public static TriggerUISchemaModel.Property payloadNode(TriggerUISchemaModel.Property typeProp) {
         Located located = locatePayload(typeProp);
         return located == null ? null : located.payload;
     }
 
     /** The base wrap template of the payload backing a type tree (e.g. {@code {{type}}[]}), or empty. */
-    public static String payloadTemplate(TriggerModel.Property typeProp) {
+    public static String payloadTemplate(TriggerUISchemaModel.Property typeProp) {
         Located located = locatePayload(typeProp);
         return located == null ? "" : templateOf(located.payload.codedata());
     }
@@ -116,21 +116,22 @@ public final class PayloadComposer {
      * {@code stream}, METADATA_FLAG markers such as {@code rows}), keyed as declared. Empty when the
      * type tree has no payload sub-form.
      */
-    public static Map<String, TriggerModel.Property> compositionSiblings(TriggerModel.Property typeProp) {
+    public static Map<String, TriggerUISchemaModel.Property> compositionSiblings(
+            TriggerUISchemaModel.Property typeProp) {
         if (typeProp == null) {
             return Map.of();
         }
         String fieldType = selectedFieldType(typeProp);
-        Map<String, TriggerModel.Property> children = typeProp.properties();
+        Map<String, TriggerUISchemaModel.Property> children = typeProp.properties();
         if ("VARIATION_SELECTOR".equals(fieldType) && children != null) {
-            TriggerModel.Property variant = selectedVariant(typeProp, children);
+            TriggerUISchemaModel.Property variant = selectedVariant(typeProp, children);
             return variant == null ? Map.of() : compositionSiblings(variant);
         }
         if (children == null || isPayload(typeProp)) {
             return Map.of();
         }
-        Map<String, TriggerModel.Property> siblings = new LinkedHashMap<>();
-        for (Map.Entry<String, TriggerModel.Property> child : children.entrySet()) {
+        Map<String, TriggerUISchemaModel.Property> siblings = new LinkedHashMap<>();
+        for (Map.Entry<String, TriggerUISchemaModel.Property> child : children.entrySet()) {
             if (!isPayload(child.getValue())) {
                 siblings.put(child.getKey(), child.getValue());
             }
@@ -140,10 +141,10 @@ public final class PayloadComposer {
 
     // --- navigation ---------------------------------------------------------
 
-    private record Located(TriggerModel.Property payload, List<TriggerModel.Property> siblings) {
+    private record Located(TriggerUISchemaModel.Property payload, List<TriggerUISchemaModel.Property> siblings) {
     }
 
-    private static Located locatePayload(TriggerModel.Property node) {
+    private static Located locatePayload(TriggerUISchemaModel.Property node) {
         if (node == null) {
             return null;
         }
@@ -151,25 +152,25 @@ public final class PayloadComposer {
             return new Located(node, null);
         }
         String fieldType = selectedFieldType(node);
-        Map<String, TriggerModel.Property> children = node.properties();
+        Map<String, TriggerUISchemaModel.Property> children = node.properties();
         // VARIATION_SELECTOR: descend into the selected (by value) or enabled variant sub-form.
         if ("VARIATION_SELECTOR".equals(fieldType) && children != null) {
-            TriggerModel.Property variant = selectedVariant(node, children);
+            TriggerUISchemaModel.Property variant = selectedVariant(node, children);
             return variant == null ? null : locatePayload(variant);
         }
         // DATA_BINDING / COMPLEX_PAYLOAD / VARIANT sub-form: the payload is a child; the rest are
         // its modifier siblings.
         if (children != null) {
-            TriggerModel.Property payload = null;
-            for (TriggerModel.Property child : children.values()) {
+            TriggerUISchemaModel.Property payload = null;
+            for (TriggerUISchemaModel.Property child : children.values()) {
                 if (isPayload(child)) {
                     payload = child;
                     break;
                 }
             }
             if (payload != null) {
-                TriggerModel.Property found = payload;
-                List<TriggerModel.Property> siblings = children.values().stream()
+                TriggerUISchemaModel.Property found = payload;
+                List<TriggerUISchemaModel.Property> siblings = children.values().stream()
                         .filter(c -> c != found)
                         .toList();
                 return new Located(found, siblings);
@@ -178,13 +179,13 @@ public final class PayloadComposer {
         return null;
     }
 
-    private static TriggerModel.Property selectedVariant(TriggerModel.Property selector,
-                                                         Map<String, TriggerModel.Property> variants) {
+    private static TriggerUISchemaModel.Property selectedVariant(TriggerUISchemaModel.Property selector,
+                                                         Map<String, TriggerUISchemaModel.Property> variants) {
         Object value = selector.value();
         if (value != null && variants.containsKey(String.valueOf(value))) {
             return variants.get(String.valueOf(value));
         }
-        for (TriggerModel.Property variant : variants.values()) {
+        for (TriggerUISchemaModel.Property variant : variants.values()) {
             if (variant.enabled()) {
                 return variant;
             }
@@ -192,8 +193,8 @@ public final class PayloadComposer {
         return variants.values().stream().findFirst().orElse(null);
     }
 
-    private static boolean isPayload(TriggerModel.Property node) {
-        TriggerModel.Codedata cd = node == null ? null : node.codedata();
+    private static boolean isPayload(TriggerUISchemaModel.Property node) {
+        TriggerUISchemaModel.Codedata cd = node == null ? null : node.codedata();
         if (cd == null || cd.type() == null) {
             return false;
         }
@@ -202,7 +203,7 @@ public final class PayloadComposer {
 
     // --- element / template -------------------------------------------------
 
-    private static String element(TriggerModel.Codedata cd) {
+    private static String element(TriggerUISchemaModel.Codedata cd) {
         if (cd == null) {
             return "";
         }
@@ -213,7 +214,7 @@ public final class PayloadComposer {
     }
 
     /** The base wrap template: {@code codedata.template}, else a {@code modifiers.template} (kafka). */
-    private static String templateOf(TriggerModel.Codedata cd) {
+    private static String templateOf(TriggerUISchemaModel.Codedata cd) {
         if (cd == null) {
             return "";
         }
@@ -243,12 +244,12 @@ public final class PayloadComposer {
 
     // --- small helpers ------------------------------------------------------
 
-    public static String selectedFieldType(TriggerModel.Property property) {
+    public static String selectedFieldType(TriggerUISchemaModel.Property property) {
         if (property == null || property.types() == null) {
             return null;
         }
-        TriggerModel.PropertyType selected = null;
-        for (TriggerModel.PropertyType type : property.types()) {
+        TriggerUISchemaModel.PropertyType selected = null;
+        for (TriggerUISchemaModel.PropertyType type : property.types()) {
             if (type.selected()) {
                 selected = type;
                 break;
@@ -260,16 +261,16 @@ public final class PayloadComposer {
         return selected == null ? null : selected.fieldType();
     }
 
-    private static String selectedBallerinaType(TriggerModel.Property property) {
+    private static String selectedBallerinaType(TriggerUISchemaModel.Property property) {
         if (property == null || property.types() == null) {
             return null;
         }
-        for (TriggerModel.PropertyType type : property.types()) {
+        for (TriggerUISchemaModel.PropertyType type : property.types()) {
             if (type.selected() && type.ballerinaType() != null) {
                 return type.ballerinaType();
             }
         }
-        for (TriggerModel.PropertyType type : property.types()) {
+        for (TriggerUISchemaModel.PropertyType type : property.types()) {
             if (type.ballerinaType() != null) {
                 return type.ballerinaType();
             }

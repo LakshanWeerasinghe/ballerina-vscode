@@ -18,8 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector.adapter;
 
-import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.utils.TriggerArtifactResolver;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
@@ -38,7 +38,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getProtocol;
 
 /**
- * Adapts a unified {@link TriggerModel} into a wire {@link Service} <i>template</i> for the designer
+ * Adapts a unified {@link TriggerUISchemaModel} into a wire {@link Service} <i>template</i> for the designer
  * flow. The template (identity + listener/serviceType properties + the selected service type's
  * handler {@link Function}s) is then merged with the user's source.
  *
@@ -54,7 +54,7 @@ public final class TriggerServiceAdapter {
     /**
      * Builds a wire service template for the given service type from the unified model.
      *
-     * @param model       the connector's TriggerModel
+     * @param model       the connector's TriggerUISchemaModel
      * @param serviceType the service type identifier resolved from source (e.g. {@code IssuesService}
      *                    or {@code github:IssuesService}); falls back to the selected/sole type
      * @param orgName     the connector org (from the resolved source)
@@ -62,12 +62,12 @@ public final class TriggerServiceAdapter {
      * @param moduleName  the connector module (drives the listener protocol)
      * @return the wire service template, or {@code null} if no service type resolves
      */
-    public static Service toServiceTemplate(TriggerModel model, String serviceType,
+    public static Service toServiceTemplate(TriggerUISchemaModel model, String serviceType,
                                             String orgName, String packageName, String moduleName) {
         if (model == null || model.serviceTypes() == null || model.serviceTypes().isEmpty()) {
             return null;
         }
-        TriggerModel.ServiceTypeModel type = resolveServiceType(model, serviceType);
+        TriggerUISchemaModel.ServiceTypeModel type = resolveServiceType(model, serviceType);
         if (type == null) {
             return null;
         }
@@ -86,7 +86,7 @@ public final class TriggerServiceAdapter {
                 .setVersion(model.version())
                 .setPackageName(packageName)
                 .setListenerProtocol(protocol)
-                .setIcon(TriggerMetadataResolver.resolveIcon(orgName, packageName, moduleName, model.version()).url())
+                .setIcon(TriggerArtifactResolver.resolveIcon(orgName, packageName, moduleName, model.version()).url())
                 .setProperties(properties)
                 .setFunctions(new ArrayList<>())
                 .build();
@@ -113,7 +113,7 @@ public final class TriggerServiceAdapter {
      * name). Falls back to {@code SINGLE_SELECT_LISTENER} when absent or unrecognized, preserving the
      * behavior for models authored before the field existed.
      */
-    private static Value.FieldType listenerKind(TriggerModel model) {
+    private static Value.FieldType listenerKind(TriggerUISchemaModel model) {
         String kind = model.listenerKind();
         if (kind != null && !kind.isBlank()) {
             try {
@@ -125,12 +125,12 @@ public final class TriggerServiceAdapter {
         return Value.FieldType.SINGLE_SELECT_LISTENER;
     }
 
-    private static void addWireFunctions(List<Function> target, List<TriggerModel.FunctionModel> functions,
+    private static void addWireFunctions(List<Function> target, List<TriggerUISchemaModel.FunctionModel> functions,
                                          String orgName, String packageName, String moduleName, String version) {
         if (functions == null) {
             return;
         }
-        for (TriggerModel.FunctionModel function : functions) {
+        for (TriggerUISchemaModel.FunctionModel function : functions) {
             // A VARIANT-bearing handler (e.g. onFileChange's CSV/JSON/XML/TEXT/RAW formats) fans out
             // into one self-contained wire Function per variant, linked by `group`/`variantLabel`.
             for (Function wireFunction : TriggerFunctionAdapter.toFunctions(function)) {
@@ -145,9 +145,10 @@ public final class TriggerServiceAdapter {
         }
     }
 
-    private static TriggerModel.ServiceTypeModel resolveServiceType(TriggerModel model, String serviceType) {
+    private static TriggerUISchemaModel.ServiceTypeModel resolveServiceType(TriggerUISchemaModel model,
+                                                                            String serviceType) {
         if (serviceType != null && !serviceType.isBlank()) {
-            for (TriggerModel.ServiceTypeModel st : model.serviceTypes()) {
+            for (TriggerUISchemaModel.ServiceTypeModel st : model.serviceTypes()) {
                 if (serviceType.equals(st.name())
                         || st.name() != null && st.name().endsWith(COLON + serviceType)
                         || st.codedata() != null && serviceType.equals(st.codedata().originalName())) {
@@ -155,7 +156,7 @@ public final class TriggerServiceAdapter {
                 }
             }
         }
-        for (TriggerModel.ServiceTypeModel st : model.serviceTypes()) {
+        for (TriggerUISchemaModel.ServiceTypeModel st : model.serviceTypes()) {
             if (Boolean.TRUE.equals(st.enabled())) {
                 return st;
             }
@@ -164,8 +165,8 @@ public final class TriggerServiceAdapter {
     }
 
     /** {@code <module>:<ServiceType>} from the type's codedata, else its (possibly bare) name. */
-    private static String serviceDescriptor(TriggerModel.ServiceTypeModel type, String protocol) {
-        TriggerModel.Codedata cd = type.codedata();
+    private static String serviceDescriptor(TriggerUISchemaModel.ServiceTypeModel type, String protocol) {
+        TriggerUISchemaModel.Codedata cd = type.codedata();
         if (cd != null && cd.originalName() != null && !cd.originalName().isBlank()) {
             String module = cd.moduleName() != null && !cd.moduleName().isBlank() ? cd.moduleName() : protocol;
             return module + COLON + cd.originalName();
@@ -182,18 +183,18 @@ public final class TriggerServiceAdapter {
      * per-field state, so no field-level merging is needed here.
      */
     private static void addServiceTypeProperties(Map<String, Value> properties,
-                                                 Map<String, TriggerModel.Property> typeProperties) {
+                                                 Map<String, TriggerUISchemaModel.Property> typeProperties) {
         if (typeProperties == null) {
             return;
         }
-        for (Map.Entry<String, TriggerModel.Property> entry : typeProperties.entrySet()) {
-            TriggerModel.Property property = entry.getValue();
+        for (Map.Entry<String, TriggerUISchemaModel.Property> entry : typeProperties.entrySet()) {
+            TriggerUISchemaModel.Property property = entry.getValue();
             Value value = PropertyValueAdapter.toValue(property);
             properties.put(entry.getKey(), value);
         }
     }
 
-    private static Value serviceTypeProperty(String descriptor, TriggerModel.ServiceTypeModel type) {
+    private static Value serviceTypeProperty(String descriptor, TriggerUISchemaModel.ServiceTypeModel type) {
         String label = type.metadata() != null && type.metadata().label() != null
                 ? type.metadata().label() : "Service Type";
         String description = type.metadata() != null ? type.metadata().description() : "";

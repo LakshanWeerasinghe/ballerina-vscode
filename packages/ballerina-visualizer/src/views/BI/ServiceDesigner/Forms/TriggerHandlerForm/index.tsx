@@ -59,6 +59,7 @@ import { AnnotationExpressionFieldHandle } from "./AnnotationExpressionField";
 import { AnnotationConfigSection } from "./AnnotationConfigSection";
 import {
     addedParametersOf,
+    CODEDATA_ANNOTATION_ATTACHMENT,
     CODEDATA_COMPLEX_ANNOTATION,
     CODEDATA_METADATA_FLAG,
     CODEDATA_PAYLOAD_MODIFIER,
@@ -367,7 +368,8 @@ function buildArtifactFields(fn: FunctionModel | null | undefined): FormField[] 
  *   payload type through the templates the connector shipped;
  * - payload schema — the DATA_BINDING parameter (codedata.bindable), bound via the type creator;
  * - opt-in framework params — parameters marked `advanced` (caller and friends);
- * - function annotations — properties with codedata.type COMPLEX_FUNCTION_ANNOTATION;
+ * - function annotations — properties with codedata.type COMPLEX_FUNCTION_ANNOTATION (a granular
+ *   per-field tree) or ANNOTATION_ATTACHMENT (a connector-synthesized whole-value expression);
  * - a user-renamable name / editable return type (e.g. an MCP tool) — rendered through ArtifactForm
  *   so it gets the real IdentifierField/TypeEditor widgets (type completion, identifier validation)
  *   rather than a plain text box.
@@ -653,7 +655,10 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     // ----- annotations -----
 
-    const annotations = functionModel ? propertiesOfRole(functionModel, CODEDATA_COMPLEX_ANNOTATION) : [];
+    const annotations = functionModel
+        ? [...propertiesOfRole(functionModel, CODEDATA_COMPLEX_ANNOTATION),
+            ...propertiesOfRole(functionModel, CODEDATA_ANNOTATION_ATTACHMENT)]
+        : [];
 
     const handleAnnotationChange = (annotationKey: string, updated: PropertyModel) => {
         setFunctionModel((prev) => prev

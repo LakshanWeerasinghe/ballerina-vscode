@@ -18,12 +18,12 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
+import io.ballerina.modelgenerator.commons.trigger.models.Repeatable;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
-import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
 import io.ballerina.servicemodelgenerator.extension.model.Service;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
 import org.testng.Assert;
@@ -42,7 +42,7 @@ import java.util.List;
  */
 public class TriggerSourceMergerTest {
 
-    private TriggerModel model(String moduleName) {
+    private TriggerUISchemaModel model(String moduleName) {
         return ConnectorModelReader.getInstance().getBundledTriggerModel(moduleName).orElseThrow();
     }
 

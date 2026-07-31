@@ -20,14 +20,15 @@ package io.ballerina.servicemodelgenerator.extension.builder.service;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ServiceDeclarationNode;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.ConnectorModelReader;
+import io.ballerina.servicemodelgenerator.extension.connector.ConnectorVersionResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.ExistingListenerResolver;
 import io.ballerina.servicemodelgenerator.extension.connector.IncludedRecordBinder;
 import io.ballerina.servicemodelgenerator.extension.connector.SchemaDrivenSourceGenerator;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerReadOnlyMetadataAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerServiceAdapter;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerSourceMerger;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
@@ -59,7 +60,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtil
 import static io.ballerina.servicemodelgenerator.extension.util.ServiceModelUtils.getServiceTypeIdentifier;
 
 /**
- * Generic, schema-driven service builder for connectors whose unified {@link TriggerModel} is bundled
+ * Generic, schema-driven service builder for connectors whose unified {@link TriggerUISchemaModel} is bundled
  * as a classpath resource in this jar. It serves the add-event-integration flow
  * ({@code getServiceInitModel} + {@code addServiceAndListener}) with no per-connector code: the init
  * form comes straight from the model's {@code initProperties}, and the source is emitted by
@@ -83,9 +84,14 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public ServiceInitModel getServiceInitModel(GetServiceInitModelContext context) {
-        // The bundled schema (classpath resource): its init form is derived from `initProperties`.
+        // Bundled classpath resource (version-gated), or (on a miss) synthesized from the connector's
+        // own trigger-metadata.json + introspection: either way, its init form is derived from
+        // `initProperties`. Modelled against the version the project will actually compile against, so
+        // a project pinned to an older connector gets that release's form rather than the newest one.
+        String version = ConnectorVersionResolver.resolve(context.project(), context.orgName(),
+                context.packageName(), context.version());
         Optional<ServiceInitModel> triggerInit = ConnectorModelReader.getInstance()
-                .getBundledServiceInitModel(context.moduleName());
+                .getSchemaDrivenServiceInitModel(context.orgName(), context.moduleName(), version);
         if (triggerInit.isEmpty()) {
             return null;
         }
@@ -99,9 +105,11 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
     public Map<String, List<TextEdit>> addServiceInitSource(AddServiceInitModelContext context) {
         ServiceInitModel filledModel = context.serviceInitModel();
         ModulePartNode rootNode = context.document().syntaxTree().rootNode();
-        // The bundled schema (classpath resource).
-        Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(filledModel.getModuleName());
+        // Bundled classpath resource (version-gated by the filled model's own version), or (on a miss)
+        // synthesized from the connector's own trigger-metadata.json + introspection.
+        Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
+                .getSchemaDrivenTriggerModel(filledModel.getOrgName(), filledModel.getModuleName(),
+                        filledModel.getVersion());
         if (triggerModel.isEmpty()) {
             return Map.of();
         }
@@ -111,10 +119,12 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
 
     @Override
     public Service getModelFromSource(ModelFromSourceContext context) {
-        // The bundled schema: build the designer template from its serviceTypes[], then merge the
-        // user's source (functions present, base path, listeners, line ranges).
-        Optional<TriggerModel> triggerModel = ConnectorModelReader.getInstance()
-                .getBundledTriggerModel(context.moduleName());
+        // Bundled (version-gated) or synthesized schema: build the designer template from its
+        // serviceTypes[], then merge the user's source (functions present, base path, listeners, line
+        // ranges). Reading an existing service already knows the exact version from the source's
+        // ModuleID (context.version()).
+        Optional<TriggerUISchemaModel> triggerModel = ConnectorModelReader.getInstance()
+                .getSchemaDrivenTriggerModel(context.orgName(), context.moduleName(), context.version());
         if (triggerModel.isEmpty()) {
             // Not a schema-driven connector after all -> fall back to the DB-backed behaviour.
             return super.getModelFromSource(context);
@@ -136,7 +146,8 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         Value stringLiteralProperty = serviceModel.getStringLiteralProperty();
         if (stringLiteralProperty != null) {
             String stringLiteral = stringLiteralProperty.getValue();
-            stringLiteralProperty.setEnabled(!stringLiteralProperty.isOptional() || !stringLiteral.isEmpty());
+            stringLiteralProperty.setEnabled(!stringLiteralProperty.isOptional()
+                    || (stringLiteral != null && !stringLiteral.isEmpty()));
         }
 
         // Included-record payloads: the textual merge above only sees the generated wrapper's name

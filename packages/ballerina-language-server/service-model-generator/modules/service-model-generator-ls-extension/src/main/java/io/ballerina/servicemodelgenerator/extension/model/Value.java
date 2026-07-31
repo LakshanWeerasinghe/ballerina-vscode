@@ -51,7 +51,13 @@ public class Value {
     private boolean editable;
     private boolean optional;
     private boolean advanced;
-    private boolean hidden;
+    // A fixed/internal field the form must carry but never render (e.g. a service type the connector
+    // pins for new services). Distinct from `enabled: false`, which means "not part of the model" and
+    // is skipped by the source generator -- a hidden field still contributes its value.
+    //
+    // Boxed, unlike the other markers, so it stays absent from the wire unless a model declares it:
+    // a primitive would serialize `hidden: false` onto every property of every response.
+    private Boolean hidden;
 
     public Value(Value value) {
         this.metadata = value.metadata;
@@ -315,10 +321,10 @@ public class Value {
     }
 
     public boolean isHidden() {
-        return hidden;
+        return Boolean.TRUE.equals(hidden);
     }
 
-    public void setHidden(boolean hidden) {
+    public void setHidden(Boolean hidden) {
         this.hidden = hidden;
     }
 
@@ -385,7 +391,7 @@ public class Value {
         private boolean editable = false;
         private boolean optional = false;
         private boolean advanced = false;
-        private boolean hidden = false;
+        private Boolean hidden;
 
         public ValueBuilder metadata(String label, String description) {
             this.metadata = new MetaData(label, description);
@@ -436,7 +442,7 @@ public class Value {
             return this;
         }
 
-        public ValueBuilder setHidden(boolean hidden) {
+        public ValueBuilder setHidden(Boolean hidden) {
             this.hidden = hidden;
             return this;
         }

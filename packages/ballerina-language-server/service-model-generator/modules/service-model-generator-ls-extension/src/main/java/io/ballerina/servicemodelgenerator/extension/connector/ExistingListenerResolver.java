@@ -51,7 +51,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.argName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.fieldName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isChoice;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isGroup;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_CDC_OPERATION_ENABLE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD;
@@ -71,6 +77,8 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TY
  * @since 1.8.0
  */
 public final class ExistingListenerResolver {
+
+    private static final Logger LOGGER = Logger.getLogger(ExistingListenerResolver.class.getName());
 
     // A CHOICE branch tagged with this codedata type is a bare enum-literal selector (e.g. ftp's
     // protocol: FTP/SFTP/FTPS) rather than a record-shaping sub-form — mirrors the constant in
@@ -500,15 +508,6 @@ public final class ExistingListenerResolver {
         return codedata != null && ARG_TYPE_CDC_OPERATION_ENABLE.equals(codedata.getArgType());
     }
 
-    private static boolean isChoice(Value field) {
-        return hasFieldType(field, Value.FieldType.CHOICE);
-    }
-
-    private static boolean hasFieldType(Value field, Value.FieldType fieldType) {
-        return field.getTypes() != null
-                && field.getTypes().stream().anyMatch(type -> type.fieldType() == fieldType);
-    }
-
     /** A CHOICE whose (enabled/first) branch is a bare enum literal selector (ftp's protocol). */
     private static boolean isEnumValueChoiceField(Value field) {
         if (field.getChoices() == null) {
@@ -600,6 +599,11 @@ public final class ExistingListenerResolver {
             }
             return Optional.of(new ParsedListener(positional, named));
         } catch (RuntimeException e) {
+            // Never fail the "use existing listener" dropdown over one unparsable declaration — but a
+            // silent Optional.empty() here is otherwise indistinguishable from "not a listener at all",
+            // which makes a real bug in this syntax-tree walk very hard to diagnose from a bug report.
+            LOGGER.log(Level.FINE, e,
+                    () -> "Failed to parse existing listener declaration '%s'".formatted(listenerName));
             return Optional.empty();
         }
     }
@@ -682,28 +686,6 @@ public final class ExistingListenerResolver {
             node = node.parent();
         }
         return (ListenerDeclarationNode) node;
-    }
-
-    private static boolean isGroup(Value field) {
-        return field.getTypes() != null
-                && field.getTypes().stream().anyMatch(type -> type.fieldType() == Value.FieldType.GROUP_SECTION);
-    }
-
-    private static String fieldName(Codedata codedata, String key) {
-        if (codedata.getPath() != null && !codedata.getPath().isBlank()) {
-            return codedata.getPath();
-        }
-        if (codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
-    }
-
-    private static String argName(Codedata codedata, String key) {
-        if (codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
     }
 
     private static String unquote(String text) {

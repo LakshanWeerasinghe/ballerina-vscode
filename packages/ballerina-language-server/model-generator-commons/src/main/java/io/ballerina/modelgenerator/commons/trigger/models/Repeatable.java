@@ -16,12 +16,12 @@
  *  under the License.
  */
 
-package io.ballerina.servicemodelgenerator.extension.model;
+package io.ballerina.modelgenerator.commons.trigger.models;
 
 /**
  * How a schema-driven trigger handler may be added to a service, and how consuming one instance
  * affects the still-addable catalog. Carried on the {@code functions}/{@code schemaFunctions} of a
- * unified TriggerModel and deserialized by name from the trigger model JSON (e.g.
+ * {@link TriggerUISchemaModel} and deserialized by name from the trigger UI schema JSON (e.g.
  * {@code "repeatable": "ONE_OF_GROUP"}); an absent value means {@link #FALSE}.
  *
  * <ul>
