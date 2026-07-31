@@ -1,4 +1,0 @@
-{
-  "testmod": "trigger-models/testmod.json",
-  "missing-resource": "trigger-models/no-such-file.json"
-}

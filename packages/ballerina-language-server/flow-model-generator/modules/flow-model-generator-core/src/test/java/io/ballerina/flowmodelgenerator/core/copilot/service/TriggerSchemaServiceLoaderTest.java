@@ -18,12 +18,10 @@
 
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel.ServiceType.HandlerOption;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel.ServiceType.Param;
-import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -174,8 +172,6 @@ public class TriggerSchemaServiceLoaderTest {
 
     // ---- buildOptionMethods ----------------------------------------------------------
 
-    private static final Gson GSON = new Gson();
-
     private static HandlerOption option(String name, String kind, String presence, List<Param> params,
                                         List<TypeRef> returns) {
         return new HandlerOption(name, kind, presence, null, params, returns, null, null, null, null, null);
@@ -184,29 +180,6 @@ public class TriggerSchemaServiceLoaderTest {
     private static Param param(String name, String type, String presence, String addMode) {
         return new Param(name, List.of(new TypeRef(type, null)), presence, addMode, null, null);
     }
-
-    private static TriggerUiDocs docsFor(String modelJson) {
-        return TriggerUiDocs.index(GSON.fromJson(modelJson, TriggerUISchemaModel.class));
-    }
-
-    private static final TriggerUiDocs SERVICE_DOCS = docsFor("""
-            {
-              "serviceTypes": [ {
-                "name": "Service",
-                "schemaFunctions": [ {
-                  "name": "onEvent", "kind": "REMOTE", "enabled": false,
-                  "metadata": { "label": "onEvent", "description": "Handles the event." },
-                  "parameters": [ {
-                    "metadata": { "label": "event", "description": "The event payload." },
-                    "kind": "REQUIRED",
-                    "name": { "value": "event", "enabled": false, "editable": true,
-                              "optional": false, "advanced": false },
-                    "enabled": false, "editable": true, "optional": false, "advanced": false
-                  } ]
-                } ]
-              } ]
-            }
-            """);
 
     private static final List<TypeRef> ERROR_NIL =
             List.of(new TypeRef("error", null), new TypeRef("()", null));
@@ -218,17 +191,17 @@ public class TriggerSchemaServiceLoaderTest {
                         option("*", "remote", "optional", null, ERROR_NIL),
                         null,
                         option(null, "remote", "optional", null, ERROR_NIL)),
-                "Service", NONE, TriggerUiDocs.empty(), "testmod");
+                "Service", NONE, "testmod");
         Assert.assertTrue(methods.isEmpty(), "Wildcard, null, and name-less options must be skipped");
         Assert.assertTrue(TriggerSchemaServiceLoader.buildOptionMethods(
-                null, "Service", NONE, TriggerUiDocs.empty(), "testmod").isEmpty());
+                null, "Service", NONE, "testmod").isEmpty());
     }
 
     @Test
     public void testBuildOptionMethodsResourceKindAndNoParams() {
         JsonArray methods = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("chat", "resource", "required", null, ERROR_NIL)),
-                "Service", NONE, TriggerUiDocs.empty(), "testmod");
+                "Service", NONE, "testmod");
         JsonObject method = methods.get(0).getAsJsonObject();
         Assert.assertEquals(method.get("type").getAsString(), "resource");
         Assert.assertFalse(method.has("parameters"), "No parameters key for a param-less option");
@@ -239,34 +212,35 @@ public class TriggerSchemaServiceLoaderTest {
     }
 
     @Test
-    public void testBuildOptionMethodsParamNamePrecedenceAndDocs() {
-        // Metadata name wins; description comes from the UI docs by name/position.
+    public void testBuildOptionMethodsParamNamePrecedence() {
+        // An authored metadata name always wins over generation, and no description is emitted for a
+        // marker-type handler (neither the document nor the library has one).
         JsonArray withMetadataName = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onEvent", "remote", "optional",
                         List.of(param("payload", "json", "optional", null)), ERROR_NIL)),
-                "Service", NONE, SERVICE_DOCS, "testmod");
+                "Service", NONE, "testmod");
         JsonObject method = withMetadataName.get(0).getAsJsonObject();
-        Assert.assertEquals(method.get("description").getAsString(), "Handles the event.");
+        Assert.assertFalse(method.has("description"), "Marker-type handlers carry no description");
         JsonObject p = method.getAsJsonArray("parameters").get(0).getAsJsonObject();
         Assert.assertEquals(p.get("name").getAsString(), "payload");
-        Assert.assertEquals(p.get("description").getAsString(), "The event payload.");
+        Assert.assertFalse(p.has("description"), "Marker-type params carry no description");
         Assert.assertTrue(p.get("optional").getAsBoolean());
 
-        // Name-less metadata param takes the UI name positionally.
-        JsonArray withUiName = TriggerSchemaServiceLoader.buildOptionMethods(
+        // A name-less slot with a usable declared type is named from that type.
+        JsonArray generated = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onEvent", "remote", "optional",
-                        List.of(param(null, "json", "required", null)), null)),
-                "Service", NONE, SERVICE_DOCS, "testmod");
-        JsonObject uiNamed = withUiName.get(0).getAsJsonObject()
+                        List.of(param(null, "WatchEvent", "required", null)), null)),
+                "Service", Set.of("WatchEvent")::contains, "testmod");
+        JsonObject generatedParam = generated.get(0).getAsJsonObject()
                 .getAsJsonArray("parameters").get(0).getAsJsonObject();
-        Assert.assertEquals(uiNamed.get("name").getAsString(), "event");
-        Assert.assertFalse(uiNamed.has("optional"));
+        Assert.assertEquals(generatedParam.get("name").getAsString(), "watchEvent");
+        Assert.assertFalse(generatedParam.has("optional"));
 
-        // Name-less metadata param with no UI docs gets a synthetic positional name.
+        // A name-less slot whose type yields no identifier falls back positionally.
         JsonArray synthetic = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onUnknown", "remote", "optional",
                         List.of(param(null, "json", "required", null)), null)),
-                "Service", NONE, TriggerUiDocs.empty(), "testmod");
+                "Service", NONE, "testmod");
         Assert.assertEquals(synthetic.get(0).getAsJsonObject()
                 .getAsJsonArray("parameters").get(0).getAsJsonObject().get("name").getAsString(), "param1");
     }
@@ -278,14 +252,14 @@ public class TriggerSchemaServiceLoaderTest {
         JsonArray skipped = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onHubError", "remote", "optional",
                         List.of(param(null, "HubError", "required", null)), ERROR_NIL)),
-                "SubscriberService", NONE, TriggerUiDocs.empty(), "websub");
+                "SubscriberService", NONE, "websub");
         Assert.assertTrue(skipped.isEmpty());
 
         // Same handler with the type declared: kept, with the type-derived param name.
         JsonArray kept = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onHubError", "remote", "optional",
                         List.of(param(null, "HubError", "required", null)), ERROR_NIL)),
-                "SubscriberService", Set.of("HubError")::contains, TriggerUiDocs.empty(), "websub");
+                "SubscriberService", Set.of("HubError")::contains, "websub");
         Assert.assertEquals(kept.get(0).getAsJsonObject().getAsJsonArray("parameters")
                 .get(0).getAsJsonObject().get("name").getAsString(), "hubError");
 
@@ -293,25 +267,33 @@ public class TriggerSchemaServiceLoaderTest {
         Assert.assertTrue(TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onEvent", "remote", "optional", null,
                         List.of(new TypeRef("Acknowledgement", null)))),
-                "Service", NONE, TriggerUiDocs.empty(), "websub").isEmpty());
+                "Service", NONE, "websub").isEmpty());
     }
 
     @Test
-    public void testDeriveParamNameReservedWordsAndCollisions() {
-        // A declared type whose lower-camel form is a reserved word must not be derived.
-        JsonArray reserved = TriggerSchemaServiceLoader.buildOptionMethods(
+    public void testGeneratedNameRulesThroughTheLoader() {
+        // A bare `Error` slot is named <alias>Error, never the keyword `error`.
+        JsonArray errorSlot = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onError", "remote", "optional",
                         List.of(param(null, "Error", "required", null)), null)),
-                "Service", Set.of("Error")::contains, TriggerUiDocs.empty(), "testmod");
-        Assert.assertEquals(reserved.get(0).getAsJsonObject().getAsJsonArray("parameters")
-                .get(0).getAsJsonObject().get("name").getAsString(), "param1");
+                "Service", Set.of("Error")::contains, "testmod");
+        Assert.assertEquals(errorSlot.get(0).getAsJsonObject().getAsJsonArray("parameters")
+                .get(0).getAsJsonObject().get("name").getAsString(), "testmodError");
 
-        // A derived name colliding with a sibling's explicit name falls back positionally.
+        // The alias used is the module alias, so a submodule package reduces first.
+        JsonArray submodule = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("onError", "remote", "optional",
+                        List.of(param(null, "Error", "required", null)), null)),
+                "Service", Set.of("Error")::contains, "trigger.github");
+        Assert.assertEquals(submodule.get(0).getAsJsonObject().getAsJsonArray("parameters")
+                .get(0).getAsJsonObject().get("name").getAsString(), "githubError");
+
+        // A generated name colliding with a sibling's authored name falls back positionally.
         JsonArray collision = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onTwo", "remote", "optional",
                         List.of(param("event", "Event", "required", null),
                                 param(null, "Event", "optional", null)), null)),
-                "Service", Set.of("Event")::contains, TriggerUiDocs.empty(), "testmod");
+                "Service", Set.of("Event")::contains, "testmod");
         JsonArray params = collision.get(0).getAsJsonObject().getAsJsonArray("parameters");
         Assert.assertEquals(params.get(0).getAsJsonObject().get("name").getAsString(), "event");
         Assert.assertEquals(params.get(1).getAsJsonObject().get("name").getAsString(), "param2");
@@ -324,7 +306,7 @@ public class TriggerSchemaServiceLoaderTest {
                         List.of(param("meta", "ToolMeta", "required", null),
                                 param(null, "string", "optional", "many")),
                         List.of(new TypeRef("()", null)))),
-                "Service", Set.of("ToolMeta")::contains, TriggerUiDocs.empty(), "testmod");
+                "Service", Set.of("ToolMeta")::contains, "testmod");
         JsonObject method = methods.get(0).getAsJsonObject();
         Assert.assertEquals(method.getAsJsonArray("parameters").size(), 1,
                 "addMode: many parameter slots must be skipped");
