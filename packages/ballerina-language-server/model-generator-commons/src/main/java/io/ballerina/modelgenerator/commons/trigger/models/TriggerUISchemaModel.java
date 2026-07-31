@@ -16,16 +16,14 @@
  *  under the License.
  */
 
-package io.ballerina.servicemodelgenerator.extension.connector.model;
-
-import io.ballerina.servicemodelgenerator.extension.model.Repeatable;
+package io.ballerina.modelgenerator.commons.trigger.models;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * Deserialization target for a connector-shipped <b>Trigger Model</b>
- * ({@code resources/trigger-model.json}). This is the single unified model that supersedes the
+ * Deserialization target for a connector-shipped <b>Trigger UI Schema</b>
+ * ({@code resources/trigger-ui-schema.json}). This is the single unified model that supersedes the
  * earlier two-model design ({@code service-creation.json} + {@code service-metadata.json}): one
  * document unifies the add-trigger init form ({@code initProperties}) with the service type(s) and
  * their handler functions ({@code serviceTypes}).
@@ -46,7 +44,7 @@ import java.util.Map;
  * {@code Property.value} is an arbitrary JSON scalar. These are resolved by the generator/adapters,
  * not here.
  *
- * @param schemaVersion    the {@code trigger-model.json} schema version this document conforms to
+ * @param schemaVersion    the {@code trigger-ui-schema.json} schema version this document conforms to
  * @param id               the connector's catalog identifier
  * @param displayName      the human-readable connector name shown in the designer
  * @param description      the connector's summary description
@@ -74,7 +72,7 @@ import java.util.Map;
  *                         import; a single-segment module keeps its natural prefix, unaliased).
  * @since 1.9.0
  */
-public record TriggerModel(
+public record TriggerUISchemaModel(
         String schemaVersion,
         String id,
         String displayName,

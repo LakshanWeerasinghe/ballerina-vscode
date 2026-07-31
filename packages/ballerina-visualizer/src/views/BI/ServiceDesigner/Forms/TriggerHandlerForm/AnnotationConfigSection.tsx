@@ -91,35 +91,21 @@ const isFieldIncluded = (field: PropertyModel): boolean => {
 };
 
 /**
- * Generic renderer of a schema-driven function annotation (COMPLEX_FUNCTION_ANNOTATION — e.g.
- * @smb:FunctionConfig / @ftp:FunctionConfig). Walks the granular tree the connector shipped:
- * MAPPING_FIELD children render as optional checkboxes gating either a plain TEXT/EXPRESSION leaf
- * or a FIELD_VALUE_CHOICE radio whose active branch nests further leaves. The edited tree is sent
- * back to the language server, which collapses it into the emitted annotation.
+ * Generic renderer of a schema-driven function annotation. Two shapes exist:
+ *
+ * - {@code COMPLEX_FUNCTION_ANNOTATION} (a hand-authored model's granular tree, e.g.
+ *   {@code @smb:FunctionConfig} / {@code @ftp:FunctionConfig}): {@code MAPPING_FIELD} children render
+ *   as optional checkboxes gating either a plain TEXT/EXPRESSION leaf or a {@code FIELD_VALUE_CHOICE}
+ *   radio whose active branch nests further leaves. The edited tree is sent back to the language
+ *   server, which collapses it into the emitted annotation.
+ * - {@code ANNOTATION_ATTACHMENT} (a connector-synthesized annotation with no granular per-field
+ *   authoring, e.g. an SMB-shaped handler annotation the trigger-model synthesizer produced): the
+ *   node itself has no {@code properties} tree — its own {@code value} already IS the whole record
+ *   body — so it renders as a single expression field instead of per-field checkboxes.
  */
 export function AnnotationConfigSection(props: AnnotationConfigSectionProps) {
     const { annotationKey, annotation, filePath, targetLineRange, disabled, onChange,
         registerFieldRef, onDiagnosticsChange, onValidationStateChange } = props;
-
-    const fieldEntries = Object.entries(annotation.properties ?? {}) as [string, PropertyModel][];
-    if (fieldEntries.length === 0) {
-        return null;
-    }
-
-    const updateField = (fieldKey: string, updated: PropertyModel) => {
-        onChange(annotationKey, {
-            ...annotation,
-            properties: { ...annotation.properties, [fieldKey]: updated },
-        });
-    };
-
-    const toggleField = (fieldKey: string, field: PropertyModel, checked: boolean) => {
-        // Container flags store their checked state in `value` — as "true"/"false" strings, which
-        // both this form and the language server's emitter accept alongside booleans.
-        updateField(fieldKey, isLeafField(field)
-            ? { ...field, enabled: checked }
-            : { ...field, enabled: true, value: String(checked) });
-    };
 
     const renderLeaf = (stateKey: string, field: PropertyModel, onValueChange: (value: string) => void) => (
         <AnnotationExpressionField
@@ -137,6 +123,30 @@ export function AnnotationConfigSection(props: AnnotationConfigSectionProps) {
             onValidationStateChange={(state) => onValidationStateChange(stateKey, state)}
         />
     );
+
+    const fieldEntries = Object.entries(annotation.properties ?? {}) as [string, PropertyModel][];
+    if (fieldEntries.length === 0) {
+        // A whole-value ANNOTATION_ATTACHMENT leaf (no granular fields) already renders its own
+        // label and description via AnnotationExpressionField -> FieldFactory, so wrapping it in
+        // another SectionHeader here would just repeat the same label a second time.
+        return renderLeaf(annotationKey, annotation,
+            (value) => onChange(annotationKey, { ...annotation, value }));
+    }
+
+    const updateField = (fieldKey: string, updated: PropertyModel) => {
+        onChange(annotationKey, {
+            ...annotation,
+            properties: { ...annotation.properties, [fieldKey]: updated },
+        });
+    };
+
+    const toggleField = (fieldKey: string, field: PropertyModel, checked: boolean) => {
+        // Container flags store their checked state in `value` — as "true"/"false" strings, which
+        // both this form and the language server's emitter accept alongside booleans.
+        updateField(fieldKey, isLeafField(field)
+            ? { ...field, enabled: checked }
+            : { ...field, enabled: true, value: String(checked) });
+    };
 
     const renderChoiceValue = (fieldKey: string, field: PropertyModel, valueKey: string, choice: PropertyModel) => {
         // No fallback to index 0: a choice the model has not resolved yet (no branch `enabled`)

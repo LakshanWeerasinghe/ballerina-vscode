@@ -16,12 +16,13 @@
  *  under the License.
  */
 
-package io.ballerina.modelgenerator.commons;
+package io.ballerina.modelgenerator.commons.trigger.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerArtifactModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,12 +33,12 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Reads the LS's bundled {@code trigger-metadata} for its hardcoded entry-point modules — a small,
- * display-only sibling of the (much larger) {@code trigger-model.json}, keyed by module name.
+ * Reads the LS's bundled {@code trigger-artifact} metadata for its hardcoded entry-point modules — a
+ * small, display-only sibling of the (much larger) {@code trigger-ui-schema.json}, keyed by module name.
  *
- * <p>All bundled entries live in a single classpath resource, {@code bundled_trigger_metadata.json},
+ * <p>All bundled entries live in a single classpath resource, {@code bundled_trigger_artifact.json},
  * parsed once and cached in memory. This is a phase-6 deliberate simplification: reading a connector's
- * <i>own</i> shipped {@code resources/trigger-metadata.json} from its resolved {@code .bala} is not
+ * <i>own</i> shipped {@code resources/trigger-artifact.json} from its resolved {@code .bala} is not
  * supported in this phase (a non-bundled connector simply has no metadata) — only the LS's own bundled
  * set is consulted. The lookup is a pure classpath read keyed by module name — no bala-cache resolution
  * or network access — so it is safe to call from hot paths such as project-tree / artifact-tree
@@ -45,29 +46,30 @@ import java.util.Optional;
  *
  * @since 1.9.0
  */
-public final class TriggerMetadataReader {
+public final class TriggerArtifactReader {
 
-    private static final String BUNDLED_RESOURCE = "bundled_trigger_metadata.json";
-    private static final Type BUNDLED_METADATA_TYPE = new TypeToken<Map<String, TriggerMetadata>>() { }.getType();
+    private static final String BUNDLED_RESOURCE = "bundled_trigger_artifact.json";
+    private static final Type BUNDLED_METADATA_TYPE = new TypeToken<Map<String, TriggerArtifactModel>>() { }
+            .getType();
 
-    private static final TriggerMetadataReader INSTANCE = new TriggerMetadataReader();
+    private static final TriggerArtifactReader INSTANCE = new TriggerArtifactReader();
 
-    private final Map<String, TriggerMetadata> bundledMetadata = loadBundledMetadata();
+    private final Map<String, TriggerArtifactModel> bundledMetadata = loadBundledMetadata();
 
-    private TriggerMetadataReader() {
+    private TriggerArtifactReader() {
     }
 
-    public static TriggerMetadataReader getInstance() {
+    public static TriggerArtifactReader getInstance() {
         return INSTANCE;
     }
 
-    private static Map<String, TriggerMetadata> loadBundledMetadata() {
-        try (InputStream is = TriggerMetadataReader.class.getClassLoader().getResourceAsStream(BUNDLED_RESOURCE)) {
+    private static Map<String, TriggerArtifactModel> loadBundledMetadata() {
+        try (InputStream is = TriggerArtifactReader.class.getClassLoader().getResourceAsStream(BUNDLED_RESOURCE)) {
             if (is == null) {
                 return Map.of();
             }
             try (JsonReader reader = new JsonReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                Map<String, TriggerMetadata> loaded = new Gson().fromJson(reader, BUNDLED_METADATA_TYPE);
+                Map<String, TriggerArtifactModel> loaded = new Gson().fromJson(reader, BUNDLED_METADATA_TYPE);
                 return loaded == null ? Map.of() : Map.copyOf(loaded);
             }
         } catch (IOException | JsonParseException e) {
@@ -81,7 +83,7 @@ public final class TriggerMetadataReader {
     }
 
     /** The bundled trigger metadata for {@code moduleName}, if any. */
-    public Optional<TriggerMetadata> getBundledMetadata(String moduleName) {
+    public Optional<TriggerArtifactModel> getBundledMetadata(String moduleName) {
         return moduleName == null ? Optional.empty() : Optional.ofNullable(bundledMetadata.get(moduleName));
     }
 }

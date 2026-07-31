@@ -207,7 +207,7 @@ public final class IncludedRecordBinder {
     }
 
     /** The function's included-record payload parameter, or null when it has none. */
-    private static Parameter includedRecordParam(Function function) {
+    static Parameter includedRecordParam(Function function) {
         if (function == null || function.getParameters() == null) {
             return null;
         }
@@ -221,7 +221,7 @@ public final class IncludedRecordBinder {
     }
 
     /** The base identifier for generated wrapper names, falling back to the base type's local name. */
-    private static String typeIdentifierOf(Codedata codedata) {
+    static String typeIdentifierOf(Codedata codedata) {
         if (!isBlank(codedata.getTypeIdentifier())) {
             return codedata.getTypeIdentifier();
         }
@@ -235,7 +235,7 @@ public final class IncludedRecordBinder {
         param.getType().setValue(applyTemplate(codedata.getTemplate(), typeName));
     }
 
-    private static String applyTemplate(String template, String element) {
+    static String applyTemplate(String template, String element) {
         String safe = element == null ? "" : element;
         if (template == null || template.isBlank() || !template.contains(TYPE_PLACEHOLDER)) {
             return safe;

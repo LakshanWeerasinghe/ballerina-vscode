@@ -38,7 +38,7 @@ public class Codedata {
     private Integer position;
     private String path;
     private String valueQualifier;
-    // Payload-composition and annotation hints carried by the unified TriggerModel (phase6 schema).
+    // Payload-composition and annotation hints carried by the unified TriggerUISchemaModel (phase6 schema).
     // Payload: `template` wraps the element type ({{type}}), `defaultType`/`boundType` are the
     // element candidates, `bindable` marks a user-definable schema, `modifier`/`targetParam` mark a
     // PAYLOAD_MODIFIER flag. Annotations: `field` names the mapping field, `optional` gates its

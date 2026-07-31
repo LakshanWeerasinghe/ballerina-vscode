@@ -13,6 +13,9 @@
   "mysql": "trigger-models/mysql.json",
   "postgresql": "trigger-models/postgresql.json",
   "trigger.hubspot": "trigger-models/trigger.hubspot.json",
-  "mcp": "trigger-models/mcp.json",
+  "mcp": [
+    { "minVersion": "1.2.0", "resource": "trigger-models/mcp.json" },
+    { "resource": "trigger-models/mcp_1.0.3.json" }
+  ],
   "sap.jco": "trigger-models/sap.jco.json"
 }

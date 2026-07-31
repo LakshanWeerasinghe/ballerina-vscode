@@ -19,7 +19,7 @@
 package io.ballerina.servicemodelgenerator.extension.connector;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
-import io.ballerina.servicemodelgenerator.extension.connector.model.TriggerModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel;
@@ -36,6 +36,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.argName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.fieldName;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isChoice;
+import static io.ballerina.servicemodelgenerator.extension.connector.ValueTreeUtils.isGroup;
 import static io.ballerina.servicemodelgenerator.extension.model.ServiceInitModel.KEY_EXISTING_LISTENER;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_CDC_OPERATION_ENABLE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_LISTENER_PARAM_CONFIG_FIELD;
@@ -134,13 +138,13 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     // ==================================================================
-    // Unified TriggerModel path. The listener-arg walk below is shared across service descriptor
-    // resolution; the service descriptor and function block are sourced from the TriggerModel.
+    // Unified TriggerUISchemaModel path. The listener-arg walk below is shared across service descriptor
+    // resolution; the service descriptor and function block are sourced from the TriggerUISchemaModel.
     // ==================================================================
 
     /** {@code addServiceAndListener} for the unified model: import (if missing) + listener/service block. */
     public static Map<String, List<TextEdit>> buildAddServiceEditsForTrigger(ServiceInitModel filledInitForm,
-                                                                   TriggerModel triggerModel,
+                                                                   TriggerUISchemaModel triggerModel,
                                                                    ModulePartNode rootNode, String filePath) {
         List<TextEdit> edits = new ArrayList<>();
         // The connector module's emitted import prefix, resolved against the file so the service block
@@ -160,7 +164,7 @@ public final class SchemaDrivenSourceGenerator {
      * (each an {@code org/module} reference — e.g. a handler payload's or listener param's module such
      * as {@code ballerina/http}). Each is emitted only when not already present in the file.
      */
-    private static String buildImports(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    private static String buildImports(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                        ModulePartNode rootNode, String emitAlias) {
         StringBuilder imports = new StringBuilder();
         if (!Utils.importExists(rootNode, filledInitForm.getOrgName(), filledInitForm.getModuleName())) {
@@ -193,13 +197,14 @@ public final class SchemaDrivenSourceGenerator {
      * {@code service <descriptor> on &lt;var&gt; { <present functions> }}. Named distinctly from the
      * two-model {@code buildServiceBlock} so a {@code null} second argument stays unambiguous.
      */
-    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel) {
+    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm,
+                                                      TriggerUISchemaModel triggerModel) {
         return buildServiceBlockForTrigger(filledInitForm, triggerModel,
                 modelAliasOrDefault(triggerModel, filledInitForm.getModuleName()));
     }
 
     /**
-     * As {@link #buildServiceBlockForTrigger(ServiceInitModel, TriggerModel)}, but referencing the
+     * As {@link #buildServiceBlockForTrigger(ServiceInitModel, TriggerUISchemaModel)}, but referencing the
      * connector's own module under {@code emitAlias} — the prefix its import is (or will be) bound to.
      * For a dotted module whose natural prefix clashes with a base client (e.g. {@code trigger.twilio}
      * vs {@code ballerinax/twilio}) this is the safe alias {@code triggerTwilio}, and every self-module
@@ -207,7 +212,7 @@ public final class SchemaDrivenSourceGenerator {
      * emitted under it. For a single-segment module the alias equals the natural prefix and every
      * rewrite below is a no-op, so output is byte-identical to before.
      */
-    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    public static String buildServiceBlockForTrigger(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                                      String emitAlias) {
         // The prefix the model's own strings are authored with (module's last dot-segment): the source
         // token that self-module references are rewritten FROM.
@@ -222,7 +227,7 @@ public final class SchemaDrivenSourceGenerator {
         List<String> functions = buildRequiredFunctionSources(filledInitForm, triggerModel, selfPrefix, emitAlias);
 
         StringBuilder builder = new StringBuilder(NEW_LINE);
-        if (collected.hasArgs()) {
+        if (collected.declareListener) {
             builder.append(renderListenerDeclaration(emitAlias, collected)).append(NEW_LINE);
         }
         for (String annotation : buildServiceAnnotations(filledInitForm, selfPrefix, emitAlias)) {
@@ -244,7 +249,7 @@ public final class SchemaDrivenSourceGenerator {
     /**
      * The service-level annotation attachments (e.g. {@code @rabbitmq:ServiceConfig {...}}), built
      * entirely from {@code SERVICE_ANNOTATION} fields present in the filled {@code ServiceInitModel}
-     * (the add-service init form) — the {@code TriggerModel}'s service-type properties are not
+     * (the add-service init form) — the {@code TriggerUISchemaModel}'s service-type properties are not
      * consulted here, since at add-time the only values available are the ones the user filled in the
      * init form (e.g. RabbitMQ's {@code queueName}). Fields are grouped by their annotation identity
      * ({@code moduleName}/{@code originalName}), so several init-form fields belonging to the same
@@ -256,7 +261,7 @@ public final class SchemaDrivenSourceGenerator {
         collectAnnotationFields(filledInitForm.getProperties(), byAnnotation);
         List<String> annotations = new ArrayList<>();
         for (AnnotationFields annotation : byAnnotation.values()) {
-            if (!annotation.fields.isEmpty()) {
+            if (annotation.wholeValue != null || !annotation.fields.isEmpty()) {
                 annotations.add(annotation.render(selfPrefix, emitAlias));
             }
         }
@@ -264,9 +269,13 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /**
-     * Recursively collects {@code SERVICE_ANNOTATION} leaf fields (a {@code path} names the field)
-     * from a filled form, e.g. the init form's {@code queueName}, grouping same-annotation fields
-     * ({@code moduleName}/{@code originalName}) together.
+     * Recursively collects {@code SERVICE_ANNOTATION} fields from a filled form, grouping same-annotation
+     * fields ({@code moduleName}/{@code originalName}) together. Two shapes exist: a {@code path}-carrying
+     * leaf (e.g. the init form's flat {@code queueName}) contributes one field to a per-field mapping
+     * tree; a synthesized whole-record field (a single {@code RECORD_MAP_EXPRESSION} the user edits as
+     * one expression — see {@code TriggerModelSynthesizer}, no {@code path}) supplies its own raw value
+     * as the entire attachment body directly, matching how the read-back path already treats such a
+     * container (see {@code Utils#findServiceAnnotationContainer}).
      */
     private static void collectAnnotationFields(Map<String, Value> properties,
                                                 Map<String, AnnotationFields> byAnnotation) {
@@ -283,14 +292,17 @@ public final class SchemaDrivenSourceGenerator {
             }
             Codedata codedata = field.getCodedata();
             if (codedata != null && Constants.CD_TYPE_SERVICE_ANNOTATION.equals(codedata.getType())
-                    && codedata.getPath() != null && !codedata.getPath().isBlank()
                     && field.isEnabledWithValue()) {
                 String rendered = qualifiedValue(field);
                 if (!rendered.isEmpty()) {
                     String key = codedata.getModuleName() + COLON + codedata.getOriginalName();
-                    byAnnotation.computeIfAbsent(key,
-                            k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()))
-                            .fields.add(Map.entry(codedata.getPath(), rendered));
+                    AnnotationFields annotation = byAnnotation.computeIfAbsent(key,
+                            k -> new AnnotationFields(codedata.getModuleName(), codedata.getOriginalName()));
+                    if (codedata.getPath() == null || codedata.getPath().isBlank()) {
+                        annotation.wholeValue = rendered;
+                    } else {
+                        annotation.fields.add(Map.entry(codedata.getPath(), rendered));
+                    }
                 }
             }
             if (isGroup(field)) {
@@ -304,6 +316,9 @@ public final class SchemaDrivenSourceGenerator {
         private final String moduleName;
         private final String originalName;
         private final List<Map.Entry<String, String>> fields = new ArrayList<>();
+        // Set instead of `fields` for a synthesized whole-record annotation field (a single
+        // RECORD_MAP_EXPRESSION with no per-field `path`) -- its own raw value IS the attachment body.
+        private String wholeValue;
 
         private AnnotationFields(String moduleName, String originalName) {
             this.moduleName = moduleName;
@@ -313,9 +328,10 @@ public final class SchemaDrivenSourceGenerator {
         /** Renders the attachment, mapping a self-module qualifier onto the emitted import alias. */
         private String render(String selfPrefix, String emitAlias) {
             String qualifier = selfPrefix.equals(moduleName) ? emitAlias : moduleName;
+            String body = wholeValue != null ? wholeValue : renderFieldTree(buildFieldTree(fields));
             String prefix = qualifier == null || qualifier.isBlank()
                     ? "@" + originalName : "@" + qualifier + COLON + originalName;
-            return prefix + " " + renderFieldTree(buildFieldTree(fields));
+            return prefix + " " + body;
         }
     }
 
@@ -360,15 +376,15 @@ public final class SchemaDrivenSourceGenerator {
      * form (ftp/github carry an already-qualified value); otherwise reads the selected/first
      * {@code serviceTypes[]} entry (kafka carries the descriptor on the type, not the init form).
      */
-    private static String resolveServiceDescriptor(ServiceInitModel filledInitForm, TriggerModel triggerModel,
+    private static String resolveServiceDescriptor(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                                    String selfPrefix, String emitAlias) {
         String fromForm = findServiceType(filledInitForm.getProperties());
         if (fromForm != null && !fromForm.isEmpty()) {
             return qualify(fromForm, selfPrefix, emitAlias);
         }
-        TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
+        TriggerUISchemaModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType != null) {
-            TriggerModel.Codedata cd = serviceType.codedata();
+            TriggerUISchemaModel.Codedata cd = serviceType.codedata();
             if (cd != null && cd.originalName() != null && !cd.originalName().isBlank()) {
                 String module = cd.moduleName() != null && !cd.moduleName().isBlank()
                         ? aliasOf(cd.moduleName()) : selfPrefix;
@@ -431,10 +447,10 @@ public final class SchemaDrivenSourceGenerator {
     // ------------------------------------------------------------------
 
     /**
-     * The alias the connector's module is referenced under: {@code TriggerModel.importPrefix} when the
+     * The alias the connector's module is referenced under: {@code TriggerUISchemaModel.importPrefix} when the
      * model pins one, else the generated default.
      */
-    private static String modelAliasOrDefault(TriggerModel triggerModel, String moduleName) {
+    private static String modelAliasOrDefault(TriggerUISchemaModel triggerModel, String moduleName) {
         if (triggerModel != null && triggerModel.importPrefix() != null
                 && !triggerModel.importPrefix().isBlank()) {
             return triggerModel.importPrefix();
@@ -453,7 +469,7 @@ public final class SchemaDrivenSourceGenerator {
      * already claimed. See {@link ModuleAliasResolver#resolve}.
      */
     private static String resolveEmitAlias(ModulePartNode rootNode, ServiceInitModel filledInitForm,
-                                           TriggerModel triggerModel) {
+                                           TriggerUISchemaModel triggerModel) {
         String moduleName = filledInitForm.getModuleName();
         String override = triggerModel != null && triggerModel.importPrefix() != null
                 && !triggerModel.importPrefix().isBlank() ? triggerModel.importPrefix() : null;
@@ -502,22 +518,29 @@ public final class SchemaDrivenSourceGenerator {
         }
     }
 
-    /** Picks the service type matching the init-form selection; else the enabled one; else the first. */
-    private static TriggerModel.ServiceTypeModel selectServiceType(ServiceInitModel filledInitForm,
-                                                                   TriggerModel triggerModel) {
+    /**
+     * Picks the service type matching the init-form selection; else the enabled one; else the first.
+     *
+     * <p>A model carrying a type that must not be offered for new services (e.g. mcp's deprecated
+     * {@code Service} alongside {@code StreamableHttpService}) pins the choice with a hidden
+     * {@code SERVICE_TYPE_DESCRIPTOR} field in its {@code initProperties}, so the selection is
+     * explicit here rather than resting on {@code serviceTypes[]} order.
+     */
+    private static TriggerUISchemaModel.ServiceTypeModel selectServiceType(ServiceInitModel filledInitForm,
+                                                                   TriggerUISchemaModel triggerModel) {
         if (triggerModel == null || triggerModel.serviceTypes() == null
                 || triggerModel.serviceTypes().isEmpty()) {
             return null;
         }
         String selected = findServiceType(filledInitForm.getProperties());
         if (selected != null && !selected.isEmpty()) {
-            for (TriggerModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
+            for (TriggerUISchemaModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
                 if (selected.equals(st.name())) {
                     return st;
                 }
             }
         }
-        for (TriggerModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
+        for (TriggerUISchemaModel.ServiceTypeModel st : triggerModel.serviceTypes()) {
             if (Boolean.TRUE.equals(st.enabled())) {
                 return st;
             }
@@ -527,14 +550,14 @@ public final class SchemaDrivenSourceGenerator {
 
     /** Emits the present (enabled, non-optional) handlers of the selected service type. */
     private static List<String> buildRequiredFunctionSources(ServiceInitModel filledInitForm,
-                                                             TriggerModel triggerModel, String selfPrefix,
+                                                             TriggerUISchemaModel triggerModel, String selfPrefix,
                                                              String emitAlias) {
         List<String> functions = new ArrayList<>();
-        TriggerModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
+        TriggerUISchemaModel.ServiceTypeModel serviceType = selectServiceType(filledInitForm, triggerModel);
         if (serviceType == null || serviceType.functions() == null) {
             return functions;
         }
-        for (TriggerModel.FunctionModel function : serviceType.functions()) {
+        for (TriggerUISchemaModel.FunctionModel function : serviceType.functions()) {
             if (function.enabled() && !Boolean.TRUE.equals(function.optional())) {
                 functions.add(TAB + buildFunctionSource(function, selfPrefix, emitAlias)
                         .replace(NEW_LINE, NEW_LINE_WITH_TAB));
@@ -544,7 +567,7 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /** Renders one handler, leaving module-qualified types exactly as the model authored them. */
-    static String buildFunctionSource(TriggerModel.FunctionModel function) {
+    static String buildFunctionSource(TriggerUISchemaModel.FunctionModel function) {
         return buildFunctionSource(function, "", "");
     }
 
@@ -552,7 +575,7 @@ public final class SchemaDrivenSourceGenerator {
      * Renders one handler from the unified {@code FunctionModel} (params carry type/name as Property),
      * re-qualifying self-module references in parameter and return types onto {@code emitAlias}.
      */
-    private static String buildFunctionSource(TriggerModel.FunctionModel function, String selfPrefix,
+    private static String buildFunctionSource(TriggerUISchemaModel.FunctionModel function, String selfPrefix,
                                               String emitAlias) {
         StringBuilder builder = new StringBuilder();
         // Function-level annotations (COMPLEX_FUNCTION_ANNOTATION) sit above the function.
@@ -579,9 +602,9 @@ public final class SchemaDrivenSourceGenerator {
      * to the selected variant's {@code originalName} (e.g. onFileCsv / onFileJson); otherwise the
      * declared name.
      */
-    private static String effectiveFunctionName(TriggerModel.FunctionModel function) {
+    private static String effectiveFunctionName(TriggerUISchemaModel.FunctionModel function) {
         if (function.parameters() != null) {
-            for (TriggerModel.Parameter parameter : function.parameters()) {
+            for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
                 String variantName = selectedVariantOriginalName(parameter.type());
                 if (variantName != null && !variantName.isBlank()) {
                     return variantName;
@@ -591,21 +614,21 @@ public final class SchemaDrivenSourceGenerator {
         return function.name();
     }
 
-    private static String selectedVariantOriginalName(TriggerModel.Property typeProp) {
+    private static String selectedVariantOriginalName(TriggerUISchemaModel.Property typeProp) {
         if (typeProp == null || !"VARIATION_SELECTOR".equals(PayloadComposer.selectedFieldType(typeProp))) {
             return null;
         }
-        Map<String, TriggerModel.Property> variants = typeProp.properties();
+        Map<String, TriggerUISchemaModel.Property> variants = typeProp.properties();
         if (variants == null || variants.isEmpty()) {
             return null;
         }
-        TriggerModel.Property selected = null;
+        TriggerUISchemaModel.Property selected = null;
         Object value = typeProp.value();
         if (value != null && variants.containsKey(String.valueOf(value))) {
             selected = variants.get(String.valueOf(value));
         }
         if (selected == null) {
-            for (TriggerModel.Property variant : variants.values()) {
+            for (TriggerUISchemaModel.Property variant : variants.values()) {
                 if (variant.enabled()) {
                     selected = variant;
                     break;
@@ -615,7 +638,7 @@ public final class SchemaDrivenSourceGenerator {
         return selected == null || selected.codedata() == null ? null : selected.codedata().originalName();
     }
 
-    private static String qualifiers(TriggerModel.FunctionModel function) {
+    private static String qualifiers(TriggerUISchemaModel.FunctionModel function) {
         if (function.qualifiers() != null && !function.qualifiers().isEmpty()) {
             return String.join(SPACE, function.qualifiers()) + SPACE;
         }
@@ -632,13 +655,13 @@ public final class SchemaDrivenSourceGenerator {
         };
     }
 
-    private static String buildParameterList(TriggerModel.FunctionModel function, String selfPrefix,
+    private static String buildParameterList(TriggerUISchemaModel.FunctionModel function, String selfPrefix,
                                              String emitAlias) {
         if (function.parameters() == null) {
             return "";
         }
         List<String> params = new ArrayList<>();
-        for (TriggerModel.Parameter parameter : function.parameters()) {
+        for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
             if ("FLAG".equals(PayloadComposer.selectedFieldType(parameter.type()))) {
                 // Framework param (caller/context): emitted only when the checkbox is ticked.
                 if (!isFlagOn(parameter)) {
@@ -659,20 +682,21 @@ public final class SchemaDrivenSourceGenerator {
         return String.join(", ", params);
     }
 
-    private static boolean isFlagOn(TriggerModel.Parameter parameter) {
+    private static boolean isFlagOn(TriggerUISchemaModel.Parameter parameter) {
         Object value = parameter.type() == null ? null : parameter.type().value();
         return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 
-    private static String paramName(TriggerModel.Parameter parameter) {
-        TriggerModel.Property nameProp = parameter.name();
+    private static String paramName(TriggerUISchemaModel.Parameter parameter) {
+        TriggerUISchemaModel.Property nameProp = parameter.name();
         if (nameProp == null || nameProp.value() == null) {
             return "";
         }
         return String.valueOf(nameProp.value());
     }
 
-    private static String buildReturnType(TriggerModel.ReturnType returnType, String selfPrefix, String emitAlias) {
+    private static String buildReturnType(TriggerUISchemaModel.ReturnType returnType, String selfPrefix,
+                                           String emitAlias) {
         if (returnType == null || !returnType.enabled() || returnType.type() == null
                 || returnType.type().isBlank()) {
             return "";
@@ -753,6 +777,12 @@ public final class SchemaDrivenSourceGenerator {
             }
             Codedata codedata = field.getCodedata();
             if (isVarName(codedata)) {
+                // Presence of this field is itself the "create new listener" signal -- it only exists
+                // in that branch's form, never the "use existing" one -- so a declaration must always
+                // be emitted here even when every other (optional/defaultable) listener param was left
+                // blank: `new ()` rather than silently dropping the declaration while the service block
+                // still references this variable name.
+                args.declareListener = true;
                 String varName = value(field);
                 if (!varName.isEmpty()) {
                     args.varName = varName;
@@ -973,19 +1003,6 @@ public final class SchemaDrivenSourceGenerator {
     // Small helpers
     // ------------------------------------------------------------------
 
-    private static boolean isChoice(Value field) {
-        return hasFieldType(field, Value.FieldType.CHOICE);
-    }
-
-    private static boolean isGroup(Value field) {
-        return hasFieldType(field, Value.FieldType.GROUP_SECTION);
-    }
-
-    private static boolean hasFieldType(Value field, Value.FieldType fieldType) {
-        return field.getTypes() != null
-                && field.getTypes().stream().anyMatch(type -> type.fieldType() == fieldType);
-    }
-
     private static boolean isVarName(Codedata codedata) {
         if (codedata == null) {
             return false;
@@ -1025,16 +1042,6 @@ public final class SchemaDrivenSourceGenerator {
         return choices.stream().filter(Value::isEnabled).findFirst().orElse(choices.getFirst());
     }
 
-    private static String fieldName(Codedata codedata, String key) {
-        if (codedata != null && codedata.getPath() != null && !codedata.getPath().isBlank()) {
-            return codedata.getPath();
-        }
-        if (codedata != null && codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
-    }
-
     /**
      * The record-field name split into its dotted segments, so a config field whose {@code path}
      * crosses into a nested record (e.g. {@code auth.username}) nests instead of emitting a flat
@@ -1042,13 +1049,6 @@ public final class SchemaDrivenSourceGenerator {
      */
     private static List<String> fieldNameSegments(Codedata codedata, String key) {
         return List.of(fieldName(codedata, key).split("\\."));
-    }
-
-    private static String argName(Codedata codedata, String key) {
-        if (codedata != null && codedata.getOriginalName() != null && !codedata.getOriginalName().isBlank()) {
-            return codedata.getOriginalName();
-        }
-        return key;
     }
 
     private static String qualifiedValue(Value field) {
@@ -1106,7 +1106,7 @@ public final class SchemaDrivenSourceGenerator {
     }
 
     /** Accumulates listener arguments: positional (by position, then unordered), included, loose config. */
-    private static final class ListenerArgs {
+    static final class ListenerArgs {
         private final TreeMap<Integer, String> byPosition = new TreeMap<>();
         private final TreeMap<Integer, Map<String, Object>> configFieldsByPosition = new TreeMap<>();
         private final Map<Integer, String> castByPosition = new LinkedHashMap<>();
@@ -1115,13 +1115,30 @@ public final class SchemaDrivenSourceGenerator {
         private final Map<String, Object> looseConfig = new LinkedHashMap<>();
         private final Map<String, Object> includedTree = new LinkedHashMap<>();
         // Aggregated CDC-style skip lists, keyed by the record-field arg they merge into (e.g.
-        // "options") -> its list field (e.g. "skippedOperations") + the collected op-code literals.
-        private final Map<String, SkipList> skipLists = new LinkedHashMap<>();
+        // "options") -> its list field name (e.g. "skippedOperations") -> the collected op-code
+        // literals for that list field. Nested by list field (not flattened to one-per-recordField)
+        // so two independently-toggled flag groups that happen to target the same record slot with
+        // different list-field names both survive, instead of the second silently overwriting the
+        // first's list-field name.
+        private final Map<String, LinkedHashMap<String, List<String>>> skipLists = new LinkedHashMap<>();
         private String varName = "";
         private String listenerType;
+        // Set only when the walk actually enters the "create new listener" branch (its LISTENER_VAR_NAME
+        // field is unique to that form -- the "use existing" branch has no such field). Whether to emit
+        // a declaration must key off this, never off "were any constructor args collected": a connector
+        // whose listener config is entirely optional and left blank still needs `new ();` emitted, not a
+        // silently-dropped declaration.
+        private boolean declareListener;
 
-        private void addSkippedOperation(String recordField, String listField, String code) {
-            skipLists.computeIfAbsent(recordField, ignored -> new SkipList(listField)).codes.add(code);
+        void addSkippedOperation(String recordField, String listField, String code) {
+            skipLists.computeIfAbsent(recordField, ignored -> new LinkedHashMap<>())
+                    .computeIfAbsent(listField, ignored -> new ArrayList<>())
+                    .add(code);
+        }
+
+        /** Seeds a pre-rendered {@code <recordField> = {...}} included arg (test support). */
+        void addIncludedArg(String rendered) {
+            included.add(rendered);
         }
 
         private void addPositional(Integer position, String rendered) {
@@ -1194,13 +1211,7 @@ public final class SchemaDrivenSourceGenerator {
             return "{" + String.join(", ", fields) + "}";
         }
 
-        private boolean hasArgs() {
-            return !byPosition.isEmpty() || !configFieldsByPosition.isEmpty() || !noPosition.isEmpty()
-                    || !included.isEmpty() || !looseConfig.isEmpty() || !includedTree.isEmpty()
-                    || skipLists.values().stream().anyMatch(skip -> !skip.codes.isEmpty());
-        }
-
-        private String render() {
+        String render() {
             TreeMap<Integer, String> positional = new TreeMap<>(byPosition);
             for (Map.Entry<Integer, Map<String, Object>> entry : configFieldsByPosition.entrySet()) {
                 positional.put(entry.getKey(), renderIncludedValue(entry.getValue()));
@@ -1230,25 +1241,37 @@ public final class SchemaDrivenSourceGenerator {
         /**
          * Folds each aggregated skip list into the matching included record argument. When that
          * record arg is already present (the user filled it, e.g. {@code options = {snapshotMode:
-         * "no_data"}}) the list field is inserted/replaced inside it in place; otherwise a fresh
-         * {@code <record> = {<listField>: [...]}} argument is collected into {@code newSkipArgs} for
-         * the caller to append last. Returns the user-provided included args with in-place merges
-         * applied.
+         * "no_data"}}) each list field is inserted/replaced inside it in place, in encounter order —
+         * so two distinct list fields targeting the same record (e.g. {@code skippedOperations} and
+         * a hypothetical {@code excludedColumns}) both land in it rather than the second overwriting
+         * the first. Otherwise a fresh {@code <record> = {...}} argument is collected into
+         * {@code newSkipArgs} for the caller to append last (also merging further list fields for the
+         * same record into that same fresh argument, not one-per-list-field). Returns the
+         * user-provided included args with in-place merges applied.
          */
         private List<String> mergeSkipLists(List<String> newSkipArgs) {
             List<String> result = new ArrayList<>(included);
-            for (Map.Entry<String, SkipList> entry : skipLists.entrySet()) {
-                SkipList skip = entry.getValue();
-                if (skip.codes.isEmpty()) {
-                    continue;
-                }
+            for (Map.Entry<String, LinkedHashMap<String, List<String>>> entry : skipLists.entrySet()) {
                 String recordField = entry.getKey();
-                String listAssignment = skip.listField + ": [" + String.join(", ", skip.codes) + "]";
-                int index = indexOfIncludedArg(result, recordField);
-                if (index < 0) {
-                    newSkipArgs.add(recordField + " = {" + listAssignment + "}");
-                } else {
-                    result.set(index, insertListField(result.get(index), skip.listField, listAssignment));
+                for (Map.Entry<String, List<String>> listEntry : entry.getValue().entrySet()) {
+                    List<String> codes = listEntry.getValue();
+                    if (codes.isEmpty()) {
+                        continue;
+                    }
+                    String listField = listEntry.getKey();
+                    String listAssignment = listField + ": [" + String.join(", ", codes) + "]";
+                    int index = indexOfIncludedArg(result, recordField);
+                    if (index >= 0) {
+                        result.set(index, insertListField(result.get(index), listField, listAssignment));
+                        continue;
+                    }
+                    int freshIndex = indexOfIncludedArg(newSkipArgs, recordField);
+                    if (freshIndex < 0) {
+                        newSkipArgs.add(recordField + " = {" + listAssignment + "}");
+                    } else {
+                        newSkipArgs.set(freshIndex, insertListField(newSkipArgs.get(freshIndex), listField,
+                                listAssignment));
+                    }
                 }
             }
             return result;
@@ -1266,36 +1289,82 @@ public final class SchemaDrivenSourceGenerator {
         }
 
         /**
-         * Inserts (or replaces) {@code <listField>: [...]} inside an existing
-         * {@code <recordField> = {...}} record argument. Falls back to leaving the argument untouched
-         * when its value is not a record literal (a variable reference or expression the user typed).
+         * Inserts (or replaces) a {@code <listField>: [...]} field inside an existing
+         * {@code <recordField> = {...}} record argument, by splitting the record's <i>top-level</i>
+         * fields (quote/brace/bracket-depth aware, so a nested record or array is never split into,
+         * and a value that happens to contain {@code ]} or a field-name substring never misleads the
+         * match) and replacing the one whose name exactly equals {@code listField}, or appending a new
+         * one when absent. Falls back to leaving the argument untouched when its value is not a record
+         * literal (a variable reference or expression the user typed).
          */
-        private static String insertListField(String recordArg, String listField, String listAssignment) {
+        static String insertListField(String recordArg, String listField, String listAssignment) {
             int brace = recordArg.indexOf('{');
             if (brace < 0 || !recordArg.trim().endsWith("}")) {
                 return recordArg;
             }
-            String existing = recordArg.replaceAll(
-                    java.util.regex.Pattern.quote(listField) + "\\s*:\\s*\\[[^\\]]*\\]",
-                    java.util.regex.Matcher.quoteReplacement(listAssignment));
-            if (!existing.equals(recordArg)) {
-                return existing;
-            }
             int close = recordArg.lastIndexOf('}');
-            String head = recordArg.substring(0, close).stripTrailing();
-            String inner = head.substring(brace + 1).trim();
-            String separator = inner.isEmpty() ? "" : ", ";
-            return head + separator + listAssignment + "}";
+            String inner = recordArg.substring(brace + 1, close).trim();
+            List<String> fields = new ArrayList<>(splitTopLevelFields(inner));
+            int existingIndex = -1;
+            for (int i = 0; i < fields.size(); i++) {
+                if (listField.equals(topLevelFieldName(fields.get(i)))) {
+                    existingIndex = i;
+                    break;
+                }
+            }
+            if (existingIndex >= 0) {
+                fields.set(existingIndex, listAssignment);
+            } else {
+                fields.add(listAssignment);
+            }
+            return recordArg.substring(0, brace + 1) + String.join(", ", fields) + "}";
         }
-    }
 
-    /** A record field's aggregated skip list: the list field name plus its collected literal codes. */
-    private static final class SkipList {
-        private final String listField;
-        private final List<String> codes = new ArrayList<>();
+        /**
+         * Splits a record literal's inner content into its top-level {@code field: value} entries.
+         * Tracks brace/bracket/paren depth and quoted-string state so a comma inside a nested record,
+         * array, or a quoted string value (which may itself contain any of {@code {}[]()},}) never
+         * splits early or misdirects a match to a nested field of the same name.
+         */
+        static List<String> splitTopLevelFields(String inner) {
+            List<String> fields = new ArrayList<>();
+            if (inner.isEmpty()) {
+                return fields;
+            }
+            int depth = 0;
+            boolean inString = false;
+            int start = 0;
+            for (int i = 0; i < inner.length(); i++) {
+                char c = inner.charAt(i);
+                if (inString) {
+                    if (c == '\\') {
+                        i++; // skip the escaped character (e.g. \")
+                    } else if (c == '"') {
+                        inString = false;
+                    }
+                    continue;
+                }
+                switch (c) {
+                    case '"' -> inString = true;
+                    case '{', '[', '(' -> depth++;
+                    case '}', ']', ')' -> depth--;
+                    case ',' -> {
+                        if (depth == 0) {
+                            fields.add(inner.substring(start, i).trim());
+                            start = i + 1;
+                        }
+                    }
+                    default -> { }
+                }
+            }
+            fields.add(inner.substring(start).trim());
+            return fields;
+        }
 
-        private SkipList(String listField) {
-            this.listField = listField;
+        /** The field name of a top-level {@code name: value} record entry, or null if malformed. */
+        private static String topLevelFieldName(String field) {
+            int colon = field.indexOf(':');
+            return colon < 0 ? null : field.substring(0, colon).trim();
         }
     }
 }

@@ -51,7 +51,7 @@ public class Service {
     private Map<String, Value> properties;
     private Codedata codedata;
     private List<Function> functions;
-    // Schema-driven triggers (unified TriggerModel) split the handlers in two: `functions` holds
+    // Schema-driven triggers (unified TriggerUISchemaModel) split the handlers in two: `functions` holds
     // what exists in the user's source, `schemaFunctions` the connector-shipped addable catalog
     // (one entry per handler variant, consumed entries removed). Null for every other service kind.
     private List<Function> schemaFunctions;

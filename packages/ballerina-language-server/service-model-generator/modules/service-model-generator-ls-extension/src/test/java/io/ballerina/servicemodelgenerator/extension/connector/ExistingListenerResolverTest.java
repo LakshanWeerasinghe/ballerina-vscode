@@ -176,6 +176,41 @@ public class ExistingListenerResolverTest {
         Assert.assertFalse(fields.containsKey("enableUpdate"), "CDC operation flags are dropped");
     }
 
+    @Test
+    public void testSftpOverlappingAuthBranchesPreferFirstDeclaredOnExactTie() {
+        // Regression/documentation test for a real ambiguity in the bundled schema itself (not a
+        // hypothetical): SFTP's `auth` CHOICE declares three branches — No Authentication (0 leaves),
+        // Basic Authentication (auth.credentials.{username,password} — password optional), and
+        // Certificate Based Authentication (auth.privateKey.path, auth.credentials.username). The
+        // latter two both declare 2 leaves AND both include auth.credentials.username. If the source
+        // only has `auth = {credentials: {username: "user"}}` — e.g. a real Certificate-auth listener
+        // whose privateKey.path is a variable reference the source-parser cannot resolve to a literal,
+        // leaving only username extractable — both branches resolve exactly 1 field out of 2 declared:
+        // an exact (score, leaves) tie. resolveRecordChoice has no signal to break this correctly; it
+        // deterministically keeps whichever branch is declared first (Basic Authentication), which is
+        // silently WRONG when the listener was actually configured for Certificate auth. This test
+        // pins that current, known-imperfect behavior rather than changing it blind — see LS-2 review.
+        Map<String, Value> template = createNewProperties("ftp");
+        Value protocol = template.get("listenerConfig").getProperties().get("protocol");
+        Value sftpBranch = protocol.getChoices().stream()
+                .filter(c -> "SFTP".equals(c.getValue()))
+                .findFirst().orElseThrow();
+        Map<String, Value> sftpTemplate = sftpBranch.getProperties();
+
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("auth", record("credentials", record("username", "\"user\"")));
+
+        Map<String, Value> fields = ExistingListenerResolver.resolveIncludedFields(sftpTemplate, named);
+
+        Value auth = fields.get("auth");
+        Assert.assertNotNull(auth, "auth CHOICE must still render even on an exact tie");
+        Assert.assertEquals(enabledChoice(auth).getMetadata().label(), "Basic Authentication",
+                "on an exact (score, leaves) tie between overlapping branches, the first-declared branch "
+                        + "wins by construction — even though the source may actually be Certificate auth "
+                        + "with an unresolvable privateKey.path. Known heuristic limitation, not a bug fix "
+                        + "target: change this assertion deliberately if the tie-break is ever revisited.");
+    }
+
     private static LinkedHashMap<String, Object> record(Object... keyValues) {
         LinkedHashMap<String, Object> record = new LinkedHashMap<>();
         for (int i = 0; i + 1 < keyValues.length; i += 2) {

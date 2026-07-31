@@ -28,7 +28,7 @@ import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
 import io.ballerina.modelgenerator.commons.ServiceInitInfo;
 import io.ballerina.modelgenerator.commons.ServiceInitProperty;
-import io.ballerina.modelgenerator.commons.TriggerMetadataResolver;
+import io.ballerina.modelgenerator.commons.trigger.utils.TriggerArtifactResolver;
 import io.ballerina.openapi.core.generators.common.exception.BallerinaOpenApiException;
 import io.ballerina.servicemodelgenerator.extension.builder.ServiceBuilderRouter;
 import io.ballerina.servicemodelgenerator.extension.builder.ServiceNodeBuilder;
@@ -309,7 +309,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
                 .setPackageName(pkg.name())
                 .setModuleName(context.moduleName())
                 .setType(context.moduleName())
-                .setIcon(TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
+                .setIcon(TriggerArtifactResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
                         pkg.version()).url())
                 .build();
 
@@ -353,7 +353,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
 
         String label = serviceTemplate.displayName();
         Value documentation = getServiceDocumentation(ServiceClassUtil.ServiceClassContext.SERVICE_DIAGRAM);
-        String icon = TriggerMetadataResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
+        String icon = TriggerArtifactResolver.resolveIcon(pkg.org(), pkg.name(), context.moduleName(),
                 pkg.version()).url();
 
         Map<String, Value> properties = new LinkedHashMap<>();
