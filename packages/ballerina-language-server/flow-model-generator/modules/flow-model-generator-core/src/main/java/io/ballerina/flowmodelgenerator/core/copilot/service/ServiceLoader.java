@@ -80,9 +80,14 @@ public class ServiceLoader {
 
     /**
      * Loads all services for a library, preferring the schema-driven path (trigger metadata +
-     * semantic model + bundled UI-model docs) for libraries it covers, with an automatic fallback to
-     * the SQLite service-index when the schema path yields nothing. Setting the system property
+     * semantic model) whenever a metadata document resolves for the library, with an automatic
+     * fallback to the SQLite service-index when it yields nothing. Setting the system property
      * {@value #TRIGGER_SOURCE_PROPERTY} to {@code "index"} pins everything to the SQLite path.
+     *
+     * <p>The schema path is attempted for every library, not a fixed set: {@code loadServices}
+     * returns empty for anything with no metadata document, which is the overwhelming majority and
+     * costs one {@code stat} against the already-resolved package. Falling through is therefore the
+     * normal case and is not logged.
      *
      * @param libraryName   the library name (e.g., "ballerinax/kafka")
      * @param pkg           the resolved package the caller already compiled (may be null)
@@ -90,14 +95,11 @@ public class ServiceLoader {
      * @return JsonArray containing all services for this library
      */
     public static JsonArray loadAllServices(String libraryName, Package pkg, SemanticModel semanticModel) {
-        if (TriggerSchemaServiceLoader.isSchemaDriven(libraryName)
-                && !"index".equals(System.getProperty(TRIGGER_SOURCE_PROPERTY))) {
+        if (!"index".equals(System.getProperty(TRIGGER_SOURCE_PROPERTY))) {
             JsonArray schemaServices = TriggerSchemaServiceLoader.loadServices(libraryName, pkg, semanticModel);
             if (!schemaServices.isEmpty()) {
                 return mergeWithGenericServices(libraryName, schemaServices);
             }
-            LOGGER.warning("Schema-driven service loading yielded nothing for " + libraryName
-                    + "; falling back to the service-index");
         }
         return loadAllServices(libraryName);
     }

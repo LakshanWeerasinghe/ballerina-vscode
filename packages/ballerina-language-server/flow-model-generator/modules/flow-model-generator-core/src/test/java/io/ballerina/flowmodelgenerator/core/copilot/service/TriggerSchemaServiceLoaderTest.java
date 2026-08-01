@@ -150,22 +150,26 @@ public class TriggerSchemaServiceLoaderTest {
         Assert.assertEquals(TriggerSchemaServiceLoader.getAlias("mssql.cdc.driver"), "driver");
     }
 
+    /**
+     * The bundled-key map is an alias table, not an allowlist: it exists only for libraries whose
+     * bundled document is filed under a name the library itself does not carry. A library absent from
+     * it is still served — either from its own shipped document, or from a bundled document filed
+     * under its bare package name.
+     */
     @Test
-    public void testIsSchemaDrivenCoversExactlyTheOnboardedLibraries() {
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerinax/kafka"));
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerinax/rabbitmq"));
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerina/ftp"));
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerina/mcp"));
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerinax/mssql"));
-        Assert.assertTrue(TriggerSchemaServiceLoader.isSchemaDriven("ballerinax/trigger.github"));
-        Assert.assertFalse(TriggerSchemaServiceLoader.isSchemaDriven("ballerinax/asb"));
-        Assert.assertFalse(TriggerSchemaServiceLoader.isSchemaDriven("ballerina/http"));
+    public void testBundledMetadataKeysAliasOnlyDivergentNames() {
+        Assert.assertEquals(TriggerSchemaServiceLoader.BUNDLED_METADATA_KEYS.get("ballerinax/mssql"),
+                "mssql.cdc", "mssql's bundled document is filed under the CDC module name");
+        Assert.assertEquals(TriggerSchemaServiceLoader.BUNDLED_METADATA_KEYS.get("ballerinax/kafka"), "kafka");
+        Assert.assertNull(TriggerSchemaServiceLoader.BUNDLED_METADATA_KEYS.get("ballerinax/asb"),
+                "Absence is not exclusion — asb is simply not aliased");
+        Assert.assertNull(TriggerSchemaServiceLoader.BUNDLED_METADATA_KEYS.get("ballerina/http"));
     }
 
     @Test
     public void testLoadServicesMissingInputsYieldEmpty() {
         Assert.assertTrue(TriggerSchemaServiceLoader.loadServices("ballerinax/asb", null, null).isEmpty(),
-                "Non-schema-driven library must yield empty");
+                "Missing package/semantic model must yield empty");
         Assert.assertTrue(TriggerSchemaServiceLoader.loadServices("ballerinax/kafka", null, null).isEmpty(),
                 "Missing package/semantic model must yield empty");
     }

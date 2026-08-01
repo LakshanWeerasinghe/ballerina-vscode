@@ -71,7 +71,10 @@ import java.util.logging.Logger;
  * {@link HandlerParamNameGenerator} (handler parameters only — never listener init params, concrete
  * methods, client methods or type fields, all of which carry declared names).
  *
- * <p>Only libraries in {@link #SCHEMA_DRIVEN_LIBRARIES} are served here; everything else stays on
+ * <p>Any library is served here if a trigger metadata document resolves for it — the connector's own
+ * shipped {@code resources/trigger-metadata.json} first, then the LS-bundled copy. There is no
+ * allowlist: a trigger connector published after this LS is picked up by resolution alone, with no
+ * LS release. A library with no document resolves to an empty array and stays on
  * {@link ServiceIndexLoader}. Output shape is exactly the Copilot service contract
  * ({@code type/name/listener/methods}), so downstream enrichers, the generic-services merge, and the
  * TS prompt renderer are untouched. Function-level {@code optional} is deliberately never emitted
@@ -86,13 +89,15 @@ final class TriggerSchemaServiceLoader {
     private static final Logger LOGGER = Logger.getLogger(TriggerSchemaServiceLoader.class.getName());
 
     /**
-     * Copilot libraries served from trigger metadata + semantic model, mapped to the LS-bundled
-     * {@code trigger-metadata-models/<key>/trigger-metadata.json} module key. {@code ballerinax/mssql}
-     * maps to the {@code mssql.cdc} document — the same CDC trigger published under the new module
-     * layout; its listener ({@code CdcListener}) and handler set are validated against the actually
-     * resolved {@code mssql} package before use.
+     * Module keys for the LS-bundled {@code trigger-metadata-models/<key>/trigger-metadata.json}
+     * documents, keyed by library name. This is <em>not</em> an allowlist — any library whose package
+     * ships its own {@code resources/trigger-metadata.json} is served without appearing here. It maps
+     * only the libraries whose bundled document is filed under a name the library itself does not
+     * carry: {@code ballerinax/mssql} maps to the {@code mssql.cdc} document — the same CDC trigger
+     * published under the new module layout; its listener ({@code CdcListener}) and handler set are
+     * validated against the actually resolved {@code mssql} package before use.
      */
-    static final Map<String, String> SCHEMA_DRIVEN_LIBRARIES = Map.of(
+    static final Map<String, String> BUNDLED_METADATA_KEYS = Map.of(
             "ballerinax/kafka", "kafka",
             "ballerinax/rabbitmq", "rabbitmq",
             "ballerina/ftp", "ftp",
@@ -108,19 +113,38 @@ final class TriggerSchemaServiceLoader {
         // Prevent instantiation
     }
 
-    static boolean isSchemaDriven(String libraryName) {
-        return SCHEMA_DRIVEN_LIBRARIES.containsKey(libraryName);
+    /**
+     * Resolves the trigger metadata document for a library, preferring the one the connector ships
+     * itself over the LS-bundled copy.
+     *
+     * <p>The connector's own document is versioned with the connector, so it can never describe a
+     * release the resolved package predates — the bundled mcp document declaring
+     * {@code StreamableHttpListener} before mcp 1.2.0 shipped it is exactly that failure mode. It
+     * also means a connector published after this LS is served without an LS release. The bundled
+     * tier then covers the libraries that do not ship a document yet.
+     *
+     * <p>Reading the shipped document costs a single {@code stat} against the already-resolved
+     * package, so consulting it for every library (rather than a curated few) is cheap.
+     */
+    private static Optional<TriggerMetadataModel> resolveMetadata(String libraryName, String org,
+                                                                  String packageName, Package pkg) {
+        LibraryMetadataReader reader = LibraryMetadataReader.getInstance();
+        Optional<TriggerMetadataModel> shipped = reader.getShippedTriggerMetadataModel(pkg);
+        if (shipped.isPresent()) {
+            return shipped;
+        }
+        String metadataKey = BUNDLED_METADATA_KEYS.getOrDefault(libraryName, packageName);
+        return reader.getPackagedTriggerMetadataModel(new ModuleInfo(org, packageName, metadataKey, null));
     }
 
     /**
-     * Loads services for a schema-driven library. Returns an empty array when the library is not
-     * schema-driven, inputs are missing, the metadata document cannot be resolved, or anything
-     * throws — the caller then falls back to the SQLite path, so a failure here can never lose a
-     * library.
+     * Loads services for a trigger library. Returns an empty array when inputs are missing, no
+     * metadata document resolves for the library, or anything throws — the caller then falls back to
+     * the SQLite path, so a failure here can never lose a library. Most libraries are not trigger
+     * libraries and land here legitimately, so an unresolved document is not logged.
      */
     static JsonArray loadServices(String libraryName, Package pkg, SemanticModel semanticModel) {
-        String metadataKey = SCHEMA_DRIVEN_LIBRARIES.get(libraryName);
-        if (metadataKey == null || pkg == null || semanticModel == null) {
+        if (pkg == null || semanticModel == null) {
             return new JsonArray();
         }
 
@@ -130,10 +154,8 @@ final class TriggerSchemaServiceLoader {
                 : "ballerinax";
 
         try {
-            Optional<TriggerMetadataModel> metadataOpt = LibraryMetadataReader.getInstance()
-                    .getPackagedTriggerMetadataModel(new ModuleInfo(org, packageName, metadataKey, null));
+            Optional<TriggerMetadataModel> metadataOpt = resolveMetadata(libraryName, org, packageName, pkg);
             if (metadataOpt.isEmpty()) {
-                LOGGER.warning("No bundled trigger metadata for " + libraryName + " (key: " + metadataKey + ")");
                 return new JsonArray();
             }
             TriggerMetadataModel metadata = metadataOpt.get();

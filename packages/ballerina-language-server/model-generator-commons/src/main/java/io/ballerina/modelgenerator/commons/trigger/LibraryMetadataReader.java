@@ -102,6 +102,32 @@ public final class LibraryMetadataReader {
         return packageRoot(moduleInfo).flatMap(this::readTriggerMetadataModel);
     }
 
+    /**
+     * The connector's own {@code resources/trigger-metadata.json}, read from a package the caller has
+     * already resolved. The same document {@link #getTriggerMetadataModel(ModuleInfo)} returns; use
+     * this wherever the caller already holds the {@link Package}, so no second — and potentially
+     * network-bound — resolution is paid. That matters for callers that consult this for every
+     * library rather than a curated few: the read then costs one {@code stat}.
+     *
+     * <p>Deliberately not an overload of {@link #getTriggerMetadataModel(ModuleInfo)}: both take an
+     * unrelated reference type, so a {@code null} argument would be ambiguous at every call site.
+     *
+     * @param pkg the already-resolved package (may be {@code null})
+     * @return the parsed document, or empty when the package ships none
+     */
+    public Optional<TriggerMetadataModel> getShippedTriggerMetadataModel(Package pkg) {
+        if (pkg == null) {
+            return Optional.empty();
+        }
+        try {
+            return readTriggerMetadataModel(pkg.project().sourceRoot());
+        } catch (Throwable e) {
+            // Mirrors packageRoot()'s contract: a failure here means "no metadata", never a
+            // propagated error, since callers sit on hot request paths.
+            return Optional.empty();
+        }
+    }
+
     /** The connector's own {@code resources/trigger-ui-schema.json}, resolved from its {@code .bala}. */
     public Optional<TriggerUISchemaModel> getTriggerUISchemaModel(ModuleInfo moduleInfo) {
         return packageRoot(moduleInfo).flatMap(this::readTriggerUISchemaModel);

@@ -24,6 +24,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.ClassSymbol;
+import io.ballerina.compiler.api.symbols.Symbol;
+import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
+import io.ballerina.flowmodelgenerator.core.copilot.CopilotLibraryManager;
+import io.ballerina.flowmodelgenerator.core.copilot.model.Annotation;
+import io.ballerina.flowmodelgenerator.core.copilot.model.Library;
+import io.ballerina.flowmodelgenerator.core.copilot.model.Type;
+import io.ballerina.flowmodelgenerator.core.copilot.model.TypeLink;
 import io.ballerina.flowmodelgenerator.core.copilot.service.ServiceLoader;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.projects.Package;
@@ -36,9 +44,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * End-to-end tests for the schema-driven Copilot service loader: trigger metadata (structure) +
@@ -57,8 +67,15 @@ public class CopilotSchemaServicesTest {
 
     private static final Gson PRETTY = new GsonBuilder().setPrettyPrinting().create();
     private static final Path OUTPUT_DIR = Path.of("build", "services-comparison");
+    private static final String MCP = "ballerina/mcp";
+    private static final String MCP_PREFIX = "mcp:";
+    // The last mcp release before StreamableHttpService / StreamableHttpAdvancedService /
+    // StreamableHttpListener existed. Pinned so the loader's skip + listener-fallback guards stay
+    // covered once Central catches up with the metadata (see the pinned test below).
+    private static final String MCP_PRE_STREAMABLE_HTTP_VERSION = "1.1.0";
 
     private final Map<String, JsonArray> cache = new HashMap<>();
+    private final Map<String, SemanticModel> semanticModels = new HashMap<>();
 
     private JsonArray load(String libraryName) {
         return cache.computeIfAbsent(libraryName, lib -> {
@@ -71,15 +88,54 @@ public class CopilotSchemaServicesTest {
             Package pkg = pkgOpt.get();
             SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
                     .getSemanticModel(pkg.getDefaultModule().moduleId());
+            semanticModels.put(lib, semanticModel);
             JsonArray services = ServiceLoader.loadAllServices(lib, pkg, semanticModel);
             dump(lib, services);
             return services;
         });
     }
 
-    private void dump(String libraryName, JsonArray services) {
+    /**
+     * Loads services against one explicitly pinned package version instead of whatever Central
+     * currently serves, so a test can assert behaviour that depends on which symbols that version
+     * ships.
+     */
+    private JsonArray loadPinned(String libraryName, String version) {
+        String[] parts = libraryName.split("/");
+        Optional<Package> pkgOpt = PackageUtil.getModulePackage(
+                PackageUtil.getSampleProject(), parts[0], parts[1], version);
+        if (pkgOpt.isEmpty()) {
+            throw new SkipException("Could not resolve " + libraryName + ":" + version);
+        }
+        Package pkg = pkgOpt.get();
+        SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
+                .getSemanticModel(pkg.getDefaultModule().moduleId());
+        JsonArray services = ServiceLoader.loadAllServices(libraryName, pkg, semanticModel);
+        dump(libraryName + "_" + version, services);
+        return services;
+    }
+
+    /**
+     * Names of the module-level type definitions and classes the resolved package version declares.
+     * Every emitted service type and listener must come from this vocabulary, whichever version
+     * Central happens to serve — that is the loader's contract, stated without pinning a release.
+     */
+    private Set<String> declaredNames(String libraryName) {
+        load(libraryName);
+        SemanticModel semanticModel = semanticModels.get(libraryName);
+        Assert.assertNotNull(semanticModel, "No semantic model cached for " + libraryName);
+        Set<String> names = new HashSet<>();
+        for (Symbol symbol : semanticModel.moduleSymbols()) {
+            if (symbol instanceof TypeDefinitionSymbol || symbol instanceof ClassSymbol) {
+                symbol.getName().ifPresent(names::add);
+            }
+        }
+        return names;
+    }
+
+    private void dump(String label, JsonArray services) {
         try {
-            Path dir = OUTPUT_DIR.resolve(libraryName.replace('/', '_').replace('.', '_') + "_schema");
+            Path dir = OUTPUT_DIR.resolve(label.replaceAll("[^A-Za-z0-9]", "_") + "_schema");
             Files.createDirectories(dir);
             Files.writeString(dir.resolve("services.json"), PRETTY.toJson(services));
         } catch (IOException e) {
@@ -289,20 +345,28 @@ public class CopilotSchemaServicesTest {
 
     @Test
     public void testMcpSchemaServices() {
-        JsonArray services = load("ballerina/mcp");
+        JsonArray services = load(MCP);
+        Set<String> declared = declaredNames(MCP);
 
         List<String> names = new ArrayList<>();
         services.forEach(s -> names.add(s.getAsJsonObject().get("name").getAsString()));
+
+        // Present in every mcp release the metadata targets.
         Assert.assertTrue(names.contains("Service"), "Expected Service in " + names);
-        Assert.assertFalse(names.contains("StreamableHttpService"),
-                "Service types absent from the resolved package version must be skipped: " + names);
-        Assert.assertFalse(names.contains("StreamableHttpAdvancedService"),
-                "Service types absent from the resolved package version must be skipped: " + names);
+        Assert.assertTrue(names.contains("AdvancedService"), "Expected AdvancedService in " + names);
+
+        // The validation guard as an invariant rather than as one release's snapshot: the metadata
+        // may name service types and a listener authored ahead of a release, and anything the
+        // resolved version does not declare must never reach the prompt. Which types a given mcp
+        // ships is deliberately not asserted here — see the pinned test for that.
+        for (String name : names) {
+            Assert.assertTrue(declared.contains(name),
+                    "Emitted service type " + name + " is not declared by the resolved package: " + declared);
+        }
 
         for (JsonElement element : services) {
             JsonObject svc = element.getAsJsonObject();
-            Assert.assertEquals(svc.getAsJsonObject("listener").get("name").getAsString(), "mcp:Listener",
-                    "The metadata's unreleased StreamableHttpListener must fall back to the real class");
+            assertListenerIsDeclared(svc.getAsJsonObject("listener").get("name").getAsString(), declared);
             if ("Service".equals(svc.get("name").getAsString())) {
                 Assert.assertFalse(svc.has("methods"),
                         "Wildcard (addMode: many) handlers must not surface as literal methods");
@@ -311,6 +375,51 @@ public class CopilotSchemaServicesTest {
                 Assert.assertEquals(methodNames(svc), List.of("onListTools", "onCallTool"),
                         "Concrete service types must introspect their declared methods");
             }
+        }
+    }
+
+    /**
+     * A listener must be module-qualified and name a class the resolved package actually declares —
+     * otherwise the generated {@code on new mcp:X(...)} would not compile.
+     */
+    private static void assertListenerIsDeclared(String listenerName, Set<String> declared) {
+        Assert.assertTrue(listenerName.startsWith(MCP_PREFIX),
+                "Listener must be module-qualified, got: " + listenerName);
+        Assert.assertTrue(declared.contains(listenerName.substring(MCP_PREFIX.length())),
+                "Listener " + listenerName + " is not a class the resolved package declares: " + declared);
+    }
+
+    /**
+     * Pins the last mcp release before {@code StreamableHttpService},
+     * {@code StreamableHttpAdvancedService} and {@code StreamableHttpListener} existed, so the two
+     * guards the schema loader exists for stay exercised deterministically rather than only while
+     * Central lags the metadata:
+     * <ul>
+     *   <li>a metadata-declared service type the resolved version does not ship is skipped;</li>
+     *   <li>a metadata-declared listener it does not ship falls back to the conventional class.</li>
+     * </ul>
+     */
+    @Test
+    public void testMcpSchemaServicesSkipsSymbolsAbsentFromPinnedVersion() {
+        JsonArray services = loadPinned(MCP, MCP_PRE_STREAMABLE_HTTP_VERSION);
+
+        List<String> names = new ArrayList<>();
+        services.forEach(s -> names.add(s.getAsJsonObject().get("name").getAsString()));
+
+        Assert.assertTrue(names.contains("Service"), "Expected Service in " + names);
+        Assert.assertTrue(names.contains("AdvancedService"), "Expected AdvancedService in " + names);
+        Assert.assertFalse(names.contains("StreamableHttpService"),
+                "mcp " + MCP_PRE_STREAMABLE_HTTP_VERSION + " does not declare StreamableHttpService, so the"
+                        + " metadata's entry must be skipped: " + names);
+        Assert.assertFalse(names.contains("StreamableHttpAdvancedService"),
+                "mcp " + MCP_PRE_STREAMABLE_HTTP_VERSION + " does not declare StreamableHttpAdvancedService,"
+                        + " so the metadata's entry must be skipped: " + names);
+
+        for (JsonElement element : services) {
+            Assert.assertEquals(element.getAsJsonObject().getAsJsonObject("listener")
+                            .get("name").getAsString(), "mcp:Listener",
+                    "The metadata's StreamableHttpListener is absent from mcp "
+                            + MCP_PRE_STREAMABLE_HTTP_VERSION + " and must fall back to the real class");
         }
     }
 
@@ -345,7 +454,8 @@ public class CopilotSchemaServicesTest {
         // CopilotLibraryManager Gson-round-trips every service through the Service model class.
         // mcp's marker Service legitimately has no methods: the model keeps methods == null and the
         // re-serialized JSON omits the key — the shape the TS renderer's `?? []` guards handle.
-        JsonArray services = load("ballerina/mcp");
+        JsonArray services = load(MCP);
+        Set<String> declared = declaredNames(MCP);
         Gson gson = new Gson();
         for (JsonElement element : services) {
             io.ballerina.flowmodelgenerator.core.copilot.model.Service service =
@@ -360,8 +470,10 @@ public class CopilotSchemaServicesTest {
                 Assert.assertEquals(service.getMethods().size(), 2);
                 Assert.assertTrue(reSerialized.has("methods"));
             }
-            Assert.assertEquals(reSerialized.getAsJsonObject("listener").get("name").getAsString(),
-                    "mcp:Listener");
+            // The listener must survive the round trip intact and still name a real class; which
+            // class that is depends on the resolved version, so it is checked, not hard-coded.
+            assertListenerIsDeclared(
+                    reSerialized.getAsJsonObject("listener").get("name").getAsString(), declared);
         }
     }
 
@@ -433,58 +545,70 @@ public class CopilotSchemaServicesTest {
                 .getAsJsonObject("type").get("name").getAsString(), "error?");
     }
 
+    /**
+     * smb and websub were never in the service-index {@code Annotation} table. They are no longer
+     * a special case: every library's catalog is built from the Semantic Model, so these assert
+     * the same path every other library takes, through {@code CopilotLibraryManager}.
+     */
     @Test
-    public void testNetNewLibraryAnnotationsIntrospected() {
-        // These libraries have no SQLite Annotation rows; the loader introspects the module instead.
-        JsonArray smbAnnotations = loadAnnotations("ballerina/smb");
-        Assert.assertEquals(smbAnnotations.size(), 2, "smb declares ServiceConfig + FunctionConfig");
-        JsonObject serviceConfig = annotationNamed(smbAnnotations, "ServiceConfig");
-        Assert.assertEquals(serviceConfig.get("attachmentPoint").getAsString(), "SERVICE");
-        Assert.assertFalse(serviceConfig.get("description").getAsString().isEmpty(),
-                "Introspected annotations carry the library's doc comment");
-        assertInternalLink(mapTypeConstraint(serviceConfig), "SmbServiceConfig");
-        JsonObject functionConfig = annotationNamed(smbAnnotations, "FunctionConfig");
-        Assert.assertEquals(functionConfig.get("attachmentPoint").getAsString(), "OBJECT_METHOD",
-                "A plain 'on function' attach point must surface as OBJECT_METHOD");
+    public void testNetNewLibraryAnnotationsReachTheCatalog() {
+        List<Annotation> smb = libraryAnnotations("ballerina/smb");
 
-        JsonArray websubAnnotations = loadAnnotations("ballerina/websub");
-        JsonObject subscriberConfig = annotationNamed(websubAnnotations, "SubscriberServiceConfig");
-        Assert.assertEquals(subscriberConfig.get("attachmentPoint").getAsString(), "SERVICE");
+        Annotation serviceConfig = annotationNamed(smb, "ServiceConfig", "SERVICE");
+        Assert.assertNotNull(serviceConfig.getDescription(),
+                "Semantic-Model annotations carry the library's doc comment");
+        Assert.assertFalse(serviceConfig.getDescription().isEmpty(),
+                "Semantic-Model annotations carry the library's doc comment");
+        assertInternalTypeConstraint(serviceConfig, "SmbServiceConfig");
 
-        // The introspection fallback never overrides curated index rows nor fires for
-        // schema-driven libraries whose module declares no SERVICE/OBJECT_METHOD annotations.
-        Assert.assertTrue(loadAnnotations("ballerinax/kafka").isEmpty(),
-                "kafka's Payload annotation (on parameter) must stay filtered out");
-        JsonArray ftpAnnotations = loadAnnotations("ballerina/ftp");
-        Assert.assertEquals(ftpAnnotations.size(), 2,
-                "ftp's curated index rows must win over introspection");
-        Assert.assertTrue(annotationNamed(ftpAnnotations, "ServiceConfig").has("displayName"),
-                "index-sourced annotations keep their curated displayName");
+        // smb declares FunctionConfig `on function`. The compiler reports FUNCTION and it is
+        // emitted verbatim — it is no longer reclassified as a service method.
+        annotationNamed(smb, "FunctionConfig", "FUNCTION");
+
+        annotationNamed(libraryAnnotations("ballerina/websub"), "SubscriberServiceConfig", "SERVICE");
+
+        // kafka likewise has no curated rows. Its `on parameter` annotation now reaches the
+        // catalog instead of being dropped for sitting outside SERVICE/OBJECT_METHOD.
+        annotationNamed(libraryAnnotations("ballerinax/kafka"), "Payload", "PARAMETER");
     }
 
-    private JsonArray loadAnnotations(String libraryName) {
-        String[] parts = libraryName.split("/");
-        Optional<Package> pkgOpt = PackageUtil.getModulePackage(
-                PackageUtil.getSampleProject(), parts[0], parts[1]);
-        if (pkgOpt.isEmpty()) {
+    private List<Annotation> libraryAnnotations(String libraryName) {
+        List<Library> libraries =
+                new CopilotLibraryManager().loadFilteredLibraries(new String[]{libraryName});
+        if (libraries.isEmpty()) {
             throw new SkipException("Could not resolve package for " + libraryName);
         }
-        Package pkg = pkgOpt.get();
-        SemanticModel semanticModel = PackageUtil.getCompilation(pkg)
-                .getSemanticModel(pkg.getDefaultModule().moduleId());
-        return io.ballerina.flowmodelgenerator.core.copilot.service.AnnotationLoader
-                .loadAnnotations(libraryName, semanticModel);
+        List<Annotation> annotations = libraries.get(0).getAnnotations();
+        Assert.assertNotNull(annotations, libraryName + " should expose an annotation catalog");
+        return annotations;
     }
 
-    private static JsonObject annotationNamed(JsonArray annotations, String name) {
-        for (JsonElement element : annotations) {
-            JsonObject annotation = element.getAsJsonObject();
-            if (name.equals(annotation.get("name").getAsString())) {
+    private static Annotation annotationNamed(List<Annotation> annotations, String name,
+                                              String attachmentPoint) {
+        for (Annotation annotation : annotations) {
+            if (name.equals(annotation.getName())
+                    && attachmentPoint.equals(annotation.getAttachmentPoint())) {
                 return annotation;
             }
         }
-        Assert.fail("No annotation named " + name + " in " + annotations);
+        StringBuilder present = new StringBuilder();
+        for (Annotation annotation : annotations) {
+            present.append(" @").append(annotation.getName())
+                    .append('/').append(annotation.getAttachmentPoint());
+        }
+        Assert.fail("No @" + name + " on " + attachmentPoint + " in:" + present);
         return null;
+    }
+
+    private static void assertInternalTypeConstraint(Annotation annotation, String recordName) {
+        Type typeConstraint = annotation.getTypeConstraint();
+        Assert.assertNotNull(typeConstraint, "@" + annotation.getName() + " must carry a type constraint");
+        Assert.assertEquals(typeConstraint.getName(), recordName);
+        List<TypeLink> links = typeConstraint.getLinks();
+        Assert.assertNotNull(links, "@" + annotation.getName() + " type constraint must be linked");
+        Assert.assertEquals(links.size(), 1, "Expected exactly one link, got: " + links.size());
+        Assert.assertEquals(links.get(0).getCategory(), "internal");
+        Assert.assertEquals(links.get(0).getRecordName(), recordName);
     }
 
     private static JsonObject mapTypeConstraint(JsonObject annotation) {
