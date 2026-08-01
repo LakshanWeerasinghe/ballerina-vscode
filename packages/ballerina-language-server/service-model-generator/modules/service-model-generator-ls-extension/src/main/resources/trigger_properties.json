@@ -1,5 +1,21 @@
 {
   "1": {
+    "name": "asb",
+    "orgName": "ballerinax",
+    "packageName": "asb",
+    "keywords": [
+      "azure",
+      "service bus",
+      "asb",
+      "azure service bus",
+      "event"
+    ],
+    "triggerName": "Azure Service Bus",
+    "version": "3.10.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_asb_3.10.0.png",
+    "kind": "event"
+  },
+  "2": {
     "name": "kafka",
     "orgName": "ballerinax",
     "packageName": "kafka",
@@ -12,20 +28,6 @@
     "triggerName": "Kafka",
     "version": "4.5.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_kafka_4.5.0.png",
-    "kind": "event"
-  },
-  "2": {
-    "name": "rabbitmq",
-    "orgName": "ballerinax",
-    "packageName": "rabbitmq",
-    "keywords": [
-      "messaging",
-      "network",
-      "event"
-    ],
-    "triggerName": "RabbitMQ",
-    "version": "3.6.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_rabbitmq_3.6.0.png",
     "kind": "event"
   },
   "3": {
@@ -42,105 +44,20 @@
     "kind": "event"
   },
   "4": {
-    "name": "asb",
+    "name": "rabbitmq",
     "orgName": "ballerinax",
-    "packageName": "asb",
+    "packageName": "rabbitmq",
     "keywords": [
-      "azure",
-      "service bus",
-      "asb",
-      "azure service bus",
+      "messaging",
+      "network",
       "event"
     ],
-    "triggerName": "Azure Service Bus",
-    "version": "3.10.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_asb_3.10.0.png",
+    "triggerName": "RabbitMQ",
+    "version": "3.6.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_rabbitmq_3.6.0.png",
     "kind": "event"
   },
   "5": {
-    "name": "salesforce",
-    "orgName": "ballerinax",
-    "packageName": "salesforce",
-    "keywords": [
-      "salesforce",
-      "event"
-    ],
-    "triggerName": "Salesforce",
-    "version": "8.7.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_salesforce_8.7.0.png",
-    "kind": "event"
-  },
-  "6": {
-    "name": "trigger.twilio",
-    "orgName": "ballerinax",
-    "packageName": "trigger.twilio",
-    "keywords": [
-      "twilio",
-      "event",
-      "sms"
-    ],
-    "triggerName": "Twilio",
-    "version": "0.10.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.twilio_0.10.0.png",
-    "kind": "event"
-  },
-  "7": {
-    "name": "trigger.github",
-    "orgName": "ballerinax",
-    "packageName": "trigger.github",
-    "keywords": [
-      "github",
-      "event"
-    ],
-    "triggerName": "GitHub",
-    "version": "0.10.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.github_0.10.0.png",
-    "kind": "event"
-  },
-  "8": {
-    "name": "ftp",
-    "orgName": "ballerina",
-    "packageName": "ftp",
-    "keywords": [
-      "FTP",
-      "SFTP",
-      "remote file",
-      "file",
-      "event"
-    ],
-    "triggerName": "FTP / SFTP",
-    "version": "2.19.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.19.0.png",
-    "kind": "file"
-  },
-  "9": {
-    "name": "file",
-    "orgName": "ballerina",
-    "packageName": "file",
-    "keywords": [
-      "file",
-      "directory",
-      "service",
-      "event"
-    ],
-    "triggerName": "Directory",
-    "version": "1.13.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_file_1.13.0.png",
-    "kind": "file"
-  },
-  "10": {
-    "name": "mcp",
-    "orgName": "ballerina",
-    "packageName": "mcp",
-    "keywords": [
-      "mcp"
-    ],
-    "triggerName": "MCP Service",
-    "version": "1.2.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_mcp_1.2.0.png",
-    "kind": "mcp"
-  },
-  "11": {
     "name": "solace",
     "orgName": "ballerinax",
     "packageName": "solace",
@@ -154,7 +71,7 @@
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace_0.4.0.png",
     "kind": "event"
   },
-  "12": {
+  "6": {
     "name": "solace.jms",
     "orgName": "ballerinax",
     "packageName": "solace.jms",
@@ -167,6 +84,88 @@
     "triggerName": "Solace (JMS)",
     "version": "0.1.0",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace.jms_0.1.0.png",
+    "kind": "event"
+  },
+  "7": {
+    "name": "mssql",
+    "orgName": "ballerinax",
+    "packageName": "mssql",
+    "keywords": [
+      "mssql",
+      "cdc",
+      "event"
+    ],
+    "triggerName": "CDC for Microsoft SQL Server",
+    "version": "1.18.1",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mssql_1.18.1.png",
+    "kind": "event"
+  },
+  "8": {
+    "name": "mysql",
+    "orgName": "ballerinax",
+    "packageName": "mysql",
+    "keywords": [
+      "mysql",
+      "cdc",
+      "event"
+    ],
+    "triggerName": "CDC for MySQL",
+    "version": "1.18.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mysql_1.18.0.png",
+    "kind": "event"
+  },
+  "9": {
+    "name": "postgresql",
+    "orgName": "ballerinax",
+    "packageName": "postgresql",
+    "keywords": [
+      "postgresql",
+      "postgres",
+      "cdc",
+      "event"
+    ],
+    "triggerName": "CDC for PostgreSQL",
+    "version": "1.18.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_postgresql_1.18.0.png",
+    "kind": "event"
+  },
+  "10": {
+    "name": "trigger.github",
+    "orgName": "ballerinax",
+    "packageName": "trigger.github",
+    "keywords": [
+      "github",
+      "event"
+    ],
+    "triggerName": "GitHub",
+    "version": "0.10.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.github_0.10.0.png",
+    "kind": "event"
+  },
+  "11": {
+    "name": "trigger.hubspot",
+    "orgName": "ballerinax",
+    "packageName": "trigger.hubspot",
+    "keywords": [
+      "hubspot",
+      "event"
+    ],
+    "triggerName": "HubSpot",
+    "version": "0.12.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.hubspot_0.12.0.png",
+    "kind": "event"
+  },
+  "12": {
+    "name": "salesforce",
+    "orgName": "ballerinax",
+    "packageName": "salesforce",
+    "keywords": [
+      "salesforce",
+      "event"
+    ],
+    "triggerName": "Salesforce",
+    "version": "8.7.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_salesforce_8.7.0.png",
     "kind": "event"
   },
   "13": {
@@ -183,62 +182,20 @@
     "kind": "event"
   },
   "14": {
-    "name": "mssql",
+    "name": "trigger.twilio",
     "orgName": "ballerinax",
-    "packageName": "mssql",
+    "packageName": "trigger.twilio",
     "keywords": [
-      "mssql",
-      "cdc",
-      "event"
+      "twilio",
+      "event",
+      "sms"
     ],
-    "triggerName": "CDC for Microsoft SQL Server",
-    "version": "1.18.1",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mssql_1.18.1.png",
+    "triggerName": "Twilio",
+    "version": "0.10.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.twilio_0.10.0.png",
     "kind": "event"
   },
   "15": {
-    "name": "postgresql",
-    "orgName": "ballerinax",
-    "packageName": "postgresql",
-    "keywords": [
-      "postgresql",
-      "postgres",
-      "cdc",
-      "event"
-    ],
-    "triggerName": "CDC for PostgreSQL",
-    "version": "1.18.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_postgresql_1.18.0.png",
-    "kind": "event"
-  },
-  "16": {
-    "name": "mysql",
-    "orgName": "ballerinax",
-    "packageName": "mysql",
-    "keywords": [
-      "mysql",
-      "cdc",
-      "event"
-    ],
-    "triggerName": "CDC for MySQL",
-    "version": "1.18.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_mysql_1.18.0.png",
-    "kind": "event"
-  },
-  "17": {
-    "name": "trigger.hubspot",
-    "orgName": "ballerinax",
-    "packageName": "trigger.hubspot",
-    "keywords": [
-      "hubspot",
-      "event"
-    ],
-    "triggerName": "HubSpot",
-    "version": "0.12.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_trigger.hubspot_0.12.0.png",
-    "kind": "event"
-  },
-  "18": {
     "name": "sap.jco",
     "orgName": "ballerinax",
     "packageName": "sap.jco",
@@ -253,5 +210,48 @@
     "version": "2.0.1",
     "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_sap.jco_2.0.1.png",
     "kind": "event"
+  },
+  "16": {
+    "name": "ftp",
+    "orgName": "ballerina",
+    "packageName": "ftp",
+    "keywords": [
+      "FTP",
+      "SFTP",
+      "remote file",
+      "file",
+      "event"
+    ],
+    "triggerName": "FTP / SFTP",
+    "version": "2.19.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.19.0.png",
+    "kind": "file"
+  },
+  "17": {
+    "name": "file",
+    "orgName": "ballerina",
+    "packageName": "file",
+    "keywords": [
+      "file",
+      "directory",
+      "service",
+      "event"
+    ],
+    "triggerName": "Directory",
+    "version": "1.13.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_file_1.13.0.png",
+    "kind": "file"
+  },
+  "18": {
+    "name": "mcp",
+    "orgName": "ballerina",
+    "packageName": "mcp",
+    "keywords": [
+      "mcp"
+    ],
+    "triggerName": "MCP Service",
+    "version": "1.2.0",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_mcp_1.2.0.png",
+    "kind": "mcp"
   }
 }
