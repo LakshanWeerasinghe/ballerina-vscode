@@ -27,11 +27,13 @@ import io.ballerina.compiler.api.symbols.Documentation;
 import io.ballerina.compiler.api.symbols.FunctionSymbol;
 import io.ballerina.compiler.api.symbols.FunctionTypeSymbol;
 import io.ballerina.compiler.api.symbols.MethodSymbol;
+import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
 import io.ballerina.compiler.api.symbols.ParameterSymbol;
 import io.ballerina.compiler.api.symbols.Qualifier;
 import io.ballerina.compiler.api.symbols.RecordFieldSymbol;
 import io.ballerina.compiler.api.symbols.RecordTypeSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
+import io.ballerina.compiler.api.symbols.SymbolKind;
 import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.values.ConstantValue;
@@ -49,6 +51,7 @@ import io.ballerina.modelgenerator.commons.FunctionData;
 import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.TypeDefData;
+import io.ballerina.projects.Package;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -119,18 +122,19 @@ public class SymbolProcessor {
     public static SymbolProcessingResult processModuleSymbols(SemanticModel semanticModel,
                                                               ModuleInfo moduleInfo,
                                                               String org,
-                                                              String packageName) {
+                                                              String packageName,
+                                                              Package pkg) {
         SymbolProcessingResult result = new SymbolProcessingResult();
 
         for (Symbol symbol : semanticModel.moduleSymbols()) {
             if (symbol instanceof ClassSymbol classSymbol) {
-                processClassSymbol(classSymbol, semanticModel, moduleInfo, org, packageName, result);
+                processClassSymbol(classSymbol, semanticModel, moduleInfo, org, packageName, pkg, result);
             } else if (symbol instanceof FunctionSymbol functionSymbol) {
-                processFunctionSymbol(functionSymbol, semanticModel, moduleInfo, org, packageName, result);
+                processFunctionSymbol(functionSymbol, semanticModel, moduleInfo, org, packageName, pkg, result);
             } else if (symbol instanceof TypeDefinitionSymbol typeDefSymbol) {
-                processTypeDefSymbol(typeDefSymbol, org, packageName, result);
+                processTypeDefSymbol(typeDefSymbol, semanticModel, moduleInfo, org, packageName, pkg, result);
             } else if (symbol instanceof ConstantSymbol constantSymbol) {
-                processConstantSymbol(constantSymbol, org, packageName, result);
+                processConstantSymbol(constantSymbol, org, packageName, pkg, result);
             } else if (symbol instanceof AnnotationSymbol annotationSymbol) {
                 processAnnotationSymbol(annotationSymbol, org, packageName, result);
             }
@@ -146,6 +150,7 @@ public class SymbolProcessor {
                                            ModuleInfo moduleInfo,
                                            String org,
                                            String packageName,
+                                           Package pkg,
                                            SymbolProcessingResult result) {
         // Process only PUBLIC classes: CLIENT classes (connectors) and normal classes
         if (!classSymbol.qualifiers().contains(Qualifier.PUBLIC)) {
@@ -170,8 +175,8 @@ public class SymbolProcessor {
         // Add the constructor/init function first
         LibraryFunction constructor = functionDataToModel(classData, org, packageName);
         classSymbol.initMethod().ifPresent(
-                initMethod -> applyFunctionAnnotations(initMethod, constructor, org, packageName));
-        functions.add(initMethodToModel(classSymbol, constructor));
+                initMethod -> applyFunctionAnnotations(initMethod, constructor, org, packageName, pkg));
+        initMethodToModel(classSymbol, constructor, org, packageName).ifPresent(functions::add);
 
         // Then add all other methods (remote functions, resource functions, etc.)
         List<FunctionData> classMethods = new FunctionDataBuilder()
@@ -197,7 +202,7 @@ public class SymbolProcessor {
                 if (methodSymbol.deprecated()) {
                     methodFunc.setDeprecated(true);
                 }
-                applyFunctionAnnotations(methodSymbol, methodFunc, org, packageName);
+                applyFunctionAnnotations(methodSymbol, methodFunc, org, packageName, pkg);
             }
 
             functions.add(methodFunc);
@@ -205,7 +210,7 @@ public class SymbolProcessor {
 
         boolean classDeprecated = classSymbol.deprecated();
         List<AnnotationAttachment> classAnnotations =
-                AnnotationAttachmentExtractor.extract(classSymbol, org, packageName);
+                AnnotationAttachmentExtractor.extract(classSymbol, org, packageName, pkg);
         if (isClient) {
             Client client = new Client(className, classData.description());
             client.setFunctions(functions);
@@ -219,6 +224,9 @@ public class SymbolProcessor {
         } else {
             TypeDef typeDef = new TypeDef();
             typeDef.setName(className);
+            // Without a category the renderer cannot dispatch and drops the definition entirely,
+            // taking its already-extracted methods with it.
+            typeDef.setType(TypeDefData.TypeCategory.CLASS.getValue());
             typeDef.setDescription(classData.description());
             typeDef.setFunctions(functions);
             if (classDeprecated) {
@@ -239,6 +247,7 @@ public class SymbolProcessor {
                                               ModuleInfo moduleInfo,
                                               String org,
                                               String packageName,
+                                              Package pkg,
                                               SymbolProcessingResult result) {
         if (!functionSymbol.qualifiers().contains(Qualifier.PUBLIC)) {
             return;
@@ -265,7 +274,7 @@ public class SymbolProcessor {
             function.setDeprecated(true);
         }
 
-        applyFunctionAnnotations(functionSymbol, function, org, packageName);
+        applyFunctionAnnotations(functionSymbol, function, org, packageName, pkg);
 
         result.getFunctions().add(function);
     }
@@ -274,8 +283,11 @@ public class SymbolProcessor {
      * Processes a TYPE_DEFINITION symbol.
      */
     private static void processTypeDefSymbol(TypeDefinitionSymbol typeDefSymbol,
+                                             SemanticModel semanticModel,
+                                             ModuleInfo moduleInfo,
                                              String org,
                                              String packageName,
+                                             Package pkg,
                                              SymbolProcessingResult result) {
         if (!typeDefSymbol.qualifiers().contains(Qualifier.PUBLIC)) {
             return;
@@ -287,15 +299,106 @@ public class SymbolProcessor {
             typeDef.setDeprecated(true);
         }
         markDeprecatedFields(typeDefSymbol, typeDef);
+        applyObjectTypeMembers(typeDefSymbol, typeDef, semanticModel, moduleInfo, org, packageName, pkg);
 
         List<AnnotationAttachment> typeAnnotations =
-                AnnotationAttachmentExtractor.extract(typeDefSymbol, org, packageName);
+                AnnotationAttachmentExtractor.extract(typeDefSymbol, org, packageName, pkg);
         if (!typeAnnotations.isEmpty()) {
             typeDef.setAnnotations(typeAnnotations);
         }
-        applyFieldAnnotations(typeDefSymbol, typeDef, org, packageName);
+        applyFieldAnnotations(typeDefSymbol, typeDef, org, packageName, pkg);
 
         result.getTypeDefs().add(typeDef);
+    }
+
+    /**
+     * Populates an object type definition's methods, and flags the {@code client} qualifier.
+     *
+     * <p>{@code TypeDefDataBuilder} categorises an object type as {@code CLASS} but only ever
+     * extracts record fields, so an object type ({@code public type Client isolated client object
+     * { ... }}) would otherwise reach the renderer with no members at all. A class declaration
+     * ({@code public class Client { ... }}) is unaffected: it is a {@link ClassSymbol} and is
+     * handled by {@link #processClassSymbol}.
+     *
+     * <p>Each method is built individually rather than through {@code buildChildNodes()}: that path
+     * requires a {@code SymbolKind.CLASS} parent and rejects a plain object type. {@code build()}
+     * defaults the function kind to {@code FUNCTION}, so the remote/resource kind is resolved here
+     * and passed in explicitly — otherwise a remote method would render without its qualifier.
+     * Visibility filtering mirrors {@code buildChildNodes()}: private methods are skipped, and a
+     * plain method must be public.
+     */
+    private static void applyObjectTypeMembers(TypeDefinitionSymbol typeDefSymbol,
+                                               TypeDef typeDef,
+                                               SemanticModel semanticModel,
+                                               ModuleInfo moduleInfo,
+                                               String org,
+                                               String packageName,
+                                               Package pkg) {
+        TypeSymbol rawType = CommonUtils.getRawType(typeDefSymbol.typeDescriptor());
+        if (!(rawType instanceof ObjectTypeSymbol objectType)) {
+            return;
+        }
+        if (objectType.qualifiers().contains(Qualifier.CLIENT)) {
+            typeDef.setClient(true);
+        }
+
+        List<LibraryFunction> functions = new ArrayList<>();
+        for (MethodSymbol methodSymbol : objectType.methods().values()) {
+            List<Qualifier> qualifiers = methodSymbol.qualifiers();
+            if (qualifiers.contains(Qualifier.PRIVATE)) {
+                continue;
+            }
+            FunctionData.Kind kind = resolveMethodKind(methodSymbol);
+            if (kind == FunctionData.Kind.FUNCTION && !qualifiers.contains(Qualifier.PUBLIC)) {
+                continue;
+            }
+            FunctionData methodData;
+            try {
+                methodData = new FunctionDataBuilder()
+                        .semanticModel(semanticModel)
+                        .moduleInfo(moduleInfo)
+                        .functionSymbol(methodSymbol)
+                        .functionResultKind(kind)
+                        .build();
+            } catch (RuntimeException e) {
+                // A member that cannot be modelled must not cost the whole type definition.
+                continue;
+            }
+            LibraryFunction methodFunc = functionDataToModel(methodData, org, packageName);
+            methodSymbol.documentation().ifPresent(doc -> {
+                String returnDesc = doc.returnDescription().orElse("");
+                if (!returnDesc.isEmpty() && methodFunc.getReturnInfo() != null) {
+                    methodFunc.getReturnInfo().setDescription(returnDesc);
+                }
+            });
+            if (methodSymbol.deprecated()) {
+                methodFunc.setDeprecated(true);
+            }
+            applyFunctionAnnotations(methodSymbol, methodFunc, org, packageName, pkg);
+            functions.add(methodFunc);
+        }
+
+        if (!functions.isEmpty()) {
+            typeDef.setFunctions(functions);
+        }
+    }
+
+    /**
+     * The kind {@code FunctionDataBuilder.build()} would otherwise default to {@code FUNCTION},
+     * mirroring the builder's own (private) classification.
+     */
+    private static FunctionData.Kind resolveMethodKind(MethodSymbol methodSymbol) {
+        if (methodSymbol.kind() == SymbolKind.RESOURCE_METHOD) {
+            return FunctionData.Kind.RESOURCE;
+        }
+        List<Qualifier> qualifiers = methodSymbol.qualifiers();
+        if (qualifiers.contains(Qualifier.REMOTE)) {
+            return FunctionData.Kind.REMOTE;
+        }
+        if (qualifiers.contains(Qualifier.RESOURCE)) {
+            return FunctionData.Kind.RESOURCE;
+        }
+        return FunctionData.Kind.FUNCTION;
     }
 
     /**
@@ -338,6 +441,7 @@ public class SymbolProcessor {
     private static void processConstantSymbol(ConstantSymbol constantSymbol,
                                               String org,
                                               String packageName,
+                                              Package pkg,
                                               SymbolProcessingResult result) {
         if (!constantSymbol.qualifiers().contains(Qualifier.PUBLIC)) {
             return;
@@ -365,7 +469,7 @@ public class SymbolProcessor {
         typeDef.setVarType(varType);
 
         List<AnnotationAttachment> constAnnotations =
-                AnnotationAttachmentExtractor.extract(constantSymbol, org, packageName);
+                AnnotationAttachmentExtractor.extract(constantSymbol, org, packageName, pkg);
         if (!constAnnotations.isEmpty()) {
             typeDef.setAnnotations(constAnnotations);
         }
@@ -415,9 +519,10 @@ public class SymbolProcessor {
     private static void applyFunctionAnnotations(FunctionSymbol functionSymbol,
                                                  LibraryFunction function,
                                                  String org,
-                                                 String packageName) {
+                                                 String packageName,
+                                                 Package pkg) {
         List<AnnotationAttachment> fnAnnotations =
-                AnnotationAttachmentExtractor.extract(functionSymbol, org, packageName);
+                AnnotationAttachmentExtractor.extract(functionSymbol, org, packageName, pkg);
         if (!fnAnnotations.isEmpty()) {
             function.setAnnotations(fnAnnotations);
         }
@@ -446,7 +551,7 @@ public class SymbolProcessor {
                 continue;
             }
             List<AnnotationAttachment> paramAnnotations =
-                    AnnotationAttachmentExtractor.extract(paramSymbol, org, packageName);
+                    AnnotationAttachmentExtractor.extract(paramSymbol, org, packageName, pkg);
             if (!paramAnnotations.isEmpty()) {
                 parameter.setAnnotations(paramAnnotations);
             }
@@ -460,7 +565,8 @@ public class SymbolProcessor {
     private static void applyFieldAnnotations(TypeDefinitionSymbol typeDefSymbol,
                                               TypeDef typeDef,
                                               String org,
-                                              String packageName) {
+                                              String packageName,
+                                              Package pkg) {
         List<Field> fields = typeDef.getFields();
         if (fields == null || fields.isEmpty()) {
             return;
@@ -483,7 +589,7 @@ public class SymbolProcessor {
                 continue;
             }
             List<AnnotationAttachment> fieldAnnotations =
-                    AnnotationAttachmentExtractor.extract(fieldSymbol, org, packageName);
+                    AnnotationAttachmentExtractor.extract(fieldSymbol, org, packageName, pkg);
             if (!fieldAnnotations.isEmpty()) {
                 field.setAnnotations(fieldAnnotations);
             }

@@ -17,6 +17,7 @@
 import {
     Library,
     TypeDefinition,
+    TypeDefinitionBase,
     RecordTypeDefinition,
     EnumTypeDefinition,
     UnionTypeDefinition,
@@ -263,13 +264,51 @@ function renderConstant(typeDef: ConstantTypeDefinition): string {
 }
 
 /**
- * Renders a class type definition to Ballerina syntax.
+ * Renders a class or object type definition to Ballerina syntax, including its methods.
+ *
+ * Covers both `public class C { ... }` and `public type C object { ... }`; the latter renders as
+ * `client class` when it carries the `client` qualifier (e.g. `sql:Client`), matching how a client
+ * class declaration is rendered. A definition with no members still renders as an empty body, which
+ * is correct for marker types such as `kafka:Service`.
  */
 function renderClass(typeDef: ClassTypeDefinition): string {
     const desc = renderDescription(typeDef.description);
     const dep = renderDeprecation(typeDef.isDeprecated);
     const ann = renderAttachmentBlock(typeDef.annotations, "");
-    return `${desc}${dep}${ann}class ${typeDef.name} {\n}`;
+    const keyword = typeDef.isClient ? "client class" : "class";
+    const functions = typeDef.functions ?? [];
+
+    if (functions.length === 0) {
+        return `${desc}${dep}${ann}${keyword} ${typeDef.name} {\n}`;
+    }
+
+    const lines: string[] = [`${desc}${dep}${ann}${keyword} ${typeDef.name} {`];
+    for (const func of functions) {
+        lines.push(...renderClassMember(func));
+    }
+    lines.push("}");
+    return lines.join("\n");
+}
+
+/**
+ * Renders a type definition that carries no members — an error type, or any shape the extractor
+ * does not decompose (tuple, map, table, stream, intersection). `baseType` is the compiler's own
+ * signature for the type, already stripped of org/version prefixes, so it is emitted verbatim as
+ * the declaration's right-hand side.
+ *
+ * Note the rendered form omits `distinct`: the compiler reports `error` for a
+ * `distinct error` declaration, and the qualifier cannot be recovered from the signature.
+ */
+function renderBaseTypeDefinition(typeDef: TypeDefinitionBase): string {
+    if (!typeDef.baseType) {
+        // Nothing to describe the shape with — keep the previous output rather than emit a
+        // declaration with an empty right-hand side.
+        return `// Unknown type: ${typeDef.name}`;
+    }
+    const desc = renderDescription(typeDef.description);
+    const dep = renderDeprecation(typeDef.isDeprecated);
+    const ann = renderAttachmentBlock(typeDef.annotations, "");
+    return `${desc}${dep}${ann}type ${typeDef.name} ${typeDef.baseType};`;
 }
 
 /**
@@ -287,6 +326,9 @@ function renderTypeDef(typeDef: TypeDefinition): string {
             return renderConstant(typeDef as ConstantTypeDefinition);
         case "Class":
             return renderClass(typeDef as ClassTypeDefinition);
+        case "Error":
+        case "Other":
+            return renderBaseTypeDefinition(typeDef as TypeDefinitionBase);
         default:
             return `// Unknown type: ${typeDef.name}`;
     }
@@ -340,9 +382,10 @@ function renderConstructor(func: RemoteFunction): string {
 }
 
 /**
- * Renders a remote function.
+ * Renders a method declaration. `qualifier` is what precedes `function` — `"remote "` for a remote
+ * method, `""` for a plain one.
  */
-function renderRemoteFunction(func: RemoteFunction, indent: string = "    "): string {
+function renderMethod(func: RemoteFunction, qualifier: string, indent: string): string {
     const allExternalLinks = collectFunctionExternalLinks(func.parameters, func.return?.type);
     const desc = func.description ? `${indent}# ${func.description.split("\n").join(`\n${indent}# `)}\n` : "";
     const dep = func.isDeprecated ? `${indent}@deprecated\n` : "";
@@ -350,7 +393,46 @@ function renderRemoteFunction(func: RemoteFunction, indent: string = "    "): st
     const params = func.parameters.map(renderParam).join(", ");
     const returnStr = func.return?.type ? ` returns ${applyPrefixToTypeName(func.return.type.name, allExternalLinks)}` : "";
     const agentNote = buildSpecialAgentNote(allExternalLinks);
-    return `${desc}${dep}${anns}${indent}remote function ${func.name}(${params})${returnStr};${agentNote}`;
+    return `${desc}${dep}${anns}${indent}${qualifier}function ${func.name}(${params})${returnStr};${agentNote}`;
+}
+
+/**
+ * Renders a remote function.
+ */
+function renderRemoteFunction(func: RemoteFunction, indent: string = "    "): string {
+    return renderMethod(func, "remote ", indent);
+}
+
+/**
+ * Renders a plain (non-remote, non-resource) method — e.g. `sql:Client.close()` or
+ * `sql:ResultIterator.next()`. Rendering these with the `remote` qualifier would not compile.
+ */
+function renderNormalFunction(func: RemoteFunction, indent: string = "    "): string {
+    return renderMethod(func, "", indent);
+}
+
+/**
+ * Renders one member of a class or client body.
+ *
+ * Dispatches on the declared function kind rather than by elimination: a class can hold plain
+ * methods alongside remote ones, and treating everything that is not a constructor or resource as
+ * `remote` mislabels them.
+ *
+ * Returns the lines to append, including the blank separator that precedes every member except the
+ * constructor.
+ */
+function renderClassMember(func: RemoteFunction | ResourceFunction): string[] {
+    const kind = (func as { type?: string }).type;
+    if (kind === "Constructor") {
+        return [renderConstructor(func as RemoteFunction)];
+    }
+    if ("accessor" in func) {
+        return ["", renderResourceFunction(func as ResourceFunction)];
+    }
+    if (kind === "Normal Function") {
+        return ["", renderNormalFunction(func as RemoteFunction)];
+    }
+    return ["", renderRemoteFunction(func as RemoteFunction)];
 }
 
 /**
@@ -396,15 +478,7 @@ function renderClient(client: Client): string {
     lines.push(`${desc}${dep}${anns}client class ${client.name} {`);
 
     for (const func of client.functions) {
-        if ("type" in func && func.type === "Constructor") {
-            lines.push(renderConstructor(func as RemoteFunction));
-        } else if ("accessor" in func) {
-            lines.push("");
-            lines.push(renderResourceFunction(func as ResourceFunction));
-        } else {
-            lines.push("");
-            lines.push(renderRemoteFunction(func as RemoteFunction));
-        }
+        lines.push(...renderClassMember(func));
     }
 
     lines.push("}");

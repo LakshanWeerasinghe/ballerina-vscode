@@ -1,0 +1,69 @@
+{
+  "listeners": [
+    {
+      "type": { "name": "Listener" },
+      "services": ["service"]
+    }
+  ],
+
+  "serviceTypes": [
+    {
+      "id": "service",
+      "type": { "name": "Service" },
+      "concrete": false,
+      "multipleListenersAllowed": true,
+      "multipleServicesPerListenerAllowed": true,
+
+      "handlers": {
+        "backedByConcreteType": false,
+        "addMode": "many",
+        "options": [
+          {
+            "name": "unary",
+            "kind": "remote",
+            "params": [
+              { "type": { "name": "anydata" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "anydata" }, { "name": "error" }]
+          },
+          {
+            "name": "serverStreaming",
+            "kind": "remote",
+            "params": [
+              { "type": { "name": "anydata" }, "presence": "required" }
+            ],
+            "returns": { "name": "stream<anydata, Error?>" }
+          },
+          {
+            "name": "clientStreaming",
+            "kind": "remote",
+            "params": [
+              { "type": { "name": "stream<anydata, Error?>" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "anydata" }, { "name": "error" }]
+          },
+          {
+            "name": "bidiStreaming",
+            "kind": "remote",
+            "params": [
+              { "type": { "name": "stream<anydata, Error?>" }, "presence": "required" }
+            ],
+            "returns": { "name": "()" }
+          }
+        ]
+      }
+    }
+  ],
+
+  "annotations": [
+    {
+      "id": "serviceConfig",
+      "type": { "name": "ServiceConfig" },
+      "attachPoint": "service",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    }
+  ],
+
+  "dataBindingRules": []
+}

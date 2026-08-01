@@ -476,4 +476,169 @@ suite("toSyntaxString", () => {
             );
         });
     });
+
+    // "Error" and "Other" carry no fields or members — the model sends the compiler's own
+    // signature in `baseType` instead, and it is emitted as the declaration's right-hand side.
+    suite("§13 Member-less type definitions (Error / Other)", () => {
+        function render(typeDef: Record<string, unknown>): string {
+            const lib = {
+                name: "ballerinax/kafka",
+                description: "",
+                typeDefs: [typeDef],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        test("should render an error type from its baseType", () => {
+            const result = render({
+                name: "Error",
+                description: "Defines the common error type for the module.",
+                type: "Error",
+                baseType: "error",
+            });
+            assert.ok(result.includes("# Defines the common error type for the module."),
+                "Description must survive; it used to be discarded with the type");
+            assert.ok(result.includes("type Error error;"), `Expected error declaration, got:\n${result}`);
+            assert.ok(!result.includes("// Unknown type"), "Must no longer fall through to the comment");
+        });
+
+        test("should render an error type carrying a detail record", () => {
+            const result = render({
+                name: "PayloadBindingError",
+                description: "Represents an error, which occurred due to payload binding.",
+                type: "Error",
+                baseType: "error<record {|TopicPartition partition; int offset;|}>",
+            });
+            assert.ok(
+                result.includes("type PayloadBindingError error<record {|TopicPartition partition; int offset;|}>;"),
+                `Detail record must be preserved verbatim, got:\n${result}`
+            );
+        });
+
+        test("should render an Other type such as a tuple", () => {
+            const result = render({
+                name: "TopicPartitionTimestamp",
+                description: "Represents a topic partition and a timestamp.",
+                type: "Other",
+                baseType: "[TopicPartition, int]",
+            });
+            assert.ok(result.includes("# Represents a topic partition and a timestamp."));
+            assert.ok(result.includes("type TopicPartitionTimestamp [TopicPartition, int];"),
+                `Expected tuple declaration, got:\n${result}`);
+        });
+
+        test("should keep the previous comment when baseType is absent", () => {
+            const result = render({
+                name: "Mystery",
+                description: "No signature available.",
+                type: "Other",
+            });
+            assert.ok(result.includes("// Unknown type: Mystery"),
+                `Missing baseType must degrade to the old output, got:\n${result}`);
+            assert.ok(!result.includes("type Mystery ;"), "Must never emit an empty right-hand side");
+        });
+
+        test("should still render deprecation for a member-less type", () => {
+            const result = render({
+                name: "OldError",
+                description: "Legacy error.",
+                type: "Error",
+                baseType: "error",
+                isDeprecated: true,
+            });
+            assert.ok(result.includes("@deprecated"), `Expected @deprecated, got:\n${result}`);
+            assert.ok(result.includes("type OldError error;"));
+        });
+
+        test("should leave genuinely unknown type categories on the comment path", () => {
+            const result = render({ name: "Weird", description: "", type: "SomethingElse" });
+            assert.ok(result.includes("// Unknown type: Weird"),
+                `Unrecognised categories must be unaffected, got:\n${result}`);
+        });
+    });
+
+    // A class declaration and an object type definition both arrive as type "Class". Their methods
+    // must render, and each method with the qualifier it was actually declared with.
+    suite("§14 Class / object type members", () => {
+        function renderTypeDef(typeDef: Record<string, unknown>): string {
+            const lib = { name: "ballerina/sql", description: "", typeDefs: [typeDef] } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        function fn(name: string, type: string, extra: Record<string, unknown> = {}) {
+            return { name, type, description: "", parameters: [], ...extra };
+        }
+
+        test("should render a plain method as `function`, never `remote function`", () => {
+            const result = renderTypeDef({
+                name: "ResultIterator", description: "The iterator.", type: "Class",
+                functions: [fn("next", "Normal Function"), fn("close", "Normal Function")],
+            });
+            assert.ok(result.includes("class ResultIterator {"), `got:\n${result}`);
+            assert.ok(result.includes("    function next();"), `Expected plain function, got:\n${result}`);
+            assert.ok(!result.includes("remote function next"),
+                `A Normal Function must not be labelled remote, got:\n${result}`);
+            assert.ok(!result.includes("// Unknown type"), "Must not fall through to the comment path");
+        });
+
+        test("should render a remote method with the remote qualifier", () => {
+            const result = renderTypeDef({
+                name: "Holder", description: "", type: "Class",
+                functions: [fn("query", "Remote Function")],
+            });
+            assert.ok(result.includes("    remote function query();"), `got:\n${result}`);
+        });
+
+        test("should render an object type carrying the client qualifier as `client class`", () => {
+            const result = renderTypeDef({
+                name: "Client", description: "Represents an SQL client.", type: "Class", isClient: true,
+                functions: [fn("query", "Remote Function"), fn("close", "Normal Function")],
+            });
+            assert.ok(result.includes("client class Client {"),
+                `A client-qualified object type must render as client class, got:\n${result}`);
+            assert.ok(result.includes("    remote function query();"), `got:\n${result}`);
+            assert.ok(result.includes("    function close();"), `got:\n${result}`);
+        });
+
+        test("should keep rendering an empty class body unchanged", () => {
+            const result = renderTypeDef({ name: "Service", description: "Marker.", type: "Class" });
+            assert.ok(result.includes("class Service {\n}"),
+                `A member-less class must be unchanged, got:\n${result}`);
+        });
+
+        test("should treat an empty functions array the same as none", () => {
+            const result = renderTypeDef({ name: "Empty", description: "", type: "Class", functions: [] });
+            assert.ok(result.includes("class Empty {\n}"), `got:\n${result}`);
+        });
+
+        test("should render a constructor without a leading blank line", () => {
+            const result = renderTypeDef({
+                name: "Holder", description: "", type: "Class",
+                functions: [fn("init", "Constructor"), fn("go", "Remote Function")],
+            });
+            assert.ok(result.includes("class Holder {\n    function init();"),
+                `Constructor must follow the header directly, got:\n${result}`);
+        });
+
+        test("should render a resource method via the resource path", () => {
+            const result = renderTypeDef({
+                name: "Holder", description: "", type: "Class",
+                functions: [{
+                    name: "get", type: "Resource Function", description: "", parameters: [],
+                    accessor: "get", paths: [{ kind: "literal", value: "items" }],
+                }],
+            });
+            assert.ok(result.includes("resource function get"), `got:\n${result}`);
+        });
+
+        test("should carry deprecation and description onto a populated class", () => {
+            const result = renderTypeDef({
+                name: "Old", description: "Legacy holder.", type: "Class", isDeprecated: true,
+                functions: [fn("go", "Remote Function")],
+            });
+            assert.ok(result.includes("# Legacy holder."), `got:\n${result}`);
+            assert.ok(result.includes("@deprecated"), `got:\n${result}`);
+            assert.ok(result.includes("class Old {"), `got:\n${result}`);
+        });
+    });
 });

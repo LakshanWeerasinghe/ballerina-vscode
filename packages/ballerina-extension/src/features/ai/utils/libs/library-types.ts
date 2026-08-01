@@ -85,6 +85,10 @@ export interface TypeDefinitionBase {
     type: string;
     isDeprecated?: boolean;
     annotations?: AnnotationAttachment[];
+    // The compiler's signature for the type, sent only for definitions with no members to model
+    // ("Error" and "Other" — tuples, maps, tables, streams, intersections). It is the right-hand
+    // side of the declaration; every other category describes its shape through fields/members.
+    baseType?: string;
 }
 
 export interface ConstantTypeDefinition extends TypeDefinitionBase {
@@ -106,6 +110,9 @@ export interface UnionTypeDefinition extends TypeDefinitionBase {
 
 export interface ClassTypeDefinition extends TypeDefinitionBase {
     functions: any[];
+    // Set for an object type carrying the `client` qualifier (e.g. sql:Client), which renders as
+    // `client class`. Class declarations with the qualifier are emitted as `clients` instead.
+    isClient?: boolean;
 }
 
 export type TypeDefinition = 

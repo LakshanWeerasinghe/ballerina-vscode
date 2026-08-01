@@ -147,7 +147,8 @@ public class CopilotLibraryManager {
                     semanticModel,
                     moduleInfo,
                     org,
-                    packageName
+                    packageName,
+                    pkg
             );
 
             library.setClients(symbolResult.getClients());

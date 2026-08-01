@@ -23,14 +23,25 @@ import io.ballerina.compiler.api.symbols.AnnotationAttachmentSymbol;
 import io.ballerina.compiler.api.symbols.AnnotationSymbol;
 import io.ballerina.compiler.api.symbols.ModuleSymbol;
 import io.ballerina.compiler.api.values.ConstantValue;
+import io.ballerina.compiler.syntax.tree.AnnotationNode;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.compiler.syntax.tree.Node;
+import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.flowmodelgenerator.core.copilot.model.AnnotationAttachment;
+import io.ballerina.projects.Document;
+import io.ballerina.projects.Package;
+import io.ballerina.projects.Project;
+import io.ballerina.tools.diagnostics.Location;
+import io.ballerina.tools.text.TextRange;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 /**
  * Extracts concrete annotation attachments (with their supplied values) from any
@@ -46,6 +57,7 @@ import java.util.StringJoiner;
  */
 public final class AnnotationAttachmentExtractor {
 
+    private static final Pattern COLLAPSE_WHITESPACE = Pattern.compile("\\s+");
     private static final String BALLERINA_ORG = "ballerina";
     private static final String LANG_MODULE_PREFIX = "lang.";
     // Compiler-internal annotations from ballerina/lang.* that are noise for code generation.
@@ -64,10 +76,12 @@ public final class AnnotationAttachmentExtractor {
      * @param annotatable    the annotatable symbol (may be {@code null})
      * @param currentOrg     the organization of the library being processed
      * @param currentPackage the package name of the library being processed
+     * @param pkg            the resolved package, used to recover a value the Semantic Model does
+     *                       not model as a constant (may be {@code null})
      * @return the list of attachments (never {@code null}; empty when none apply)
      */
     public static List<AnnotationAttachment> extract(Annotatable annotatable, String currentOrg,
-                                                     String currentPackage) {
+                                                     String currentPackage, Package pkg) {
         List<AnnotationAttachment> attachments = new ArrayList<>();
         if (annotatable == null) {
             return attachments;
@@ -86,19 +100,112 @@ public final class AnnotationAttachmentExtractor {
             AnnotationAttachment attachment = new AnnotationAttachment();
             attachment.setName(optName.get());
             attachment.setModule(resolveModule(annotationSymbol, currentOrg, currentPackage));
-            // A valueless attachment (a bare `@Foo`, e.g. grpc's `@ServiceDescriptor`) holds no
-            // ConstantValue. AnnotationAttachmentSymbol#attachmentValue() is implemented as
-            // Optional.of(field) with no null guard, so calling it on such an attachment throws
-            // an NPE; isConstAnnotation() is the only safe way to know a value is present.
+            // AnnotationAttachmentSymbol#attachmentValue() is implemented as Optional.of(field) with
+            // no null guard, so it throws whenever no ConstantValue was materialised;
+            // isConstAnnotation() is the only safe way to know one is present.
             if (attachmentSymbol.isConstAnnotation()) {
                 attachmentSymbol.attachmentValue()
                         .map(ConstantValue::value)
                         .map(AnnotationAttachmentExtractor::renderValue)
                         .ifPresent(attachment::setValue);
+            } else {
+                // The compiler materialises a ConstantValue only when the attachment is written as
+                // literals. `@protobuf:Descriptor {value: REFLECTION_DESC}` references a constant and
+                // `@constraint:String {pattern: {value: urlRegExpr}}` a variable, so neither has one --
+                // yet both carry a value that is mandatory for the annotation to compile. It survives
+                // only as source text, so it is read back from the syntax tree.
+                declaredValue(attachmentSymbol, pkg).ifPresent(attachment::setValue);
             }
             attachments.add(attachment);
         }
         return attachments;
+    }
+
+    /**
+     * Recovers an attachment's value from the package's syntax tree, for the attachments the
+     * Semantic Model reports no constant for.
+     *
+     * <p>The attachment symbol's location spans the whole annotation — {@code @protobuf:Descriptor
+     * {value: REFLECTION_DESC}} — so the node at that range is the {@code AnnotationNode} and its
+     * {@code annotValue()} is exactly the mapping constructor. Whitespace is collapsed because a
+     * value may span many source lines and the prompt renders one annotation per line.
+     *
+     * <p>Any failure yields an empty result: a missing value costs the annotation its argument,
+     * never the library.
+     */
+    private static Optional<String> declaredValue(AnnotationAttachmentSymbol attachmentSymbol, Package pkg) {
+        if (pkg == null) {
+            return Optional.empty();
+        }
+        try {
+            Optional<Location> location = attachmentSymbol.getLocation();
+            if (location.isEmpty()) {
+                return Optional.empty();
+            }
+            Document document = findDocument(pkg, location.get().lineRange().fileName());
+            if (document == null) {
+                return Optional.empty();
+            }
+            int startOffset = location.get().textRange().startOffset();
+            ModulePartNode rootNode = document.syntaxTree().rootNode();
+            // findNode returns the smallest node *containing* the range, which for an annotation is
+            // the enclosing MetadataNode (doc comments plus every annotation on the symbol), never
+            // the AnnotationNode itself. The one wanted is the descendant starting at this offset.
+            AnnotationNode annotation = findAnnotationNode(
+                    rootNode.findNode(TextRange.from(startOffset, location.get().textRange().length())),
+                    startOffset);
+            if (annotation == null) {
+                return Optional.empty();
+            }
+            return annotation.annotValue()
+                    .map(value -> COLLAPSE_WHITESPACE.matcher(value.toSourceCode().strip()).replaceAll(" "))
+                    .filter(value -> !value.isEmpty());
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Finds the {@link AnnotationNode} beginning at {@code startOffset}, descending from the node
+     * the range lookup produced. Matching on the start offset picks the right annotation when a
+     * symbol carries several.
+     */
+    private static AnnotationNode findAnnotationNode(Node node, int startOffset) {
+        if (node == null) {
+            return null;
+        }
+        if (node instanceof AnnotationNode annotation && node.textRange().startOffset() == startOffset) {
+            return annotation;
+        }
+        if (!(node instanceof NonTerminalNode nonTerminal)) {
+            return null;
+        }
+        for (Node child : nonTerminal.children()) {
+            if (child == null) {
+                continue;
+            }
+            TextRange range = child.textRange();
+            if (startOffset < range.startOffset() || startOffset >= range.endOffset()) {
+                continue;
+            }
+            AnnotationNode found = findAnnotationNode(child, startOffset);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /** Resolves a package-relative source file to its {@link Document}. */
+    private static Document findDocument(Package pkg, String fileName) {
+        try {
+            Project project = pkg.project();
+            String moduleName = pkg.packageName().value();
+            Path documentPath = project.sourceRoot().resolve("modules").resolve(moduleName).resolve(fileName);
+            return pkg.getDefaultModule().document(project.documentId(documentPath));
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /**

@@ -1,0 +1,185 @@
+{
+  "listeners": [
+    {
+      "type": { "name": "Listener" },
+      "services": ["upgradeService"]
+    }
+  ],
+
+  "serviceTypes": [
+    {
+      "id": "upgradeService",
+      "type": { "name": "UpgradeService" },
+      "concrete": false,
+      "multipleListenersAllowed": true,
+      "multipleServicesPerListenerAllowed": true,
+
+      "identifier": {
+        "presence": "required",
+        "form": ["basePath"]
+      },
+
+      "handlers": {
+        "backedByConcreteType": false,
+        "addMode": "subset",
+        "options": [
+          {
+            "name": "get",
+            "kind": "resource",
+            "presence": "required",
+            "method": { "presence": "required", "values": ["get"] },
+            "path": { "presence": "required", "form": ["stringLiteralSegment"] },
+            "params": [
+              {
+                "type": { "name": "Request", "packageInfo": { "org": "ballerina", "packageName": "http", "moduleName": "http", "version": "2.16.5" } },
+                "presence": "optional"
+              }
+            ],
+            "returns": [{ "name": "Service" }, { "name": "UpgradeError" }]
+          }
+        ]
+      }
+    },
+    {
+      "id": "service",
+      "type": { "name": "Service" },
+      "concrete": false,
+      "multipleListenersAllowed": true,
+      "multipleServicesPerListenerAllowed": true,
+
+      "handlers": {
+        "backedByConcreteType": false,
+        "addMode": "subset",
+        "options": [
+          {
+            "name": "onOpen",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onMessage",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "data", "type": { "name": "anydata" }, "presence": "required", "dataBinding": "messagePayload" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onTextMessage",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "data", "type": { "name": "string" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onBinaryMessage",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "data", "type": { "name": "byte[]" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onPing",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "data", "type": { "name": "byte[]" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onPong",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "data", "type": { "name": "byte[]" }, "presence": "required" }
+            ],
+            "returns": { "name": "()" }
+          },
+          {
+            "name": "onIdleTimeout",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          },
+          {
+            "name": "onClose",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "statusCode", "type": { "name": "int" }, "presence": "required" },
+              { "name": "reason", "type": { "name": "string" }, "presence": "required" }
+            ],
+            "returns": { "name": "()" }
+          },
+          {
+            "name": "onError",
+            "kind": "remote",
+            "presence": "optional",
+            "params": [
+              { "name": "caller", "type": { "name": "Caller" }, "presence": "optional" },
+              { "name": "err", "type": { "name": "Error" }, "presence": "required" }
+            ],
+            "returns": [{ "name": "error" }, { "name": "()" }]
+          }
+        ]
+      },
+
+      "rules": [
+        {
+          "id": "textMessageVsGeneric",
+          "type": "atMostOne",
+          "members": [
+            { "handler": "onMessage" },
+            { "handler": "onTextMessage" }
+          ]
+        },
+        {
+          "id": "binaryMessageVsGeneric",
+          "type": "atMostOne",
+          "members": [
+            { "handler": "onMessage" },
+            { "handler": "onBinaryMessage" }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "annotations": [
+    {
+      "id": "serviceConfig",
+      "type": { "name": "ServiceConfig" },
+      "attachPoint": "service",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    }
+  ],
+
+  "dataBindingRules": [
+    {
+      "id": "messagePayload",
+      "supportedModes": [
+        { "mode": "direct", "typeConstraint": [{ "name": "anydata" }] }
+      ]
+    }
+  ]
+}

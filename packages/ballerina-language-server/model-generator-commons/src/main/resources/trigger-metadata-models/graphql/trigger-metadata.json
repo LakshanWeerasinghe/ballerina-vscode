@@ -1,0 +1,87 @@
+{
+  "listeners": [
+    {
+      "type": { "name": "Listener" },
+      "services": ["service"]
+    }
+  ],
+
+  "serviceTypes": [
+    {
+      "id": "service",
+      "type": { "name": "Service" },
+      "concrete": false,
+      "multipleListenersAllowed": true,
+      "multipleServicesPerListenerAllowed": true,
+
+      "identifier": {
+        "presence": "required",
+        "form": ["basePath"]
+      },
+
+      "handlers": {
+        "backedByConcreteType": false,
+        "addMode": "many",
+        "options": [
+          {
+            "name": "*",
+            "kind": "resource",
+            "accessor": { "presence": "required", "values": ["get"] },
+            "fieldName": { "presence": "required", "form": ["identifierSegment"] },
+            "graphqlOperation": "query",
+            "params": [
+              { "type": { "name": "anydata" }, "presence": "optional", "annotations": ["id"] }
+            ],
+            "returns": [{ "name": "anydata" }, { "name": "error" }]
+          },
+          {
+            "name": "*",
+            "kind": "remote",
+            "fieldName": { "presence": "required", "form": ["identifierSegment"] },
+            "graphqlOperation": "mutation",
+            "params": [
+              { "type": { "name": "anydata" }, "presence": "optional", "annotations": ["id"] }
+            ],
+            "returns": [{ "name": "anydata" }, { "name": "error" }]
+          },
+          {
+            "name": "*",
+            "kind": "resource",
+            "accessor": { "presence": "required", "values": ["subscribe"] },
+            "fieldName": { "presence": "required", "form": ["identifierSegment"] },
+            "graphqlOperation": "subscription",
+            "params": [
+              { "type": { "name": "anydata" }, "presence": "optional", "annotations": ["id"] }
+            ],
+            "returns": { "name": "stream<anydata, error?>" }
+          }
+        ]
+      }
+    }
+  ],
+
+  "annotations": [
+    {
+      "id": "serviceConfig",
+      "type": { "name": "ServiceConfig" },
+      "attachPoint": "service",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    },
+    {
+      "id": "resourceConfig",
+      "type": { "name": "ResourceConfig" },
+      "attachPoint": "function",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    },
+    {
+      "id": "id",
+      "type": { "name": "ID" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    }
+  ],
+
+  "dataBindingRules": []
+}

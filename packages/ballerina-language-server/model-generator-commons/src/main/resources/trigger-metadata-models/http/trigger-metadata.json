@@ -1,0 +1,121 @@
+{
+  "listeners": [
+    {
+      "type": { "name": "Listener" },
+      "services": ["service"]
+    }
+  ],
+
+  "serviceTypes": [
+    {
+      "id": "service",
+      "type": { "name": "Service" },
+      "concrete": false,
+      "multipleListenersAllowed": true,
+      "multipleServicesPerListenerAllowed": true,
+
+      "identifier": {
+        "presence": "required",
+        "form": ["basePath"]
+      },
+
+      "handlers": {
+        "backedByConcreteType": false,
+        "addMode": "many",
+        "options": [
+          {
+            "name": "*",
+            "kind": "resource",
+            "method": {
+              "presence": "required",
+              "values": ["get", "post", "put", "delete", "patch", "head", "options", "default"]
+            },
+            "path": {
+              "presence": "required",
+              "form": ["identifierSegments", "pathParamSegments", "stringLiteralSegment"]
+            },
+            "params": [
+              { "type": { "name": "Caller" }, "presence": "optional", "annotations": ["callerInfo"] },
+              { "type": { "name": "Request" }, "presence": "optional" },
+              { "type": { "name": "Headers" }, "presence": "optional" },
+              { "type": { "name": "anydata" }, "presence": "optional", "dataBinding": "requestPayload", "annotations": ["payload"] },
+              {
+                "type": [{ "name": "string" }, { "name": "int" }, { "name": "boolean" }, { "name": "decimal" }, { "name": "float" }],
+                "presence": "optional",
+                "addMode": "many",
+                "annotations": ["query"]
+              },
+              {
+                "type": [{ "name": "string" }, { "name": "int" }, { "name": "boolean" }, { "name": "decimal" }, { "name": "float" }],
+                "presence": "optional",
+                "addMode": "many",
+                "annotations": ["header"]
+              }
+            ],
+            "returns": [{ "name": "anydata" }, { "name": "Response" }, { "name": "error" }]
+          }
+        ]
+      }
+    }
+  ],
+
+  "annotations": [
+    {
+      "id": "serviceConfig",
+      "type": { "name": "ServiceConfig" },
+      "attachPoint": "service",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    },
+    {
+      "id": "resourceConfig",
+      "type": { "name": "ResourceConfig" },
+      "attachPoint": "function",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    },
+    {
+      "id": "payload",
+      "type": { "name": "Payload" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    },
+    {
+      "id": "callerInfo",
+      "type": { "name": "CallerInfo" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    },
+    {
+      "id": "header",
+      "type": { "name": "Header" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    },
+    {
+      "id": "query",
+      "type": { "name": "Query" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    },
+    {
+      "id": "cache",
+      "type": { "name": "Cache" },
+      "attachPoint": "return",
+      "appliesTo": ["service"],
+      "presence": "optional"
+    }
+  ],
+
+  "dataBindingRules": [
+    {
+      "id": "requestPayload",
+      "supportedModes": [
+        {
+          "mode": "direct",
+          "typeConstraint": [{ "name": "anydata" }]
+        }
+      ]
+    }
+  ]
+}
