@@ -43,7 +43,12 @@ final class HandlerDraft {
 
     private final JsonArray parameters = new JsonArray();
     private final List<Veto> vetoes = new ArrayList<>();
+    // Non-fatal: a dropped annotation reference, or one dropped from a parameter. Reported, but the handler
+    // still renders — the same policy a dropped handler follows towards its service.
+    private final List<Veto> diagnostics = new ArrayList<>();
 
+    private JsonArray annotationRefs;
+    private JsonArray returnAnnotationRefs;
     private String name;
     private String kind;
     private String description;
@@ -150,9 +155,37 @@ final class HandlerDraft {
         this.returnObj = value;
     }
 
-    /** Appends one built parameter, preserving declaration order. */
+    /**
+     * Spec §8 at {@code attachPoint: "function"} — the annotations this handler must or may carry.
+     *
+     * <p>{@code annotationRefs}, not {@code annotations}: the key names a <i>requirement</i>, matching the
+     * name used at parameter scope where {@code annotations} is already taken by the semantic model's own
+     * attachments. Consistency across the three new scopes beats saving a word at the one that is free.
+     */
+    void setAnnotationRefs(JsonArray refs) {
+        if (refs != null && !refs.isEmpty()) {
+            this.annotationRefs = refs;
+        }
+    }
+
+    /**
+     * Spec §8 at {@code attachPoint: "return"} — the annotations the handler's return must or may carry.
+     *
+     * <p>Held separately and merged into the {@code return} object by {@link #toJson()} rather than written
+     * into it directly, so the component that resolves them does not have to run after the one that builds
+     * the return. Dropped when the handler has no return object at all: there is no slot to attach to, and
+     * a return that carries no type carries no annotation either.
+     */
+    void setReturnAnnotationRefs(JsonArray refs) {
+        if (refs != null && !refs.isEmpty()) {
+            this.returnAnnotationRefs = refs;
+        }
+    }
+
+    /** Appends one built parameter, preserving declaration order, and adopts its diagnostics. */
     void addParam(ParamDraft param) {
         if (param != null) {
+            diagnostics.addAll(param.diagnostics());
             parameters.add(param.toJson());
         }
     }
@@ -162,12 +195,28 @@ final class HandlerDraft {
         vetoes.add(new Veto(aspectId, specSection, subject, reason));
     }
 
+    /**
+     * Records that a contribution was dropped, without dropping the handler.
+     *
+     * <p>Distinct from {@link #veto} on purpose: an annotation reference that cannot be resolved makes the
+     * <i>obligation</i> unusable, not the handler, and dropping a handler because one of its annotations
+     * was mis-filed would lose far more than it protects.
+     */
+    void drop(String aspectId, String specSection, String subject, String reason) {
+        diagnostics.add(new Veto(aspectId, specSection, subject, reason));
+    }
+
     boolean isVetoed() {
         return !vetoes.isEmpty();
     }
 
     List<Veto> vetoes() {
         return vetoes;
+    }
+
+    /** Every non-fatal drop recorded while building this handler or its parameters. */
+    List<Veto> diagnostics() {
+        return diagnostics;
     }
 
     /**
@@ -198,10 +247,16 @@ final class HandlerDraft {
             json.addProperty("fieldNameRequired", fieldNameRequired);
         }
         addIfPresent(json, "graphqlOperation", graphqlOperation);
+        if (annotationRefs != null) {
+            json.add("annotationRefs", annotationRefs);
+        }
         if (!parameters.isEmpty()) {
             json.add("parameters", parameters);
         }
         if (returnObj != null) {
+            if (returnAnnotationRefs != null) {
+                returnObj.add("annotationRefs", returnAnnotationRefs);
+            }
             json.add("return", returnObj);
         }
         return json;

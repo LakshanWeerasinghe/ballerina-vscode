@@ -18,6 +18,7 @@
 
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
+import com.google.gson.JsonArray;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.utils.TypeRefResolver;
 
@@ -63,11 +64,25 @@ final class ParamTypeAspect implements ParamAspect {
                 TypeRefResolver.moduleAlias(packageName), scope.siblingNames());
         scope.siblingNames().add(name);
 
+        ParamTypeResolver.ParamType type = ParamTypeResolver.resolveType(param, packageName,
+                service.declaresType());
+
         draft.setName(name);
         // No description: a marker-type handler's parameters have no documented source.
-        draft.setType(TypeResolver.resolveTypeWithLinks(
-                ParamTypeResolver.signature(param, packageName, service.declaresType()),
-                packageName));
+        draft.setType(TypeResolver.resolveTypeWithLinks(type.signature(), packageName));
         draft.setOptional(ParamTypeResolver.isOptional(param));
+
+        // Spec §7's other legal types, as link-carrying pairs so the type closure reaches their
+        // definitions. Never joined with `|` — see ParamTypeResolver.ParamType.
+        JsonArray alternatives = new JsonArray();
+        for (String alternative : type.alternatives()) {
+            alternatives.add(TypeResolver.resolveTypeWithLinks(alternative, packageName));
+        }
+        draft.setAlternatives(alternatives);
+
+        for (String undeclared : type.dropped()) {
+            draft.drop(id(), specSection(), undeclared,
+                    "an alternative type the resolved package version does not declare");
+        }
     }
 }

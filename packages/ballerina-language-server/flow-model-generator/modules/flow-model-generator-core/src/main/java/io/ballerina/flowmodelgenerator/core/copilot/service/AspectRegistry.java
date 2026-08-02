@@ -50,9 +50,15 @@ final class AspectRegistry {
                 new HandlerPresenceAspect(),
                 new HttpResourceExtrasAspect(),
                 new GraphqlResourceExtrasAspect(),
-                new ReturnAspect());
+                new ReturnAspect(),
+                new HandlerAnnotationAspect(),
+                // Order-independent despite writing into the return object: HandlerDraft holds the refs in
+                // their own slot and merges them at emit time, so this does not have to follow ReturnAspect.
+                new ReturnAnnotationAspect());
         this.paramAspects = List.of(
-                new ParamTypeAspect());
+                new ParamTypeAspect(),
+                new ParamAnnotationAspect(),
+                new DataBindingAspect());
         this.serviceAspects = List.of(
                 // Must run first: it resolves the service-type id every later component is scoped to,
                 // and it is the component that can veto the entry outright.

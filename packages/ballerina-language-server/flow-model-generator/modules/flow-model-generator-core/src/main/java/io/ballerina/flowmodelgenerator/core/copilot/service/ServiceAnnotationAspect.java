@@ -18,10 +18,6 @@
 
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
-
 /**
  * Spec §8 {@code annotations[]} at {@code attachPoint: "service"} — the annotations the generated service
  * must or may carry.
@@ -48,13 +44,6 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
  */
 final class ServiceAnnotationAspect implements ServiceAspect {
 
-    // Spec §10's presence vocabulary, echoed onto the wire so the renderer states the obligation rather
-    // than re-deriving it from a boolean.
-    private static final String PRESENCE_REQUIRED =
-            TriggerMetadataModel.Annotation.PRESENCE_REQUIRED;
-    private static final String PRESENCE_OPTIONAL =
-            TriggerMetadataModel.Annotation.PRESENCE_OPTIONAL;
-
     @Override
     public String id() {
         return "serviceAnnotation";
@@ -67,44 +56,18 @@ final class ServiceAnnotationAspect implements ServiceAspect {
 
     @Override
     public void contribute(TriggerScope scope, ServiceDraft draft) {
-        ServiceAnnotationResolver.Resolution resolution = ServiceAnnotationResolver.resolve(
+        AnnotationScopeResolver.Resolution resolution = ServiceAnnotationResolver.resolve(
                 scope.annotations(),
                 scope.serviceType() == null ? null : scope.serviceType().id(),
                 scope.homeModule(),
                 scope.facts());
 
-        for (String name : resolution.undeclared()) {
-            draft.veto(id(), specSection(), name,
-                    "not declared as an annotation by the resolved package version");
+        // `drop`, not `veto`. An unresolvable obligation makes the obligation unusable, not the service —
+        // which is what this component's own resolver has always documented, while the code it called
+        // deleted the whole entry.
+        for (AnnotationScopeResolver.Rejection rejection : resolution.rejections()) {
+            draft.drop(id(), specSection(), rejection.name(), rejection.reason());
         }
-
-        JsonArray annotations = new JsonArray();
-        for (AnnotationRef ref : resolution.refs()) {
-            annotations.add(toJson(ref, scope.packageName()));
-        }
-        draft.setAnnotations(annotations);
-    }
-
-    /**
-     * Wire shape per plan §2: {@code {name, module?, presence, attachPoint, typeConstraint?}}.
-     *
-     * <p>{@code typeConstraint} is resolved through {@link TypeResolver} exactly as a parameter type is,
-     * so the constraining record is reachable by the same link mechanism rather than a second one.
-     * {@code module} is omitted for a home-module annotation, which the renderer then prefixes with the
-     * library's own alias — the same division of labour spec §1 already imposes on a service type.
-     */
-    private static JsonObject toJson(AnnotationRef ref, String packageName) {
-        JsonObject json = new JsonObject();
-        json.addProperty("name", ref.name());
-        if (ref.module() != null) {
-            json.addProperty("module", ref.module());
-        }
-        json.addProperty("presence", ref.required() ? PRESENCE_REQUIRED : PRESENCE_OPTIONAL);
-        json.addProperty("attachPoint", ref.attachPoint());
-        if (ref.typeConstraint() != null && !ref.typeConstraint().isEmpty()) {
-            json.add("typeConstraint", TypeResolver.resolveAnnotationConstraint(
-                    ref.typeConstraint(), packageName, ref.module()));
-        }
-        return json;
+        draft.setAnnotations(AnnotationRefWriter.toJson(resolution.refs(), scope.packageName()));
     }
 }

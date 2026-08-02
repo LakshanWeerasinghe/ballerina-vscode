@@ -117,10 +117,93 @@ public class TriggerPipelineContractTest {
         REGISTRY.serviceAspects().forEach(aspect -> owned.add(aspect.specSection()));
         REGISTRY.handlerAspects().forEach(aspect -> owned.add(aspect.specSection()));
         REGISTRY.paramAspects().forEach(aspect -> owned.add(aspect.specSection()));
-        for (String section : List.of("§2", "§3", "§4", "§5", "§6", "§7", "§8")) {
+        for (String section : List.of("§2", "§3", "§4", "§5", "§6", "§7", "§8", "§9")) {
             Assert.assertTrue(owned.contains(section),
                     "no registered component owns spec " + section + "; owned: " + owned);
         }
+    }
+
+    @Test
+    public void testEveryConstructAddedForP5HasARegisteredOwner() {
+        // Same traceability guard as P4's, extended: each id is the single owner of one spec construct, so
+        // deleting a registry line cannot silently unwire it.
+        List<String> handlerIds = REGISTRY.handlerAspects().stream().map(HandlerAspect::id).toList();
+        List<String> paramIds = REGISTRY.paramAspects().stream().map(ParamAspect::id).toList();
+
+        Assert.assertTrue(handlerIds.containsAll(List.of("handlerAnnotation", "returnAnnotation")),
+                "§8's function and return attach points must each name an owner: " + handlerIds);
+        Assert.assertTrue(paramIds.containsAll(List.of("paramAnnotation", "dataBinding")),
+                "§8's parameter attach point and §9's binding must each name an owner: " + paramIds);
+    }
+
+    @Test
+    public void testEachAttachPointHasItsOwnComponentRatherThanOneSharedOne() {
+        // §8's four attach points are four constructs: only service scope carries the `appliesTo` fallback,
+        // only return scope attaches to a different syntactic slot, and each runs in a different tier. One
+        // component covering all four would make an attach-point-specific spec change touch every scope.
+        List<String> ids = new ArrayList<>();
+        REGISTRY.serviceAspects().forEach(aspect -> ids.add(aspect.id()));
+        REGISTRY.handlerAspects().forEach(aspect -> ids.add(aspect.id()));
+        REGISTRY.paramAspects().forEach(aspect -> ids.add(aspect.id()));
+        Assert.assertTrue(ids.containsAll(List.of("serviceAnnotation", "handlerAnnotation",
+                "paramAnnotation", "returnAnnotation")), ids.toString());
+    }
+
+    @Test
+    public void testParamKeyOrderIsOwnedByTheDraftNotByTheRegistry() {
+        // The same property HandlerDraft has, now that three components write parameter keys: a component
+        // can be registered anywhere without reshuffling the JSON.
+        ParamDraft draft = new ParamDraft();
+        draft.setBinding(new JsonObject());
+        draft.setAnnotationRefs(arrayOf("x"));
+        draft.setAlternatives(arrayOf("T"));
+        draft.setOptional(true);
+        draft.setType(new JsonObject());
+        draft.setName("message");
+        Assert.assertEquals(new ArrayList<>(draft.toJson().keySet()),
+                List.of("name", "type", "optional", "alternatives", "annotationRefs", "binding"));
+    }
+
+    @Test
+    public void testTheNewParamKeysFollowTheOmissionRule() {
+        ParamDraft draft = new ParamDraft();
+        draft.setAlternatives(null);
+        draft.setAlternatives(new JsonArray());
+        draft.setAnnotationRefs(null);
+        draft.setAnnotationRefs(new JsonArray());
+        Assert.assertFalse(draft.toJson().has("alternatives"),
+                "a scalar slot states no alternatives");
+        Assert.assertFalse(draft.toJson().has("annotationRefs"),
+                "§8's key is optional and most slots carry no annotation");
+        Assert.assertFalse(draft.toJson().has("binding"),
+                "§7: `dataBinding` is present only when the value can be projected");
+    }
+
+    @Test
+    public void testReturnAnnotationsAreMergedIntoTheReturnObjectAtEmitTime() {
+        // Why the refs are held in their own slot rather than written into the return object directly: it
+        // removes the only ordering dependency the handler tier would otherwise have.
+        HandlerDraft afterReturn = new HandlerDraft();
+        afterReturn.setReturn(new JsonObject());
+        afterReturn.setReturnAnnotationRefs(arrayOf("Cache"));
+
+        HandlerDraft beforeReturn = new HandlerDraft();
+        beforeReturn.setReturnAnnotationRefs(arrayOf("Cache"));
+        beforeReturn.setReturn(new JsonObject());
+
+        Assert.assertEquals(afterReturn.toJson().toString(), beforeReturn.toJson().toString(),
+                "registration order must not change the emitted JSON");
+        Assert.assertTrue(afterReturn.toJson().getAsJsonObject("return").has("annotationRefs"));
+    }
+
+    @Test
+    public void testReturnAnnotationsAreDroppedWhenThereIsNoReturnToAttachThemTo() {
+        // A return that carries no type carries no annotation either; there is no slot to write.
+        HandlerDraft draft = new HandlerDraft();
+        draft.setReturnAnnotationRefs(arrayOf("Cache"));
+        Assert.assertFalse(draft.toJson().has("return"));
+        Assert.assertFalse(draft.toJson().has("annotationRefs"),
+                "a return annotation must never be mistaken for a function-scoped one");
     }
 
     @Test
@@ -252,6 +335,51 @@ public class TriggerPipelineContractTest {
     }
 
     @Test
+    public void testANonFatalDropReportsWithoutDroppingTheEntry() {
+        // The distinction the fatal channel was being used for and could not express. An unresolvable
+        // annotation makes the *obligation* unusable, not the service: ServiceAnnotationResolver has always
+        // documented "A dropped annotation never drops its service", while the code it called routed the
+        // drop through veto() — which makes the loader skip the whole entry.
+        ServiceDraft draft = new ServiceDraft();
+        draft.drop("serviceAnnotation", "§8", "GhostConfig",
+                "not declared as an annotation by the resolved package version");
+
+        Assert.assertFalse(draft.isVetoed(), "the service still renders");
+        Assert.assertEquals(draft.vetoes().size(), 1, "...and the reason is still reported");
+        Assert.assertEquals(draft.vetoes().get(0).subject(), "GhostConfig");
+    }
+
+    @Test
+    public void testAHandlerLevelDropIsReportedWithoutDroppingTheHandler() {
+        // Same policy one tier down: a mis-filed annotation on a handler must not cost the handler.
+        ServiceDraft service = new ServiceDraft();
+        HandlerDraft handler = new HandlerDraft();
+        handler.setName("onFileJson");
+        handler.drop("handlerAnnotation", "§8", "FunctionConfig", "filed at the wrong attach point");
+        service.addHandler(handler);
+
+        Assert.assertFalse(service.isVetoed());
+        Assert.assertTrue(service.toJson().has("methods"), "the handler still renders");
+        Assert.assertEquals(service.vetoes().size(), 1, "the reason reaches the service's report");
+    }
+
+    @Test
+    public void testAParamLevelDropReachesTheServiceReport() {
+        // Three tiers down, the diagnostic must still be attributable rather than swallowed.
+        ServiceDraft service = new ServiceDraft();
+        HandlerDraft handler = new HandlerDraft();
+        ParamDraft param = new ParamDraft();
+        param.setName("content");
+        param.drop("dataBinding", "§9", "csvContent", "no dataBindingRules[] entry declares the id");
+        handler.addParam(param);
+        service.addHandler(handler);
+
+        Assert.assertFalse(service.isVetoed());
+        Assert.assertEquals(service.vetoes().size(), 1);
+        Assert.assertEquals(service.vetoes().get(0).specSection(), "§9");
+    }
+
+    @Test
     public void testEveryVetoIsAttributable() {
         // The whole point of replacing an inline `continue`: a drop names its component, the spec section
         // that component owns, what was dropped, and why.
@@ -326,5 +454,11 @@ public class TriggerPipelineContractTest {
     private static TriggerMetadataModel.ServiceType.Param param(String name, String type) {
         return new TriggerMetadataModel.ServiceType.Param(name, List.of(new TypeRef(type, null)),
                 "required", null, null, null);
+    }
+
+    private static JsonArray arrayOf(String value) {
+        JsonArray array = new JsonArray();
+        array.add(value);
+        return array;
     }
 }

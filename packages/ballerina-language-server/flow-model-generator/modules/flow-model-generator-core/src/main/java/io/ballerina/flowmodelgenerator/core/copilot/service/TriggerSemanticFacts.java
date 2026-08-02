@@ -19,6 +19,7 @@
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
 import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.AnnotationAttachPoint;
 import io.ballerina.compiler.api.symbols.AnnotationSymbol;
 import io.ballerina.compiler.api.symbols.ClassSymbol;
 import io.ballerina.compiler.api.symbols.Documentation;
@@ -29,6 +30,8 @@ import io.ballerina.compiler.api.symbols.ParameterKind;
 import io.ballerina.compiler.api.symbols.ParameterSymbol;
 import io.ballerina.compiler.api.symbols.PathParameterSymbol;
 import io.ballerina.compiler.api.symbols.Qualifier;
+import io.ballerina.compiler.api.symbols.RecordFieldSymbol;
+import io.ballerina.compiler.api.symbols.RecordTypeSymbol;
 import io.ballerina.compiler.api.symbols.ResourceMethodSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
@@ -58,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,6 +93,11 @@ final class TriggerSemanticFacts {
     private final Set<String> declaredTypeNames = new HashSet<>();
     private final Set<String> declaredAnnotationNames = new HashSet<>();
     private final Map<String, String> annotationConstraintsByName = new LinkedHashMap<>();
+    // The compiler's own attach points per declared annotation, which is what makes an attachment legal
+    // rather than what the document claims. See annotationAttachPoints.
+    private final Map<String, Set<String>> annotationAttachPointsByName = new LinkedHashMap<>();
+    // Every declared type definition, for the record-field lookup spec §9's derived fixedFields needs.
+    private final Map<String, TypeDefinitionSymbol> typeDefinitionsByName = new LinkedHashMap<>();
     // Lazily built: only a document with a cross-module annotation ever needs it.
     private Map<String, ModuleSymbol> reachableModules;
 
@@ -109,10 +118,12 @@ final class TriggerSemanticFacts {
                 declaredAnnotationNames.add(name);
                 annotationSymbol.typeDescriptor().ifPresent(constraint -> annotationConstraintsByName
                         .putIfAbsent(name, CommonUtils.getTypeSignature(semanticModel, constraint, false)));
+                annotationAttachPointsByName.putIfAbsent(name, attachPointNames(annotationSymbol));
             }
             if (symbol instanceof ClassSymbol classSymbol) {
                 classesByName.putIfAbsent(name, classSymbol);
             } else if (symbol instanceof TypeDefinitionSymbol typeDef) {
+                typeDefinitionsByName.putIfAbsent(name, typeDef);
                 TypeSymbol raw = CommonUtils.getRawType(typeDef.typeDescriptor());
                 if (raw instanceof ObjectTypeSymbol objectType
                         && objectType.qualifiers().contains(Qualifier.SERVICE)) {
@@ -157,6 +168,86 @@ final class TriggerSemanticFacts {
      */
     Optional<String> annotationConstraint(String name) {
         return Optional.ofNullable(annotationConstraintsByName.get(name));
+    }
+
+    /**
+     * The attach points the resolved package <b>declares</b> for an annotation, as
+     * {@link AnnotationAttachPoint} constant names.
+     *
+     * <p>This is the fact that decides whether an attachment compiles, and it is deliberately read from the
+     * compiler rather than from the metadata document's {@code attachPoint}. The two can disagree — a
+     * document authored against a different release, or simply mis-filed — and the compiler is the one that
+     * rejects the result: attaching a {@code service}-pointed annotation to a remote method fails with
+     * "annotation … is not allowed on service_remote, object_method, function". Spec §8's {@code attachPoint}
+     * states intent; this states what the package will accept.
+     *
+     * @param name the annotation's name, e.g. {@code "FunctionConfig"}
+     * @return the declared points, or empty when this module declares no such annotation
+     */
+    Set<String> annotationAttachPoints(String name) {
+        return annotationAttachPointsByName.getOrDefault(name, Set.of());
+    }
+
+    /**
+     * {@link #annotationAttachPoints} for an annotation declared by a module this one depends on, reached
+     * the same way {@link #foreignAnnotationConstraint} reaches its constraint.
+     *
+     * @param orgModule      the foreign coordinate, e.g. {@code "ballerinax/cdc"}
+     * @param annotationName the annotation's name
+     * @return the declared points, or empty when the module is unreachable or declares no such annotation
+     */
+    Set<String> foreignAnnotationAttachPoints(String orgModule, String annotationName) {
+        if (orgModule == null || annotationName == null || annotationName.isEmpty()) {
+            return Set.of();
+        }
+        ModuleSymbol module = reachableModules().get(orgModule);
+        if (module == null) {
+            return Set.of();
+        }
+        for (Symbol symbol : module.allSymbols()) {
+            if (symbol instanceof AnnotationSymbol annotationSymbol
+                    && annotationName.equals(symbol.getName().orElse(null))) {
+                return attachPointNames(annotationSymbol);
+            }
+        }
+        return Set.of();
+    }
+
+    private static Set<String> attachPointNames(AnnotationSymbol annotationSymbol) {
+        Set<String> points = new LinkedHashSet<>();
+        for (AnnotationAttachPoint point : annotationSymbol.attachPoints()) {
+            points.add(point.name());
+        }
+        return points;
+    }
+
+    /**
+     * The field names a declared record type has, in declaration order — the input spec §9's derived
+     * {@code fixedFields} is computed from ("the envelope's fields minus {@code bindableFields}").
+     *
+     * <p>Read here rather than through {@code TriggerLibraryIntrospector}: that class exposes expanded
+     * fields only for annotations, listener init parameters and service-type function parameters, and a
+     * data-binding envelope is none of those — {@code kafka}'s {@code AnydataConsumerRecord} belongs to a
+     * marker service type that declares no methods at all. Answering "the fields of the type named X"
+     * needs the type-definition index this class already builds while walking the module once.
+     *
+     * @param typeName the record type's bare name, e.g. {@code "AnydataConsumerRecord"}
+     * @return its field names in declaration order, or empty when the name is not a declared record
+     */
+    List<String> recordFieldNames(String typeName) {
+        TypeDefinitionSymbol typeDef = typeName == null ? null : typeDefinitionsByName.get(typeName);
+        if (typeDef == null) {
+            return List.of();
+        }
+        TypeSymbol raw = CommonUtils.getRawType(typeDef.typeDescriptor());
+        if (!(raw instanceof RecordTypeSymbol recordType)) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        for (Map.Entry<String, RecordFieldSymbol> entry : recordType.fieldDescriptors().entrySet()) {
+            names.add(entry.getValue().getName().orElse(entry.getKey()));
+        }
+        return names;
     }
 
     /**

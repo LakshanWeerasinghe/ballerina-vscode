@@ -1343,4 +1343,447 @@ suite("toSyntaxString", () => {
             assert.ok(result.includes("    remote function onOpen() returns error?;"), `got:\n${result}`);
         });
     });
+
+    suite("Trigger spec §7/§8/§9 — alternatives, non-service annotations and data binding", () => {
+        function renderService(service: Record<string, unknown>, libName = "ballerinax/kafka"): string {
+            const lib = {
+                name: libName, description: "", typeDefs: [], clients: [], services: [service],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        const kafkaListener = { name: "kafka:Listener", parameters: [] };
+
+        function service(methods: Record<string, unknown>[],
+                         over: Record<string, unknown> = {}): Record<string, unknown> {
+            return { type: "fixed", name: "Service", listener: kafkaListener, methods, ...over };
+        }
+
+        function method(over: Record<string, unknown> = {}): Record<string, unknown> {
+            return {
+                name: "onConsumerRecord", type: "remote",
+                parameters: [], return: { type: { name: "error?" } }, ...over,
+            };
+        }
+
+        function line(result: string, needle: string): string {
+            const found = result.split("\n").find((l) => l.includes(needle));
+            assert.ok(found, `no line containing "${needle}" in:\n${result}`);
+            return found!;
+        }
+
+        function noLine(result: string, needle: string): void {
+            assert.ok(!result.includes(needle),
+                `unexpected line containing "${needle}" in:\n${result}`);
+        }
+
+        // ---- §7 alternatives ----
+
+        test("§7: a union slot renders its other members as a note, never joined with `|`", () => {
+            // §1: "Unions are an array of TypeRef, first element = codegen default"; §7: `type` "restates
+            // the full static surface for this slot". A `|`-joined type would declare a union-typed
+            // parameter, which is a different contract.
+            // Corpus: kafka's onConsumerRecord — AnydataConsumerRecord[] then BytesConsumerRecord[].
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: { name: "AnydataConsumerRecord[]" },
+                    alternatives: [{ name: "BytesConsumerRecord[]" }],
+                }],
+            })]));
+
+            assert.ok(line(result, "may also be").includes(
+                "# `consumerRecords` may also be: BytesConsumerRecord[]"), `got:\n${result}`);
+            assert.ok(result.includes(
+                "remote function onConsumerRecord(AnydataConsumerRecord[] consumerRecords)"),
+                "the signature keeps the codegen default alone");
+            noLine(result, "AnydataConsumerRecord[]|BytesConsumerRecord[]");
+        });
+
+        test("§7: several alternatives are listed in document order, comma-separated", () => {
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "content", description: "", type: { name: "string[][]" },
+                    alternatives: [{ name: "record {}[]" }, { name: "stream<string[], error?>" }],
+                }],
+            })]));
+            assert.strictEqual(line(result, "may also be").trim(),
+                "# `content` may also be: record {}[], stream<string[], error?>");
+        });
+
+        test("§7: a cross-module alternative carries its own prefix", () => {
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "data", description: "", type: { name: "Request" },
+                    alternatives: [{
+                        name: "Headers",
+                        links: [{ category: "external", recordName: "Headers",
+                            libraryName: "ballerina/http" }],
+                    }],
+                }],
+            })]));
+            assert.ok(line(result, "may also be").includes("http:Headers"), `got:\n${result}`);
+        });
+
+        test("§7: a scalar slot states no alternatives", () => {
+            const result = renderService(service([method({
+                parameters: [{ name: "err", description: "", type: { name: "Error" } }],
+            })]));
+            noLine(result, "may also be");
+        });
+
+        // ---- §9 data binding ----
+
+        test("§9: `direct` states the legal targets and `excludes` states the prohibition", () => {
+            // §9: `direct` | "Param type directly *is* the target type — no wrapping." `excludes` is a
+            // negative constraint, derivable from nothing else.
+            // Corpus: kafka binds any anydata EXCEPT its own envelope.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: { name: "AnydataConsumerRecord[]" },
+                    binding: {
+                        modes: [{
+                            mode: "direct",
+                            typeConstraint: [{ name: "anydata" }],
+                            excludes: [{ name: "AnydataConsumerRecord" }],
+                        }],
+                    },
+                }],
+            })]));
+
+            assert.strictEqual(line(result, "may bind directly").trim(),
+                "# `consumerRecords` may bind directly to: anydata — but never AnydataConsumerRecord");
+        });
+
+        test("§9: `includedRecord` names the envelope and states which fields may be overridden", () => {
+            // §9: `includedRecord` | "User record does `*EnvelopeType;`, overrides only `bindableFields`;
+            // everything else stays fixed." The prohibition is the load-bearing half: naming the bindable
+            // field does not by itself say the others are pinned.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: { name: "AnydataConsumerRecord[]" },
+                    binding: {
+                        modes: [{
+                            mode: "includedRecord",
+                            includes: { name: "AnydataConsumerRecord" },
+                            bindableFields: ["value"],
+                            fixedFields: ["key", "timestamp", "offset", "headers"],
+                        }],
+                    },
+                }],
+            })]));
+
+            assert.strictEqual(line(result, "includes").trim(),
+                "# `consumerRecords` may bind to a record that includes "
+                + "`*kafka:AnydataConsumerRecord;` and overrides only `value`");
+        });
+
+        test("§9: the envelope inclusion carries the module alias, because the user writes it", () => {
+            // `*AnydataConsumerRecord;` in a user's own module does not resolve. The same rule the §8
+            // attachment lines follow: syntax the reader writes is qualified.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "message", description: "", type: { name: "AnydataMessage" },
+                    binding: {
+                        modes: [{ mode: "includedRecord", includes: { name: "AnydataMessage" },
+                            bindableFields: ["content"] }],
+                    },
+                }],
+            })], { listener: { name: "rabbitmq:Listener", parameters: [] } }), "ballerinax/rabbitmq");
+            assert.ok(result.includes("`*rabbitmq:AnydataMessage;`"), `got:\n${result}`);
+        });
+
+        test("§9: `streamable` reads its own types and does not wrap them a second time", () => {
+            // The declared members are already whole stream types; wrapping would emit
+            // `stream<stream<...>>`.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "content", description: "", type: { name: "string[][]" },
+                    binding: {
+                        modes: [{
+                            mode: "streamable",
+                            typeConstraint: [{ name: "stream<string[], error?>" },
+                                { name: "stream<record {}, error?>" }],
+                        }],
+                    },
+                }],
+            })]));
+            assert.strictEqual(line(result, "may bind to a stream").trim(),
+                "# `content` may bind to a stream: stream<string[], error?>, stream<record {}, error?>");
+            noLine(result, "stream<stream<");
+        });
+
+        test("§9: `cardinality: array` is stated, never applied — the type is not pluralized twice", () => {
+            // §9: "the bound value is a batch; a mode's type is the array *element* type, not the whole
+            // param type." kafka's parameter is already `AnydataConsumerRecord[]`.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: { name: "AnydataConsumerRecord[]" },
+                    binding: {
+                        array: true,
+                        modes: [{ mode: "direct", typeConstraint: [{ name: "anydata" }] }],
+                    },
+                }],
+            })]));
+
+            assert.ok(line(result, "binds a batch").includes(
+                "# `consumerRecords` binds a batch; the types below are element types."),
+                `got:\n${result}`);
+            assert.ok(line(result, "may bind directly").endsWith("anydata"),
+                "the element type is stated as declared");
+            noLine(result, "anydata[]");
+        });
+
+        test("§9: under `array`, the includedRecord recipe says an array of records", () => {
+            // The one line where leaving the batch disclaimer to the reader costs a compile error: the
+            // parameter takes `MyRecord[]`, not `MyRecord`. The English pluralizes; the type name does not,
+            // which is what would double-count against a signature that is already an array.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: { name: "AnydataConsumerRecord[]" },
+                    binding: {
+                        array: true,
+                        modes: [{ mode: "includedRecord", includes: { name: "AnydataConsumerRecord" },
+                            bindableFields: ["value"] }],
+                    },
+                }],
+            })]));
+            assert.strictEqual(line(result, "may bind to an array").trim(),
+                "# `consumerRecords` may bind to an array of records that include "
+                + "`*kafka:AnydataConsumerRecord;` and override only `value`");
+            noLine(result, "AnydataConsumerRecord[];`");
+        });
+
+        test("§9: a type already visible in the signature or alternatives is not repeated", () => {
+            // The suppression rule. §7 makes the document restate the surface in `params[].type` "even
+            // where `dataBindingRules` also says it" — deliberate in the document, noise in the prompt.
+            // Corpus: ftp/smb's onFileCsv declares the same four types in both places.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "content", description: "", type: { name: "string[][]" },
+                    alternatives: [{ name: "record {}[]" }, { name: "stream<string[], error?>" }],
+                    binding: {
+                        modes: [
+                            { mode: "direct",
+                                typeConstraint: [{ name: "string[][]" }, { name: "record {}[]" }] },
+                            { mode: "streamable",
+                                typeConstraint: [{ name: "stream<string[], error?>" }] },
+                        ],
+                    },
+                }],
+            })]));
+
+            assert.ok(line(result, "may also be").includes("record {}[], stream<string[], error?>"));
+            noLine(result, "may bind directly");
+            noLine(result, "may bind to a stream");
+        });
+
+        test("§9: suppression never hides `excludes`", () => {
+            // A negative constraint is derivable from nothing else, so it survives even when every
+            // positive member is already visible.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "message", description: "", type: { name: "anydata" },
+                    binding: {
+                        modes: [{
+                            mode: "direct",
+                            typeConstraint: [{ name: "anydata" }],
+                            excludes: [{ name: "AnydataMessage" }],
+                        }],
+                    },
+                }],
+            })]));
+            assert.strictEqual(line(result, "may bind directly").trim(),
+                "# `message` may bind directly to any type shown above — but never AnydataMessage");
+        });
+
+        test("§9: a mode with nothing left to say contributes no line", () => {
+            // Corpus: mssql.cdc's rowState binds `record {}` for a parameter already typed `record {}`.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "afterEntry", description: "", type: { name: "record {}" },
+                    binding: { modes: [{ mode: "direct", typeConstraint: [{ name: "record {}" }] }] },
+                }],
+            })]));
+            noLine(result, "may bind");
+            noLine(result, "binds a batch");
+        });
+
+        // ---- §8 non-service attach points ----
+
+        test("§8 function: a required handler annotation states the obligation and the attachment", () => {
+            // Corpus: smb's functionConfig is `presence: "required"` — generated smb handlers may not work
+            // without it, and it reached the prompt nowhere before.
+            const result = renderService(service([method({
+                name: "onFileChange",
+                annotationRefs: [{
+                    name: "FunctionConfig", presence: "required", attachPoint: "function",
+                    typeConstraint: { name: "FunctionConfiguration" },
+                }],
+            })], { listener: { name: "smb:Listener", parameters: [] } }), "ballerina/smb");
+
+            assert.ok(result.includes(
+                "    # Mandatory: this handler must carry the @smb:FunctionConfig annotation."
+                + " Replace {...} with its fields, which are those of FunctionConfiguration."),
+                `got:\n${result}`);
+            assert.ok(result.includes("    @smb:FunctionConfig {...} // required"), `got:\n${result}`);
+        });
+
+        test("§8 function: an optional handler annotation is marked optional", () => {
+            // Corpus: ftp declares the optional counterpart on all eight of its handlers.
+            const result = renderService(service([method({
+                annotationRefs: [{ name: "FunctionConfig", presence: "optional",
+                    attachPoint: "function" }],
+            })], { listener: { name: "ftp:Listener", parameters: [] } }), "ballerina/ftp");
+            assert.ok(result.includes("    @ftp:FunctionConfig {...} // optional"), `got:\n${result}`);
+            assert.ok(result.includes("may carry the @ftp:FunctionConfig"), `got:\n${result}`);
+        });
+
+        test("§8: two annotations at one scope emit both notes before either attachment", () => {
+            // Ballerina metadata requires every `#` line to precede every annotation. Emitting
+            // note-then-attachment per annotation puts a `#` line after an `@` as soon as a construct
+            // carries two, which the compiler rejects with "missing close bracket token". No corpus
+            // document does this today; the hazard is one document away.
+            const result = renderService(service([method({
+                annotationRefs: [
+                    { name: "First", presence: "required", attachPoint: "function" },
+                    { name: "Second", presence: "optional", attachPoint: "function" },
+                ],
+            })]));
+            const lines = result.split("\n").map((l) => l.trim());
+            const lastNote = Math.max(lines.findIndex((l) => l.startsWith("# Mandatory: this handler")),
+                lines.findIndex((l) => l.startsWith("# Optional: this handler")));
+            const firstAttachment = Math.min(lines.findIndex((l) => l.startsWith("@kafka:First")),
+                lines.findIndex((l) => l.startsWith("@kafka:Second")));
+            assert.ok(lastNote < firstAttachment,
+                `every # line must precede every @ line:\n${result}`);
+        });
+
+        test("§8 function: the obligation block sits after the notes and before @deprecated", () => {
+            // Ballerina metadata puts every `#` line ahead of every annotation.
+            const result = renderService(service([method({
+                isDeprecated: true,
+                parameters: [{ name: "x", description: "", type: { name: "int" },
+                    alternatives: [{ name: "string" }] }],
+                annotationRefs: [{ name: "FunctionConfig", presence: "optional",
+                    attachPoint: "function" }],
+            })]));
+            const lines = result.split("\n").map((l) => l.trim());
+            const note = lines.findIndex((l) => l.startsWith("# `x` may also be"));
+            const obligation = lines.findIndex((l) => l.startsWith("# Optional: this handler"));
+            const attachment = lines.findIndex((l) => l.startsWith("@kafka:FunctionConfig"));
+            const deprecated = lines.findIndex((l) => l === "@deprecated");
+            const signature = lines.findIndex((l) => l.startsWith("remote function"));
+
+            assert.ok(note < obligation && obligation < attachment, `got:\n${result}`);
+            assert.ok(attachment < deprecated && deprecated < signature, `got:\n${result}`);
+        });
+
+        test("§8 parameter: an OPTIONAL annotation is described, never written into the signature", () => {
+            // The signature is copied as one unit, and an inline attachment cannot carry a `// optional`
+            // marker — a comment inside a parameter list would comment out the closing paren. Writing an
+            // optional annotation there would therefore read as mandatory. Same policy renderIdentifierSlot
+            // applies to an optional identifier.
+            // Corpus: rabbitmq's payload parameter, the only observable instance.
+            const result = renderService(service([method({
+                name: "onMessage",
+                parameters: [{
+                    name: "message", description: "", type: { name: "AnydataMessage" },
+                    annotationRefs: [{
+                        name: "Payload", presence: "optional", attachPoint: "parameter",
+                        typeConstraint: { name: "RabbitmqPayload" },
+                    }],
+                }],
+            })], { listener: { name: "rabbitmq:Listener", parameters: [] } }), "ballerinax/rabbitmq");
+
+            assert.ok(result.includes("remote function onMessage(AnydataMessage message)"),
+                `the signature stays copyable:\n${result}`);
+            assert.ok(result.includes(
+                "    # The `message` parameter may carry @rabbitmq:Payload, written"
+                + " `@rabbitmq:Payload {}` before its type. Its fields are those of RabbitmqPayload."),
+                `got:\n${result}`);
+            const signature = line(result, "remote function onMessage");
+            assert.ok(!signature.includes("//"),
+                `a comment inside a parameter list breaks the line: ${signature}`);
+        });
+
+        test("§8 parameter: a REQUIRED annotation is written inline as `{}`, never `{...}`", () => {
+            // Verified against the compiler: `@X {}` compiles; `@X {...}` fails with "incompatible types:
+            // expected a map or a record, found 'other'" plus "missing expression". `{...}` is a template
+            // marker, and a signature is not a place a template marker can survive.
+            const result = renderService(service([method({
+                name: "onMessage",
+                parameters: [{
+                    name: "message", description: "", type: { name: "AnydataMessage" },
+                    annotationRefs: [{
+                        name: "Payload", presence: "required", attachPoint: "parameter",
+                        typeConstraint: { name: "RabbitmqPayload" },
+                    }],
+                }],
+            })], { listener: { name: "rabbitmq:Listener", parameters: [] } }), "ballerinax/rabbitmq");
+
+            assert.ok(result.includes(
+                "remote function onMessage(@rabbitmq:Payload {} AnydataMessage message)"),
+                `got:\n${result}`);
+            assert.ok(!result.includes("{...} AnydataMessage"), `never the template marker:\n${result}`);
+            assert.ok(line(result, "parameter must carry").includes("fill the `{}`"), `got:\n${result}`);
+        });
+
+        test("§8 parameter: a cross-module annotation carries its own prefix and provenance", () => {
+            // Corpus: mcp's httpHeader names ballerina/http's Header.
+            const result = renderService(service([method({
+                parameters: [{
+                    name: "header", description: "", type: { name: "string" },
+                    annotationRefs: [{ name: "Header", module: "ballerina/http", presence: "optional",
+                        attachPoint: "parameter" }],
+                }],
+            })]));
+            assert.ok(line(result, "parameter may carry").includes("@http:Header"), `got:\n${result}`);
+            assert.ok(line(result, "parameter may carry").includes("FROM ballerina/http package"),
+                `got:\n${result}`);
+        });
+
+        test("§8 return: only a required annotation is written into the return slot", () => {
+            // `returns @X {} T` compiles; `returns @X {...} T` does not. The corpus's only return-scope
+            // annotation (http's `cache`) is optional AND http never reaches this pipeline, so the
+            // required branch is exercised here or nowhere.
+            const optional = renderService(service([method({
+                return: {
+                    type: { name: "error?" },
+                    annotationRefs: [{ name: "Cache", presence: "optional", attachPoint: "return" }],
+                },
+            })]));
+            assert.ok(optional.includes("returns error?;"), `got:\n${optional}`);
+            assert.ok(!optional.includes("returns @kafka:Cache"),
+                `an optional one is not applied:\n${optional}`);
+            // ...but it must still be stated somewhere, or the attach point is advertised and silent.
+            assert.ok(optional.includes(
+                "    # The return may carry @kafka:Cache, written `@kafka:Cache {}` in the `returns`"
+                + " clause."), `got:\n${optional}`);
+
+            const required = renderService(service([method({
+                return: {
+                    type: { name: "error?" },
+                    annotationRefs: [{ name: "Cache", presence: "required", attachPoint: "return" }],
+                },
+            })]));
+            assert.ok(required.includes("returns @kafka:Cache {} error?;"), `got:\n${required}`);
+        });
+
+        test("general rule: a handler declaring none of the new constructs renders exactly as before", () => {
+            const result = renderService(service([method({
+                name: "onError",
+                parameters: [{ name: "kafkaError", description: "", type: { name: "Error" } }],
+            })]));
+            assert.ok(result.includes("    remote function onError(Error kafkaError) returns error?;"),
+                `got:\n${result}`);
+            for (const marker of ["may also be", "may bind", "binds a batch", "must carry", "may carry"]) {
+                noLine(result, marker);
+            }
+        });
+    });
 });

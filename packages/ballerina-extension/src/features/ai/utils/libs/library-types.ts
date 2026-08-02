@@ -60,11 +60,51 @@ export interface ParameterDef {
     // Spec §7 `presence`. An optional handler parameter may be omitted from the signature entirely — it is
     // never rendered as `T?` or given a default, neither of which is what the spec means.
     optional: boolean;
+    // Spec §7: the slot's other legal types. `type` carries the codegen default; these are the rest, and
+    // they are deliberately NOT joined into a union — a `|`-joined type declares a union-typed parameter,
+    // whereas the spec means the author picks one of these when writing the signature.
+    alternatives?: Type[];
+    // Spec §8 at `attachPoint: "parameter"`. Named `annotationRefs`, not `annotations`, because the
+    // sibling `Parameter` interface's `annotations` holds AnnotationAttachments — annotations the library
+    // already carries, rendered verbatim. These are requirements on code that does not exist yet.
+    annotationRefs?: AnnotationRequirement[];
+    // Spec §9: how this slot's raw value may be projected into a user-defined type.
+    binding?: ParamBinding;
+}
+
+// Spec §9 `dataBindingRules[]`, as resolved for one parameter slot.
+export interface ParamBinding {
+    // Spec §9 `cardinality: "array"`. Present only when true, and it means a mode's type is the array
+    // *element* type — kafka's parameter is already `AnydataConsumerRecord[]`, so a renderer that treated
+    // this as "make it an array" would pluralize twice.
+    array?: boolean;
+    modes: BindingMode[];
+}
+
+// Spec §9 `supportedModes[]`. Exactly one shape is populated per mode, keyed by `mode`.
+export interface BindingMode {
+    mode: "direct" | "includedRecord" | "streamable";
+    // direct, streamable: every legal target type, never truncated to the first.
+    typeConstraint?: Type[];
+    // direct: types explicitly disallowed. A negative constraint, derivable from nothing else — so it
+    // survives the renderer's suppression of names already visible elsewhere.
+    excludes?: Type[];
+    // includedRecord: the envelope a user record includes with `*Envelope;`.
+    includes?: Type;
+    // includedRecord: the fields such a record may override; everything else stays pinned.
+    bindableFields?: string[];
+    // includedRecord: the complement, derived by the pipeline (spec §9: "always derivable"). Carried for
+    // completeness; the renderer states the prohibition instead, since the envelope's own declaration is
+    // already in the same file.
+    fixedFields?: string[];
 }
 
 export interface Return {
     description?: string;
     type: Type;
+    // Spec §8 at `attachPoint: "return"`: annotations the generated handler must or may carry on its
+    // return (`returns @http:Cache {...} T`). Nested here because that is the slot they attach to.
+    annotationRefs?: AnnotationRequirement[];
 }
 
 export interface EnumValue {
@@ -177,6 +217,8 @@ export interface ServiceRemoteFunction {
     fieldNameForm?: string[];
     fieldNameRequired?: boolean;
     graphqlOperation?: string;
+    // Spec §8 at `attachPoint: "function"`: annotations the generated handler must or may carry.
+    annotationRefs?: AnnotationRequirement[];
 }
 
 export interface Client {
@@ -200,11 +242,11 @@ export interface RequiredImport {
     alias?: string;
 }
 
-// Spec §8 `annotations[]` at `attachPoint: "service"`: an annotation the generated service must or may
-// carry. Deliberately distinct from `AnnotationAttachment`, which is an annotation the library *already
-// carries* and renders verbatim with its real value; this is an obligation on code that does not exist
-// yet, so it renders as a requirement with a placeholder value and a presence marker.
-export interface ServiceAnnotationRef {
+// Spec §8 `annotations[]`: an annotation the generated code must or may carry, at any attach point.
+// Deliberately distinct from `AnnotationAttachment`, which is an annotation the library *already carries*
+// and renders verbatim with its real value; this is an obligation on code that does not exist yet, so it
+// renders as a requirement with a placeholder value and a presence marker.
+export interface AnnotationRequirement {
     name: string;
     // The `org/module` a cross-module annotation belongs to (`ballerinax/cdc`). Absent for one declared
     // by the library itself, which takes the listener's alias instead — the same rule spec §1 applies to
@@ -218,6 +260,16 @@ export interface ServiceAnnotationRef {
     // the library's own semantic model cannot see.
     typeConstraint?: Type;
 }
+
+/**
+ * The service-scope alias of {@link AnnotationRequirement}.
+ *
+ * Service scope shipped first, under the wire key `annotations`; handler, parameter and return scope use
+ * `annotationRefs` because a `Parameter` already has an `annotations` field holding the semantic model's
+ * real attachments. The asymmetry is deliberate — see `Service.annotations` on the Java side — and this
+ * alias keeps the older name readable at its one call site rather than hiding the shared shape.
+ */
+export type ServiceAnnotationRef = AnnotationRequirement;
 
 // Spec §3 `serviceTypes[].identifier`: the slot between `service` and `on new …`. Carries the document's own
 // `form` tokens rather than a rendered placeholder — building `/basePath` from `basePath` is a syntax decision,

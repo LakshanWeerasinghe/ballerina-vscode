@@ -19,9 +19,7 @@
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
-import io.ballerina.modelgenerator.commons.trigger.utils.TypeRefResolver;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,21 +70,6 @@ final class ServiceAnnotationResolver {
     }
 
     /**
-     * What one service type's annotations resolve to: the references to emit, and the names dropped
-     * because the resolved package does not declare them.
-     *
-     * <p>Drops are returned rather than silently omitted so the aspect can report each as an attributable
-     * {@link Veto}. A dropped annotation never drops its service — the same policy a dropped handler
-     * follows, for the same reason: a partly unusable contract still has a usable remainder.
-     *
-     * @param refs      the annotations to emit, in document order
-     * @param undeclared the annotation names dropped as absent from the resolved package, in document
-     *                   order
-     */
-    record Resolution(List<AnnotationRef> refs, List<String> undeclared) {
-    }
-
-    /**
      * Resolves the annotations one service type must or may carry.
      *
      * <p>An entry that names no annotation is skipped outright — there is nothing to emit and nothing to
@@ -102,51 +85,16 @@ final class ServiceAnnotationResolver {
      * @param homeModule    spec §1's home module, which decides whether an entry is cross-module
      * @param facts         the resolved package's symbols, for the constraint and the existence check;
      *                      {@code null} skips both, so nothing is dropped for want of a compiled package
-     * @return the references to emit and the names dropped
+     * @return the references to emit and the entries dropped
      */
-    static Resolution resolve(AnnotationRegistry registry, String serviceTypeId, String homeModule,
-                              TriggerSemanticFacts facts) {
-        List<AnnotationRef> refs = new ArrayList<>();
-        List<String> undeclared = new ArrayList<>();
-
-        for (TriggerMetadataModel.Annotation annotation : registry.byAttachPoint(ATTACH_POINT_SERVICE)) {
-            if (!appliesTo(annotation, serviceTypeId)) {
-                continue;
-            }
-            String name = annotation.type() == null ? null : annotation.type().name();
-            if (name == null || name.isEmpty()) {
-                continue;
-            }
-            String module = TypeRefResolver.foreignModulePath(annotation.type(), homeModule).orElse(null);
-            if (module == null && facts != null && !facts.declaresAnnotation(name)) {
-                undeclared.add(name);
-                continue;
-            }
-            refs.add(new AnnotationRef(name, module, isRequired(annotation), ATTACH_POINT_SERVICE,
-                    constraintOf(name, module, facts)));
-        }
-        return new Resolution(refs, undeclared);
-    }
-
-    /**
-     * The annotation's constraining type, always from the compiler and never from the document.
-     *
-     * <p>A home-module annotation is read from this module's own symbols. A <b>cross-module</b> one is read
-     * from the foreign module's symbols, which are already present in this compilation — a module whose
-     * annotation the generated code must attach is necessarily a dependency. The {@code org/module}
-     * addressing it comes from the document, so no connector is named here.
-     *
-     * <p>Empty when the annotation is a marker with no type, or when the module is genuinely unreachable —
-     * in which case the renderer states the obligation without naming fields, rather than inventing a
-     * record that may not exist.
-     */
-    private static String constraintOf(String name, String module, TriggerSemanticFacts facts) {
-        if (facts == null) {
-            return null;
-        }
-        return module == null
-                ? facts.annotationConstraint(name).orElse(null)
-                : facts.foreignAnnotationConstraint(module, name).orElse(null);
+    static AnnotationScopeResolver.Resolution resolve(AnnotationRegistry registry, String serviceTypeId,
+                                                      String homeModule, TriggerSemanticFacts facts) {
+        // Selection is this component's own (attach point + `appliesTo`, per the decisions above); the
+        // mechanics of turning a selected entry into an AnnotationRef are shared with the other three
+        // attach points, so they live in one place rather than four.
+        return AnnotationScopeResolver.byAttachPoint(registry, serviceTypeId,
+                AnnotationScopeResolver.Scope.SERVICE, homeModule,
+                AnnotationScopeResolver.factsOf(facts));
     }
 
     /**

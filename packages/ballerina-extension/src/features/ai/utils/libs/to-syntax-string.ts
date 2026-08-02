@@ -42,6 +42,8 @@ import {
     ServiceIdentifier,
     ServiceConstraint,
     ConstraintMember,
+    AnnotationRequirement,
+    BindingMode,
 } from "./library-types";
 
 const ATTACHMENT_POINT_LABELS: Record<string, string> = {
@@ -534,6 +536,141 @@ function renderStandaloneFunction(func: RemoteFunction): string {
 }
 
 /**
+ * Spec §7 — the `#` line naming a slot's other legal types.
+ *
+ * Never `|`-joined. A `|`-joined type declares a parameter *of union type*; the spec means the author picks
+ * one of these when writing the signature. Before this, every member after the first was invisible —
+ * `rabbitmq`'s `BytesMessage` and `kafka`'s `BytesConsumerRecord[]` reached the prompt nowhere.
+ */
+function renderAlternativeNotes(method: ServiceRemoteFunction, indent: string): string[] {
+    const lines: string[] = [];
+    for (const param of method.parameters ?? []) {
+        const alternatives = param.alternatives ?? [];
+        if (alternatives.length === 0) {
+            continue;
+        }
+        const rendered = alternatives.map((type) =>
+            applyPrefixToTypeName(type.name, collectExternalLinks(type)));
+        lines.push(`${indent}# \`${param.name}\` may also be: ${rendered.join(", ")}`);
+    }
+    return lines;
+}
+
+/**
+ * The suppression rule for §9 binding notes: a type the reader can already see in the signature or in the
+ * `may also be` line is not repeated.
+ *
+ * Spec §7 makes the document state a slot's full static surface in `params[].type` "even where
+ * `dataBindingRules` also says it", so the overlap is deliberate *in the document*. Repeating it in the
+ * prompt is not: `ftp`'s `onFileCsv` would otherwise state the same four types three times.
+ *
+ * Named and tested rather than inlined, so "why is this type missing from the note?" has an answer.
+ */
+function suppressMembersAlreadyVisible(types: Type[] | undefined, visible: Set<string>): string[] {
+    if (!types || types.length === 0) {
+        return [];
+    }
+    const kept: string[] = [];
+    for (const type of types) {
+        const rendered = applyPrefixToTypeName(type.name, collectExternalLinks(type));
+        if (!visible.has(rendered)) {
+            kept.push(rendered);
+        }
+    }
+    return kept;
+}
+
+/**
+ * Spec §9 — the `#` lines describing how a parameter's value may be bound.
+ *
+ * One line per mode, because the modes are different capabilities: binding a value directly and binding a
+ * record that *includes* the connector's envelope are different pieces of code. A mode whose every type is
+ * already visible contributes no line — with one exception, `excludes`, which is a negative constraint no
+ * other part of the output can express.
+ */
+function renderBindingNotes(method: ServiceRemoteFunction, listenerAlias: string | null,
+                            indent: string): string[] {
+    const lines: string[] = [];
+    for (const param of method.parameters ?? []) {
+        const binding = param.binding;
+        if (!binding || !binding.modes || binding.modes.length === 0) {
+            continue;
+        }
+        const visible = new Set<string>([
+            applyPrefixToTypeName(param.type.name, collectExternalLinks(param.type)),
+            ...(param.alternatives ?? []).map((type) =>
+                applyPrefixToTypeName(type.name, collectExternalLinks(type))),
+        ]);
+        const modeLines: string[] = [];
+        for (const mode of binding.modes) {
+            const line = renderBindingMode(mode, param.name ?? "", visible, listenerAlias,
+                binding.array === true);
+            if (line) {
+                modeLines.push(`${indent}# ${line}`);
+            }
+        }
+        if (modeLines.length === 0) {
+            continue;
+        }
+        if (binding.array) {
+            // Spec §9: the bound value is a batch, so a mode's type is the array *element* type. Stated
+            // rather than applied: the parameter's own signature is already an array, and pluralizing the
+            // mode types too would describe an array of arrays.
+            lines.push(`${indent}# \`${param.name}\` binds a batch; the types below are element types.`);
+        }
+        lines.push(...modeLines);
+    }
+    return lines;
+}
+
+/** One §9 mode, or "" when it has nothing left to say after suppression. */
+function renderBindingMode(mode: BindingMode, paramName: string, visible: Set<string>,
+                           listenerAlias: string | null, array: boolean): string {
+    if (mode.mode === "includedRecord") {
+        if (!mode.includes) {
+            return "";
+        }
+        const envelopeLinks = collectExternalLinks(mode.includes);
+        // The inclusion is written in the *user's* module, so it carries an alias — the same rule the §8
+        // attachment lines follow. `applyPrefixToTypeName` handles a cross-module envelope; a home-module
+        // one takes the listener's alias.
+        const envelope = envelopeLinks.length > 0
+            ? applyPrefixToTypeName(mode.includes.name, envelopeLinks)
+            : (listenerAlias ? `${listenerAlias}:${mode.includes.name}` : mode.includes.name);
+        const fields = mode.bindableFields ?? [];
+        // The prohibition, not just the permission: naming the bindable field does not say the others are
+        // fixed, and that is the whole content of `bindableFields`.
+        const overrides = fields.length > 0
+            ? ` and ${array ? "override" : "overrides"} only `
+              + fields.map((field) => `\`${field}\``).join(", ")
+            : "";
+        // Under `cardinality: "array"` the parameter takes an array of these records, and this is the one
+        // line where leaving that to the reader costs a compile error: `MyRecord` where `MyRecord[]` is
+        // required. The English is pluralized; the type name is not — pluralizing that is what would
+        // double-count against a signature that is already an array.
+        const subject = array
+            ? `an array of records that include \`*${envelope};\``
+            : `a record that includes \`*${envelope};\``;
+        return `\`${paramName}\` may bind to ${subject}${overrides}`;
+    }
+
+    const kept = suppressMembersAlreadyVisible(mode.typeConstraint, visible);
+    const excluded = suppressMembersAlreadyVisible(mode.excludes, new Set<string>());
+    if (mode.mode === "streamable") {
+        // The declared members are already whole stream types; wrapping them again would emit
+        // `stream<stream<...>>`.
+        return kept.length === 0 ? "" : `\`${paramName}\` may bind to a stream: ${kept.join(", ")}`;
+    }
+    if (kept.length === 0 && excluded.length === 0) {
+        return "";
+    }
+    const target = kept.length === 0
+        ? `\`${paramName}\` may bind directly to any type shown above`
+        : `\`${paramName}\` may bind directly to: ${kept.join(", ")}`;
+    return excluded.length === 0 ? target : `${target} — but never ${excluded.join(", ")}`;
+}
+
+/**
  * Renders a ParameterDef (used in fixed service methods).
  *
  * Spec §7 `presence` is deliberately NOT expressed here. An optional handler parameter may be omitted from
@@ -543,8 +680,9 @@ function renderStandaloneFunction(func: RemoteFunction): string {
  * the closing paren and the return type. Optionality is therefore stated on a `#` line above the method, by
  * `renderOptionalParamNote`.
  */
-function renderParamDef(param: ParameterDef): string {
-    return `${param.type.name}${param.name ? " " + param.name : ""}`;
+function renderParamDef(param: ParameterDef, listenerAlias: string | null = null): string {
+    const annotations = renderRequirementAttachments(param.annotationRefs, listenerAlias);
+    return `${annotations}${param.type.name}${param.name ? " " + param.name : ""}`;
 }
 
 /**
@@ -679,11 +817,38 @@ function renderServiceAnnotationLines(
     annotations: ServiceAnnotationRef[] | undefined,
     listenerAlias: string | null
 ): string[] {
+    return renderAnnotationRequirementLines(annotations, listenerAlias, "service", "");
+}
+
+/**
+ * Spec §8 at any attach point that renders as a declaration-level attachment — `service` and `function`.
+ *
+ * Generalised from the service-only version so a handler obligation reads identically to a service one:
+ * both are requirements on code that does not exist yet, and a reader should not have to learn two
+ * shapes. `subject` names what must carry it ("service" / "handler") and `indent` places the block, which
+ * for a handler is inside the service body.
+ *
+ * Parameter and return scope are NOT rendered here: their attachments go inline, in the signature, where a
+ * `#` line cannot follow them.
+ */
+function renderAnnotationRequirementLines(
+    annotations: ServiceAnnotationRef[] | undefined,
+    listenerAlias: string | null,
+    subject: string,
+    indent: string
+): string[] {
     if (!annotations || annotations.length === 0) {
         return [];
     }
 
-    const lines: string[] = [];
+    // Notes and attachments are accumulated separately and concatenated, never interleaved. Ballerina
+    // metadata requires every `#` documentation line to precede every annotation, so emitting
+    // note-then-attachment per annotation would put a `#` line *after* an `@` as soon as one construct
+    // carries two annotations at the same attach point — a hard syntax error ("missing close bracket
+    // token"). No corpus document does that today; P5 doubles the surface by adding a second scope to
+    // this loop, which is reason enough not to leave the hazard in place.
+    const notes: string[] = [];
+    const attachments: string[] = [];
     for (const annotation of annotations) {
         if (!annotation || !annotation.name) {
             continue;
@@ -711,9 +876,9 @@ function renderServiceAnnotationLines(
         // "Mandatory" rather than "Required": a listener's side-effect imports already render as
         // `# Requires: import ...;` directly above this, and two senses of "require" one line apart
         // read as one.
-        lines.push(required
-            ? `# Mandatory: this service must carry the @${qualifiedName} annotation.${fields}`
-            : `# Optional: this service may carry the @${qualifiedName} annotation.${fields}`);
+        notes.push(required
+            ? `${indent}# Mandatory: this ${subject} must carry the @${qualifiedName} annotation.${fields}`
+            : `${indent}# Optional: this ${subject} may carry the @${qualifiedName} annotation.${fields}`);
 
         // The presence marker is repeated on the attachment line because that line is what gets copied.
         // Without it a required and an optional annotation are visually identical, and attaching an
@@ -729,10 +894,124 @@ function renderServiceAnnotationLines(
             ? `; Special Agent Note: ${[...new Set(foreignNames)].join(", ")} `
               + `FROM ${annotation.module} package`
             : "";
-        lines.push(`@${qualifiedName} {...} // ${required ? "required" : "optional"}${provenance}`);
+        attachments.push(
+            `${indent}@${qualifiedName} {...} // ${required ? "required" : "optional"}${provenance}`);
+    }
+    return [...notes, ...attachments];
+}
+
+/**
+ * The `alias:` a §8 requirement is written with: its own module's for a cross-module annotation, the
+ * listener's for one the library declares itself. Shared by the declaration-level block above and the
+ * inline parameter form below, so the two can never disagree about how a name is qualified.
+ */
+function qualifyRequirement(
+    annotation: AnnotationRequirement,
+    listenerAlias: string | null
+): { qualifiedName: string; constraint?: string; provenanceNote: string } {
+    const prefix = annotation.module ? deriveModulePrefix(annotation.module) : listenerAlias;
+    const qualifiedName = prefix ? `${prefix}:${annotation.name}` : annotation.name;
+    const constraintLinks = annotation.typeConstraint
+        ? collectExternalLinks(annotation.typeConstraint)
+        : [];
+    const constraint = annotation.typeConstraint
+        ? applyPrefixToTypeName(annotation.typeConstraint.name, constraintLinks)
+        : undefined;
+    const foreignNames = annotation.module
+        ? [annotation.name, ...constraintLinks.map((link) => link.recordName)]
+        : [];
+    // The note itself, unpunctuated: a caller appending it to a `//` comment needs a `;` separator,
+    // one appending it to a `#` sentence needs a space. Formatting it here would force one of them to
+    // patch the other's punctuation back out.
+    const provenanceNote = foreignNames.length > 0
+        ? `Special Agent Note: ${[...new Set(foreignNames)].join(", ")} FROM ${annotation.module} package`
+        : "";
+    return { qualifiedName, constraint, provenanceNote };
+}
+
+/**
+ * Spec §8 at the two attach points whose attachment goes *inside* the signature — `parameter`, written
+ * before the parameter's type, and `return`, written into the return slot.
+ *
+ * Both positions are legal Ballerina: `remote function onMessage(@rabbitmq:Payload {} AnydataMessage msg)`
+ * and `returns @http:Cache {} T` both compile. Two rules keep what is emitted there copyable:
+ *
+ * **1. `{}`, never `{...}`.** The `{...}` placeholder the declaration-level block uses is not an
+ * expression — the compiler rejects it with "incompatible types: expected a map or a record, found
+ * 'other'" plus "missing expression". On its own line, above a `// required` marker, that reads as a
+ * template a reader fills in. Inside a signature it does not: the signature is copied as one unit, so a
+ * placeholder there turns a previously-correct line into a guaranteed compile error. `{}` compiles
+ * wherever the constraining record has no required fields, which is every such record in the corpus.
+ *
+ * **2. An optional annotation is described, not applied.** Same policy {@link renderIdentifierSlot}
+ * already applies to an optional identifier: state that the slot may be filled, but do not fill it. An
+ * inline attachment cannot carry a `// optional` marker — a comment inside a signature would comment out
+ * everything after it — so an optional one written into the signature would read as mandatory. Its
+ * presence and its constraint are stated instead by {@link renderParamAnnotationNotes}.
+ */
+function renderRequirementAttachments(
+    annotations: AnnotationRequirement[] | undefined,
+    listenerAlias: string | null
+): string {
+    const required = (annotations ?? []).filter((annotation) => annotation.presence === "required");
+    if (required.length === 0) {
+        return "";
+    }
+    return required
+        .map((annotation) => `@${qualifyRequirement(annotation, listenerAlias).qualifiedName} {}`)
+        .join(" ") + " ";
+}
+
+/**
+ * The `#` lines stating what each inline parameter annotation is and whether it is obligatory — the half
+ * of a §8 requirement that cannot live in the parameter list.
+ */
+function renderParamAnnotationNotes(
+    method: ServiceRemoteFunction,
+    listenerAlias: string | null,
+    indent: string
+): string[] {
+    const lines: string[] = [];
+    for (const param of method.parameters ?? []) {
+        for (const annotation of param.annotationRefs ?? []) {
+            lines.push(inSignatureNote(annotation, `The \`${param.name}\` parameter`,
+                "before its type", listenerAlias, indent));
+        }
+    }
+    // The return carries its obligations in the same way and for the same reason: an optional one is not
+    // written into `returns @X {} T`, so without a note it would render nowhere at all — the attach point
+    // would be advertised and silent.
+    for (const annotation of method.return?.annotationRefs ?? []) {
+        lines.push(inSignatureNote(annotation, "The return", "in the `returns` clause",
+            listenerAlias, indent));
     }
     return lines;
 }
+
+/**
+ * One `#` line for a §8 requirement whose attachment lives inside the signature.
+ *
+ * A required annotation is already written there, so the note says what to put in it; an optional one is
+ * not written at all, so the note says how to write it. `position` names where it goes, which differs
+ * between a parameter and the return.
+ */
+function inSignatureNote(
+    annotation: AnnotationRequirement,
+    subject: string,
+    position: string,
+    listenerAlias: string | null,
+    indent: string
+): string {
+    const { qualifiedName, constraint, provenanceNote } = qualifyRequirement(annotation, listenerAlias);
+    const fields = constraint ? ` Its fields are those of ${constraint}.` : "";
+    const obligation = annotation.presence === "required"
+        ? `must carry @${qualifiedName} — fill the \`{}\`.`
+        : `may carry @${qualifiedName}, written \`@${qualifiedName} {}\` ${position}.`;
+    return `${indent}# ${subject} ${obligation}${fields}`
+        + `${provenanceNote ? " " + provenanceNote : ""}`;
+}
+
+
 
 /**
  * Spec §3 `serviceTypes[].identifier` — the slot between `service` and `on new …`.
@@ -907,13 +1186,33 @@ function renderFixedService(service: FixedService): string {
     for (const method of service.methods ?? []) {
         const desc = method.description ? `    # ${method.description}\n` : "";
         const dep = method.isDeprecated ? "    @deprecated\n" : "";
-        const params = (method.parameters ?? []).map(renderParamDef).join(", ");
-        const returnStr = method.return?.type ? ` returns ${method.return.type.name}` : "";
+        const params = (method.parameters ?? [])
+            .map((param) => renderParamDef(param, listenerAlias)).join(", ");
+        const returnAnnotations = renderRequirementAttachments(
+            method.return?.annotationRefs, listenerAlias);
+        const returnStr = method.return?.type
+            ? ` returns ${returnAnnotations}${method.return.type.name}`
+            : "";
 
-        // Documentation order mirrors a real Ballerina doc comment: the description leads, then the notes
-        // about the signature, and only then the annotation — metadata puts every `#` line ahead of every
-        // annotation, so `@deprecated` has to come last of the three.
-        lines.push(`${desc}${renderResourceNote(method, "    ")}${renderOptionalParamNote(method, "    ")}`
+        // Documentation order mirrors a real Ballerina doc comment: the description leads, then every note
+        // about the signature, and only then the annotations — Ballerina metadata puts every `#` line ahead
+        // of every annotation, so both the §8 obligation block and `@deprecated` follow the notes.
+        //
+        // Within the notes the order is: what the handler is (description, resource shape), then what its
+        // parameters may hold (alternatives, then how they bind), then which of them may be omitted, then
+        // what their annotations mean. Each layer is narrower than the one above it.
+        const notes = [
+            renderAlternativeNotes(method, "    "),
+            renderBindingNotes(method, listenerAlias, "    "),
+            renderParamAnnotationNotes(method, listenerAlias, "    "),
+        ].flat();
+        const noteBlock = notes.length > 0 ? notes.join("\n") + "\n" : "";
+        const obligations = renderAnnotationRequirementLines(
+            method.annotationRefs, listenerAlias, "handler", "    ");
+        const obligationBlock = obligations.length > 0 ? obligations.join("\n") + "\n" : "";
+
+        lines.push(`${desc}${renderResourceNote(method, "    ")}${noteBlock}`
+            + `${renderOptionalParamNote(method, "    ")}${obligationBlock}`
             + `${dep}    ${renderMethodSignature(method)}(${params})${returnStr};`
             + `${renderPresenceMarker(method)}`);
         lines.push("");

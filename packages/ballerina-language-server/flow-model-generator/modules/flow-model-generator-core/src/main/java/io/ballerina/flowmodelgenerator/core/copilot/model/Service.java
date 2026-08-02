@@ -39,7 +39,18 @@ public class Service {
     private String serviceTypeModule;
     // Spec §2: side-effect-only imports the listener requires; needed only by code using that listener.
     private List<RequiredImport> requiredImports;
-    // Spec §8: the annotations this service type must or may carry, scoped by the document's `appliesTo`.
+    /**
+     * Spec §8: the annotations this service type must or may carry, scoped by the document's
+     * {@code appliesTo}.
+     *
+     * <p><b>The key is {@code annotations} here but {@code annotationRefs} at handler, parameter and return
+     * scope, and that asymmetry is deliberate.</b> A {@code Service} has no competing field, so this one
+     * shipped first under the shorter name; a {@code Parameter} already has an {@code annotations} field
+     * holding the semantic model's real attachments, which are the opposite kind of thing — a fact about the
+     * library rather than a requirement on generated code. Renaming this to match would churn the renderer
+     * and P3's fixtures for no change in output, so it is left as-is and recorded as a cleanup. Do not
+     * "harmonise" the two by pointing them at one field.
+     */
     private List<ServiceAnnotationRef> annotations;
     // Spec §3: the identifier/base-path slot between `service` and `on new`. Null when the connector does
     // not consult it, which is what an absent `identifier` key means.

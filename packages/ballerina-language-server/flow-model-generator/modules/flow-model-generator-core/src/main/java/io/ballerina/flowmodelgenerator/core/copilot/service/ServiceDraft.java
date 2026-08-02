@@ -44,9 +44,10 @@ final class ServiceDraft {
     private final JsonArray methods = new JsonArray();
     // Vetoes raised against this entry — any one of them drops it.
     private final List<Veto> vetoes = new ArrayList<>();
-    // Vetoes raised against individual handlers. Reported, but they drop only their own handler: a
-    // service type whose contract is partly unusable still has a usable remainder.
-    private final List<Veto> handlerVetoes = new ArrayList<>();
+    // Non-fatal drops: a handler that could not be built, an annotation obligation that could not be
+    // resolved, a binding rule that does not exist. Reported, but the entry survives — a service type whose
+    // contract is partly unusable still has a usable remainder.
+    private final List<Veto> nonFatal = new ArrayList<>();
 
     /** Spec §3: the wire contract's fixed discriminator for a metadata-derived service. */
     void setKind(String kind) {
@@ -122,8 +123,9 @@ final class ServiceDraft {
         if (handler == null) {
             return;
         }
+        nonFatal.addAll(handler.diagnostics());
         if (handler.isVetoed()) {
-            handlerVetoes.addAll(handler.vetoes());
+            nonFatal.addAll(handler.vetoes());
             return;
         }
         methods.add(handler.toJson());
@@ -132,20 +134,38 @@ final class ServiceDraft {
     /**
      * Records that this service entry must be dropped. The orchestrator, not the component, performs
      * the drop, so every exclusion goes through one place and carries a reason.
+     *
+     * <p><b>Fatal.</b> Reserve it for what makes the whole entry unusable — a service type the resolved
+     * package does not declare, or a handler catalog that cannot be resolved. For anything that makes one
+     * <i>contribution</i> unusable, use {@link #drop} instead.
      */
     void veto(String aspectId, String specSection, String subject, String reason) {
         vetoes.add(new Veto(aspectId, specSection, subject, reason));
     }
 
-    /** Whether this entry itself was vetoed. A dropped handler does not drop its service. */
+    /**
+     * Records that a contribution was dropped, without dropping the entry.
+     *
+     * <p>Introduced because the fatal channel was being used for a non-fatal case: an annotation the
+     * resolved package does not declare went through {@link #veto}, which made
+     * {@link TriggerSchemaServiceLoader} skip the <i>entire service</i> — the exact opposite of what
+     * {@link ServiceAnnotationResolver}'s own contract states ("A dropped annotation never drops its
+     * service"). Latent, because every corpus service annotation resolves; real, because the first one that
+     * does not would silently delete a whole service from the prompt.
+     */
+    void drop(String aspectId, String specSection, String subject, String reason) {
+        nonFatal.add(new Veto(aspectId, specSection, subject, reason));
+    }
+
+    /** Whether this entry itself was vetoed. A dropped handler or obligation does not drop its service. */
     boolean isVetoed() {
         return !vetoes.isEmpty();
     }
 
-    /** Every veto raised while building this entry, whether it dropped the entry or one handler. */
+    /** Every drop recorded while building this entry, fatal or not. */
     List<Veto> vetoes() {
         List<Veto> all = new ArrayList<>(vetoes);
-        all.addAll(handlerVetoes);
+        all.addAll(nonFatal);
         return all;
     }
 

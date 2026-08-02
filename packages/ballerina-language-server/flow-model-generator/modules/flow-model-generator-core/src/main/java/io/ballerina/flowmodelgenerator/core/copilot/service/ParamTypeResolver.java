@@ -22,6 +22,8 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 import io.ballerina.modelgenerator.commons.trigger.utils.TypeRefResolver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -76,6 +78,59 @@ final class ParamTypeResolver {
     static String signature(TriggerMetadataModel.ServiceType.Param param, String packageName,
                             Predicate<String> declaresType) {
         return TypeRefResolver.render(TypeRefResolver.first(param.type()), packageName, declaresType);
+    }
+
+    /**
+     * A slot's full static surface: the type written in the signature, and the other types that are equally
+     * legal for it.
+     *
+     * <p><b>{@code alternatives} must never be joined with {@code |}.</b> A {@code |}-joined type declares a
+     * parameter <i>of union type</i> — a handler that accepts either shape at run time — whereas spec §7
+     * means the author picks exactly one of them when writing the signature ("restates the full static
+     * surface for this slot"). {@code rabbitmq}'s {@code onMessage} takes an {@code AnydataMessage} or a
+     * {@code BytesMessage}, not an {@code AnydataMessage|BytesMessage}.
+     *
+     * @param signature    the codegen-default member (spec §1: "the first element"), as written in the
+     *                     signature
+     * @param alternatives every other legal member, in document order; rendered but never joined
+     * @param dropped      members naming a same-module type the resolved package does not declare. They are
+     *                     recorded rather than rendered: a document authored against a different release
+     *                     must not put an unresolvable type name in the prompt
+     */
+    record ParamType(String signature, List<String> alternatives, List<String> dropped) {
+    }
+
+    /**
+     * Resolves a slot's whole type surface.
+     *
+     * <p>Only the alternatives are filtered against the resolved package. The <b>signature</b> member is
+     * not: an undeclared signature member is what makes the whole handler unusable, and that veto is
+     * {@link #signatureReferencesUndeclaredType}'s job, applied before a handler is built at all.
+     *
+     * @param param        the slot
+     * @param packageName  the resolved package name, for rendering per spec §1
+     * @param declaresType whether the home module declares a type of a given name
+     * @return the signature member, the surviving alternatives, and the members dropped as undeclared
+     */
+    static ParamType resolveType(TriggerMetadataModel.ServiceType.Param param, String packageName,
+                                 Predicate<String> declaresType) {
+        List<TypeRef> members = param.type() == null ? List.of() : param.type();
+        String signature = signature(param, packageName, declaresType);
+        List<String> alternatives = new ArrayList<>();
+        List<String> dropped = new ArrayList<>();
+        for (int i = 1; i < members.size(); i++) {
+            TypeRef member = members.get(i);
+            String rendered = TypeRefResolver.render(member, packageName, declaresType);
+            if (rendered == null || rendered.isEmpty() || rendered.equals(signature)) {
+                continue;
+            }
+            if (isUndeclaredBareUserType(member, declaresType)) {
+                dropped.add(rendered);
+                continue;
+            }
+            alternatives.add(rendered);
+        }
+        return new ParamType(signature, alternatives, dropped);
     }
 
     /**

@@ -34,7 +34,27 @@ public class Parameter {
     private Boolean optional;
     @SerializedName("default")
     private String defaultValue;
+    /**
+     * Annotations the compiler reports as <b>already present</b> on this parameter — a fact about the
+     * library, rendered verbatim with its real value.
+     *
+     * <p>Deliberately not the same field as {@link #annotationRefs}, and deliberately not renamed to match
+     * it: the two are opposite in kind, and the asymmetry in their names is the thing that keeps them from
+     * being "harmonised" into one. See {@link Service#getAnnotations()} for the same distinction at service
+     * scope, where the key is historical.
+     */
     private List<AnnotationAttachment> annotations;
+    // Spec §7 — the slot's other legal types. Carried as Type (not String) so the renderer's type closure
+    // can reach their definitions through the links; never joined into a union.
+    private List<Type> alternatives;
+    /**
+     * Spec §8 at {@code attachPoint: "parameter"} — annotations code written against this library
+     * <b>must or may attach</b> here. A requirement on code that does not exist yet, which is why it cannot
+     * share {@link #annotations}: that field holds attachments the library already carries.
+     */
+    private List<ServiceAnnotationRef> annotationRefs;
+    // Spec §9 — how this slot's raw value may be projected into a user-defined type.
+    private ParamBinding binding;
 
     public Parameter() {
     }
@@ -85,5 +105,29 @@ public class Parameter {
 
     public void setAnnotations(List<AnnotationAttachment> annotations) {
         this.annotations = annotations;
+    }
+
+    public List<Type> getAlternatives() {
+        return alternatives;
+    }
+
+    public void setAlternatives(List<Type> alternatives) {
+        this.alternatives = alternatives;
+    }
+
+    public List<ServiceAnnotationRef> getAnnotationRefs() {
+        return annotationRefs;
+    }
+
+    public void setAnnotationRefs(List<ServiceAnnotationRef> annotationRefs) {
+        this.annotationRefs = annotationRefs;
+    }
+
+    public ParamBinding getBinding() {
+        return binding;
+    }
+
+    public void setBinding(ParamBinding binding) {
+        this.binding = binding;
     }
 }

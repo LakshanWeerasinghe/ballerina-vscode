@@ -594,6 +594,76 @@ function getOwnTypeDefsForLib(
     return getOwnRecordRefs(allFunctions, allTypeDefs, services, annotations);
 }
 
+/**
+ * Every type a service names, from every construct that can name one — the single scan table both the
+ * internal and the external reference scanners walk.
+ *
+ * Shared deliberately. The two scanners feed different destinations (`typeDefs` for a same-library type,
+ * a fetch of the owning library for a foreign one), but they must agree on *where types come from*: a
+ * construct covered by one and missed by the other produces a prompt that names a type it never defines.
+ * Adding a construct that introduces types is one edit here, and neither scanner changes.
+ *
+ * Kept adjacent to the renderer's own list of what it emits — the invariant is that every type name the
+ * renderer can write is reachable from this table.
+ */
+function collectServiceTypeRefs(service: Service): Type[] {
+    const refs: Type[] = [];
+    const add = (type?: Type): void => {
+        if (type) {
+            refs.push(type);
+        }
+    };
+
+    for (const param of service.listener.parameters) {
+        add(param.type);
+    }
+    // Spec §8 at service scope: a constraining record is a type reference no other scanner reaches, so
+    // without this the prompt could require `@ftp:ServiceConfig {...}` while defining nothing that says
+    // which fields it takes.
+    for (const annotation of service.annotations ?? []) {
+        add(annotation?.typeConstraint);
+    }
+    if (service.type !== "fixed") {
+        return refs;
+    }
+    for (const method of (service as FixedService).methods ?? []) {
+        // Spec §8 at function scope — same reasoning, one tier down.
+        for (const annotation of method.annotationRefs ?? []) {
+            add(annotation?.typeConstraint);
+        }
+        for (const param of method.parameters ?? []) {
+            add(param.type);
+            // Spec §7: an alternative is a type the reader may write in place of the declared one, so it
+            // needs its definition exactly as much as the declared one does.
+            for (const alternative of param.alternatives ?? []) {
+                add(alternative);
+            }
+            // Spec §8 at parameter scope.
+            for (const annotation of param.annotationRefs ?? []) {
+                add(annotation?.typeConstraint);
+            }
+            // Spec §9: every type a binding note can name. `includes` is the one that matters most — the
+            // renderer tells the reader to write `*kafka:AnydataConsumerRecord;`, which is unusable unless
+            // that record is defined in the same prompt.
+            for (const mode of param.binding?.modes ?? []) {
+                for (const type of mode.typeConstraint ?? []) {
+                    add(type);
+                }
+                for (const type of mode.excludes ?? []) {
+                    add(type);
+                }
+                add(mode.includes);
+            }
+        }
+        add(method.return?.type);
+        // Spec §8 at return scope.
+        for (const annotation of method.return?.annotationRefs ?? []) {
+            add(annotation?.typeConstraint);
+        }
+    }
+    return refs;
+}
+
 function getOwnRecordRefs(functions: AbstractFunction[], allTypeDefs: TypeDefinition[], services?: Service[], annotations?: Annotation[]): TypeDefinition[] {
     const ownRecords = new Map<string, TypeDefinition>();
 
@@ -608,30 +678,11 @@ function getOwnRecordRefs(functions: AbstractFunction[], allTypeDefs: TypeDefini
         addInternalRecord(func.return.type, ownRecords, allTypeDefs);
     }
 
-    // Process service listener parameters and fixed service method parameters
+    // Process every type a service names, per the shared scan table
     if (services) {
         for (const service of services) {
-            for (const param of service.listener.parameters) {
-                addInternalRecord(param.type, ownRecords, allTypeDefs);
-            }
-            // Spec §8: a service-level annotation's constraining record is a type reference no other
-            // scanner reaches, so without this the prompt could require `@ftp:ServiceConfig {...}`
-            // while defining nothing that says which fields it takes.
-            for (const annotation of service.annotations ?? []) {
-                if (annotation?.typeConstraint) {
-                    addInternalRecord(annotation.typeConstraint, ownRecords, allTypeDefs);
-                }
-            }
-            if (service.type === "fixed") {
-                const fixedService = service as FixedService;
-                for (const method of fixedService.methods ?? []) {
-                    for (const param of method.parameters ?? []) {
-                        addInternalRecord(param.type, ownRecords, allTypeDefs);
-                    }
-                    if (method.return?.type) {
-                        addInternalRecord(method.return.type, ownRecords, allTypeDefs);
-                    }
-                }
+            for (const type of collectServiceTypeRefs(service)) {
+                addInternalRecord(type, ownRecords, allTypeDefs);
             }
         }
     }
@@ -781,33 +832,16 @@ function getExternalTypeDefRefs(
         addExternalRecord(func.return.type, externalRecords);
     }
 
-    // Check service listener parameters and fixed service method parameters
+    // The external counterpart of the internal scan, walking the same table so the two cannot diverge.
+    //
+    // Note what a foreign annotation still does NOT bring with it: a cross-module annotation resolved
+    // from another module's symbols does carry a `typeConstraint` now, and it arrives with an `external`
+    // link, so its record is fetched here — but an annotation whose module is unreachable carries none at
+    // all, and its record is announced by the Special Agent Note instead.
     if (services) {
         for (const service of services) {
-            for (const param of service.listener.parameters) {
-                addExternalRecord(param.type, externalRecords);
-            }
-            // Spec §8, the external counterpart of the internal scan above. Note what this does NOT
-            // cover: a cross-module *annotation* carries no `typeConstraint` at all (its constraint
-            // lives in symbols the library's own semantic model cannot see), so mssql's
-            // `@cdc:ServiceConfig` never reaches here — its record is announced by the Special Agent
-            // Note instead, and resolving it properly needs cross-package annotation lookup. This scan
-            // covers the remaining case: a home-module annotation constrained by a foreign record.
-            for (const annotation of service.annotations ?? []) {
-                if (annotation?.typeConstraint) {
-                    addExternalRecord(annotation.typeConstraint, externalRecords);
-                }
-            }
-            if (service.type === "fixed") {
-                const fixedService = service as FixedService;
-                for (const method of fixedService.methods ?? []) {
-                    for (const param of method.parameters ?? []) {
-                        addExternalRecord(param.type, externalRecords);
-                    }
-                    if (method.return?.type) {
-                        addExternalRecord(method.return.type, externalRecords);
-                    }
-                }
+            for (const type of collectServiceTypeRefs(service)) {
+                addExternalRecord(type, externalRecords);
             }
         }
     }

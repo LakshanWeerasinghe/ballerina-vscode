@@ -50,6 +50,10 @@ public class ServiceRemoteFunction {
     private List<String> fieldNameForm;
     private Boolean fieldNameRequired;
     private String graphqlOperation;
+    // Spec §8 at `attachPoint: "function"` — annotations the generated handler must or may carry. Named
+    // `annotationRefs` to match parameter scope, where `annotations` is already taken by the semantic
+    // model's own attachments; consistency across the three scopes beats saving a word at the free one.
+    private List<ServiceAnnotationRef> annotationRefs;
     @SerializedName("isDeprecated")
     private Boolean deprecated;
 
@@ -167,6 +171,14 @@ public class ServiceRemoteFunction {
 
     public void setGraphqlOperation(String graphqlOperation) {
         this.graphqlOperation = graphqlOperation;
+    }
+
+    public List<ServiceAnnotationRef> getAnnotationRefs() {
+        return annotationRefs;
+    }
+
+    public void setAnnotationRefs(List<ServiceAnnotationRef> annotationRefs) {
+        this.annotationRefs = annotationRefs;
     }
 
     public Boolean isDeprecated() {

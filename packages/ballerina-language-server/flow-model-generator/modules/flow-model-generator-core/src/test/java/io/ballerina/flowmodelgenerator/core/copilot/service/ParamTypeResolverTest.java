@@ -181,7 +181,91 @@ public class ParamTypeResolverTest {
                 option(List.of(union), null), Set.of("Caller")::contains));
     }
 
+    // ---- §7 alternatives --------------------------------------------------------------
+
+    @Test
+    public void testTheSignatureKeepsTheFirstMemberAndTheRestBecomeAlternatives() {
+        // §1: "**Unions** are an array of `TypeRef`, first element = codegen default".
+        // §7: `type` "restates the full static surface for this slot".
+        // Corpus: rabbitmq's onMessage payload — AnydataMessage first, BytesMessage second. Before this,
+        // BytesMessage reached the prompt nowhere.
+        ParamTypeResolver.ParamType resolved = ParamTypeResolver.resolveType(
+                union("AnydataMessage", "BytesMessage"), "rabbitmq",
+                Set.of("AnydataMessage", "BytesMessage")::contains);
+
+        Assert.assertEquals(resolved.signature(), "rabbitmq:AnydataMessage");
+        Assert.assertEquals(resolved.alternatives(), List.of("rabbitmq:BytesMessage"));
+        Assert.assertTrue(resolved.dropped().isEmpty());
+    }
+
+    @Test
+    public void testAlternativesAreNeverJoinedIntoAUnion() {
+        // A `|`-joined type declares a parameter *of union type*, which is a different contract: the spec
+        // means the author picks one of these when writing the signature. This is the whole reason
+        // alternatives are a list rather than a string.
+        ParamTypeResolver.ParamType resolved = ParamTypeResolver.resolveType(
+                union("string[][]", "record {}[]", "stream<string[], error?>"), "ftp", NONE);
+
+        Assert.assertEquals(resolved.signature(), "string[][]");
+        Assert.assertEquals(resolved.alternatives(), List.of("record {}[]", "stream<string[], error?>"));
+        for (String alternative : resolved.alternatives()) {
+            Assert.assertFalse(alternative.contains("|"), alternative);
+        }
+        Assert.assertFalse(resolved.signature().contains("|"));
+    }
+
+    @Test
+    public void testAnAlternativeNamingAnUndeclaredTypeIsDroppedNotRendered() {
+        // Same guard the signature member gets, applied one member deeper: a document authored against a
+        // different release must not name a type the resolved package lacks. Only the alternative is lost —
+        // the handler survives, because its signature member is fine.
+        ParamTypeResolver.ParamType resolved = ParamTypeResolver.resolveType(
+                union("AnydataMessage", "GhostMessage"), "rabbitmq",
+                Set.of("AnydataMessage")::contains);
+
+        Assert.assertEquals(resolved.signature(), "rabbitmq:AnydataMessage");
+        Assert.assertTrue(resolved.alternatives().isEmpty());
+        Assert.assertEquals(resolved.dropped(), List.of("GhostMessage"));
+    }
+
+    @Test
+    public void testASingleMemberSlotHasNoAlternatives() {
+        // The omission rule: most slots are scalar, and an empty list must not reach the wire.
+        ParamTypeResolver.ParamType resolved = ParamTypeResolver.resolveType(
+                param("watchEvent", "WatchEvent", "required", null), "smb",
+                Set.of("WatchEvent")::contains);
+        Assert.assertEquals(resolved.signature(), "smb:WatchEvent");
+        Assert.assertTrue(resolved.alternatives().isEmpty());
+    }
+
+    @Test
+    public void testADuplicateMemberIsNotRestatedAsAnAlternative() {
+        // Two members that render identically say nothing twice.
+        ParamTypeResolver.ParamType resolved = ParamTypeResolver.resolveType(
+                union("anydata", "anydata"), "ftp", NONE);
+        Assert.assertTrue(resolved.alternatives().isEmpty());
+    }
+
+    @Test
+    public void testACrossModuleAlternativeCarriesItsOwnAlias() {
+        // §1's cross-module rule holds for an alternative exactly as for the signature member.
+        TriggerMetadataModel.ServiceType.Param param = new TriggerMetadataModel.ServiceType.Param(
+                "data", List.of(new TypeRef("Request", null),
+                        new TypeRef("Headers", new TypeRef.PackageInfo("ballerina", "http", "http", "1"))),
+                "required", null, null, null);
+        Assert.assertEquals(ParamTypeResolver.resolveType(param, "mcp", NONE).alternatives(),
+                List.of("http:Headers"));
+    }
+
     // ---- fixtures --------------------------------------------------------------------
+
+    private static TriggerMetadataModel.ServiceType.Param union(String... types) {
+        List<TypeRef> refs = new java.util.ArrayList<>();
+        for (String type : types) {
+            refs.add(new TypeRef(type, null));
+        }
+        return new TriggerMetadataModel.ServiceType.Param("slot", refs, "required", null, null, null);
+    }
 
     private static TriggerMetadataModel.ServiceType.Param param(String name, String type, String presence,
                                                                 String addMode) {
