@@ -641,4 +641,91 @@ suite("toSyntaxString", () => {
             assert.ok(result.includes("class Old {"), `got:\n${result}`);
         });
     });
+
+    // ----------------------------------------------------------------
+    // Ballerina Trigger Construct Spec v1 — rendering conformance.
+    // Each test names the spec section it pins and asserts what that section mandates, so a change
+    // that breaks a spec guarantee fails here even if the implementation stays self-consistent.
+    // ----------------------------------------------------------------
+    suite("Trigger spec §1/§2 — service type module and required imports", () => {
+        function renderService(service: Record<string, unknown>): string {
+            const lib = {
+                name: "ballerinax/mssql",
+                description: "",
+                typeDefs: [],
+                clients: [],
+                services: [service],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        const listener = { name: "mssql:CdcListener", parameters: [] };
+
+        test("§1: a cross-module service type is written with its own module alias", () => {
+            // Spec §1: `packageInfo` appears "only when the type isn't from this file's own home
+            // module", and the home module is the listener's. mssql.cdc's service type belongs to
+            // ballerinax/cdc, so `mssql:Service` would not compile.
+            const result = renderService({
+                type: "fixed", name: "Service", serviceTypeModule: "ballerinax/cdc", listener, methods: [],
+            });
+            assert.ok(result.includes("service cdc:Service on new mssql:CdcListener("),
+                `Expected the foreign module alias, got:\n${result}`);
+            assert.ok(!result.includes("service mssql:Service"),
+                "Must not borrow the listener's alias for a foreign service type");
+        });
+
+        test("§1: a home-module service type still borrows the listener's alias", () => {
+            // No `serviceTypeModule` means the type is the connector's own, so the existing
+            // listener-alias behaviour must be preserved exactly.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: { name: "kafka:Listener", parameters: [] },
+                methods: [],
+            });
+            assert.ok(result.includes("service kafka:Service on new kafka:Listener("), `got:\n${result}`);
+        });
+
+        test("§2: a side-effect-only import is stated on the service that requires it", () => {
+            // Spec §2's own example: `import ballerinax/mssql.cdc.driver as _;`
+            const result = renderService({
+                type: "fixed", name: "Service", listener, methods: [],
+                requiredImports: [{ module: "ballerinax/mssql.cdc.driver", alias: "_" }],
+            });
+            assert.ok(result.includes("# Requires: import ballerinax/mssql.cdc.driver as _;"),
+                `Required import must be stated on the service that needs it, got:\n${result}`);
+            assert.ok(!result.split("\n").some((l) => l === "import ballerinax/mssql.cdc.driver as _;"),
+                "A listener-scoped import must not be hoisted to the library header");
+        });
+
+        test("§2: an import declared by several services is emitted once", () => {
+            const service = (name: string) => ({
+                type: "fixed", name, listener, methods: [],
+                requiredImports: [{ module: "ballerinax/mssql.cdc.driver", alias: "_" }],
+            });
+            const lib = {
+                name: "ballerinax/mssql", description: "", typeDefs: [], clients: [],
+                services: [service("A"), service("B")],
+            } as unknown as Library;
+            const occurrences = toSyntaxString([lib]).split("\n")
+                .filter((l) => l === "import ballerinax/mssql.cdc.driver as _;").length;
+            assert.strictEqual(occurrences, 1, "Duplicate imports must be collapsed");
+        });
+
+        test("§2: an entry with no alias renders as a plain import", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener, methods: [],
+                requiredImports: [{ module: "ballerinax/somepkg" }],
+            });
+            assert.ok(result.includes("import ballerinax/somepkg;"), `got:\n${result}`);
+            assert.ok(!result.includes("as _;"), "No alias means no `as` clause");
+        });
+
+        test("general rule: absent optional keys add nothing", () => {
+            // "A field that would be empty, unused, or fully derivable ... is left out" — an absent
+            // requiredImports/serviceTypeModule must leave output byte-identical to before.
+            const result = renderService({ type: "fixed", name: "Service", listener, methods: [] });
+            assert.ok(!result.includes(" as _;"), "No imports must be invented");
+            const importLines = result.split("\n").filter((l) => l.startsWith("import "));
+            assert.deepStrictEqual(importLines, ["import ballerinax/mssql;"]);
+        });
+    });
 });

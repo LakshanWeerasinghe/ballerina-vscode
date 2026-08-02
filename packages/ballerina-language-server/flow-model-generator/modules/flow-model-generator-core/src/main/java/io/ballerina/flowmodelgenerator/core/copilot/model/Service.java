@@ -34,6 +34,11 @@ public class Service {
     @SerializedName("instructions")
     private String instructions;
     private Listener listener;
+    // Spec §1: the org/module a cross-module service type belongs to (ballerinax/cdc). Null for a
+    // home-module type. The renderer derives the prefix and the provenance note from it.
+    private String serviceTypeModule;
+    // Spec §2: side-effect-only imports the listener requires; needed only by code using that listener.
+    private List<RequiredImport> requiredImports;
     @SerializedName("methods")
     private List<ServiceRemoteFunction> methods;
     private String testGenerationInstruction;
@@ -73,6 +78,22 @@ public class Service {
 
     public void setListener(Listener listener) {
         this.listener = listener;
+    }
+
+    public String getServiceTypeModule() {
+        return serviceTypeModule;
+    }
+
+    public void setServiceTypeModule(String serviceTypeModule) {
+        this.serviceTypeModule = serviceTypeModule;
+    }
+
+    public List<RequiredImport> getRequiredImports() {
+        return requiredImports;
+    }
+
+    public void setRequiredImports(List<RequiredImport> requiredImports) {
+        this.requiredImports = requiredImports;
     }
 
     public List<ServiceRemoteFunction> getMethods() {

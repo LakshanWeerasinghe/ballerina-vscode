@@ -323,6 +323,25 @@ public class CopilotSchemaServicesTest {
         Assert.assertEquals(listener.get("name").getAsString(), "mssql:CdcListener",
                 "The metadata-declared CdcListener must validate against the resolved package");
 
+        // Spec §1: the service type belongs to ballerinax/cdc, not to the home module, so it is
+        // written with its own module's alias — `service cdc:Service on new mssql:CdcListener(...)`.
+        // `mssql:Service` would not compile.
+        Assert.assertEquals(service.get("serviceTypeModule").getAsString(), "ballerinax/cdc");
+
+        // Spec §2: the listener's side-effect import travels with the service that uses it. The
+        // foreign service type itself is NOT imported - provenance is carried by the renderer's
+        // Special Agent Note, the same mechanism every other cross-module reference uses.
+        List<String> imports = new ArrayList<>();
+        for (JsonElement element : service.getAsJsonArray("requiredImports")) {
+            JsonObject entry = element.getAsJsonObject();
+            imports.add(entry.get("module").getAsString()
+                    + (entry.has("alias") ? " as " + entry.get("alias").getAsString() : ""));
+        }
+        Assert.assertTrue(imports.contains("ballerinax/mssql.cdc.driver as _"),
+                "Spec §2 side-effect import missing, got " + imports);
+        Assert.assertFalse(imports.contains("ballerinax/cdc"),
+                "A foreign service type must not be imported, got " + imports);
+
         Assert.assertEquals(methodNames(service),
                 List.of("onRead", "onCreate", "onUpdate", "onDelete", "onError"));
 

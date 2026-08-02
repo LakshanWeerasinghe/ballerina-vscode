@@ -19,6 +19,7 @@
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.api.symbols.ClassSymbol;
@@ -87,6 +88,9 @@ import java.util.logging.Logger;
 final class TriggerSchemaServiceLoader {
 
     private static final Logger LOGGER = Logger.getLogger(TriggerSchemaServiceLoader.class.getName());
+
+    /** The alias a side-effect-only import is written with: {@code import org/pkg as _;}. */
+    static final String SIDE_EFFECT_IMPORT_ALIAS = "_";
 
     /**
      * Module keys for the LS-bundled {@code trigger-metadata-models/<key>/trigger-metadata.json}
@@ -179,6 +183,10 @@ final class TriggerSchemaServiceLoader {
             }
 
             JsonObject listenerJson = buildListener(listenerClass.get(), facts, packageName);
+            // Spec §1: everything cross-module is judged against the home module, which the listener
+            // defines. Spec §2's imports are declared on the listener too.
+            String homeModule = homeModule(metadata.listeners().get(0), packageName);
+            JsonArray listenerImports = requiredImports(metadata.listeners().get(0));
 
             JsonArray services = new JsonArray();
             for (TriggerMetadataModel.ServiceType serviceType : metadata.serviceTypes()) {
@@ -189,9 +197,7 @@ final class TriggerSchemaServiceLoader {
                 // A same-module service type must exist in the resolved package version (guards
                 // against metadata authored for a future release); a cross-module type (e.g. mssql's
                 // cdc:Service) cannot be checked against this module's symbols and is trusted.
-                boolean foreignType = serviceType.type().packageInfo() != null
-                        && serviceType.type().packageInfo().packageName() != null
-                        && !serviceType.type().packageInfo().packageName().equals(packageName);
+                boolean foreignType = isForeignServiceType(serviceType, homeModule);
                 if (!foreignType && !facts.declaresType(typeName)) {
                     LOGGER.warning("Skipping service type " + typeName + " for " + libraryName
                             + ": not declared by the resolved package version");
@@ -215,6 +221,16 @@ final class TriggerSchemaServiceLoader {
                 // name; CopilotDeprecationEnricher's lookup against this module's symbols is then a
                 // deliberate no-op unless the module declares the same name itself.
                 svc.addProperty("name", typeName);
+                // Spec §1: a foreign service type is written with its own module's alias, not the
+                // listener's. Absent for a home-module type, which the renderer prefixes with the
+                // listener alias exactly as before.
+                serviceTypeModule(serviceType, homeModule)
+                        .ifPresent(module -> svc.addProperty("serviceTypeModule", module));
+                // Spec §2's side-effect imports. Carried on the service rather than the library: the
+                // spec declares them on the listener, so they are only needed by code that uses it.
+                if (!listenerImports.isEmpty()) {
+                    svc.add("requiredImports", listenerImports.deepCopy());
+                }
                 svc.add("listener", listenerJson);
 
                 JsonArray methods = concrete
@@ -520,5 +536,123 @@ final class TriggerSchemaServiceLoader {
             return moduleName.substring(moduleName.lastIndexOf('.') + 1);
         }
         return moduleName;
+    }
+
+    /**
+     * Spec &sect;1 — the document's <b>home module</b>: "whichever module the file's primary construct
+     * (its listener, usually) belongs to". Taken from the listener's own {@code packageInfo} when it
+     * declares one; otherwise the resolved library's default module, which is its package name.
+     *
+     * <p>Everything else in &sect;1 is relative to this: a {@code TypeRef} is cross-module exactly
+     * when its module differs from the value returned here.
+     *
+     * @param listener    the document's first listener (may be {@code null})
+     * @param packageName the resolved library's package name, the default home
+     * @return the home module name, never {@code null} unless {@code packageName} is
+     */
+    static String homeModule(TriggerMetadataModel.Listener listener, String packageName) {
+        String declared = moduleOf(listener == null ? null : listener.type());
+        return declared != null ? declared : packageName;
+    }
+
+    /**
+     * The module a {@link TypeRef} belongs to, or {@code null} for a bare reference (spec &sect;1: "A
+     * bare {@code {"name": ...}} always means same module as this connector's own types"). Prefers
+     * {@code moduleName} over {@code packageName}: a submodule such as {@code mssql.cdc} shares its
+     * parent's package name but is a distinct module, and it is the module that determines both the
+     * import path and the alias.
+     */
+    private static String moduleOf(TypeRef ref) {
+        if (ref == null || ref.packageInfo() == null) {
+            return null;
+        }
+        TypeRef.PackageInfo info = ref.packageInfo();
+        if (info.moduleName() != null && !info.moduleName().isEmpty()) {
+            return info.moduleName();
+        }
+        return info.packageName() == null || info.packageName().isEmpty() ? null : info.packageName();
+    }
+
+    /**
+     * Spec &sect;1 — whether a service type is <b>cross-module</b>, i.e. belongs to a module other than
+     * the document's home module. Compared at <i>module</i> granularity, not package: {@code mssql.cdc}
+     * is foreign to {@code mssql} even though both share a package name.
+     *
+     * <p>Kept separate from {@link #serviceTypeAlias} because the two answer different questions. This
+     * one also decides whether the type may be validated against the resolved package's symbols: a
+     * foreign type cannot be, so it is trusted rather than vetoed.
+     */
+    static boolean isForeignServiceType(TriggerMetadataModel.ServiceType serviceType, String homeModule) {
+        String module = serviceType == null ? null : moduleOf(serviceType.type());
+        return module != null && !module.equals(homeModule);
+    }
+
+    /**
+     * Spec &sect;1 — the {@code org/module} a cross-module service type belongs to, e.g.
+     * {@code ballerinax/cdc} for a document whose home module is {@code mssql}.
+     *
+     * <p>The <i>module</i> is emitted rather than the alias it renders with: the module is the fact the
+     * document states, and deriving a prefix from it is a syntax decision that belongs to the renderer
+     * (which already derives module prefixes the same way for every other foreign type reference).
+     * Emitting the full coordinate also lets the renderer name the owning package in the provenance
+     * note it attaches, exactly as it does for foreign types in fields, parameters and returns.
+     *
+     * <p>Empty for a home-module type — the renderer then falls back to the listener's alias — and for
+     * a reference carrying no usable coordinate.
+     *
+     * @param serviceType the service type being emitted
+     * @param homeModule  the document's home module, from {@link #homeModule}
+     * @return the foreign {@code org/module}, or empty
+     */
+    static Optional<String> serviceTypeModule(TriggerMetadataModel.ServiceType serviceType,
+                                              String homeModule) {
+        if (!isForeignServiceType(serviceType, homeModule)) {
+            return Optional.empty();
+        }
+        String org = serviceType.type().packageInfo().org();
+        String module = moduleOf(serviceType.type());
+        if (org == null || org.isEmpty() || getAlias(module) == null || getAlias(module).isEmpty()) {
+            // No usable prefix could be derived; qualifying with a blank alias would erase the type.
+            return Optional.empty();
+        }
+        return Optional.of(org + "/" + module);
+    }
+
+    /**
+     * Spec &sect;2 — {@code listeners[].requiredImports}: packages that must be imported for their side
+     * effect even though nothing in the generated code references them by name (a CDC driver
+     * registering itself at runtime). Emitted as {@code {module, alias}} so the renderer can write
+     * {@code import ballerinax/mssql.cdc.driver as _;}.
+     *
+     * <p>{@code importType} is deliberately <b>not</b> filtered on: the spec's &sect;10 vocabulary
+     * lists {@code driver} as the only value today, but an unrecognised kind still needs its import to
+     * be emitted for the generated code to work, so it degrades rather than disappearing.
+     *
+     * <p>The import path is the <i>module</i> ({@link #moduleOf}), not the package: they differ for a
+     * submodule, and it is the module that is imported.
+     *
+     * @param listener the document's first listener (may be {@code null})
+     * @return one entry per declared import that carries usable coordinates; empty when there are none
+     */
+    static JsonArray requiredImports(TriggerMetadataModel.Listener listener) {
+        JsonArray imports = new JsonArray();
+        if (listener == null || listener.requiredImports() == null) {
+            return imports;
+        }
+        for (TriggerMetadataModel.RequiredImport required : listener.requiredImports()) {
+            if (required == null || required.packageInfo() == null) {
+                continue;
+            }
+            String org = required.packageInfo().org();
+            String module = moduleOf(new TypeRef(null, required.packageInfo()));
+            if (org == null || org.isEmpty() || module == null) {
+                continue;
+            }
+            JsonObject entry = new JsonObject();
+            entry.addProperty("module", org + "/" + module);
+            entry.addProperty("alias", SIDE_EFFECT_IMPORT_ALIAS);
+            imports.add(entry);
+        }
+        return imports;
     }
 }

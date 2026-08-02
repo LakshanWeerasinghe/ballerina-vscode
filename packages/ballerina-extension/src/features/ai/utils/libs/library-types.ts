@@ -164,11 +164,23 @@ export interface Listener {
     parameters: Parameter[];
 }
 
+// Spec §2 `listeners[].requiredImports`: an import the generated code needs for its runtime side
+// effect even though nothing references it by name (bound to `_`). Scoped to the service that uses
+// the listener, not to the library.
+export interface RequiredImport {
+    module: string;
+    alias?: string;
+}
+
 export interface Service {
     listener: Listener;
     type: "generic" | "fixed";
     name?: string;
     isDeprecated?: boolean;
+    // Spec §1: the `org/module` a cross-module service type belongs to (`ballerinax/cdc`). Absent
+    // for a home-module type, which is prefixed with the listener's alias instead.
+    serviceTypeModule?: string;
+    requiredImports?: RequiredImport[];
 }
 
 export interface Annotation {

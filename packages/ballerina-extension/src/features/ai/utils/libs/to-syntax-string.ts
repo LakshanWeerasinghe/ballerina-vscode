@@ -574,15 +574,33 @@ function renderFixedService(service: FixedService): string {
         (p) => `${p.type.name} ${p.name}${(p as any).default !== undefined ? ` = ${(p as any).default}` : ""}`
     ).join(", ");
 
+    // Spec §2: the listener's side-effect imports are required only by code that uses this service,
+    // so they are stated here rather than hoisted to the library header.
+    for (const directive of service.requiredImports ?? []) {
+        if (directive && directive.module) {
+            const alias = directive.alias ? ` as ${directive.alias}` : "";
+            lines.push(`# Requires: import ${directive.module}${alias};`);
+        }
+    }
+
     if (service.isDeprecated) {
         lines.push("@deprecated");
     }
 
-    const alias = deriveListenerAlias(service.listener.name);
+    // Spec §1: a cross-module service type is written with its own module's prefix; only a
+    // home-module type borrows the listener's. Writing `mssql:Service` for `ballerinax/cdc`'s type
+    // would not compile. Its provenance travels in the same `Special Agent Note` every other
+    // cross-module reference in the catalog uses, rather than an import.
+    const foreignModule = service.serviceTypeModule;
+    const alias = (foreignModule ? deriveModulePrefix(foreignModule) : "")
+        || deriveListenerAlias(service.listener.name);
     const serviceTypePrefix = service.name && alias
         ? `${alias}:${service.name} `
         : "";
-    lines.push(`service ${serviceTypePrefix}on new ${service.listener.name}(${listenerParams}) {`);
+    const agentNote = foreignModule && service.name
+        ? ` // Special Agent Note: ${service.name} FROM ${foreignModule} package`
+        : "";
+    lines.push(`service ${serviceTypePrefix}on new ${service.listener.name}(${listenerParams}) {${agentNote}`);
 
     for (const method of service.methods ?? []) {
         const desc = method.description ? `    # ${method.description}\n` : "";
