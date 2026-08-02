@@ -614,6 +614,14 @@ function getOwnRecordRefs(functions: AbstractFunction[], allTypeDefs: TypeDefini
             for (const param of service.listener.parameters) {
                 addInternalRecord(param.type, ownRecords, allTypeDefs);
             }
+            // Spec §8: a service-level annotation's constraining record is a type reference no other
+            // scanner reaches, so without this the prompt could require `@ftp:ServiceConfig {...}`
+            // while defining nothing that says which fields it takes.
+            for (const annotation of service.annotations ?? []) {
+                if (annotation?.typeConstraint) {
+                    addInternalRecord(annotation.typeConstraint, ownRecords, allTypeDefs);
+                }
+            }
             if (service.type === "fixed") {
                 const fixedService = service as FixedService;
                 for (const method of fixedService.methods ?? []) {
@@ -778,6 +786,17 @@ function getExternalTypeDefRefs(
         for (const service of services) {
             for (const param of service.listener.parameters) {
                 addExternalRecord(param.type, externalRecords);
+            }
+            // Spec §8, the external counterpart of the internal scan above. Note what this does NOT
+            // cover: a cross-module *annotation* carries no `typeConstraint` at all (its constraint
+            // lives in symbols the library's own semantic model cannot see), so mssql's
+            // `@cdc:ServiceConfig` never reaches here — its record is announced by the Special Agent
+            // Note instead, and resolving it properly needs cross-package annotation lookup. This scan
+            // covers the remaining case: a home-module annotation constrained by a foreign record.
+            for (const annotation of service.annotations ?? []) {
+                if (annotation?.typeConstraint) {
+                    addExternalRecord(annotation.typeConstraint, externalRecords);
+                }
             }
             if (service.type === "fixed") {
                 const fixedService = service as FixedService;

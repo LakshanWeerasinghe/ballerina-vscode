@@ -360,6 +360,57 @@ public class CopilotSchemaServicesTest {
         Assert.assertFalse(onError.has("return"));
     }
 
+    @Test
+    public void testMssqlCrossModuleServiceAnnotationCarriesItsConstraint() {
+        // Spec §8 across a module boundary — the case the whole annotation phase exists for. mssql's
+        // document declares a REQUIRED annotation that belongs to ballerinax/cdc, and generated CDC code
+        // without it does not work.
+        JsonObject service = serviceNamed(load("ballerinax/mssql"), "Service");
+
+        Assert.assertTrue(service.has("annotations"), "the required annotation must reach the catalog");
+        JsonArray annotations = service.getAsJsonArray("annotations");
+        Assert.assertEquals(annotations.size(), 1);
+        JsonObject annotation = annotations.get(0).getAsJsonObject();
+
+        Assert.assertEquals(annotation.get("name").getAsString(), "ServiceConfig");
+        Assert.assertEquals(annotation.get("presence").getAsString(), "required");
+        Assert.assertEquals(annotation.get("attachPoint").getAsString(), "service");
+        // Spec §1: it belongs to another module, so it states that module and renders `@cdc:ServiceConfig`.
+        Assert.assertEquals(annotation.get("module").getAsString(), "ballerinax/cdc");
+
+        // The document names the annotation TAG (`ServiceConfig`); its constraining record is called
+        // something else entirely (`CdcServiceConfig`) and is declared in a different package. It is
+        // introspected from the compiler — the foreign module's symbols are already in this compilation,
+        // because a module whose annotation the generated code must attach is necessarily a dependency.
+        JsonObject constraint = annotation.getAsJsonObject("typeConstraint");
+        Assert.assertNotNull(constraint, "a required annotation with no field source is unusable");
+        Assert.assertEquals(constraint.get("name").getAsString(), "CdcServiceConfig");
+
+        // An EXTERNAL link is what carries the record's definition into the prompt, via the same
+        // reachability mechanism every other cross-package type reference already uses.
+        JsonObject link = constraint.getAsJsonArray("links").get(0).getAsJsonObject();
+        Assert.assertEquals(link.get("category").getAsString(), "external");
+        Assert.assertEquals(link.get("recordName").getAsString(), "CdcServiceConfig");
+        Assert.assertEquals(link.get("libraryName").getAsString(), "ballerinax/cdc");
+    }
+
+    @Test
+    public void testHomeModuleServiceAnnotationConstraintIsIntrospectedNotGuessed() {
+        // ballerina/ftp's document says `type: {"name": "ServiceConfig"}` while the package declares
+        // `public annotation ServiceConfiguration ServiceConfig on service;`. Reading the document's name
+        // as a type name would emit an attachment constrained by a record that does not exist.
+        JsonObject annotation = serviceNamed(load("ballerina/ftp"), "Service")
+                .getAsJsonArray("annotations").get(0).getAsJsonObject();
+
+        Assert.assertEquals(annotation.get("name").getAsString(), "ServiceConfig", "the tag");
+        Assert.assertEquals(annotation.get("presence").getAsString(), "required");
+        Assert.assertFalse(annotation.has("module"), "a home-module annotation states no module");
+        Assert.assertEquals(annotation.getAsJsonObject("typeConstraint").get("name").getAsString(),
+                "ServiceConfiguration", "the constraint differs from the tag and comes from the compiler");
+        Assert.assertEquals(annotation.getAsJsonObject("typeConstraint").getAsJsonArray("links")
+                .get(0).getAsJsonObject().get("category").getAsString(), "internal");
+    }
+
     // ---- mcp ---------------------------------------------------------------------------
 
     @Test

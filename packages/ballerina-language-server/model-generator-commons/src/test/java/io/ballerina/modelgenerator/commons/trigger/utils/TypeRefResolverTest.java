@@ -184,6 +184,52 @@ public class TypeRefResolverTest {
         Assert.assertNull(TypeRefResolver.baseIdentifier(null));
     }
 
+    // ---- §1 — the cross-module coordinate a consumer needs to state provenance ---------------
+
+    @Test
+    public void testForeignModulePathIsTheCoordinateOfACrossModuleReference() {
+        // §1: `packageInfo` is present "only when the type isn't from this file's own 'home' module", so
+        // a reference carrying coordinates for a different module IS the cross-module case. The module is
+        // returned rather than the alias — deriving a prefix is the consumer's rendering decision, and
+        // the full coordinate is what lets it name the owning package in a provenance note.
+        Assert.assertEquals(TypeRefResolver.foreignModulePath(
+                new TypeRef("Service", new TypeRef.PackageInfo("ballerinax", "cdc", "cdc", "1.3.2")),
+                "mssql").orElseThrow(), "ballerinax/cdc");
+    }
+
+    @Test
+    public void testAReferenceFromTheHomeModuleIsNotForeign() {
+        // Whether stated bare or stated explicitly, a home-module reference has no foreign coordinate —
+        // and treating one as foreign would prefix a type with its own alias a second time.
+        Assert.assertTrue(TypeRefResolver.foreignModulePath(new TypeRef("Caller", null), "kafka").isEmpty());
+        Assert.assertTrue(TypeRefResolver.foreignModulePath(
+                new TypeRef("Caller", new TypeRef.PackageInfo("ballerinax", "kafka", "kafka", "4.6.5")),
+                "kafka").isEmpty());
+        Assert.assertTrue(TypeRefResolver.foreignModulePath(null, "kafka").isEmpty());
+    }
+
+    @Test
+    public void testForeignnessIsJudgedByModuleNotPackage() {
+        // A submodule shares its parent's package name while being a distinct module, and it is the
+        // module that determines both the import path and the alias. `mssql.cdc` is the corpus case.
+        Assert.assertEquals(TypeRefResolver.foreignModulePath(
+                new TypeRef("Driver",
+                        new TypeRef.PackageInfo("ballerinax", "mssql", "mssql.cdc.driver", "1.0.2")),
+                "mssql").orElseThrow(), "ballerinax/mssql.cdc.driver");
+    }
+
+    @Test
+    public void testCoordinatesYieldingNoUsablePrefixAreNotReportedAsForeign() {
+        // Qualifying with a blank alias would erase the type name at the point of use, so an unusable
+        // coordinate degrades to "not foreign" rather than producing `:Service`.
+        Assert.assertTrue(TypeRefResolver.foreignModulePath(
+                new TypeRef("Service", new TypeRef.PackageInfo(null, "cdc", "cdc", "1.3.2")),
+                "mssql").isEmpty());
+        Assert.assertTrue(TypeRefResolver.foreignModulePath(
+                new TypeRef("Service", new TypeRef.PackageInfo("ballerinax", "", "", "1.3.2")),
+                "mssql").isEmpty());
+    }
+
     private static String render(String name) {
         return TypeRefResolver.render(new TypeRef(name, null), "kafka", KAFKA_TYPES);
     }

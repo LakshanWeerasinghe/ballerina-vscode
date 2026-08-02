@@ -75,6 +75,17 @@ final class ServiceDraft {
         }
     }
 
+    /**
+     * Spec §8 {@code annotations[]} at {@code attachPoint: "service"}: the annotations this service type
+     * must or may carry. Omitted when it carries none, so a service with no obligation says nothing
+     * rather than carrying an empty array.
+     */
+    void setAnnotations(JsonArray annotations) {
+        if (annotations != null && !annotations.isEmpty()) {
+            json.add("annotations", annotations);
+        }
+    }
+
     /** Spec §2 {@code listeners[].type}: the listener the service attaches to, with its init params. */
     void setListener(JsonObject listener) {
         if (listener != null) {

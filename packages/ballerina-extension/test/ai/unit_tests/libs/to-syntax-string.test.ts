@@ -696,7 +696,17 @@ suite("toSyntaxString", () => {
                 "A listener-scoped import must not be hoisted to the library header");
         });
 
-        test("§2: an import declared by several services is emitted once", () => {
+        test("§2: an import required by several services is stated on each, never hoisted", () => {
+            // Spec §2 declares `requiredImports` on the *listener*, so the requirement belongs to each
+            // service that attaches to it — one `# Requires:` line per service, and never a bare
+            // `import ...;` at the library header. Repetition is correct here, not duplication: each
+            // service states its own dependency, and a reader of one service must not have to look at
+            // another to discover it.
+            //
+            // This test previously asserted the opposite — that a single *hoisted* `import ...;` line
+            // appears — which directly contradicted its own sibling above ("must not be hoisted to the
+            // library header"). It had never passed: it was red in the same commit that introduced it
+            // (27f7eab8), so it pinned a design that was abandoned before it shipped.
             const service = (name: string) => ({
                 type: "fixed", name, listener, methods: [],
                 requiredImports: [{ module: "ballerinax/mssql.cdc.driver", alias: "_" }],
@@ -705,9 +715,16 @@ suite("toSyntaxString", () => {
                 name: "ballerinax/mssql", description: "", typeDefs: [], clients: [],
                 services: [service("A"), service("B")],
             } as unknown as Library;
-            const occurrences = toSyntaxString([lib]).split("\n")
-                .filter((l) => l === "import ballerinax/mssql.cdc.driver as _;").length;
-            assert.strictEqual(occurrences, 1, "Duplicate imports must be collapsed");
+            const lines = toSyntaxString([lib]).split("\n");
+
+            assert.strictEqual(
+                lines.filter((l) => l === "# Requires: import ballerinax/mssql.cdc.driver as _;").length,
+                2, "each service states the import it requires");
+            assert.strictEqual(
+                lines.filter((l) => l === "import ballerinax/mssql.cdc.driver as _;").length,
+                0, "a listener-scoped import is never hoisted to the library header");
+            assert.deepStrictEqual(lines.filter((l) => l.startsWith("import ")),
+                ["import ballerinax/mssql;"], "only the library's own import is hoisted");
         });
 
         test("§2: an entry with no alias renders as a plain import", () => {
@@ -726,6 +743,231 @@ suite("toSyntaxString", () => {
             assert.ok(!result.includes(" as _;"), "No imports must be invented");
             const importLines = result.split("\n").filter((l) => l.startsWith("import "));
             assert.deepStrictEqual(importLines, ["import ballerinax/mssql;"]);
+        });
+    });
+
+    suite("Trigger spec §8 — service-level annotation requirements", () => {
+        function renderService(service: Record<string, unknown>, libName = "ballerina/ftp"): string {
+            const lib = {
+                name: libName,
+                description: "",
+                typeDefs: [],
+                clients: [],
+                services: [service],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        const ftpListener = { name: "ftp:Listener", parameters: [] };
+
+        function annotation(over: Record<string, unknown> = {}): Record<string, unknown> {
+            return {
+                name: "ServiceConfig", presence: "optional", attachPoint: "service", ...over,
+            };
+        }
+
+        test("§8: a required annotation is attached above the service it is required on", () => {
+            // ftp, smb and mssql.cdc declare `presence: "required"`; code generated without the
+            // annotation does not work, so the obligation has to be unmissable and adjacent.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ presence: "required" })],
+            });
+            const lines = result.split("\n");
+            const serviceLine = lines.findIndex((l) => l.startsWith("service ftp:Service on new"));
+            const attachLine = lines.findIndex((l) => l.startsWith("@ftp:ServiceConfig"));
+
+            assert.ok(attachLine >= 0, `Expected an attachment line, got:\n${result}`);
+            assert.strictEqual(attachLine, serviceLine - 1, "The attachment must sit on the service");
+            assert.ok(lines[attachLine - 1].startsWith("# Mandatory:"),
+                `A required annotation must state the obligation, got: ${lines[attachLine - 1]}`);
+        });
+
+        test("§8: presence distinguishes a required annotation from an optional one", () => {
+            // Both are attachments of identical shape, so the presence has to be legible on the line
+            // that actually gets copied — an optional annotation whose record has mandatory fields
+            // turns a harmless omission into a compile error when attached carelessly.
+            const required = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ presence: "required" })],
+            });
+            const optional = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ presence: "optional" })],
+            });
+
+            assert.ok(required.includes("@ftp:ServiceConfig {...} // required"), `got:\n${required}`);
+            assert.ok(optional.includes("@ftp:ServiceConfig {...} // optional"), `got:\n${optional}`);
+            assert.ok(required.includes("# Mandatory: this service must carry"));
+            assert.ok(optional.includes("# Optional: this service may carry"));
+        });
+
+        test("§1/§8: a cross-module annotation takes its own module's prefix and states provenance", () => {
+            // mssql.cdc's annotation belongs to ballerinax/cdc, so `@mssql:ServiceConfig` would name
+            // something that does not exist. Provenance travels in the same `Special Agent Note`
+            // convention every other cross-module reference in this renderer uses.
+            const result = renderService({
+                type: "fixed", name: "Service", serviceTypeModule: "ballerinax/cdc",
+                listener: { name: "mssql:CdcListener", parameters: [] }, methods: [],
+                annotations: [annotation({ presence: "required", module: "ballerinax/cdc" })],
+            }, "ballerinax/mssql");
+
+            assert.ok(result.includes("@cdc:ServiceConfig {...}"), `got:\n${result}`);
+            assert.ok(!result.includes("@mssql:ServiceConfig"),
+                "A foreign annotation must not borrow the library's own alias");
+            assert.ok(result.includes("Special Agent Note: ServiceConfig FROM ballerinax/cdc package"),
+                `Provenance must be stated, got:\n${result}`);
+        });
+
+        test("§8: a home-module annotation takes the listener's alias, not the service type's", () => {
+            // The service type may live in another module while the annotation is the library's own —
+            // prefixing the annotation with `serviceTypeModule`'s alias would misname it.
+            const result = renderService({
+                type: "fixed", name: "Service", serviceTypeModule: "ballerinax/cdc",
+                listener: { name: "mssql:CdcListener", parameters: [] }, methods: [],
+                annotations: [annotation()],
+            }, "ballerinax/mssql");
+            assert.ok(result.includes("@mssql:ServiceConfig {...}"), `got:\n${result}`);
+            assert.ok(!result.includes("@cdc:ServiceConfig"), "Home annotation must not go foreign");
+        });
+
+        test("§8: the constraining record is named so the placeholder can be filled", () => {
+            // The document names the annotation tag, not its constraint: `@ftp:ServiceConfig` is
+            // constrained by `ServiceConfiguration`. `{...}` is not valid Ballerina, so the model has
+            // to be told both that it must be replaced and what supplies the fields.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({
+                    presence: "required",
+                    typeConstraint: { name: "ServiceConfiguration" },
+                })],
+            });
+            assert.ok(result.includes("Replace {...} with its fields, which are those of "
+                + "ServiceConfiguration."), `got:\n${result}`);
+        });
+
+        test("§8: an unknown constraint still instructs the placeholder be replaced", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ presence: "required" })],
+            });
+            assert.ok(result.includes("Replace {...} with its fields."), `got:\n${result}`);
+        });
+
+        test("§8: several annotations on one service keep document order", () => {
+            // "Array order is meaningful" — mcp is the corpus case with more than one in play.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ name: "FirstConfig" }), annotation({ name: "SecondConfig" })],
+            });
+            assert.ok(result.indexOf("@ftp:FirstConfig") < result.indexOf("@ftp:SecondConfig"),
+                `got:\n${result}`);
+        });
+
+        test("§8: documentation precedes every annotation, including @deprecated", () => {
+            // Ballerina metadata order: all `#` documentation, then all annotations, then the
+            // declaration. A deprecated service carrying an obligation must not sandwich the `#` line
+            // between two annotations.
+            const lines = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [], isDeprecated: true,
+                annotations: [annotation({ presence: "required" })],
+            }).split("\n");
+
+            const doc = lines.findIndex((l) => l.startsWith("# Mandatory:"));
+            const attach = lines.findIndex((l) => l.startsWith("@ftp:ServiceConfig"));
+            const deprecated = lines.findIndex((l) => l === "@deprecated");
+            const serviceLine = lines.findIndex((l) => l.startsWith("service ftp:Service on new"));
+
+            assert.ok(doc >= 0 && attach >= 0 && deprecated >= 0 && serviceLine >= 0, lines.join("\n"));
+            assert.ok(doc < attach, "documentation precedes the attachment");
+            assert.ok(doc < deprecated, "documentation precedes @deprecated");
+            assert.ok(attach < serviceLine && deprecated < serviceLine,
+                "every annotation precedes the declaration");
+        });
+
+        test("general rule: a service with no annotations renders exactly as before", () => {
+            // Most service types carry no obligation, and their output must be untouched.
+            const withKeyAbsent = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+            });
+            const withEmptyArray = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [], annotations: [],
+            });
+            assert.strictEqual(withKeyAbsent, withEmptyArray,
+                "An empty array must render identically to an absent key");
+            assert.ok(!withKeyAbsent.includes("must carry") && !withKeyAbsent.includes("may carry"),
+                `No obligation may be invented, got:\n${withKeyAbsent}`);
+        });
+
+        test("§1/§8: a foreign constraint is named with its own module's prefix", () => {
+            // `CdcServiceConfig` lives in ballerinax/cdc, so telling the model to use a bare
+            // `CdcServiceConfig` would name something not in scope. The prefix comes from the external
+            // link, exactly as it does for any other cross-package type reference in this renderer.
+            const result = renderService({
+                type: "fixed", name: "Service", serviceTypeModule: "ballerinax/cdc",
+                listener: { name: "mssql:CdcListener", parameters: [] }, methods: [],
+                annotations: [annotation({
+                    presence: "required", module: "ballerinax/cdc",
+                    typeConstraint: {
+                        name: "CdcServiceConfig",
+                        links: [{ category: "external", recordName: "CdcServiceConfig",
+                                  libraryName: "ballerinax/cdc" }],
+                    },
+                })],
+            }, "ballerinax/mssql");
+
+            assert.ok(result.includes("which are those of cdc:CdcServiceConfig."), `got:\n${result}`);
+        });
+
+        test("§8: provenance names both the annotation and its record, in one comment", () => {
+            // Both live in the foreign package, and both are what the model has to go and find. Two
+            // separate `//` comments on one line would compete; the renderer's grouping convention is
+            // `X, Y FROM <lib> package`.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: { name: "mssql:CdcListener", parameters: [] },
+                methods: [],
+                annotations: [annotation({
+                    presence: "required", module: "ballerinax/cdc",
+                    typeConstraint: {
+                        name: "CdcServiceConfig",
+                        links: [{ category: "external", recordName: "CdcServiceConfig",
+                                  libraryName: "ballerinax/cdc" }],
+                    },
+                })],
+            }, "ballerinax/mssql");
+
+            const line = result.split("\n").find((l) => l.startsWith("@cdc:ServiceConfig"))!;
+            assert.strictEqual(line,
+                "@cdc:ServiceConfig {...} // required; Special Agent Note: ServiceConfig, "
+                + "CdcServiceConfig FROM ballerinax/cdc package");
+            assert.strictEqual(line.split("//").length - 1, 1, "exactly one trailing comment");
+        });
+
+        test("§8: a home-module constraint stays unprefixed by the external mechanism", () => {
+            // An internal link records the type without re-qualifying it, so the sentence reads with the
+            // bare record name the same file already declares.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({
+                    presence: "required",
+                    typeConstraint: {
+                        name: "ServiceConfiguration",
+                        links: [{ category: "internal", recordName: "ServiceConfiguration" }],
+                    },
+                })],
+            });
+            assert.ok(result.includes("which are those of ServiceConfiguration."), `got:\n${result}`);
+            assert.ok(!result.includes("ftp:ServiceConfiguration"), "internal links are not re-qualified");
+        });
+
+        test("§8: a nameless entry is skipped rather than rendered as a bare @", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: ftpListener, methods: [],
+                annotations: [annotation({ name: undefined }), annotation({ name: "Sound" })],
+            });
+            assert.ok(!result.split("\n").some((l) => l.trim() === "@ftp: {...} // optional"),
+                `got:\n${result}`);
+            assert.ok(result.includes("@ftp:Sound {...}"), "the sound entry beside it still renders");
         });
     });
 });

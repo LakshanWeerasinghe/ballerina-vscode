@@ -172,12 +172,15 @@ final class TriggerSchemaServiceLoader {
             }
 
             AspectRegistry registry = AspectRegistry.forVersion(AspectRegistry.VERSION_V1);
+            // Spec §8's registry is built once per library: it is shared by every service type, and by
+            // every attach point once the later phases land.
+            AnnotationRegistry annotations = AnnotationRegistry.of(metadata);
             JsonArray services = new JsonArray();
             List<Veto> vetoes = new ArrayList<>();
 
             for (ListenerPairingResolver.ListenerPairing pairing : pairings) {
-                ServiceDraft draft = buildService(libraryName, org, packageName, metadata, pairing, facts,
-                        registry);
+                ServiceDraft draft = buildService(libraryName, org, packageName, metadata, annotations,
+                        pairing, facts, registry);
                 vetoes.addAll(draft.vetoes());
                 if (draft.isVetoed()) {
                     continue;
@@ -197,7 +200,7 @@ final class TriggerSchemaServiceLoader {
 
     /** Runs the ordered service components over one (service type × listener) pair. */
     private static ServiceDraft buildService(String libraryName, String org, String packageName,
-                                             TriggerMetadataModel metadata,
+                                             TriggerMetadataModel metadata, AnnotationRegistry annotations,
                                              ListenerPairingResolver.ListenerPairing pairing,
                                              TriggerSemanticFacts facts, AspectRegistry registry) {
         TriggerScope scope = new TriggerScope(
@@ -206,6 +209,7 @@ final class TriggerSchemaServiceLoader {
                 packageName,
                 ServiceIdentityResolver.homeModule(pairing.listener(), packageName),
                 metadata,
+                annotations,
                 pairing.serviceType(),
                 pairing.listener(),
                 pairing.listenerClass(),
@@ -327,7 +331,7 @@ final class TriggerSchemaServiceLoader {
                         false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, options),
                 null);
         TriggerScope scope = new TriggerScope(packageName, null, packageName, packageName, null,
-                serviceType, null, null, null, declaresType);
+                AnnotationRegistry.of(null), serviceType, null, null, null, declaresType);
 
         ServiceDraft draft = new ServiceDraft();
         new HandlerCatalogAspect(AspectRegistry.forVersion(AspectRegistry.VERSION_V1))

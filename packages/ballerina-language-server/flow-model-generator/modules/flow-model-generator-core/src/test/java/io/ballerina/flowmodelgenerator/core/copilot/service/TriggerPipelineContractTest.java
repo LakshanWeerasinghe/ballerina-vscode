@@ -96,6 +96,34 @@ public class TriggerPipelineContractTest {
     }
 
     @Test
+    public void testAnnotationsAreResolvedAfterIdentityAndBeforeTheHandlerCatalog() {
+        // Identity is what can veto the entry, so an obligation resolved for a service type about to be
+        // dropped would be output nothing reads; and the catalog drives the lower tiers, so every
+        // service-level contribution has to precede it. Not a data dependency in either direction —
+        // §8's `appliesTo` matches `serviceTypes[].id`, which the scope already carries.
+        List<String> ids = REGISTRY.serviceAspects().stream().map(ServiceAspect::id).toList();
+        Assert.assertTrue(ids.contains("serviceAnnotation"), "§8's service scope must be registered: " + ids);
+        Assert.assertTrue(ids.indexOf("serviceAnnotation") > ids.indexOf("serviceIdentity"),
+                "annotations resolve after the identity that can veto the entry: " + ids);
+        Assert.assertTrue(ids.indexOf("serviceAnnotation") < ids.indexOf("handlerCatalog"),
+                "every service-level contribution precedes the catalog: " + ids);
+    }
+
+    @Test
+    public void testEverySpecSectionWiredHasAtLeastOneOwningComponent() {
+        // The traceability guard from plan §9.4: a spec section the pipeline claims to serve must name a
+        // component that owns it, so a construct cannot be half-wired.
+        Set<String> owned = new HashSet<>();
+        REGISTRY.serviceAspects().forEach(aspect -> owned.add(aspect.specSection()));
+        REGISTRY.handlerAspects().forEach(aspect -> owned.add(aspect.specSection()));
+        REGISTRY.paramAspects().forEach(aspect -> owned.add(aspect.specSection()));
+        for (String section : List.of("§2", "§3", "§4", "§5", "§7", "§8")) {
+            Assert.assertTrue(owned.contains(section),
+                    "no registered component owns spec " + section + "; owned: " + owned);
+        }
+    }
+
+    @Test
     public void testRegistryIsNotSharedBetweenLibraries() {
         // A component may memoize per-library state (the listener object is built once and shared by
         // identity), so handing two libraries the same registry would leak one's listener into the other.
@@ -121,6 +149,17 @@ public class TriggerPipelineContractTest {
         JsonObject param = new ParamDraft().toJson();
         Assert.assertFalse(param.has("optional"), "`required` is the default and is not restated");
         Assert.assertFalse(param.has("description"));
+    }
+
+    @Test
+    public void testAnEmptyAnnotationListIsOmittedRatherThanWrittenEmpty() {
+        // §8's key is optional, and most service types carry no obligation at all.
+        ServiceDraft draft = new ServiceDraft();
+        Assert.assertFalse(draft.toJson().has("annotations"));
+        draft.setAnnotations(new JsonArray());
+        Assert.assertFalse(draft.toJson().has("annotations"));
+        draft.setAnnotations(null);
+        Assert.assertFalse(draft.toJson().has("annotations"));
     }
 
     @Test

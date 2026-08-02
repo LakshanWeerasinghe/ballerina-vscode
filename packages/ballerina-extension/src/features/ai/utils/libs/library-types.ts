@@ -172,6 +172,25 @@ export interface RequiredImport {
     alias?: string;
 }
 
+// Spec §8 `annotations[]` at `attachPoint: "service"`: an annotation the generated service must or may
+// carry. Deliberately distinct from `AnnotationAttachment`, which is an annotation the library *already
+// carries* and renders verbatim with its real value; this is an obligation on code that does not exist
+// yet, so it renders as a requirement with a placeholder value and a presence marker.
+export interface ServiceAnnotationRef {
+    name: string;
+    // The `org/module` a cross-module annotation belongs to (`ballerinax/cdc`). Absent for one declared
+    // by the library itself, which takes the listener's alias instead — the same rule spec §1 applies to
+    // a service type.
+    module?: string;
+    presence: "required" | "optional";
+    attachPoint: string;
+    // The constraining record, introspected from the compiler rather than the document: spec §8's `type`
+    // names the annotation tag, not its constraint (`@ftp:ServiceConfig` is constrained by
+    // `ServiceConfiguration`). Absent for a cross-module annotation, whose constraint lives in symbols
+    // the library's own semantic model cannot see.
+    typeConstraint?: Type;
+}
+
 export interface Service {
     listener: Listener;
     type: "generic" | "fixed";
@@ -181,6 +200,8 @@ export interface Service {
     // for a home-module type, which is prefixed with the listener's alias instead.
     serviceTypeModule?: string;
     requiredImports?: RequiredImport[];
+    // Spec §8: the annotations this service type must or may carry.
+    annotations?: ServiceAnnotationRef[];
 }
 
 export interface Annotation {

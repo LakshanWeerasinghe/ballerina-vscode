@@ -100,6 +100,49 @@ final class TypeResolver {
     }
 
     /**
+     * Resolves an annotation's constraining type, which may belong to another package.
+     *
+     * <p>A home-module constraint behaves exactly like any other type: the prefix is stripped and an
+     * {@code internal} link records it. A <b>foreign</b> constraint instead gets an {@code external} link
+     * naming the owning library, which is what carries the record's definition into the prompt — the same
+     * mechanism every other cross-package type reference in the catalog already travels by.
+     *
+     * <p>The name is emitted <b>bare</b> in both cases, because the renderer is what re-applies a prefix;
+     * emitting an already-prefixed name alongside a link would prefix it twice.
+     *
+     * @param signature      the constraint's module-prefixed signature, e.g. {@code "cdc:CdcServiceConfig"}
+     * @param packageName    the library being rendered, e.g. {@code "mssql"}
+     * @param foreignLibrary the {@code org/module} owning the annotation, or {@code null} when it is the
+     *                       library's own
+     * @return the {@code {name, links}} pair
+     */
+    static JsonObject resolveAnnotationConstraint(String signature, String packageName,
+                                                  String foreignLibrary) {
+        if (foreignLibrary == null) {
+            return resolveTypeWithLinks(signature, packageName);
+        }
+
+        String bareName = stripAlias(signature);
+        JsonObject typeObj = new JsonObject();
+        typeObj.addProperty("name", bareName);
+
+        JsonObject link = new JsonObject();
+        link.addProperty("category", "external");
+        link.addProperty("recordName", bareName);
+        link.addProperty("libraryName", foreignLibrary);
+        JsonArray links = new JsonArray();
+        links.add(link);
+        typeObj.add("links", links);
+        return typeObj;
+    }
+
+    /** Drops a leading {@code alias:} qualifier, leaving the bare type name. */
+    private static String stripAlias(String signature) {
+        int idx = signature.lastIndexOf(':');
+        return idx >= 0 ? signature.substring(idx + 1) : signature;
+    }
+
+    /**
      * Finds the matching package prefix for a type name.
      * For submodule packages (e.g., "trigger.github"), also tries the module alias
      * (e.g., "github:") since Ballerina import aliases use the last segment.

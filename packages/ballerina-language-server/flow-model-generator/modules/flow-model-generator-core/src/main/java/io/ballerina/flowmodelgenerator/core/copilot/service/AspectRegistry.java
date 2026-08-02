@@ -24,8 +24,8 @@ import java.util.List;
  * The single ordered list of components, and the one place a future spec version diverges: registering a
  * replacement resolver here is the whole change, because nothing else names a component.
  *
- * <p><b>Ordering.</b> Within a tier the order is declared once, here. Only two entries have a real
- * dependency, and both are noted at their line; the rest are order-independent and are listed to match
+ * <p><b>Ordering.</b> Within a tier the order is declared once, here. Only three entries have a reason to
+ * sit where they do, and each is noted at its line; the rest are order-independent and are listed to match
  * the wire contract's key order purely so the emitted JSON reads naturally.
  *
  * <p><b>Lifetime.</b> A registry is built per library load, never shared: {@link ListenerAspect} memoizes
@@ -53,6 +53,12 @@ final class AspectRegistry {
                 // and it is the component that can veto the entry outright.
                 new ServiceIdentityAspect(),
                 new RequiredImportAspect(),
+                // Must run after identity: identity is what can veto the entry, and an annotation
+                // obligation resolved for a service type that is about to be dropped is output nothing
+                // will read. It does NOT depend on identity's result — spec §8's `appliesTo` matches
+                // `serviceTypes[].id`, which the scope already carries — so this is an ordering of
+                // effect, not of data.
+                new ServiceAnnotationAspect(),
                 new ListenerAspect(),
                 // Must run last: it drives the handler and parameter tiers, so every service-level
                 // contribution has to be in place before it starts.

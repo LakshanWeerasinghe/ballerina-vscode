@@ -37,6 +37,7 @@ import {
     PathParameter,
     Annotation,
     AnnotationAttachment,
+    ServiceAnnotationRef,
 } from "./library-types";
 
 const ATTACHMENT_POINT_LABELS: Record<string, string> = {
@@ -566,6 +567,78 @@ function deriveListenerAlias(listenerName: string): string | null {
 }
 
 /**
+ * Renders the spec §8 service-level annotation requirements that precede a `service` declaration.
+ *
+ * Emits, per annotation, a `#` line stating the obligation and an attachment line carrying a `{...}`
+ * placeholder. Both are needed and neither is redundant: the placeholder is what the model fills in, and
+ * the `#` line is the only thing that distinguishes "you must attach this" from "this exists" — the
+ * library's own `// --- Annotations ---` section already lists every declaration it could attach, with
+ * nothing marking which one this service is obliged to carry.
+ *
+ * A cross-module annotation takes its own module's prefix and a `// Special Agent Note`, exactly as every
+ * other cross-module reference in this file does. A home-module one takes `listenerAlias`, mirroring how
+ * `renderFixedService` prefixes a home-module service type.
+ */
+function renderServiceAnnotationLines(
+    annotations: ServiceAnnotationRef[] | undefined,
+    listenerAlias: string | null
+): string[] {
+    if (!annotations || annotations.length === 0) {
+        return [];
+    }
+
+    const lines: string[] = [];
+    for (const annotation of annotations) {
+        if (!annotation || !annotation.name) {
+            continue;
+        }
+        const prefix = annotation.module ? deriveModulePrefix(annotation.module) : listenerAlias;
+        const qualifiedName = prefix ? `${prefix}:${annotation.name}` : annotation.name;
+        const required = annotation.presence === "required";
+
+        // `{...}` is not valid Ballerina, so the obligation line says outright that it has to be
+        // replaced — and names the record supplying the fields wherever that is known, so the model
+        // does not have to guess which of the library's records fills it. Several of these records have
+        // mandatory fields (ftp's `ServiceConfiguration.path`, rabbitmq's `ServiceConfig.queueName`),
+        // so an empty `{}` would not compile.
+        // The constraint is named the way source would write it: a foreign record carries its own
+        // module's prefix, applied by the same helper every other cross-module reference here uses.
+        const constraintLinks = annotation.typeConstraint
+            ? collectExternalLinks(annotation.typeConstraint)
+            : [];
+        const constraint = annotation.typeConstraint
+            ? applyPrefixToTypeName(annotation.typeConstraint.name, constraintLinks)
+            : undefined;
+        const fields = constraint
+            ? ` Replace {...} with its fields, which are those of ${constraint}.`
+            : ` Replace {...} with its fields.`;
+        // "Mandatory" rather than "Required": a listener's side-effect imports already render as
+        // `# Requires: import ...;` directly above this, and two senses of "require" one line apart
+        // read as one.
+        lines.push(required
+            ? `# Mandatory: this service must carry the @${qualifiedName} annotation.${fields}`
+            : `# Optional: this service may carry the @${qualifiedName} annotation.${fields}`);
+
+        // The presence marker is repeated on the attachment line because that line is what gets copied.
+        // Without it a required and an optional annotation are visually identical, and attaching an
+        // optional one whose record has mandatory fields turns a harmless omission into a compile error.
+        // `// optional` is the same marker this renderer already uses for an optional service method.
+        // The note names everything the model has to go and find in that package: the annotation itself
+        // and, when known, the record constraining it. Grouped in the one comment the file's convention
+        // uses, so the line carries a single `//` rather than two competing ones.
+        const foreignNames = annotation.module
+            ? [annotation.name, ...constraintLinks.map((link) => link.recordName)]
+            : [];
+        const provenance = foreignNames.length > 0
+            ? `; Special Agent Note: ${[...new Set(foreignNames)].join(", ")} `
+              + `FROM ${annotation.module} package`
+            : "";
+        lines.push(`@${qualifiedName} {...} // ${required ? "required" : "optional"}${provenance}`);
+    }
+    return lines;
+}
+
+/**
  * Renders a fixed service.
  */
 function renderFixedService(service: FixedService): string {
@@ -582,6 +655,20 @@ function renderFixedService(service: FixedService): string {
             lines.push(`# Requires: import ${directive.module}${alias};`);
         }
     }
+
+    // Spec §8: stated here rather than at the library level because the obligation belongs to this
+    // service type. The prefix for a home-module annotation is the listener's alias — never
+    // `serviceTypeModule`'s, which names where the *service type* lives and is a different module
+    // whenever the two diverge (mssql's type is `cdc:Service` while its own annotations would be
+    // `mssql:`-prefixed).
+    //
+    // Emitted before `@deprecated` on purpose: Ballerina metadata puts every `#` documentation line
+    // ahead of every annotation, and this block leads with one. Pushing it after `@deprecated` would
+    // sandwich documentation between two annotations for a service that is both deprecated and
+    // carries a §8 obligation — a shape no corpus document has today, which is exactly why the
+    // ordering has to be right by construction rather than by observation.
+    lines.push(...renderServiceAnnotationLines(
+        service.annotations, deriveListenerAlias(service.listener.name)));
 
     if (service.isDeprecated) {
         lines.push("@deprecated");

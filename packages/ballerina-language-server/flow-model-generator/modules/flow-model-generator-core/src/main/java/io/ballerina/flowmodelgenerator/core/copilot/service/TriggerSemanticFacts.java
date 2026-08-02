@@ -19,9 +19,11 @@
 package io.ballerina.flowmodelgenerator.core.copilot.service;
 
 import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.AnnotationSymbol;
 import io.ballerina.compiler.api.symbols.ClassSymbol;
 import io.ballerina.compiler.api.symbols.Documentation;
 import io.ballerina.compiler.api.symbols.MethodSymbol;
+import io.ballerina.compiler.api.symbols.ModuleSymbol;
 import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
 import io.ballerina.compiler.api.symbols.ParameterKind;
 import io.ballerina.compiler.api.symbols.ParameterSymbol;
@@ -85,6 +87,10 @@ final class TriggerSemanticFacts {
     private final Map<String, ClassSymbol> classesByName = new LinkedHashMap<>();
     private final Map<String, ObjectTypeSymbol> serviceObjectTypesByName = new LinkedHashMap<>();
     private final Set<String> declaredTypeNames = new HashSet<>();
+    private final Set<String> declaredAnnotationNames = new HashSet<>();
+    private final Map<String, String> annotationConstraintsByName = new LinkedHashMap<>();
+    // Lazily built: only a document with a cross-module annotation ever needs it.
+    private Map<String, ModuleSymbol> reachableModules;
 
     TriggerSemanticFacts(SemanticModel semanticModel, Package modulePackage) {
         this.semanticModel = semanticModel;
@@ -98,6 +104,11 @@ final class TriggerSemanticFacts {
                 case CLASS, TYPE_DEFINITION, ENUM, CONSTANT, ENUM_MEMBER -> declaredTypeNames.add(name);
                 default -> {
                 }
+            }
+            if (symbol instanceof AnnotationSymbol annotationSymbol) {
+                declaredAnnotationNames.add(name);
+                annotationSymbol.typeDescriptor().ifPresent(constraint -> annotationConstraintsByName
+                        .putIfAbsent(name, CommonUtils.getTypeSignature(semanticModel, constraint, false)));
             }
             if (symbol instanceof ClassSymbol classSymbol) {
                 classesByName.putIfAbsent(name, classSymbol);
@@ -119,6 +130,109 @@ final class TriggerSemanticFacts {
      */
     boolean declaresType(String name) {
         return declaredTypeNames.contains(name);
+    }
+
+    /**
+     * Whether the module declares an <b>annotation</b> of this exact name — the tag written after
+     * {@code @}, which is what a metadata document's {@code annotations[].type.name} names.
+     *
+     * <p>Kept separate from {@link #declaresType(String)} because the two namespaces are separate: an
+     * annotation tag and a type of the same name can coexist, and in this corpus they systematically
+     * differ ({@code ballerina/ftp} declares the tag {@code ServiceConfig} constrained by the record
+     * {@code ServiceConfiguration}). Answering one question with the other would report every
+     * annotation as undeclared.
+     */
+    boolean declaresAnnotation(String name) {
+        return declaredAnnotationNames.contains(name);
+    }
+
+    /**
+     * The type constraining a declared annotation — the record whose fields an attachment supplies,
+     * as a module-prefixed signature ({@code "ftp:ServiceConfiguration"}).
+     *
+     * <p>Read from the compiler rather than the document on purpose: spec §8's {@code type} names the
+     * annotation, not its constraint, and the constraint is introspectable — so restating it in the
+     * document would violate the governing DRY principle. Empty for a marker annotation that declares
+     * no type, and for any annotation this module does not declare.
+     */
+    Optional<String> annotationConstraint(String name) {
+        return Optional.ofNullable(annotationConstraintsByName.get(name));
+    }
+
+    /**
+     * The type constraining an annotation declared by a <b>different</b> module that this one depends on,
+     * e.g. {@code ballerinax/cdc}'s {@code ServiceConfig} seen from {@code ballerinax/mssql}.
+     *
+     * <p>No second package resolution happens: a module whose annotation the generated code must attach
+     * is necessarily a dependency, so its symbols are already inside the compilation this class was handed.
+     * They are reached through the module's own {@link ModuleSymbol}, harvested from the type references
+     * this module makes into it.
+     *
+     * <p>The module is addressed by the {@code org/module} coordinate the metadata document states, so
+     * nothing here is specific to any connector — the document supplies the key, the compiler supplies the
+     * answer.
+     *
+     * @param orgModule      the foreign coordinate, e.g. {@code "ballerinax/cdc"}
+     * @param annotationName the annotation's name, e.g. {@code "ServiceConfig"}
+     * @return the constraining type's module-prefixed signature ({@code "cdc:CdcServiceConfig"}), or empty
+     *         when the module is not reachable, declares no such annotation, or the annotation is a marker
+     */
+    Optional<String> foreignAnnotationConstraint(String orgModule, String annotationName) {
+        if (orgModule == null || annotationName == null || annotationName.isEmpty()) {
+            return Optional.empty();
+        }
+        ModuleSymbol module = reachableModules().get(orgModule);
+        if (module == null) {
+            return Optional.empty();
+        }
+        for (Symbol symbol : module.allSymbols()) {
+            if (symbol instanceof AnnotationSymbol annotationSymbol
+                    && annotationName.equals(symbol.getName().orElse(null))) {
+                return annotationSymbol.typeDescriptor()
+                        .map(constraint -> CommonUtils.getTypeSignature(semanticModel, constraint, false));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Every module reachable from this one's own symbols, keyed by {@code org/module}.
+     *
+     * <p>Built lazily and once: only a document declaring a cross-module annotation ever asks, so the
+     * overwhelming majority of libraries never pay for the walk. Dependencies are discovered through the
+     * type references this module makes — a type inclusion, a method parameter, a return type — rather
+     * than by enumerating the dependency graph, because a reference is what proves the symbols are
+     * genuinely loaded in this compilation.
+     */
+    private Map<String, ModuleSymbol> reachableModules() {
+        if (reachableModules != null) {
+            return reachableModules;
+        }
+        Map<String, ModuleSymbol> modules = new LinkedHashMap<>();
+        for (Symbol symbol : semanticModel.moduleSymbols()) {
+            record(modules, symbol.getModule());
+            if (!(symbol instanceof ClassSymbol classSymbol)) {
+                continue;
+            }
+            for (TypeSymbol inclusion : classSymbol.typeInclusions()) {
+                record(modules, inclusion.getModule());
+            }
+            for (MethodSymbol method : classSymbol.methods().values()) {
+                method.typeDescriptor().params().ifPresent(params -> {
+                    for (ParameterSymbol param : params) {
+                        record(modules, param.typeDescriptor().getModule());
+                    }
+                });
+                method.typeDescriptor().returnTypeDescriptor()
+                        .ifPresent(returnType -> record(modules, returnType.getModule()));
+            }
+        }
+        reachableModules = modules;
+        return reachableModules;
+    }
+
+    private static void record(Map<String, ModuleSymbol> into, Optional<ModuleSymbol> module) {
+        module.ifPresent(m -> into.putIfAbsent(m.id().orgName() + "/" + m.id().moduleName(), m));
     }
 
     Optional<ObjectTypeSymbol> serviceObjectType(String name) {

@@ -21,6 +21,7 @@ package io.ballerina.modelgenerator.commons.trigger.utils;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
@@ -122,6 +123,40 @@ public final class TypeRefResolver {
             return info.moduleName();
         }
         return info.packageName() == null || info.packageName().isEmpty() ? null : info.packageName();
+    }
+
+    /**
+     * The {@code org/module} coordinate a <b>cross-module</b> {@link TypeRef} belongs to, e.g.
+     * {@code "ballerinax/cdc"}; empty for a reference that does not leave the home module.
+     *
+     * <p>Spec §1: {@code packageInfo} is present "only when the type isn't from this file's own 'home'
+     * module", so a reference carrying coordinates for a <i>different</i> module is the definition of
+     * cross-module. Judged at <b>module</b> granularity rather than package, because a submodule such as
+     * {@code mssql.cdc} shares its parent's package name while being a distinct module — and it is the
+     * module that determines both the import path and the alias.
+     *
+     * <p>The <i>module</i> coordinate is returned rather than the alias it renders with: the coordinate is
+     * the fact the document states, and deriving a prefix from it is a rendering decision. Emitting the
+     * full {@code org/module} also lets a consumer name the owning package in a provenance note.
+     *
+     * <p>An entry whose coordinates yield no usable prefix is reported as not-foreign rather than as a
+     * foreign type with a blank alias, which would erase the type name at the point of use.
+     *
+     * @param ref        the reference; may be {@code null}
+     * @param homeModule the home module every cross-module judgement in the document is relative to
+     * @return the foreign {@code org/module}, or empty for a home-module or unusable reference
+     */
+    public static Optional<String> foreignModulePath(TypeRef ref, String homeModule) {
+        String module = moduleOf(ref);
+        if (module == null || module.equals(homeModule)) {
+            return Optional.empty();
+        }
+        String org = ref.packageInfo().org();
+        String alias = moduleAlias(module);
+        if (org == null || org.isEmpty() || alias == null || alias.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(org + "/" + module);
     }
 
     /**

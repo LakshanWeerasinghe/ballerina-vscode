@@ -39,6 +39,8 @@ public class Service {
     private String serviceTypeModule;
     // Spec §2: side-effect-only imports the listener requires; needed only by code using that listener.
     private List<RequiredImport> requiredImports;
+    // Spec §8: the annotations this service type must or may carry, scoped by the document's `appliesTo`.
+    private List<ServiceAnnotationRef> annotations;
     @SerializedName("methods")
     private List<ServiceRemoteFunction> methods;
     private String testGenerationInstruction;
@@ -94,6 +96,14 @@ public class Service {
 
     public void setRequiredImports(List<RequiredImport> requiredImports) {
         this.requiredImports = requiredImports;
+    }
+
+    public List<ServiceAnnotationRef> getAnnotations() {
+        return annotations;
+    }
+
+    public void setAnnotations(List<ServiceAnnotationRef> annotations) {
+        this.annotations = annotations;
     }
 
     public List<ServiceRemoteFunction> getMethods() {

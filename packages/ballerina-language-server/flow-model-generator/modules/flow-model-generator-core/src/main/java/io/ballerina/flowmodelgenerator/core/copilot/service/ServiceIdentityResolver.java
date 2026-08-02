@@ -102,17 +102,11 @@ final class ServiceIdentityResolver {
      */
     static Optional<String> serviceTypeModule(TriggerMetadataModel.ServiceType serviceType,
                                               String homeModule) {
-        if (!isForeign(serviceType, homeModule)) {
-            return Optional.empty();
-        }
-        String org = serviceType.type().packageInfo().org();
-        String module = TypeRefResolver.moduleOf(serviceType.type());
-        String alias = TypeRefResolver.moduleAlias(module);
-        if (org == null || org.isEmpty() || alias == null || alias.isEmpty()) {
-            // No usable prefix could be derived; qualifying with a blank alias would erase the type.
-            return Optional.empty();
-        }
-        return Optional.of(org + "/" + module);
+        // Spec §1's cross-module rule has one implementation, in commons: a service type's ownership is
+        // the same question as any other type reference's, and answering it twice is how the two would
+        // drift.
+        return TypeRefResolver.foreignModulePath(
+                serviceType == null ? null : serviceType.type(), homeModule);
     }
 
     /**
