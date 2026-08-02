@@ -27,35 +27,121 @@ import java.util.List;
 /**
  * The accumulating output of one handler, written by the handler-level components.
  *
- * <p>A {@code description} is emitted only when one genuinely exists. For a marker service type
- * neither source has one — the metadata document does not model descriptions, and the library declares
- * no method to carry a doc comment — so the key is omitted rather than fabricated.
+ * <p>Every slot is <b>held as a field and emitted once in {@link #toJson()}</b>, rather than written straight
+ * into a {@link JsonObject} as each component runs. That is what lets the wire contract's key order be a
+ * property of this class instead of a property of {@link AspectRegistry}'s ordering: {@code kind} is owned by
+ * a different component from {@code name}, and neither should have to run in a particular position just to
+ * keep the emitted JSON reading naturally.
+ *
+ * <p>A {@code description} is emitted only when one genuinely exists. For a marker service type neither
+ * source has one — the metadata document does not model descriptions, and the library declares no method to
+ * carry a doc comment — so the key is omitted rather than fabricated.
  *
  * @since 1.7.0
  */
 final class HandlerDraft {
 
-    private final JsonObject json = new JsonObject();
     private final JsonArray parameters = new JsonArray();
     private final List<Veto> vetoes = new ArrayList<>();
-    // Held rather than written straight through, so `toJson` can emit the wire contract's key order
-    // (name, type, description, parameters, return) regardless of the order components ran in.
+
+    private String name;
+    private String kind;
+    private String description;
+    // Spec §5 `presence`, tri-state on purpose: TRUE optional, FALSE required, null "the document is not
+    // answering the question" (addMode: many). See HandlerPresenceResolver.
+    private Boolean optional;
+    private String accessor;
+    private JsonArray methodValues;
+    private Boolean methodRequired;
+    private JsonArray pathForm;
+    private Boolean pathRequired;
+    private JsonArray fieldNameForm;
+    private Boolean fieldNameRequired;
+    private String graphqlOperation;
     private JsonObject returnObj;
 
     /** Spec §5 {@code options[].name}, or a concrete type's declared method name. */
     void setName(String name) {
-        json.addProperty("name", name);
+        this.name = name;
     }
 
     /** Spec §5 {@code options[].kind}: {@code "remote"} or {@code "resource"}. */
     void setKind(String kind) {
-        json.addProperty("type", kind);
+        this.kind = kind;
     }
 
     /** The method's doc-comment description; omitted when the source has none. */
     void setDescription(String description) {
         if (description != null && !description.isEmpty()) {
-            json.addProperty("description", description);
+            this.description = description;
+        }
+    }
+
+    /**
+     * Spec §5 {@code options[].presence}, as optionality.
+     *
+     * <p>Unlike {@link ParamDraft#setOptional}, {@code false} <b>is</b> emitted: for a handler the
+     * difference between "required" and "the document does not say" is real, and only an explicit
+     * {@code false} can state the former. Absence is expressed by never calling this method.
+     */
+    void setOptional(boolean optional) {
+        this.optional = optional;
+    }
+
+    /** The accessor a resource handler is written with, per {@link AccessorPrecedencePolicy}. */
+    void setAccessor(String accessor) {
+        if (accessor != null && !accessor.isEmpty()) {
+            this.accessor = accessor;
+        }
+    }
+
+    /**
+     * Spec §5's {@code method} extra: the legal HTTP verbs, and whether the slot must be filled.
+     *
+     * @param values   the legal verbs; a null or empty list omits both keys
+     * @param required whether the verb slot is mandatory
+     */
+    void setMethod(List<String> values, boolean required) {
+        if (values == null || values.isEmpty()) {
+            return;
+        }
+        this.methodValues = toArray(values);
+        this.methodRequired = required;
+    }
+
+    /**
+     * Spec §5's {@code path} extra: the legal path shapes, and whether the slot must be filled.
+     *
+     * @param form     the legal shapes; a null or empty list omits both keys
+     * @param required whether the path slot is mandatory
+     */
+    void setPath(List<String> form, boolean required) {
+        if (form == null || form.isEmpty()) {
+            return;
+        }
+        this.pathForm = toArray(form);
+        this.pathRequired = required;
+    }
+
+    /**
+     * Spec §5's GraphQL {@code fieldName} extra: the legal field-name shapes, and whether the slot must be
+     * filled.
+     *
+     * @param form     the legal shapes; a null or empty list omits both keys
+     * @param required whether the field-name slot is mandatory
+     */
+    void setFieldName(List<String> form, boolean required) {
+        if (form == null || form.isEmpty()) {
+            return;
+        }
+        this.fieldNameForm = toArray(form);
+        this.fieldNameRequired = required;
+    }
+
+    /** Spec §5's informational {@code graphqlOperation}; renders as prose only, never as syntax. */
+    void setGraphqlOperation(String operation) {
+        if (operation != null && !operation.isEmpty()) {
+            this.graphqlOperation = operation;
         }
     }
 
@@ -85,10 +171,33 @@ final class HandlerDraft {
     }
 
     /**
-     * The finished handler. {@code parameters} is omitted when empty, which covers both a genuinely
-     * param-less handler and one whose every slot was skipped as repeatable.
+     * The finished handler, in the wire contract's key order.
+     *
+     * <p>{@code parameters} is omitted when empty, which covers both a genuinely param-less handler and one
+     * whose every slot was skipped as repeatable.
      */
     JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        addIfPresent(json, "name", name);
+        addIfPresent(json, "type", kind);
+        addIfPresent(json, "description", description);
+        if (optional != null) {
+            json.addProperty("optional", optional);
+        }
+        addIfPresent(json, "accessor", accessor);
+        if (methodValues != null) {
+            json.add("methodValues", methodValues);
+            json.addProperty("methodRequired", methodRequired);
+        }
+        if (pathForm != null) {
+            json.add("pathForm", pathForm);
+            json.addProperty("pathRequired", pathRequired);
+        }
+        if (fieldNameForm != null) {
+            json.add("fieldNameForm", fieldNameForm);
+            json.addProperty("fieldNameRequired", fieldNameRequired);
+        }
+        addIfPresent(json, "graphqlOperation", graphqlOperation);
         if (!parameters.isEmpty()) {
             json.add("parameters", parameters);
         }
@@ -96,5 +205,17 @@ final class HandlerDraft {
             json.add("return", returnObj);
         }
         return json;
+    }
+
+    private static void addIfPresent(JsonObject json, String key, String value) {
+        if (value != null) {
+            json.addProperty(key, value);
+        }
+    }
+
+    private static JsonArray toArray(List<String> values) {
+        JsonArray array = new JsonArray();
+        values.forEach(array::add);
+        return array;
     }
 }

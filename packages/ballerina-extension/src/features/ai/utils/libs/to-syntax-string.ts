@@ -38,6 +38,10 @@ import {
     Annotation,
     AnnotationAttachment,
     ServiceAnnotationRef,
+    ServiceRemoteFunction,
+    ServiceIdentifier,
+    ServiceConstraint,
+    ConstraintMember,
 } from "./library-types";
 
 const ATTACHMENT_POINT_LABELS: Record<string, string> = {
@@ -364,8 +368,11 @@ function collectFunctionExternalLinks(params: Parameter[], returnType?: Type): E
 function renderParam(param: Parameter): string {
     const externalLinks = collectExternalLinks(param.type);
     const typeName = applyPrefixToTypeName(param.type.name, externalLinks);
-    const optional = (param as any).optional;
-    const defaultVal = (param as any).default !== undefined ? ` = ${(param as any).default}` : "";
+    // A function or client parameter's default is the compiler's real default, so it is rendered whenever one
+    // exists. This is deliberately NOT the listener-argument rule in `renderFixedService`, where a default is
+    // emitted only for an optional parameter — a listener's "default" may be a type-derived placeholder for a
+    // mandatory value. Do not unify the two.
+    const defaultVal = param.default !== undefined ? ` = ${param.default}` : "";
     const annotations = renderInlineAttachments(param.annotations);
     return `${annotations}${typeName} ${param.name}${defaultVal}`;
 }
@@ -528,9 +535,98 @@ function renderStandaloneFunction(func: RemoteFunction): string {
 
 /**
  * Renders a ParameterDef (used in fixed service methods).
+ *
+ * Spec §7 `presence` is deliberately NOT expressed here. An optional handler parameter may be omitted from
+ * the signature altogether, and neither shape that suggests itself is legal Ballerina: `Caller caller?` is
+ * not a parameter form at all, and `Caller caller = ()` requires a nilable type and turns "may be omitted"
+ * into "has a default". A `//` comment cannot go here either — inside a parameter list it would comment out
+ * the closing paren and the return type. Optionality is therefore stated on a `#` line above the method, by
+ * `renderOptionalParamNote`.
  */
-function renderParamDef(param: ParameterDef & { name?: string }): string {
+function renderParamDef(param: ParameterDef): string {
     return `${param.type.name}${param.name ? " " + param.name : ""}`;
+}
+
+/**
+ * Spec §7 `presence` — the `#` line naming a handler's omittable parameters.
+ *
+ * Returns "" when every parameter is required, which is the common case.
+ */
+function renderOptionalParamNote(method: ServiceRemoteFunction, indent: string): string {
+    const optionalNames = (method.parameters ?? [])
+        .filter((param) => param.optional && param.name)
+        .map((param) => param.name as string);
+    if (optionalNames.length === 0) {
+        return "";
+    }
+    return `${indent}# Optional parameters (may be omitted): ${optionalNames.join(", ")}\n`;
+}
+
+/**
+ * Spec §5 `options[].presence` — the trailing marker stating whether the handler itself must be implemented.
+ *
+ * Three states, and the absent one is not the same as "required": under `addMode: "many"`, and for a concrete
+ * service type's declared methods, the document says nothing about obligation, so neither marker is emitted.
+ * `// optional` is the marker this renderer already used for an optional method; `// required` is its
+ * counterpart, and before it existed a mandatory handler was indistinguishable from a skippable one.
+ */
+function renderPresenceMarker(method: ServiceRemoteFunction): string {
+    if (method.optional === undefined || method.optional === null) {
+        return "";
+    }
+    return method.optional ? " // optional" : " // required";
+}
+
+/**
+ * The placeholder segment for a resource handler's path, and the note describing what may replace it.
+ *
+ * Spec §11.2: the concrete path is intent-derived, so only a placeholder is ever emitted — but a resource
+ * function with no path at all does not compile, which is why the placeholder is mandatory rather than
+ * decorative. The legal forms are quoted verbatim from the document; this renderer does not interpret them,
+ * because spec §10 defines no vocabulary for `path.form`.
+ */
+const RESOURCE_PATH_PLACEHOLDER = "pathSegment";
+
+/**
+ * Spec §5 `options[].kind` — the method's keyword and, for a resource, its accessor and path placeholder.
+ *
+ * `remote function get(...)` is what this used to emit for `websocket`'s resource handler, and it does not
+ * compile. A resource method needs both an accessor and a path, so:
+ *  - the accessor comes from the wire, resolved by the Java-side AccessorPrecedencePolicy;
+ *  - the path is a placeholder, because spec §11.2 makes the real one intent-derived.
+ *
+ * When the document declares a resource handler but supplies no accessor, falling back to `remote function`
+ * is deliberate: it keeps the emitted source compilable, and `renderResourceNote` still states that the
+ * handler is a resource whose accessor the document leaves unstated. Inventing `get` would be inventing API.
+ * No corpus document reaches that fallback.
+ */
+function renderMethodSignature(method: ServiceRemoteFunction): string {
+    if (method.type !== "resource" || !method.accessor) {
+        return `remote function ${method.name}`;
+    }
+    return `resource function ${method.accessor} ${RESOURCE_PATH_PLACEHOLDER}`;
+}
+
+function renderResourceNote(method: ServiceRemoteFunction, indent: string): string {
+    const parts: string[] = [];
+    if (method.methodValues && method.methodValues.length > 0) {
+        const verbs = method.methodValues.map((verb) => `\`${verb}\``).join(", ");
+        parts.push(method.methodRequired === false
+            ? `the accessor may be one of ${verbs}`
+            : `the accessor must be one of ${verbs}`);
+    }
+    if (method.pathForm && method.pathForm.length > 0) {
+        const forms = method.pathForm.join(", ");
+        parts.push(`the path is author-chosen (${forms}) — replace \`${RESOURCE_PATH_PLACEHOLDER}\``);
+    }
+    if (method.fieldNameForm && method.fieldNameForm.length > 0) {
+        parts.push(`the field name is author-chosen (${method.fieldNameForm.join(", ")})`);
+    }
+    if (method.graphqlOperation) {
+        // Spec §5 marks graphqlOperation informational, so it may only ever become prose.
+        parts.push(`this is a GraphQL ${method.graphqlOperation}`);
+    }
+    return parts.length === 0 ? "" : `${indent}# Resource: ${parts.join("; ")}.\n`;
 }
 
 /**
@@ -639,13 +735,123 @@ function renderServiceAnnotationLines(
 }
 
 /**
+ * Spec §3 `serviceTypes[].identifier` — the slot between `service` and `on new …`.
+ *
+ * Returns the syntax fragment (empty when nothing is written) and the `#` lines describing the slot.
+ *
+ * The placeholder is emitted **only for a required slot**. For an optional one the note states that the slot
+ * may be filled and what shape it takes, but writing a placeholder would push the model to fill a slot the
+ * connector does not need — and `rabbitmq`'s optional `stringLiteral` is precisely that case: it is one of two
+ * alternatives its `oneOf` rule offers, and the constraint note already names it.
+ *
+ * An unrecognised form yields a note and no placeholder: spec §10 enumerates only `basePath` and
+ * `stringLiteral`, and inventing syntax for a form whose shape is unknown would be worse than describing it.
+ */
+function renderIdentifierSlot(identifier: ServiceIdentifier | undefined): {
+    fragment: string;
+    notes: string[];
+} {
+    if (!identifier || !identifier.form || identifier.form.length === 0) {
+        return { fragment: "", notes: [] };
+    }
+    // Spec §1's "first element is the codegen default", applied to a form list.
+    const form = identifier.form[0];
+    const required = identifier.presence === "required";
+    const requirement = required ? "requires" : "accepts";
+
+    if (form === "basePath") {
+        const note = `# The service identifier ${requirement} a base path, e.g. \`/orders\``;
+        return required
+            ? { fragment: "/basePath ", notes: [`${note} — replace \`/basePath\`.`] }
+            : { fragment: "", notes: [`${note}; it may be omitted.`] };
+    }
+    if (form === "stringLiteral") {
+        const note = `# The service identifier ${requirement} a quoted string literal, e.g. \`"orders"\``;
+        return required
+            ? { fragment: `"identifier" `, notes: [`${note} — replace \`"identifier"\`.`] }
+            : { fragment: "", notes: [`${note}; it may be omitted.`] };
+    }
+    // A form outside spec §10's vocabulary. Named verbatim so the reader can look it up, rather than
+    // flattened into "unknown".
+    return {
+        fragment: "",
+        notes: [`# The service identifier ${requirement} a value of form \`${form}\`.`],
+    };
+}
+
+/**
+ * Spec §6 `rules[]` — the `#` lines stating a service type's exclusivity constraints.
+ *
+ * `oneOf` and `atMostOne` are worded differently on purpose: only `oneOf` obliges the service to pick an
+ * alternative, and stating "exactly one of" for an `atMostOne` rule would invent an obligation `websocket`
+ * does not impose. Per plan §11.4 these can only ever be *stated* — whether the model honours them is prompt
+ * adherence, not something the renderer can enforce.
+ */
+function renderConstraintLines(
+    constraints: ServiceConstraint[] | undefined,
+    listenerAlias: string | null
+): string[] {
+    if (!constraints || constraints.length === 0) {
+        return [];
+    }
+    const lines: string[] = [];
+    for (const constraint of constraints) {
+        if (!constraint || !constraint.members || constraint.members.length === 0) {
+            continue;
+        }
+        const alternatives = constraint.members
+            .map((member) => renderConstraintMember(member, listenerAlias))
+            .filter((text): text is string => text !== null);
+        if (alternatives.length === 0) {
+            continue;
+        }
+        const lead = constraint.kind === "oneOf"
+            ? "Exactly one of the following is required"
+            : "At most one of the following may be used";
+        lines.push(`# ${lead}: ${alternatives.join(" | ")}.`);
+    }
+    return lines;
+}
+
+/**
+ * One alternative of a constraint. `preferred` is surfaced because spec §6 uses it to mark the canonical
+ * choice for a generator to default to when nothing else disambiguates.
+ */
+function renderConstraintMember(
+    member: ConstraintMember,
+    listenerAlias: string | null
+): string | null {
+    const suffix = member.preferred ? " (preferred)" : "";
+    if (member.annotation && member.field) {
+        // `annotation` is the resolved annotation name, so this reads as the same `@alias:Name` the §8
+        // obligation block renders a few lines above. The registry id it came from is deliberately not shown:
+        // it names nothing that exists in Ballerina source.
+        const prefix = listenerAlias ? `${listenerAlias}:` : "";
+        return `the \`${member.field}\` field of @${prefix}${member.annotation}${suffix}`;
+    }
+    if (member.part === "identifier") {
+        return `the service identifier${suffix}`;
+    }
+    if (member.handler) {
+        return `\`${member.handler}\`${suffix}`;
+    }
+    return null;
+}
+
+/**
  * Renders a fixed service.
  */
 function renderFixedService(service: FixedService): string {
     const lines: string[] = [];
-    const listenerParams = service.listener.parameters.map(
-        (p) => `${p.type.name} ${p.name}${(p as any).default !== undefined ? ` = ${(p as any).default}` : ""}`
-    ).join(", ");
+    // A default is emitted ONLY for an optional parameter. Every parameter used to get one, which told the
+    // model that a mandatory value — kafka's `bootstrapServers`, grpc's `port`, websocket's `'listener` — had
+    // a default it could leave alone. The `optional` flag has always been on the wire (set from the init
+    // method's DEFAULTABLE/INCLUDED_RECORD parameter kind); it was simply not consulted. A required parameter
+    // with a type-derived placeholder value is the one case where saying less is strictly more correct.
+    const listenerParams = service.listener.parameters.map((p) => {
+        const suffix = p.optional === true && p.default !== undefined ? ` = ${p.default}` : "";
+        return `${p.type.name} ${p.name}${suffix}`;
+    }).join(", ");
 
     // Spec §2: the listener's side-effect imports are required only by code that uses this service,
     // so they are stated here rather than hoisted to the library header.
@@ -667,8 +873,17 @@ function renderFixedService(service: FixedService): string {
     // sandwich documentation between two annotations for a service that is both deprecated and
     // carries a §8 obligation — a shape no corpus document has today, which is exactly why the
     // ordering has to be right by construction rather than by observation.
-    lines.push(...renderServiceAnnotationLines(
-        service.annotations, deriveListenerAlias(service.listener.name)));
+    const listenerAlias = deriveListenerAlias(service.listener.name);
+
+    // Spec §3 and §6, both stated as `#` lines above the declaration for the same reason the §8 block is:
+    // they are obligations on code that does not exist yet, and Ballerina metadata puts documentation ahead
+    // of annotations. The identifier note precedes the constraint lines because a constraint may refer to the
+    // identifier as one of its alternatives.
+    const identifierSlot = renderIdentifierSlot(service.identifier);
+    lines.push(...identifierSlot.notes);
+    lines.push(...renderConstraintLines(service.constraints, listenerAlias));
+
+    lines.push(...renderServiceAnnotationLines(service.annotations, listenerAlias));
 
     if (service.isDeprecated) {
         lines.push("@deprecated");
@@ -679,26 +894,28 @@ function renderFixedService(service: FixedService): string {
     // would not compile. Its provenance travels in the same `Special Agent Note` every other
     // cross-module reference in the catalog uses, rather than an import.
     const foreignModule = service.serviceTypeModule;
-    const alias = (foreignModule ? deriveModulePrefix(foreignModule) : "")
-        || deriveListenerAlias(service.listener.name);
+    const alias = (foreignModule ? deriveModulePrefix(foreignModule) : "") || listenerAlias;
     const serviceTypePrefix = service.name && alias
         ? `${alias}:${service.name} `
         : "";
     const agentNote = foreignModule && service.name
         ? ` // Special Agent Note: ${service.name} FROM ${foreignModule} package`
         : "";
-    lines.push(`service ${serviceTypePrefix}on new ${service.listener.name}(${listenerParams}) {${agentNote}`);
+    lines.push(`service ${serviceTypePrefix}${identifierSlot.fragment}on new `
+        + `${service.listener.name}(${listenerParams}) {${agentNote}`);
 
     for (const method of service.methods ?? []) {
         const desc = method.description ? `    # ${method.description}\n` : "";
         const dep = method.isDeprecated ? "    @deprecated\n" : "";
-        const params = (method.parameters ?? [])
-            .map((p) => renderParamDef(p as ParameterDef & { name?: string }))
-            .join(", ");
+        const params = (method.parameters ?? []).map(renderParamDef).join(", ");
         const returnStr = method.return?.type ? ` returns ${method.return.type.name}` : "";
-        const optionalComment = method.optional ? " // optional" : "";
 
-        lines.push(`${desc}${dep}    remote function ${method.name}(${params})${returnStr};${optionalComment}`);
+        // Documentation order mirrors a real Ballerina doc comment: the description leads, then the notes
+        // about the signature, and only then the annotation — metadata puts every `#` line ahead of every
+        // annotation, so `@deprecated` has to come last of the three.
+        lines.push(`${desc}${renderResourceNote(method, "    ")}${renderOptionalParamNote(method, "    ")}`
+            + `${dep}    ${renderMethodSignature(method)}(${params})${returnStr};`
+            + `${renderPresenceMarker(method)}`);
         lines.push("");
     }
 

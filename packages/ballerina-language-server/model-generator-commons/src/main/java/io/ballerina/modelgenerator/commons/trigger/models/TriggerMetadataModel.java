@@ -215,8 +215,9 @@ public record TriggerMetadataModel(
 
         /**
          * A cross-construct constraint scoped to the enclosing service type. {@code type} lets new rule
-         * kinds be added later without another shape change; {@link #TYPE_ONE_OF} is the only value that
-         * exists today — exactly one of {@code members} must be chosen, not zero, not more than one.
+         * kinds be added later without another shape change; spec §6 defines two today —
+         * {@link #TYPE_ONE_OF} (exactly one of {@code members}, not zero and not more than one) and
+         * {@link #TYPE_AT_MOST_ONE} (zero or one, never more).
          *
          * @param id      a local identifier for the rule, for diagnostics/documentation
          * @param type    the rule kind
@@ -225,6 +226,14 @@ public record TriggerMetadataModel(
         public record Rule(String id, String type, List<RuleMember> members) {
 
             public static final String TYPE_ONE_OF = "oneOf";
+            /**
+             * Spec §6: "Zero or one member — never more than one, but zero is fine." Used by
+             * {@code websocket}'s two rules. Note the repo's own
+             * {@code resources/schemas/trigger-metadata.schema.json} still declares
+             * {@code enum: ["oneOf"]} for {@code rules[].type}, so those two documents currently fail
+             * the repo's schema validation; widening the enum belongs to the validator phase.
+             */
+            public static final String TYPE_AT_MOST_ONE = "atMostOne";
 
             /**
              * One alternative in a {@link Rule#TYPE_ONE_OF} group. Exactly one of the three shapes is

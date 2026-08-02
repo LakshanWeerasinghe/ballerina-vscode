@@ -21,24 +21,20 @@ package io.ballerina.flowmodelgenerator.core.copilot.service;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 
 /**
- * Spec §5 {@code options[].name} and {@code .kind} — a handler's name and whether it is a remote or
- * resource method.
+ * Spec §5 {@code options[].name} — a handler's name, and its description where one exists.
  *
  * <p>The two provenances differ in what they can supply. A concrete type's declared method carries a
- * real name, kind and doc comment. A marker type's handler has only what the document states, and the
+ * real name and doc comment. A marker type's handler has only what the document states, and the
  * document models no descriptions — so no {@code description} is emitted for one, rather than inventing
  * text.
  *
- * <p>The emitted {@code kind} is currently only ever consumed as a discriminator by the renderer, which
- * hardcodes {@code remote function}; honouring {@code resource} in the rendered syntax is a later phase.
- * The value itself is already carried faithfully here.
+ * <p>{@code kind} used to be set here too. It moved to {@link HandlerKindAspect}, because it is the field
+ * the renderer's keyword choice depends on and it drags a resource handler's accessor along with it —
+ * neither of which has anything to do with naming.
  *
  * @since 1.7.0
  */
 final class HandlerIdentityAspect implements HandlerAspect {
-
-    private static final String KIND_REMOTE = "remote";
-    private static final String KIND_RESOURCE = "resource";
 
     @Override
     public String id() {
@@ -55,14 +51,11 @@ final class HandlerIdentityAspect implements HandlerAspect {
         if (scope.isConcrete()) {
             TriggerSemanticFacts.DeclaredMethod declared = scope.declared();
             draft.setName(declared.name());
-            draft.setKind(declared.kind());
             draft.setDescription(declared.description());
             return;
         }
         TriggerMetadataModel.ServiceType.HandlerOption option = scope.option();
         draft.setName(option.name());
-        draft.setKind(TriggerMetadataModel.ServiceType.HandlerOption.KIND_RESOURCE.equals(option.kind())
-                ? KIND_RESOURCE : KIND_REMOTE);
         // No description: neither the document nor the library has one for a marker-type handler.
     }
 }

@@ -970,4 +970,377 @@ suite("toSyntaxString", () => {
             assert.ok(result.includes("@ftp:Sound {...}"), "the sound entry beside it still renders");
         });
     });
+
+    // ----------------------------------------------------------------
+    // Trigger spec §2 — listener arguments
+    // ----------------------------------------------------------------
+    suite("Trigger spec §2 — listener argument defaults", () => {
+        function renderListener(parameters: Record<string, unknown>[]): string {
+            const lib = {
+                name: "ballerinax/kafka", description: "", typeDefs: [], clients: [],
+                services: [{
+                    type: "fixed", name: "Service",
+                    listener: { name: "kafka:Listener", parameters },
+                    methods: [],
+                }],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        test("§2: a required listener parameter never carries a default", () => {
+            // Spec §2 models no listener init fields — they come from the init signature, where a parameter
+            // is required exactly when it is neither defaultable nor an included record. kafka's
+            // `bootstrapServers` is required, and rendering `= ""` told the model a mandatory value was
+            // already supplied.
+            const result = renderListener([
+                { name: "bootstrapServers", description: "", type: { name: "string|string[]" }, default: '""' },
+            ]);
+            assert.ok(result.includes("on new kafka:Listener(string|string[] bootstrapServers)"),
+                `got:\n${result}`);
+            assert.ok(!result.includes('bootstrapServers = ""'), "a required parameter has no default");
+        });
+
+        test("§2: an optional listener parameter keeps its default", () => {
+            // The other half of the rule: an included-record or defaultable parameter genuinely may be left
+            // out, and its default is the value the connector will use.
+            const result = renderListener([
+                { name: "config", description: "", type: { name: "ConsumerConfiguration" },
+                  optional: true, default: "{}" },
+            ]);
+            assert.ok(result.includes("on new kafka:Listener(ConsumerConfiguration config = {})"),
+                `got:\n${result}`);
+        });
+
+        test("§2: required and optional parameters are distinguished within one signature", () => {
+            // kafka's real shape, and the one that proves the flag is consulted per parameter rather than
+            // per service.
+            const result = renderListener([
+                { name: "bootstrapServers", description: "", type: { name: "string|string[]" }, default: '""' },
+                { name: "config", description: "", type: { name: "ConsumerConfiguration" },
+                  optional: true, default: "{}" },
+            ]);
+            assert.ok(result.includes(
+                "on new kafka:Listener(string|string[] bootstrapServers, ConsumerConfiguration config = {})"),
+                `got:\n${result}`);
+        });
+
+        test("§2: an optional parameter with no default stays bare", () => {
+            const result = renderListener([
+                { name: "config", description: "", type: { name: "Config" }, optional: true },
+            ]);
+            assert.ok(result.includes("on new kafka:Listener(Config config)"), `got:\n${result}`);
+        });
+    });
+
+    // ----------------------------------------------------------------
+    // Trigger spec §3/§5/§6/§7 — handler shape, presence, identifier, constraints
+    // ----------------------------------------------------------------
+    suite("Trigger spec §3/§5/§6/§7 — handler shape, identifier and constraints", () => {
+        function renderService(service: Record<string, unknown>, libName = "ballerina/websocket"): string {
+            const lib = {
+                name: libName, description: "", typeDefs: [], clients: [], services: [service],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        const wsListener = { name: "websocket:Listener", parameters: [] };
+
+        function method(over: Record<string, unknown> = {}): Record<string, unknown> {
+            return {
+                name: "onMessage", type: "remote", description: "",
+                parameters: [], return: { type: { name: "error?" } }, ...over,
+            };
+        }
+
+        function line(result: string, needle: string): string {
+            const found = result.split("\n").find((l) => l.includes(needle));
+            assert.ok(found, `no line containing "${needle}" in:\n${result}`);
+            return found!;
+        }
+
+        // ---- §5 kind ----
+
+        test("§5: a resource handler renders `resource function <accessor> <path>`, not `remote`", () => {
+            // Corpus: websocket's upgradeService declares {"name": "get", "kind": "resource"}. It used to
+            // render `remote function get(...)`, which does not compile — a resource method needs an
+            // accessor and a path.
+            const result = renderService({
+                type: "fixed", name: "UpgradeService", listener: wsListener,
+                methods: [method({
+                    name: "get", type: "resource", accessor: "get",
+                    methodValues: ["get"], methodRequired: true,
+                    pathForm: ["stringLiteralSegment"], pathRequired: true,
+                    parameters: [{ name: "request", description: "", type: { name: "http:Request" } }],
+                    return: { type: { name: "Service|UpgradeError" } },
+                })],
+            });
+            assert.ok(result.includes("resource function get pathSegment(http:Request request)"),
+                `got:\n${result}`);
+            assert.ok(!result.includes("remote function get"), "the remote keyword must be gone");
+        });
+
+        test("§11.2: the resource path is a placeholder and the legal forms are stated verbatim", () => {
+            // Plan §11.2: which verb and which path segments is intent-derived, so the renderer may only
+            // place a fillable placeholder and quote the document's vocabulary.
+            const result = renderService({
+                type: "fixed", name: "UpgradeService", listener: wsListener,
+                methods: [method({
+                    name: "get", type: "resource", accessor: "get",
+                    methodValues: ["get"], methodRequired: true,
+                    pathForm: ["stringLiteralSegment"], pathRequired: true,
+                })],
+            });
+            const note = line(result, "# Resource:");
+            assert.ok(note.includes("the accessor must be one of `get`"), note);
+            assert.ok(note.includes("stringLiteralSegment"), note);
+            assert.ok(note.includes("replace `pathSegment`"), note);
+        });
+
+        test("§5: a resource handler with no accessor degrades to remote rather than emitting broken syntax", () => {
+            // Defensive path, no corpus instance: inventing `get` would be inventing API, and
+            // `resource function  pathSegment(...)` would not compile.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({ name: "onEvent", type: "resource", pathForm: ["identifierSegments"] })],
+            });
+            assert.ok(result.includes("remote function onEvent("), `got:\n${result}`);
+            assert.ok(result.includes("# Resource:"), "the resource nature is still stated");
+        });
+
+        test("§5: graphqlOperation renders as prose only, never as syntax", () => {
+            // Spec §5 marks it informational.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({ name: "onEvent", graphqlOperation: "mutation",
+                                   fieldNameForm: ["identifierSegment"] })],
+            });
+            assert.ok(line(result, "# Resource:").includes("this is a GraphQL mutation"));
+            assert.ok(result.includes("remote function onEvent("), "a mutation is a remote method");
+        });
+
+        // ---- §5 presence ----
+
+        test("§5: a required handler is marked `// required` and an optional one `// optional`", () => {
+            // Corpus: kafka's onConsumerRecord is required and onError optional. Before this, both rendered
+            // identically and the obligation was invisible.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({ name: "onConsumerRecord", optional: false }),
+                          method({ name: "onError", optional: true })],
+            });
+            assert.ok(line(result, "onConsumerRecord").endsWith("// required"), line(result, "onConsumerRecord"));
+            assert.ok(line(result, "onError").endsWith("// optional"), line(result, "onError"));
+        });
+
+        test("§5: a handler whose presence the document does not state carries no marker", () => {
+            // Spec §5: presence is meaningful "Only under `addMode: subset`". grpc's four options are under
+            // `many`, so neither marker may appear — saying "required" there would invent an obligation.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({ name: "unary" })],
+            });
+            const unary = line(result, "unary");
+            assert.ok(!unary.includes("// required"), unary);
+            assert.ok(!unary.includes("// optional"), unary);
+            assert.ok(unary.trim().endsWith(";"), unary);
+        });
+
+        // ---- §7 param presence ----
+
+        test("§7: an optional parameter is named on a `#` line, not marked inside the signature", () => {
+            // A `//` comment inside a parameter list would comment out the closing paren and return type;
+            // `Caller caller?` is not a Ballerina parameter form, and `= ()` needs a nilable type and would
+            // turn "may be omitted" into "has a default".
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({
+                    name: "onFileCsv",
+                    parameters: [
+                        { name: "contents", description: "", type: { name: "string[][]" } },
+                        { name: "caller", description: "", type: { name: "Caller" }, optional: true },
+                    ],
+                })],
+            });
+            assert.ok(result.includes("    # Optional parameters (may be omitted): caller"), `got:\n${result}`);
+            const signature = line(result, "remote function onFileCsv");
+            assert.strictEqual(signature,
+                "    remote function onFileCsv(string[][] contents, Caller caller) returns error?;");
+        });
+
+        test("§7: several optional parameters are listed together in document order", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({
+                    parameters: [
+                        { name: "caller", description: "", type: { name: "Caller" }, optional: true },
+                        { name: "data", description: "", type: { name: "string" } },
+                        { name: "extra", description: "", type: { name: "int" }, optional: true },
+                    ],
+                })],
+            });
+            assert.ok(result.includes("# Optional parameters (may be omitted): caller, extra"), `got:\n${result}`);
+        });
+
+        test("§7: a handler with only required parameters gets no note", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({
+                    parameters: [{ name: "data", description: "", type: { name: "string" } }],
+                })],
+            });
+            assert.ok(!result.includes("# Optional parameters"), `got:\n${result}`);
+        });
+
+        test("both markers coexist without colliding when a handler and its parameter are optional", () => {
+            // The reason param optionality is a `#` line and handler presence a trailing comment: they are
+            // two different facts and must stay separately readable.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({
+                    optional: true,
+                    parameters: [{ name: "caller", description: "", type: { name: "Caller" }, optional: true }],
+                })],
+            });
+            assert.ok(result.includes("# Optional parameters (may be omitted): caller"), `got:\n${result}`);
+            assert.ok(line(result, "remote function onMessage").endsWith("// optional"));
+        });
+
+        // ---- §3 identifier ----
+
+        test("§3: a required base path renders a fillable placeholder and says what to replace", () => {
+            // Corpus: websocket's upgradeService, graphql and http declare {presence: required,
+            // form: [basePath]}. None of it reached the prompt before.
+            const result = renderService({
+                type: "fixed", name: "UpgradeService", listener: wsListener, methods: [],
+                identifier: { presence: "required", form: ["basePath"] },
+            });
+            assert.ok(result.includes("service websocket:UpgradeService /basePath on new websocket:Listener()"),
+                `got:\n${result}`);
+            assert.ok(line(result, "# The service identifier").includes("requires a base path"));
+            assert.ok(line(result, "# The service identifier").includes("replace `/basePath`"));
+        });
+
+        test("§3: an optional identifier is described but not placeheld", () => {
+            // Corpus: rabbitmq, smb, websub, mcp declare `optional`. Writing a placeholder would push the
+            // model to fill a slot the connector does not need; the note states the option instead.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                identifier: { presence: "optional", form: ["stringLiteral"] },
+            });
+            assert.ok(result.includes("service websocket:Service on new websocket:Listener()"),
+                `no placeholder expected, got:\n${result}`);
+            const note = line(result, "# The service identifier");
+            assert.ok(note.includes("accepts a quoted string literal"), note);
+            assert.ok(note.includes("may be omitted"), note);
+        });
+
+        test("§3: a required string literal renders a quoted placeholder", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                identifier: { presence: "required", form: ["stringLiteral"] },
+            });
+            assert.ok(result.includes(`service websocket:Service "identifier" on new`), `got:\n${result}`);
+        });
+
+        test("§3: a form outside spec §10's vocabulary is named, not placeheld", () => {
+            // §10 enumerates only basePath and stringLiteral. Inventing syntax for an unknown shape would be
+            // worse than describing it, and the raw token is kept so the reader can look it up.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                identifier: { presence: "required", form: ["regexPattern"] },
+            });
+            assert.ok(line(result, "# The service identifier").includes("form `regexPattern`"));
+            assert.ok(result.includes("service websocket:Service on new"), "no invented placeholder");
+        });
+
+        test("§3: a service with no identifier renders exactly as before", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+            });
+            assert.ok(!result.includes("# The service identifier"), `got:\n${result}`);
+            assert.ok(result.includes("service websocket:Service on new websocket:Listener() {"));
+        });
+
+        // ---- §6 constraints ----
+
+        test("§6: `oneOf` states an obligation and `atMostOne` states a limit", () => {
+            // Spec §6: oneOf is "Exactly one member — not zero"; atMostOne is "zero or one ... but zero is
+            // fine". Corpus: rabbitmq's messageHandlerChoice vs websocket's textMessageVsGeneric. Wording
+            // them the same would invent an obligation websocket does not impose.
+            const oneOf = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                constraints: [{ id: "messageHandlerChoice", kind: "oneOf",
+                                members: [{ handler: "onMessage" }, { handler: "onRequest" }] }],
+            });
+            assert.ok(oneOf.includes(
+                "# Exactly one of the following is required: `onMessage` | `onRequest`."), `got:\n${oneOf}`);
+
+            const atMostOne = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                constraints: [{ id: "textMessageVsGeneric", kind: "atMostOne",
+                                members: [{ handler: "onMessage" }, { handler: "onTextMessage" }] }],
+            });
+            assert.ok(atMostOne.includes(
+                "# At most one of the following may be used: `onMessage` | `onTextMessage`."),
+                `got:\n${atMostOne}`);
+        });
+
+        test("§6: the annotation-field and identifier member shapes both render, with `preferred` marked", () => {
+            // Corpus: rabbitmq's queueNameSource — the queueName field of @rabbitmq:ServiceConfig (preferred)
+            // versus the service identifier.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: { name: "rabbitmq:Listener", parameters: [] },
+                methods: [],
+                constraints: [{ id: "queueNameSource", kind: "oneOf", members: [
+                    // `annotation` is the resolved name; `annotationId` is the registry reference and must
+                    // never be what the reader is told to write.
+                    { annotation: "ServiceConfig", annotationId: "serviceConfig",
+                      field: "queueName", preferred: true },
+                    { part: "identifier" },
+                ] }],
+            }, "ballerinax/rabbitmq");
+            const note = line(result, "# Exactly one of the following");
+            assert.ok(note.includes("the `queueName` field of @rabbitmq:ServiceConfig (preferred)"), note);
+            assert.ok(!note.includes("serviceConfig"), `the registry id must not be rendered: ${note}`);
+            assert.ok(note.includes("the service identifier"), note);
+        });
+
+        test("§6: constraint lines precede the service declaration and the identifier note precedes them", () => {
+            // A constraint may name the identifier as one of its alternatives, so the slot has to be
+            // described first for the constraint line to make sense.
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                identifier: { presence: "optional", form: ["stringLiteral"] },
+                constraints: [{ kind: "oneOf", members: [
+                    { annotation: "ServiceConfig", field: "queueName" }, { part: "identifier" }] }],
+            });
+            const lines = result.split("\n");
+            const identifierAt = lines.findIndex((l) => l.startsWith("# The service identifier"));
+            const constraintAt = lines.findIndex((l) => l.startsWith("# Exactly one of"));
+            const serviceAt = lines.findIndex((l) => l.startsWith("service websocket:Service"));
+            assert.ok(identifierAt >= 0 && constraintAt > identifierAt && serviceAt > constraintAt,
+                `order was ${identifierAt}/${constraintAt}/${serviceAt}:\n${result}`);
+        });
+
+        test("§6: a member populating none of the three shapes is skipped, and an empty rule renders nothing", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener, methods: [],
+                constraints: [{ kind: "oneOf", members: [{}, { handler: "onMessage" }] },
+                              { kind: "oneOf", members: [] }],
+            });
+            const notes = result.split("\n").filter((l) => l.startsWith("# Exactly one of"));
+            assert.strictEqual(notes.length, 1, `got:\n${result}`);
+            assert.ok(notes[0].endsWith("required: `onMessage`."), notes[0]);
+        });
+
+        test("general rule: a service declaring none of the new constructs renders exactly as before", () => {
+            const result = renderService({
+                type: "fixed", name: "Service", listener: wsListener,
+                methods: [method({ name: "onOpen", parameters: [] })],
+            });
+            assert.strictEqual(result.split("\n").filter((l) => l.startsWith("#")).length, 0,
+                `no notes expected:\n${result}`);
+            assert.ok(result.includes("    remote function onOpen() returns error?;"), `got:\n${result}`);
+        });
+    });
 });

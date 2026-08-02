@@ -86,6 +86,27 @@ final class ServiceDraft {
         }
     }
 
+    /**
+     * Spec §3 {@code serviceTypes[].identifier}: the slot between {@code service} and {@code on new …}.
+     * Omitted when the connector does not consult it — spec §3: "Omit the whole key if the identifier slot
+     * carries no meaning for this connector."
+     */
+    void setIdentifier(JsonObject identifier) {
+        if (identifier != null) {
+            json.add("identifier", identifier);
+        }
+    }
+
+    /**
+     * Spec §6 {@code rules[]}: the exclusivity constraints this service type declares. Omitted when it
+     * declares none, which is 8 of the 13 corpus documents.
+     */
+    void setConstraints(JsonArray constraints) {
+        if (constraints != null && !constraints.isEmpty()) {
+            json.add("constraints", constraints);
+        }
+    }
+
     /** Spec §2 {@code listeners[].type}: the listener the service attaches to, with its init params. */
     void setListener(JsonObject listener) {
         if (listener != null) {

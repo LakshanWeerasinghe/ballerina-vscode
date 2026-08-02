@@ -17,6 +17,13 @@
             <class name="io.ballerina.flowmodelgenerator.core.copilot.service.AnnotationRegistryTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.copilot.service.ServiceAnnotationResolverTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.copilot.service.ServiceAnnotationAspectTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.HandlerKindResolverTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.AccessorPrecedencePolicyTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.HandlerPresenceResolverTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.HttpResourceExtrasResolverTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.GraphqlResourceExtrasResolverTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.IdentifierResolverTest"/>
+            <class name="io.ballerina.flowmodelgenerator.core.copilot.service.ConstraintResolverTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.copilot.service.TriggerPipelineContractTest"/>
             <class name="io.ballerina.flowmodelgenerator.core.copilot.util.LibraryModelConverterTest"/>
         </classes>

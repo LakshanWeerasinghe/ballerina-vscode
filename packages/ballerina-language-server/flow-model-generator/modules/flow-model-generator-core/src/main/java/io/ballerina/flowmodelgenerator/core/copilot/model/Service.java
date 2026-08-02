@@ -41,6 +41,11 @@ public class Service {
     private List<RequiredImport> requiredImports;
     // Spec §8: the annotations this service type must or may carry, scoped by the document's `appliesTo`.
     private List<ServiceAnnotationRef> annotations;
+    // Spec §3: the identifier/base-path slot between `service` and `on new`. Null when the connector does
+    // not consult it, which is what an absent `identifier` key means.
+    private ServiceIdentifier identifier;
+    // Spec §6: the exclusivity constraints this service type declares (`oneOf` / `atMostOne`).
+    private List<ServiceConstraint> constraints;
     @SerializedName("methods")
     private List<ServiceRemoteFunction> methods;
     private String testGenerationInstruction;
@@ -104,6 +109,22 @@ public class Service {
 
     public void setAnnotations(List<ServiceAnnotationRef> annotations) {
         this.annotations = annotations;
+    }
+
+    public ServiceIdentifier getIdentifier() {
+        return identifier;
+    }
+
+    public void setIdentifier(ServiceIdentifier identifier) {
+        this.identifier = identifier;
+    }
+
+    public List<ServiceConstraint> getConstraints() {
+        return constraints;
+    }
+
+    public void setConstraints(List<ServiceConstraint> constraints) {
+        this.constraints = constraints;
     }
 
     public List<ServiceRemoteFunction> getMethods() {

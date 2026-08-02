@@ -117,10 +117,74 @@ public class TriggerPipelineContractTest {
         REGISTRY.serviceAspects().forEach(aspect -> owned.add(aspect.specSection()));
         REGISTRY.handlerAspects().forEach(aspect -> owned.add(aspect.specSection()));
         REGISTRY.paramAspects().forEach(aspect -> owned.add(aspect.specSection()));
-        for (String section : List.of("§2", "§3", "§4", "§5", "§7", "§8")) {
+        for (String section : List.of("§2", "§3", "§4", "§5", "§6", "§7", "§8")) {
             Assert.assertTrue(owned.contains(section),
                     "no registered component owns spec " + section + "; owned: " + owned);
         }
+    }
+
+    @Test
+    public void testEveryConstructAddedForP4HasARegisteredOwner() {
+        // The traceability guard made concrete: each of these ids is the single owner of one spec construct,
+        // so a construct cannot be silently unwired by deleting its registry line.
+        List<String> serviceIds = REGISTRY.serviceAspects().stream().map(ServiceAspect::id).toList();
+        List<String> handlerIds = REGISTRY.handlerAspects().stream().map(HandlerAspect::id).toList();
+        Assert.assertTrue(serviceIds.containsAll(List.of("identifier", "constraints")),
+                "§3's identifier and §6's rules must each name an owner: " + serviceIds);
+        Assert.assertTrue(handlerIds.containsAll(List.of(
+                        "handlerKind", "handlerPresence", "httpResourceExtras", "graphqlResourceExtras")),
+                "§5's kind, presence and the two protocol extras must each name an owner: " + handlerIds);
+    }
+
+    @Test
+    public void testTheServiceLevelConstructsSitBetweenIdentityAndTheCatalog() {
+        // Same reasoning as the annotation ordering: identity can veto the entry, and the catalog drives the
+        // lower tiers, so every other service-level contribution belongs between them.
+        List<String> ids = REGISTRY.serviceAspects().stream().map(ServiceAspect::id).toList();
+        for (String id : List.of("identifier", "constraints")) {
+            Assert.assertTrue(ids.indexOf(id) > ids.indexOf("serviceIdentity"), id + ": " + ids);
+            Assert.assertTrue(ids.indexOf(id) < ids.indexOf("handlerCatalog"), id + ": " + ids);
+        }
+    }
+
+    @Test
+    public void testHandlerKeyOrderIsOwnedByTheDraftNotByTheRegistry() {
+        // HandlerDraft holds every slot as a field and emits them in the wire contract's order, so a
+        // component can be registered anywhere without reshuffling the JSON. Without this, splitting `kind`
+        // out of `handlerIdentity` would have silently reordered every handler object.
+        HandlerDraft draft = new HandlerDraft();
+        draft.setReturn(new JsonObject());
+        draft.setGraphqlOperation("query");
+        draft.setOptional(true);
+        draft.setKind("resource");
+        draft.setName("onEvent");
+        draft.setAccessor("get");
+        Assert.assertEquals(new ArrayList<>(draft.toJson().keySet()),
+                List.of("name", "type", "optional", "accessor", "graphqlOperation", "return"));
+    }
+
+    @Test
+    public void testAHandlerPresenceOfRequiredIsEmittedRatherThanOmitted() {
+        // Unlike a parameter, a handler needs all three states: `optional: false` is the only way to say
+        // "you must implement this", and absence is reserved for "the document is not saying".
+        HandlerDraft required = new HandlerDraft();
+        required.setOptional(false);
+        Assert.assertTrue(required.toJson().has("optional"));
+        Assert.assertFalse(required.toJson().get("optional").getAsBoolean());
+        Assert.assertFalse(new HandlerDraft().toJson().has("optional"),
+                "Never stated unless a component states it");
+    }
+
+    @Test
+    public void testTheNewServiceLevelKeysFollowTheOmissionRule() {
+        ServiceDraft draft = new ServiceDraft();
+        draft.setIdentifier(null);
+        draft.setConstraints(null);
+        draft.setConstraints(new JsonArray());
+        Assert.assertFalse(draft.toJson().has("identifier"),
+                "Spec §3: omit the whole key when the identifier carries no meaning");
+        Assert.assertFalse(draft.toJson().has("constraints"),
+                "Spec §6 is optional, and 8 of 13 documents declare no rules");
     }
 
     @Test

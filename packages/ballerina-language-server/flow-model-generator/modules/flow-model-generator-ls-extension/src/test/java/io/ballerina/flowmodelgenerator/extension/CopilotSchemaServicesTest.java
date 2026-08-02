@@ -242,8 +242,13 @@ public class CopilotSchemaServicesTest {
         // library carries a handler description — the key is omitted, never fabricated.
         Assert.assertFalse(onConsumerRecord.has("description"),
                 "Marker-type handlers have no description source");
-        Assert.assertFalse(onConsumerRecord.has("optional"),
-                "Function-level optional must never be emitted");
+        // Spec §5 scopes `presence` to `addMode: "subset"`, which is kafka's mode — so the document's
+        // `presence: "required"` must reach the wire. It used to be dropped, which left a mandatory handler
+        // indistinguishable from a skippable one; `onError` below is the optional counterpart.
+        Assert.assertTrue(onConsumerRecord.has("optional"),
+                "A subset option's presence must be stated, not dropped");
+        Assert.assertFalse(onConsumerRecord.get("optional").getAsBoolean(),
+                "kafka's onConsumerRecord declares presence: \"required\"");
 
         // The metadata document states no names for these slots (a handler param name is the service
         // author's choice), so they are generated: the AnydataX|BytesX union collapses to one stable
@@ -265,6 +270,10 @@ public class CopilotSchemaServicesTest {
         Assert.assertEquals(paramNames(onError), List.of("kafkaError"));
         Assert.assertEquals(paramNamed(onError, "kafkaError").getAsJsonObject("type")
                 .get("name").getAsString(), "Error");
+        // The optional counterpart of onConsumerRecord above: both states are expressible, which is the
+        // whole point of stating presence at all.
+        Assert.assertTrue(onError.get("optional").getAsBoolean(),
+                "kafka's onError declares presence: \"optional\"");
     }
 
     // ---- rabbitmq ----------------------------------------------------------------------

@@ -40,13 +40,25 @@ export interface Parameter {
     description: string;
     type: Type;
     default?: string;
+    // Whether this parameter may be omitted. The pipeline emits it only when true — from the init method's
+    // DEFAULTABLE/INCLUDED_RECORD parameter kind on the metadata path, or the service index's own flag
+    // otherwise — so absent means required. `renderFixedService` depends on it to decide whether a listener
+    // argument may carry a default; declared here rather than read through a cast, so a producer that stops
+    // sending it fails type-checking instead of silently dropping every listener default.
+    optional?: boolean;
     annotations?: AnnotationAttachment[];
 }
 
 export interface ParameterDef {
+    // Spec §7 `params[].name`: the authored name, or the deterministic one the pipeline generated for a slot
+    // whose name the document leaves to the service author. Declared here rather than smuggled through a
+    // cast at the one call site that needs it.
+    name?: string;
     description: string;
     type: Type;
     default?: string;
+    // Spec §7 `presence`. An optional handler parameter may be omitted from the signature entirely — it is
+    // never rendered as `T?` or given a default, neither of which is what the spec means.
     optional: boolean;
 }
 
@@ -142,13 +154,29 @@ export interface RemoteFunction extends AbstractFunction {
 }
 
 export interface ServiceRemoteFunction {
+    // Spec §5 `options[].kind`. Drives the rendered keyword: `resource` needs an accessor and a path, and
+    // rendering one as `remote function` does not compile.
     type: "remote" | "resource";
     description: string;
     parameters: ParameterDef[];
     return: Return;
-    optional: boolean;
+    // Spec §5 `options[].presence`, tri-state: `true` optional, `false` required, **absent** when the document
+    // is not answering the question (`addMode: "many"`, or a concrete type's declared method). Absent is not
+    // the same as `false` — only `false` states an obligation.
+    optional?: boolean;
     name: string;
     isDeprecated?: boolean;
+    // Spec §5 resource extras. `accessor` is resolved by the Java-side AccessorPrecedencePolicy; the rest are
+    // the legal vocabularies the document declares, rendered as placeholders and notes (spec §11.2: the
+    // concrete values are intent-derived and must never be invented).
+    accessor?: string;
+    methodValues?: string[];
+    methodRequired?: boolean;
+    pathForm?: string[];
+    pathRequired?: boolean;
+    fieldNameForm?: string[];
+    fieldNameRequired?: boolean;
+    graphqlOperation?: string;
 }
 
 export interface Client {
@@ -191,6 +219,36 @@ export interface ServiceAnnotationRef {
     typeConstraint?: Type;
 }
 
+// Spec §3 `serviceTypes[].identifier`: the slot between `service` and `on new …`. Carries the document's own
+// `form` tokens rather than a rendered placeholder — building `/basePath` from `basePath` is a syntax decision,
+// and keeping the raw token means a form outside spec §10's vocabulary can still be named in the note.
+export interface ServiceIdentifier {
+    presence: "required" | "optional";
+    form: string[];
+}
+
+// Spec §6 `rules[].members[]`: exactly one shape is populated per member.
+export interface ConstraintMember {
+    // The annotation's actual name (`ServiceConfig`), already resolved from the document's registry id by the
+    // Java side — a reader has to write this, not the id.
+    annotation?: string;
+    // The `annotations[].id` the rule referenced (`serviceConfig`). Carried for traceability; never rendered,
+    // because it names nothing that exists in Ballerina source.
+    annotationId?: string;
+    field?: string;
+    part?: string;
+    handler?: string;
+    preferred?: boolean;
+}
+
+// Spec §6 `rules[]`: `oneOf` obliges the service to pick exactly one member; `atMostOne` permits none. The
+// distinction is load-bearing and must not be flattened when rendering.
+export interface ServiceConstraint {
+    id?: string;
+    kind: "oneOf" | "atMostOne";
+    members: ConstraintMember[];
+}
+
 export interface Service {
     listener: Listener;
     type: "generic" | "fixed";
@@ -202,6 +260,10 @@ export interface Service {
     requiredImports?: RequiredImport[];
     // Spec §8: the annotations this service type must or may carry.
     annotations?: ServiceAnnotationRef[];
+    // Spec §3: the identifier slot, absent when the connector does not consult it.
+    identifier?: ServiceIdentifier;
+    // Spec §6: the exclusivity constraints this service type declares.
+    constraints?: ServiceConstraint[];
 }
 
 export interface Annotation {

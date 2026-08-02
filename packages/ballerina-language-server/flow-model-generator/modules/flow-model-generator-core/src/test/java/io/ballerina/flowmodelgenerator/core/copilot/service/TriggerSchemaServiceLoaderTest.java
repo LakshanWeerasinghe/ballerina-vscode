@@ -210,7 +210,13 @@ public class TriggerSchemaServiceLoaderTest {
         Assert.assertEquals(method.get("type").getAsString(), "resource");
         Assert.assertFalse(method.has("parameters"), "No parameters key for a param-less option");
         Assert.assertFalse(method.has("description"), "No description without UI docs");
-        Assert.assertFalse(method.has("optional"), "Function-level optional must never be emitted");
+        // Spec §5: `presence` is meaningful "Only under `addMode: subset`", and this fixture is built as a
+        // subset catalog — so `presence: "required"` must reach the wire as `optional: false`. It used to be
+        // dropped, which made a mandatory handler indistinguishable from a skippable one.
+        Assert.assertTrue(method.has("optional"),
+                "A subset option's presence must be stated, not dropped");
+        Assert.assertFalse(method.get("optional").getAsBoolean(),
+                "presence: \"required\" is not optional");
         Assert.assertEquals(method.getAsJsonObject("return").getAsJsonObject("type")
                 .get("name").getAsString(), "error?");
     }

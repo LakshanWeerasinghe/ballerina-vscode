@@ -25,8 +25,9 @@ import java.util.List;
  * replacement resolver here is the whole change, because nothing else names a component.
  *
  * <p><b>Ordering.</b> Within a tier the order is declared once, here. Only three entries have a reason to
- * sit where they do, and each is noted at its line; the rest are order-independent and are listed to match
- * the wire contract's key order purely so the emitted JSON reads naturally.
+ * sit where they do, and each is noted at its line; the rest are order-independent. Handler-tier order in
+ * particular carries no meaning at all: {@link HandlerDraft} holds each slot as a field and emits the wire
+ * contract's key order itself, so a component can be inserted anywhere without changing the JSON.
  *
  * <p><b>Lifetime.</b> A registry is built per library load, never shared: {@link ListenerAspect} memoizes
  * the listener object it builds, and that cache is only valid within one library's resolved package.
@@ -45,6 +46,10 @@ final class AspectRegistry {
     private AspectRegistry() {
         this.handlerAspects = List.of(
                 new HandlerIdentityAspect(),
+                new HandlerKindAspect(),
+                new HandlerPresenceAspect(),
+                new HttpResourceExtrasAspect(),
+                new GraphqlResourceExtrasAspect(),
                 new ReturnAspect());
         this.paramAspects = List.of(
                 new ParamTypeAspect());
@@ -59,6 +64,8 @@ final class AspectRegistry {
                 // `serviceTypes[].id`, which the scope already carries — so this is an ordering of
                 // effect, not of data.
                 new ServiceAnnotationAspect(),
+                new IdentifierAspect(),
+                new ConstraintAspect(),
                 new ListenerAspect(),
                 // Must run last: it drives the handler and parameter tiers, so every service-level
                 // contribution has to be in place before it starts.
