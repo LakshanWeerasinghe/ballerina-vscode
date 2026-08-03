@@ -300,7 +300,9 @@ public class ListenerUtil {
      */
     public static Listener createBaseListenerModel(FunctionData functionData) {
         Map<String, Value> properties = new LinkedHashMap<>();
-        String formattedModuleName = upperCaseFirstLetter(functionData.packageName());
+        String formattedModuleName = TriggerArtifactResolver.resolveShortDisplayName(functionData.org(),
+                        functionData.packageName(), functionData.packageName(), functionData.version())
+                .orElseGet(() -> upperCaseFirstLetter(functionData.packageName()));
         String icon = TriggerArtifactResolver.resolveIcon(functionData.org(), functionData.packageName(),
                 functionData.packageName(), functionData.version()).url();
 

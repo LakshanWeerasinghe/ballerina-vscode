@@ -20,6 +20,17 @@
       "kind": "file"
     }
   },
+  "azure.storage.files": {
+    "displayName": "Azure Files Integration",
+    "shortDisplayName": "Azure Files",
+    "icon": {
+      "glyph": "bi-file",
+      "kind": "file"
+    },
+    "labelFields": [
+      "path"
+    ]
+  },
   "ftp": {
     "displayName": "FTP Integration",
     "icon": {

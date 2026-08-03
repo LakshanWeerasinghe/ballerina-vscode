@@ -34,13 +34,19 @@ import java.util.List;
  * handler schema just to paint a tree node would mean deserializing a document an order of magnitude
  * larger than what the tree actually needs.
  *
- * @param displayName  the label shown for the artifact, e.g. {@code "RabbitMQ Event Integration"}
- * @param icon         the connector-declared {@link IconDescriptor} (any of {@code url}, {@code glyph},
- *                     {@code color}, {@code kind}); all fields optional. The resolver fills {@code url}
- *                     (Central/package) and {@code source} when absent. {@code null} when undeclared.
- * @param labelFields  service-annotation field names to try, in order, for the instance-label suffix
- *                     (e.g. {@code ["queueName", "topicName"]}); {@code null}/empty means no suffix
+ * @param displayName       the label shown for the artifact, e.g. {@code "RabbitMQ Event Integration"}
+ * @param shortDisplayName  the module's short human name for compact UI surfaces (e.g. a listener
+ *                          edit title: {@code "Azure Files"} → "Azure Files Listener Configuration");
+ *                          {@code null} means consumers fall back to deriving one from the package name
+ * @param icon              the connector-declared {@link IconDescriptor} (any of {@code url},
+ *                          {@code glyph}, {@code color}, {@code kind}); all fields optional. The
+ *                          resolver fills {@code url} (Central/package) and {@code source} when absent.
+ *                          {@code null} when undeclared.
+ * @param labelFields       service-annotation field names to try, in order, for the instance-label
+ *                          suffix (e.g. {@code ["queueName", "topicName"]}); {@code null}/empty means
+ *                          no suffix
  * @since 1.9.0
  */
-public record TriggerArtifactModel(String displayName, IconDescriptor icon, List<String> labelFields) {
+public record TriggerArtifactModel(String displayName, String shortDisplayName, IconDescriptor icon,
+                                   List<String> labelFields) {
 }
