@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "StreamableHttpListener" },
@@ -187,7 +189,5 @@
       "attachPoint": "parameter",
       "presence": "optional"
     }
-  ],
-
-  "dataBindingRules": []
+  ]
 }

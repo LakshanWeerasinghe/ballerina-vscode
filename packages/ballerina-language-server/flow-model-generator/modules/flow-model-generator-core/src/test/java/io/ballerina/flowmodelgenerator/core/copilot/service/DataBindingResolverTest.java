@@ -129,7 +129,7 @@ public class DataBindingResolverTest {
     @Test
     public void testADocumentWithNoRegistryResolvesToNothing() {
         // §9's whole key is optional — five of the thirteen documents declare none.
-        Assert.assertTrue(resolve("anything", new TriggerMetadataModel(null, null, null, null)).isEmpty());
+        Assert.assertTrue(resolve("anything", new TriggerMetadataModel(null, null, null, null, null)).isEmpty());
     }
 
     // ---- fixtures --------------------------------------------------------------------
@@ -139,7 +139,7 @@ public class DataBindingResolverTest {
     }
 
     private static TriggerMetadataModel documentOf(TriggerMetadataModel.DataBindingRule... rules) {
-        return new TriggerMetadataModel(null, null, null, List.of(rules));
+        return new TriggerMetadataModel(null, null, null, null, List.of(rules));
     }
 
     private static TriggerMetadataModel.DataBindingRule rule(

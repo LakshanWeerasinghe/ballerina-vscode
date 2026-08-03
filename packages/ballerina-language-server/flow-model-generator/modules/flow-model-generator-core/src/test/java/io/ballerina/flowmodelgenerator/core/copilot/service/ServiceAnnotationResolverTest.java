@@ -212,7 +212,7 @@ public class ServiceAnnotationResolverTest {
     @Test
     public void testAnEntryNamingNoAnnotationIsSkippedRatherThanEmittedNameless() {
         // §8's `type` is what names the annotation; without it there is nothing a renderer could write.
-        AnnotationRegistry registry = AnnotationRegistry.of(new TriggerMetadataModel(List.of(), List.of(),
+        AnnotationRegistry registry = AnnotationRegistry.of(new TriggerMetadataModel(null, List.of(), List.of(),
                 Arrays.asList(
                         new TriggerMetadataModel.Annotation("noType", null, "service", null, "required"),
                         new TriggerMetadataModel.Annotation("blank", new TypeRef("", null), "service",
@@ -277,7 +277,7 @@ public class ServiceAnnotationResolverTest {
 
     private static AnnotationRegistry registryOf(TriggerMetadataModel.Annotation... annotations) {
         return AnnotationRegistry.of(
-                new TriggerMetadataModel(List.of(), List.of(), List.of(annotations), null));
+                new TriggerMetadataModel(null, List.of(), List.of(), List.of(annotations), null));
     }
 
     private static TriggerMetadataModel.Annotation annotation(String id, String type, String attachPoint,

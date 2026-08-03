@@ -52,6 +52,8 @@ final class HandlerDraft {
     private String name;
     private String kind;
     private String description;
+    // A concrete type's declared `isolated` qualifier. Emitted only when true; see HandlerQualifierAspect.
+    private Boolean isolated;
     // Spec §5 `presence`, tri-state on purpose: TRUE optional, FALSE required, null "the document is not
     // answering the question" (addMode: many). See HandlerPresenceResolver.
     private Boolean optional;
@@ -73,6 +75,14 @@ final class HandlerDraft {
     /** Spec §5 {@code options[].kind}: {@code "remote"} or {@code "resource"}. */
     void setKind(String kind) {
         this.kind = kind;
+    }
+
+    /**
+     * The declared method carries {@code isolated}, so an implementation must repeat it or the signatures
+     * do not match. Emitted only when true, per the omission rule.
+     */
+    void setIsolated() {
+        this.isolated = true;
     }
 
     /** The method's doc-comment description; omitted when the source has none. */
@@ -229,6 +239,9 @@ final class HandlerDraft {
         JsonObject json = new JsonObject();
         addIfPresent(json, "name", name);
         addIfPresent(json, "type", kind);
+        if (isolated != null) {
+            json.addProperty("isolated", isolated);
+        }
         addIfPresent(json, "description", description);
         if (optional != null) {
             json.addProperty("optional", optional);

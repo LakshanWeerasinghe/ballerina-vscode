@@ -136,7 +136,7 @@ public class ServiceIdentityResolverTest {
     }
 
     private static JsonObject contribute(int serviceTypeCount) {
-        TriggerMetadataModel document = new TriggerMetadataModel(null,
+        TriggerMetadataModel document = new TriggerMetadataModel(null, null,
                 java.util.Collections.nCopies(serviceTypeCount, serviceType()), null, null);
         TriggerScope scope = new TriggerScope("ballerina/mcp", "ballerina", HOME, HOME, document,
                 AnnotationRegistry.of(null), serviceType(), null, null, null, DECLARES_ANYTHING);

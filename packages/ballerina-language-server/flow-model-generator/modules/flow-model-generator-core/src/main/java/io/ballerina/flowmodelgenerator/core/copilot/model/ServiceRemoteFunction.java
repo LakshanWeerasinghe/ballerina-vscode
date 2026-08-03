@@ -31,6 +31,15 @@ import java.util.List;
 public class ServiceRemoteFunction {
     private String name;
     private String type;
+    /**
+     * The declared method carries the {@code isolated} qualifier, so an implementation must repeat it.
+     * Introspected from the semantic model, never from the document — a qualifier is exactly the kind
+     * of fact the DRY principle keeps out of the metadata. Boxed and emitted only when true.
+     *
+     * <p>Omitting it fails with "mismatched function signatures" whose expected and found halves print
+     * identically, because the compiler prints neither qualifier.
+     */
+    private Boolean isolated;
     private String description;
     private List<Parameter> parameters;
     @SerializedName("return")
@@ -67,6 +76,14 @@ public class ServiceRemoteFunction {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Boolean isIsolated() {
+        return isolated;
+    }
+
+    public void setIsolated(Boolean isolated) {
+        this.isolated = isolated;
     }
 
     public String getType() {

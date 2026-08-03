@@ -2013,4 +2013,450 @@ suite("toSyntaxString", () => {
             noLine(result, "you choose each one's name");
         });
     });
+
+    // ----------------------------------------------------------------
+    // Compile-correctness of what the reader copies.
+    //
+    // These pin two classes of defect that every previous suite missed for the same reason: the fixtures
+    // above declare types with NO `links`, and both defects only appear once a link is present. A test
+    // whose fixture cannot exhibit the bug passes for a broken implementation, which is exactly what
+    // happened — 126 tests were green while `mcp`'s rendered handler failed to compile.
+    //
+    // Every expected string here was verified with `bal build` (Ballerina 2201.13.4) before being asserted.
+    // ----------------------------------------------------------------
+    suite("compile-correctness — module qualification and attach points", () => {
+        /** A type the library declares itself: the prefix is stripped and an `internal` link carries it. */
+        function own(name: string, recordName?: string): Record<string, unknown> {
+            return { name, links: [{ category: "internal", recordName: recordName ?? name }] };
+        }
+
+        function renderService(service: Record<string, unknown>): string {
+            const lib = {
+                name: "ballerina/mcp", description: "", typeDefs: [], clients: [], services: [service],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        const listener = { name: "mcp:StreamableHttpListener", parameters: [] };
+
+        function service1(method: Record<string, unknown>): Record<string, unknown> {
+            return { type: "fixed", name: "AdvancedService", listener, methods: [method] };
+        }
+
+        // ---- handler signatures ----
+
+        test("a handler parameter naming a library type is written with the module alias", () => {
+            // Verified: `remote function onCallTool(CallToolParams params)` inside a service in the
+            // reader's module gives `ERROR unknown type 'CallToolParams'`; the `mcp:`-qualified form
+            // builds. The name arrives stripped with an `internal` link, so the alias must go back on.
+            const result = renderService(service1({
+                name: "onCallTool", type: "remote",
+                parameters: [{ name: "params", description: "", type: own("CallToolParams") }],
+                return: { type: own("CallToolResult") },
+            }));
+            assert.ok(result.includes("remote function onCallTool(mcp:CallToolParams params)"),
+                `Expected a module-qualified parameter, got:\n${result}`);
+        });
+
+        test("a handler return naming a library type is written with the module alias", () => {
+            const result = renderService(service1({
+                name: "onListTools", type: "remote", parameters: [],
+                return: { type: own("ListToolsResult") },
+            }));
+            assert.ok(result.includes("returns mcp:ListToolsResult;"),
+                `Expected a module-qualified return, got:\n${result}`);
+        });
+
+        test("a union return qualifies every member that names a library type", () => {
+            // `returns ListToolsResult|ServerError` named two unresolvable types on one line. Both links
+            // are present, so both members are prefixed — member-wise, never as one blob.
+            const result = renderService(service1({
+                name: "onListTools", type: "remote", parameters: [],
+                return: {
+                    type: {
+                        name: "ListToolsResult|ServerError",
+                        links: [
+                            { category: "internal", recordName: "ListToolsResult" },
+                            { category: "internal", recordName: "ServerError" },
+                        ],
+                    },
+                },
+            }));
+            assert.ok(result.includes("returns mcp:ListToolsResult|mcp:ServerError;"),
+                `Expected every union member qualified, got:\n${result}`);
+        });
+
+        test("an array-typed parameter is qualified despite the `[]` suffix", () => {
+            // kafka's payload slot arrives as `AnydataConsumerRecord[]` with an internal link whose
+            // recordName carries the `[]` too. A `\b` anchor after `]` demands a word character that is
+            // not there, so the name silently stayed bare — and bare it does not compile.
+            const result = renderService(service1({
+                name: "onConsumerRecord", type: "remote",
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: own("AnydataConsumerRecord[]", "AnydataConsumerRecord[]"),
+                }],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("(mcp:AnydataConsumerRecord[] consumerRecords)"),
+                `An array type must still take the alias, got:\n${result}`);
+        });
+
+        test("an alternative-type note is qualified exactly like the signature beside it", () => {
+            // The note offers a type the reader may write IN PLACE OF the declared one, so it has to be
+            // written the way the reader must write it. kafka read `may also be: BytesConsumerRecord[]`
+            // directly above `kafka:AnydataConsumerRecord[]`; taking the alternative gave `unknown type`.
+            const result = renderService(service1({
+                name: "onConsumerRecord", type: "remote",
+                parameters: [{
+                    name: "consumerRecords", description: "",
+                    type: own("AnydataConsumerRecord[]", "AnydataConsumerRecord[]"),
+                    alternatives: [own("BytesConsumerRecord[]", "BytesConsumerRecord[]")],
+                }],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("may also be: mcp:BytesConsumerRecord[]"),
+                `An alternative must be written as the reader must write it, got:\n${result}`);
+        });
+
+        test("a binding note is qualified, and suppression still matches", () => {
+            // Both sides of the suppression comparison move together: the declared type must still be
+            // recognised as already-visible, while a genuinely new target is stated qualified.
+            const result = renderService(service1({
+                name: "onMessage", type: "remote",
+                parameters: [{
+                    name: "message", description: "", type: own("AnydataMessage"),
+                    binding: {
+                        modes: [{
+                            mode: "direct",
+                            typeConstraint: [own("AnydataMessage"), own("BytesMessage")],
+                        }],
+                    },
+                }],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("may bind directly to: mcp:BytesMessage"),
+                `A new binding target must be qualified, got:\n${result}`);
+            assert.ok(!result.includes("mcp:AnydataMessage,") && !result.includes(": mcp:AnydataMessage"),
+                `The declared type is already visible and must stay suppressed, got:\n${result}`);
+        });
+
+        test("a qualified name is never prefixed twice", () => {
+            // The leading lookaround's job: `Session` must not match inside `mcp:Session`.
+            const result = renderService(service1({
+                name: "onEvent", type: "remote",
+                parameters: [{
+                    name: "session", description: "",
+                    type: {
+                        name: "Session|()",
+                        links: [
+                            { category: "internal", recordName: "Session" },
+                            { category: "internal", recordName: "Session" },
+                        ],
+                    },
+                }],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("(mcp:Session|() session)"), `got:\n${result}`);
+            assert.ok(!result.includes("mcp:mcp:"), `A prefix must never be applied twice:\n${result}`);
+        });
+
+        test("a builtin or already-prefixed type in the signature is left exactly as it is", () => {
+            // The counterweight: qualification keys off the links the pipeline attached, never off the
+            // shape of the name. A link-free name is a builtin or already carries a foreign prefix, and
+            // prefixing either would break a line that was correct.
+            const result = renderService(service1({
+                name: "onEvent", type: "remote",
+                parameters: [
+                    { name: "data", description: "", type: { name: "anydata" } },
+                    { name: "headers", description: "", type: { name: "http:Headers" } },
+                ],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("remote function onEvent(anydata data, http:Headers headers) returns error?;"),
+                `A link-free type must survive untouched, got:\n${result}`);
+            assert.ok(!result.includes("mcp:anydata") && !result.includes("mcp:http:Headers"),
+                "A builtin or foreign-prefixed name must never take the listener alias");
+        });
+
+        test("a cross-module handler type takes its own package prefix, not the listener's", () => {
+            const result = renderService(service1({
+                name: "onEvent", type: "remote",
+                parameters: [{
+                    name: "request", description: "",
+                    type: {
+                        name: "Request",
+                        links: [{ category: "external", recordName: "Request", libraryName: "ballerina/http" }],
+                    },
+                }],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("(http:Request request)"),
+                `An external link must take its own module's prefix, got:\n${result}`);
+            assert.ok(!result.includes("mcp:Request"), "Never the listener's alias for a foreign type");
+        });
+
+        // ---- the listener argument list ----
+
+        test("a listener argument naming a library type is written with the module alias", () => {
+            // The same defect one line up, and the line the reader copies first:
+            // `on new mcp:StreamableHttpListener(ListenerConfiguration config = {})` does not resolve.
+            const result = renderService({
+                type: "fixed", name: "Service", methods: [],
+                listener: {
+                    name: "mcp:StreamableHttpListener",
+                    parameters: [
+                        { name: "listenTo", description: "", type: { name: "int|http:Listener" } },
+                        {
+                            name: "config", description: "", type: own("ListenerConfiguration"),
+                            optional: true, default: "{}",
+                        },
+                    ],
+                },
+            });
+            assert.ok(result.includes(
+                "on new mcp:StreamableHttpListener(int|http:Listener listenTo, "
+                + "mcp:ListenerConfiguration config = {})"),
+                `Expected a qualified listener argument, got:\n${result}`);
+        });
+
+        test("a client or standalone function parameter is NOT re-qualified", () => {
+            // The deliberate asymmetry. Client/function parameters come from the symbol-processing
+            // pipeline, already carry the form the reader must write, and re-qualifying them would
+            // double a correct prefix. Only the metadata-derived handler path was broken.
+            const lib = {
+                name: "ballerina/mcp", description: "", typeDefs: [], clients: [{
+                    name: "Client", description: "",
+                    functions: [{
+                        type: "Remote Function", name: "call", description: "",
+                        parameters: [{ name: "params", description: "", type: own("CallToolParams") }],
+                        return: { type: { name: "error?" } },
+                    }],
+                }],
+            } as unknown as Library;
+            const result = toSyntaxString([lib]);
+            assert.ok(result.includes("remote function call(CallToolParams params)"),
+                `A client parameter must be untouched by the handler-path fix, got:\n${result}`);
+        });
+
+        // ---- annotation attach points ----
+
+        // Every row was compiled before being asserted. `on service_function` and `on resource function`
+        // — the two forms this renderer emitted for years — are `ERROR invalid token`; they are kept in
+        // the table as comments so nobody reintroduces them by inspection.
+        const COMPILER_VERIFIED_ATTACH_POINTS: Array<[string, string]> = [
+            ["SERVICE", "public annotation Cfg X on service;"],
+            ["OBJECT_METHOD", "public annotation Cfg X on object function;"],
+            ["RESOURCE", "public annotation Cfg X on service remote function;"],
+            ["TYPE", "public annotation Cfg X on type;"],
+            ["FUNCTION", "public annotation Cfg X on function;"],
+            ["PARAMETER", "public annotation Cfg X on parameter;"],
+            ["RETURN", "public annotation Cfg X on return;"],
+            ["CLASS", "public annotation Cfg X on class;"],
+            ["FIELD", "public annotation Cfg X on field;"],
+            ["OBJECT_FIELD", "public annotation Cfg X on object field;"],
+            ["RECORD_FIELD", "public annotation Cfg X on record field;"],
+            ["LISTENER", "public const annotation Cfg X on source listener;"],
+            ["ANNOTATION", "public const annotation Cfg X on source annotation;"],
+            ["EXTERNAL", "public const annotation Cfg X on source external;"],
+            ["VAR", "public const annotation Cfg X on source var;"],
+            ["CONST", "public const annotation Cfg X on source const;"],
+            ["WORKER", "public const annotation Cfg X on source worker;"],
+        ];
+
+        function renderAnnotationAt(attachmentPoint: string): string {
+            const lib = {
+                name: "ballerina/mcp", description: "", typeDefs: [], clients: [],
+                annotations: [{ name: "X", attachmentPoint, typeConstraint: own("Cfg") }],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        test("every attach point renders the exact declaration that was compiled", () => {
+            for (const [point, expected] of COMPILER_VERIFIED_ATTACH_POINTS) {
+                const result = renderAnnotationAt(point);
+                assert.ok(result.includes(expected),
+                    `${point} must render "${expected}" — the form verified with bal build. Got:\n${result}`);
+            }
+        });
+
+        test("a source-only attach point is declared const, never as a plain annotation", () => {
+            // Verified: `public annotation Cfg X on source listener;` is
+            // "annotation declaration with 'source' attach point(s) should be a 'const' declaration".
+            // The two halves — `const` and `source` — are obligatory together.
+            const result = renderAnnotationAt("LISTENER");
+            assert.ok(!result.includes("public annotation Cfg X on"),
+                `A source-only point must not render the plain form, got:\n${result}`);
+        });
+
+        test("an attach point with no declarable Ballerina syntax is dropped, not guessed at", () => {
+            // Verified: `on object` is `ERROR missing function keyword` — Ballerina has no bare `object`
+            // attach point. Omitting beats emitting a declaration the model may copy.
+            const result = renderAnnotationAt("OBJECT");
+            assert.ok(!result.includes("annotation"),
+                `An undeclarable attach point must render nothing, got:\n${result}`);
+            assert.ok(!result.includes("// --- Annotations ---"),
+                "An annotations section with no renderable entry must not be emitted");
+        });
+
+        // ---- the `isolated` qualifier of a concrete service type's declared method ----
+
+        test("a declared `isolated` handler is rendered with the qualifier", () => {
+            // Verified: implementing mcp:AdvancedService's handlers WITHOUT `isolated` fails with
+            // "mismatched function signatures", whose expected and found halves print identically because
+            // the compiler prints neither qualifier. With it, `bal build` succeeds.
+            const result = renderService(service1({
+                name: "onListTools", type: "remote", isolated: true, parameters: [],
+                return: { type: own("ListToolsResult") },
+            }));
+            assert.ok(result.includes("isolated remote function onListTools() returns mcp:ListToolsResult;"),
+                `got:\n${result}`);
+        });
+
+        test("a handler with no declared qualifier is unchanged", () => {
+            // The omission rule: a marker type's handlers come from the document, which models no
+            // qualifiers, so they must render exactly as before.
+            const result = renderService(service1({
+                name: "onListTools", type: "remote", parameters: [],
+                return: { type: own("ListToolsResult") },
+            }));
+            assert.ok(result.includes("    remote function onListTools() returns mcp:ListToolsResult;"),
+                `got:\n${result}`);
+            assert.ok(!result.includes("isolated"), `got:\n${result}`);
+        });
+
+        test("`isolated` leads a resource signature too", () => {
+            const result = renderService(service1({
+                name: "get", type: "resource", accessor: "get", isolated: true, parameters: [],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(result.includes("isolated resource function get pathSegment() returns error?;"),
+                `got:\n${result}`);
+        });
+
+        // ---- §4: a catalog whose named options are shapes, not handler names ----
+
+        test("§4: an author-named catalog says so, so shapes are not mistaken for handler names", () => {
+            // grpc declares `addMode: "many"` with four NAMED options. A real gRPC handler is named after
+            // its proto RPC (verified with `bal grpc --mode service`: `remote function SayHello(...)`), so
+            // `unary`/`serverStreaming` appear in no working program. Without this note they render exactly
+            // like salesforce's `onCreate`/`onUpdate`, which ARE the real method names.
+            const result = renderService({
+                ...service1({
+                    name: "unary", type: "remote", parameters: [],
+                    return: { type: { name: "anydata|error" } },
+                }),
+                authorNamedHandlers: true,
+            });
+            assert.ok(result.includes("signature SHAPES, not handler names"), `got:\n${result}`);
+            assert.ok(result.includes("you choose each one's name"), `got:\n${result}`);
+            // The signatures themselves must survive — they state each RPC shape's parameters and return.
+            assert.ok(result.includes("remote function unary()"), `got:\n${result}`);
+        });
+
+        test("§4: a fixed vocabulary makes no such claim", () => {
+            const result = renderService(service1({
+                name: "onCreate", type: "remote", parameters: [],
+                return: { type: { name: "error?" } },
+            }));
+            assert.ok(!result.includes("SHAPES"), `A real handler name must not be disclaimed:\n${result}`);
+        });
+
+        // ---- §2: a service type no listener can host ----
+
+        function wsService(over: Record<string, unknown> = {}): string {
+            const lib = {
+                name: "ballerina/websocket", description: "", typeDefs: [], clients: [],
+                services: [{
+                    type: "fixed", name: "Service", notListenerAttachable: true,
+                    listener: { name: "websocket:Listener", parameters: [] },
+                    methods: [{
+                        name: "onOpen", type: "remote",
+                        parameters: [{ name: "caller", description: "", type: own("Caller") }],
+                        return: { type: { name: "error?" } }, optional: true,
+                    }],
+                    ...over,
+                }],
+            } as unknown as Library;
+            return toSyntaxString([lib]);
+        }
+
+        test("§2: a service type no listener hosts is written as a `service class`, not an attachment", () => {
+            // Verified: `service websocket:Service on new websocket:Listener(...)` is
+            // "ERROR service type is not supported by the listener"; the service-class form builds.
+            const result = wsService();
+            assert.ok(result.includes("service class ServiceImpl {"), `got:\n${result}`);
+            assert.ok(result.includes("    *websocket:Service;"),
+                `The class must include the service type, got:\n${result}`);
+            assert.ok(!result.includes("on new websocket:Listener"),
+                `Must not render an attachment the compiler rejects, got:\n${result}`);
+        });
+
+        test("§2: its handlers are defined with bodies, because a class cannot declare them", () => {
+            // Verified: `remote function onOpen(...) returns error?;` inside a service class is
+            // "ERROR missing equal token" / "missing external keyword".
+            const result = wsService();
+            assert.ok(result.includes("remote function onOpen(websocket:Caller caller) returns error? { }"),
+                `A class method needs a body, got:\n${result}`);
+            assert.ok(!result.includes("returns error?;"),
+                `No handler in this shape may end in a bare semicolon, got:\n${result}`);
+        });
+
+        test("§2: the §8 service-scope annotation block is suppressed on a class", () => {
+            // Verified: `@websocket:ServiceConfig` on a service class is
+            // "ERROR annotation ... is not allowed on class" — it is declared `on service`.
+            const result = wsService({
+                annotations: [{
+                    name: "ServiceConfig", presence: "optional", attachPoint: "service",
+                    typeConstraint: own("WSServiceConfig"),
+                }],
+            });
+            assert.ok(!result.includes("@websocket:ServiceConfig"),
+                `A service-scope annotation must not be attached to a class, got:\n${result}`);
+        });
+
+        test("§2: §6 constraints survive, because they still bind the handler set", () => {
+            // These are the errors the compiler actually raises on the class form, so they are the notes
+            // that make the difference between a build and two errors.
+            const result = wsService({
+                constraints: [{
+                    kind: "atMostOne",
+                    members: [{ handler: "onMessage" }, { handler: "onTextMessage" }],
+                }],
+            });
+            assert.ok(result.includes("At most one of the following may be used: `onMessage` | `onTextMessage`."),
+                `got:\n${result}`);
+        });
+
+        test("§2: attachment-only notes are dropped, since the type attaches to nothing", () => {
+            const result = wsService({
+                singleListenerOnly: true,
+                identifier: { presence: "required", form: ["basePath"] },
+            });
+            assert.ok(!result.includes("attaches to exactly one listener"),
+                `Cardinality is meaningless without an attachment, got:\n${result}`);
+            assert.ok(!result.includes("service identifier"),
+                `There is no identifier slot on a class, got:\n${result}`);
+        });
+
+        test("§2: an attachable service type is unaffected", () => {
+            // The counterweight: the branch must be taken only on the explicit flag.
+            const result = wsService({ notListenerAttachable: undefined });
+            assert.ok(result.includes("service websocket:Service on new websocket:Listener()"),
+                `got:\n${result}`);
+            assert.ok(!result.includes("service class"), `got:\n${result}`);
+        });
+
+        test("no attach point renders a token the compiler rejects", () => {
+            // The regression guard for the three tokens that actually shipped broken.
+            for (const point of Object.keys(
+                { ...Object.fromEntries(COMPILER_VERIFIED_ATTACH_POINTS), OBJECT: "" })) {
+                const result = renderAnnotationAt(point);
+                for (const bad of ["on service_function", "on resource function", "on object;"]) {
+                    assert.ok(!result.includes(bad),
+                        `${point} rendered the uncompilable token "${bad}":\n${result}`);
+                }
+            }
+        });
+    });
 });

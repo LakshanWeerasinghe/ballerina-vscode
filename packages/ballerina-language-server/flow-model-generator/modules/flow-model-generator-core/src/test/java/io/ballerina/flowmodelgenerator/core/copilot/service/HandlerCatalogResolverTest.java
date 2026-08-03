@@ -89,6 +89,10 @@ public class HandlerCatalogResolverTest {
         Assert.assertEquals(options.size(), 2);
         Assert.assertSame(options.get(0), first, "Document order must be preserved");
         Assert.assertSame(options.get(1), second);
+        // The counterweight to the `addMode: "many"` case: a `subset` catalog's names ARE the handler
+        // names, so nothing may suggest the author picks them. kafka's onConsumerRecord is real.
+        Assert.assertFalse(((HandlerCatalogResolver.HandlerCatalog.Options) catalog).authorNamed(),
+                "a `subset` vocabulary names its handlers; only `many` leaves the naming to the author");
     }
 
     @Test
@@ -128,7 +132,14 @@ public class HandlerCatalogResolverTest {
                 "Service", null);
         Assert.assertTrue(catalog instanceof HandlerCatalogResolver.HandlerCatalog.Options,
                 "Expected the named options to survive, got: " + catalog);
-        Assert.assertEquals(((HandlerCatalogResolver.HandlerCatalog.Options) catalog).options().size(), 2);
+        HandlerCatalogResolver.HandlerCatalog.Options options =
+                (HandlerCatalogResolver.HandlerCatalog.Options) catalog;
+        Assert.assertEquals(options.options().size(), 2);
+        // The document said the catalog is open-ended, so these two names are signature *shapes*; the
+        // author names each real handler. A consumer that cannot tell this from a fixed vocabulary renders
+        // grpc's `unary` exactly like salesforce's `onCreate`, and only one of those is a real method name.
+        Assert.assertTrue(options.authorNamed(),
+                "addMode \"many\" with named options means the names are shapes, not handler names");
     }
 
     @Test

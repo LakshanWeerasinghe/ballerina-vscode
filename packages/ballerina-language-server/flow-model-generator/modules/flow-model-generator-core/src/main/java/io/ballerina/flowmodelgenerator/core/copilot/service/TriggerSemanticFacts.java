@@ -466,9 +466,15 @@ final class TriggerSemanticFacts {
      * @param description         the method's doc-comment description
      * @param params              the method's parameters, in declaration order
      * @param returnTypeSignature the module-prefixed return type signature
+     * @param isolatedQualifier   whether the declaration carries {@code isolated}. A service that
+     *                            implements the method without it does not compile: the compiler reports
+     *                            "mismatched function signatures" with an <i>identical</i>-looking expected
+     *                            and found pair, because it prints neither qualifier — which makes this the
+     *                            hardest kind of omission for a reader to diagnose. Verified against
+     *                            {@code mcp:AdvancedService}, the corpus's one instance
      */
     record DeclaredMethod(String name, String kind, String description, List<DeclaredParam> params,
-                          String returnTypeSignature) {
+                          String returnTypeSignature, boolean isolatedQualifier) {
     }
 
     /**
@@ -526,7 +532,7 @@ final class TriggerSemanticFacts {
                     .map(ret -> CommonUtils.getTypeSignature(semanticModel, ret, false))
                     .orElse("");
             methods.add(new DeclaredMethod(name, resource ? "resource" : "remote", description, params,
-                    returnSignature));
+                    returnSignature, method.qualifiers().contains(Qualifier.ISOLATED)));
         }
         return methods;
     }

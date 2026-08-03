@@ -78,6 +78,23 @@ public class Service {
      */
     private Boolean singleServicePerListenerOnly;
     /**
+     * Spec §2 {@code listeners[].services} — no listener declares it can host this service type, so it must
+     * never be written as {@code service … on new …}. Boxed and emitted only when true, the same presence
+     * rule as {@link #singleListenerOnly}.
+     *
+     * <p>Such a type is still worth rendering: {@code websocket}'s {@code Service} is the return of its
+     * {@code UpgradeService} resource, and its nine handlers exist in no other source — the library's own
+     * {@code Service} object type is a marker that declares none of them. A consumer renders it as a
+     * {@code service class} that includes the type instead of as a listener attachment.
+     */
+    private Boolean notListenerAttachable;
+    /**
+     * Spec §4 — the document declares this catalog {@code addMode: "many"} while listing named
+     * options, so those names are handler <b>shapes</b> and the author names each real handler.
+     * Boxed and emitted only when true.
+     */
+    private Boolean authorNamedHandlers;
+    /**
      * Spec §4 {@code addMode: "many"} — the shape every handler of this service type takes, for a catalog
      * whose handler names are the author's to choose.
      *
@@ -189,6 +206,22 @@ public class Service {
 
     public void setSingleServicePerListenerOnly(Boolean singleServicePerListenerOnly) {
         this.singleServicePerListenerOnly = singleServicePerListenerOnly;
+    }
+
+    public Boolean isAuthorNamedHandlers() {
+        return authorNamedHandlers;
+    }
+
+    public void setAuthorNamedHandlers(Boolean authorNamedHandlers) {
+        this.authorNamedHandlers = authorNamedHandlers;
+    }
+
+    public Boolean isNotListenerAttachable() {
+        return notListenerAttachable;
+    }
+
+    public void setNotListenerAttachable(Boolean notListenerAttachable) {
+        this.notListenerAttachable = notListenerAttachable;
     }
 
     public ServiceRemoteFunction getHandlerTemplate() {

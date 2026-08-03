@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -169,7 +171,7 @@
       "id": "serviceConfig",
       "type": { "name": "ServiceConfig" },
       "attachPoint": "service",
-      "appliesTo": ["service"],
+      "appliesTo": ["upgradeService"],
       "presence": "optional"
     }
   ],

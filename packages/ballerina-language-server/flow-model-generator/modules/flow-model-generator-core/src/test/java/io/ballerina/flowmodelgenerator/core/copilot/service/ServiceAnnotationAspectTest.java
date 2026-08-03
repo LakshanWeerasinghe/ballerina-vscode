@@ -106,7 +106,7 @@ public class ServiceAnnotationAspectTest {
     /** Runs the real aspect over a scope with no compiled package behind it. */
     private static JsonObject contribute(String packageName, String serviceTypeId,
                                          TriggerMetadataModel.Annotation... annotations) {
-        TriggerMetadataModel document = new TriggerMetadataModel(List.of(), List.of(),
+        TriggerMetadataModel document = new TriggerMetadataModel(null, List.of(), List.of(),
                 List.of(annotations), null);
         TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 serviceTypeId, new TypeRef("Service", null), false, false, false, null, null, null);

@@ -59,6 +59,15 @@ final class ListenerAspect implements ServiceAspect {
     @Override
     public void contribute(TriggerScope scope, ServiceDraft draft) {
         draft.setListener(built.computeIfAbsent(scope.listenerClass(), listenerClass -> build(scope)));
+        // Spec §2 `services`, the other half of what this aspect owns: the listener object says *how* to
+        // construct the listener, this says whether this service type may be attached to one at all.
+        // The listener is still emitted either way — a consumer needs its types even when the service is
+        // written some other way, and the type closure reaches them through it.
+        if (scope.document() != null
+                && !ListenerPairingResolver.isHostedByAnyListener(
+                        scope.document().listeners(), scope.serviceType())) {
+            draft.setNotListenerAttachable();
+        }
     }
 
     private static JsonObject build(TriggerScope scope) {

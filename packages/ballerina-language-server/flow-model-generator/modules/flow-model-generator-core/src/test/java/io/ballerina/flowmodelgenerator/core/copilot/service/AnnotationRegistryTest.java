@@ -92,8 +92,8 @@ public class AnnotationRegistryTest {
         // §8's key is optional and the general rule says an unused key is omitted entirely, so both
         // shapes have to be accepted — and a consumer must not have to null-check before every lookup.
         for (TriggerMetadataModel document : List.of(
-                new TriggerMetadataModel(List.of(), List.of(), null, null),
-                new TriggerMetadataModel(List.of(), List.of(), List.of(), null))) {
+                new TriggerMetadataModel(null, List.of(), List.of(), null, null),
+                new TriggerMetadataModel(null, List.of(), List.of(), List.of(), null))) {
             AnnotationRegistry registry = AnnotationRegistry.of(document);
             Assert.assertTrue(registry.byId("anything").isEmpty());
             Assert.assertTrue(registry.byAttachPoint("service").isEmpty());
@@ -117,7 +117,7 @@ public class AnnotationRegistryTest {
     @Test
     public void testMalformedEntriesDoNotPoisonTheRegistry() {
         // A null entry, or one missing an id or attach point, must not cost the sound entries beside it.
-        AnnotationRegistry registry = AnnotationRegistry.of(new TriggerMetadataModel(List.of(), List.of(),
+        AnnotationRegistry registry = AnnotationRegistry.of(new TriggerMetadataModel(null, List.of(), List.of(),
                 Arrays.asList(null, annotation(null, "Nameless", "service", null, "optional"),
                         annotation("sound", "Sound", "service", null, "optional")),
                 null));
@@ -129,7 +129,7 @@ public class AnnotationRegistryTest {
 
     private static AnnotationRegistry registryOf(TriggerMetadataModel.Annotation... annotations) {
         return AnnotationRegistry.of(
-                new TriggerMetadataModel(List.of(), List.of(), List.of(annotations), null));
+                new TriggerMetadataModel(null, List.of(), List.of(), List.of(annotations), null));
     }
 
     private static TriggerMetadataModel.Annotation annotation(String id, String type, String attachPoint,

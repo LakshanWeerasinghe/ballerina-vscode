@@ -222,6 +222,36 @@ public class TriggerPipelineContractTest {
     }
 
     @Test
+    public void testEveryConstructAddedForP7HasARegisteredOwner() {
+        List<String> handlerIds = REGISTRY.handlerAspects().stream().map(HandlerAspect::id).toList();
+        Assert.assertTrue(handlerIds.contains("handlerQualifier"),
+                "a declared method's `isolated` qualifier must name an owner: " + handlerIds);
+        // It is its own aspect rather than a field of identity or kind, for the same reason addMode was
+        // split out of paramType: one construct, one owner.
+        Assert.assertNotEquals(handlerIds.indexOf("handlerQualifier"), handlerIds.indexOf("handlerIdentity"));
+        Assert.assertNotEquals(handlerIds.indexOf("handlerQualifier"), handlerIds.indexOf("handlerKind"));
+    }
+
+    @Test
+    public void testTheIsolatedQualifierFollowsTheOmissionRule() {
+        // A marker type's handlers come from a document that models no qualifiers, so the key must be
+        // absent rather than false — otherwise every document-driven handler would claim it is not isolated.
+        Assert.assertFalse(new HandlerDraft().toJson().has("isolated"));
+        HandlerDraft isolated = new HandlerDraft();
+        isolated.setIsolated();
+        Assert.assertTrue(isolated.toJson().get("isolated").getAsBoolean());
+    }
+
+    @Test
+    public void testTheP7ServiceKeyFollowsTheOmissionRule() {
+        // Spec §2: only the prohibition is stated. A service type its listener can host says nothing.
+        ServiceDraft draft = new ServiceDraft();
+        Assert.assertFalse(draft.toJson().has("notListenerAttachable"));
+        draft.setNotListenerAttachable();
+        Assert.assertTrue(draft.toJson().get("notListenerAttachable").getAsBoolean());
+    }
+
+    @Test
     public void testAddModeAndPresenceAreSeparateOwners() {
         // §7 has four keys and the renderer treats two of them oppositely: `presence` keeps a slot in the
         // signature and notes it, `addMode` takes the slot out entirely. They were one component until the

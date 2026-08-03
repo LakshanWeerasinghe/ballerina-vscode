@@ -112,6 +112,61 @@ public class ListenerPairingResolverTest {
                 .isEmpty());
     }
 
+    // ---- hostability: the question `hostOf` deliberately cannot answer ------------------
+
+    @Test
+    public void testAServiceTypeNoListenerNamesIsReportedUnhostable() {
+        // The websocket case, which is the whole reason this predicate exists: two service types, one
+        // listener, and the listener names only the first. The compiler rejects
+        // `service websocket:Service on new websocket:Listener(...)` with "service type is not supported
+        // by the listener", so `hostOf`'s first-listener fallback must not be read as a real pairing.
+        TriggerMetadataModel.Listener onlyUpgrade = listener("Listener", "upgradeService");
+
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(onlyUpgrade), serviceType("upgradeService")));
+        Assert.assertFalse(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(onlyUpgrade), serviceType("service")));
+    }
+
+    @Test
+    public void testAListenerStatingNoServicesConstrainsNothing() {
+        // Spec §2 makes `services` the statement of what a listener can host; a listener that states none
+        // has stated no restriction. Reading absence as prohibition would declare every service type of
+        // such a document unattachable — the exact inversion `hostOf` already avoids for the same reason.
+        TriggerMetadataModel.Listener unconstrained =
+                new TriggerMetadataModel.Listener(new TypeRef("Listener", null), null, null);
+        TriggerMetadataModel.Listener empty =
+                new TriggerMetadataModel.Listener(new TypeRef("Listener", null), List.of(), null);
+
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(unconstrained), serviceType("anything")));
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(empty), serviceType("anything")));
+    }
+
+    @Test
+    public void testHostabilityIsAnswerdByAnyListenerNotOnlyTheFirst() {
+        // A document may spread its service types across listeners; being named by the second is being
+        // hosted just as much as being named by the first.
+        TriggerMetadataModel.Listener first = listener("First", "a");
+        TriggerMetadataModel.Listener second = listener("Second", "b");
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(first, second), serviceType("b")));
+        Assert.assertFalse(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(first, second), serviceType("c")));
+    }
+
+    @Test
+    public void testAnUnidentifiedServiceTypeIsTrustedRatherThanDeclaredUnattachable() {
+        // A service type with no id cannot be named by any `services` list, so treating the absence of a
+        // match as a prohibition would silently change the shape of a document that merely omits an id.
+        TriggerMetadataModel.Listener constrained = listener("Listener", "service");
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(
+                List.of(constrained), serviceType(null)));
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(List.of(constrained), null));
+        Assert.assertTrue(ListenerPairingResolver.isHostedByAnyListener(null, serviceType("service")));
+    }
+
     // ---- fixtures --------------------------------------------------------------------
 
     private static TriggerMetadataModel.Listener listener(String className, String... hostedIds) {

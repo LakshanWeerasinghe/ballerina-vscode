@@ -65,9 +65,16 @@ final class HandlerCatalogResolver {
         /**
          * A marker type: the metadata document's {@code options} are the only source of truth.
          *
-         * @param options the documented handler vocabulary, in document order
+         * @param options     the documented handler vocabulary, in document order
+         * @param authorNamed whether the document declared this catalog {@code addMode: "many"} — i.e.
+         *                    open-ended and user-named — while supplying <i>named</i> options instead of
+         *                    the single {@code "*"} entry spec §4 prescribes. The names are then shapes,
+         *                    not handler names: {@code grpc}'s {@code unary}/{@code serverStreaming} appear
+         *                    in no real program, because a gRPC handler is named after its proto RPC.
+         *                    Carried so a consumer can say so; without it these are indistinguishable from
+         *                    a genuinely fixed vocabulary like {@code salesforce}'s {@code onCreate}
          */
-        record Options(List<TriggerMetadataModel.ServiceType.HandlerOption> options)
+        record Options(List<TriggerMetadataModel.ServiceType.HandlerOption> options, boolean authorNamed)
                 implements HandlerCatalog {
         }
 
@@ -162,7 +169,8 @@ final class HandlerCatalogResolver {
                         + " open-ended catalog as one option named \"*\"); treating the named options as a"
                         + " fixed vocabulary so their signatures are not lost");
             }
-            return new HandlerCatalog.Options(options);
+            return new HandlerCatalog.Options(options, declaresMany && options != null
+                    && !options.isEmpty());
         }
 
         if (wildcards.size() > 1) {

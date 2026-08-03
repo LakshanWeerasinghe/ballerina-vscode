@@ -46,27 +46,65 @@ import {
     BindingMode,
 } from "./library-types";
 
-const ATTACHMENT_POINT_LABELS: Record<string, string> = {
-    // Curated service-index points (kept verbatim for backward compatibility).
-    SERVICE: "service",
-    OBJECT_METHOD: "service_function",
+/**
+ * One `AnnotationAttachPoint` constant, as it must be written in a Ballerina annotation declaration.
+ *
+ * Two facts are needed per point, not one, because Ballerina spells the two families differently and a
+ * consumer cannot derive the second from the first: a *source-only* point takes the `source` qualifier in
+ * the `on` clause **and** obliges the declaration itself to be `const`. Emitting the non-const form for one
+ * is not a cosmetic slip — the compiler rejects it outright ("annotation declaration with 'source' attach
+ * point(s) should be a 'const' declaration").
+ */
+interface AttachmentPoint {
+    /** The token written after `on` (after `on source` for a source-only point). */
+    token: string;
+    /** Whether the point obliges `public const annotation ... on source <token>;`. */
+    sourceOnly?: boolean;
+}
+
+/**
+ * The compiler's `AnnotationAttachPoint` constants mapped to the syntax that actually compiles.
+ *
+ * **Every entry here was verified by compiling it** (Ballerina 2201.13.4), and the map exists in this shape
+ * because guessing produced three wrong tokens that shipped:
+ *
+ *  - `OBJECT_METHOD` was `service_function` — `ERROR invalid token 'service_function'`. The compiler's
+ *    `OBJECT_METHOD` is Ballerina's `object function`.
+ *  - `RESOURCE` was `resource function` — `ERROR invalid token 'resource'`. The compiler's `RESOURCE` is
+ *    Ballerina's `service remote function`; there is no `resource function` attach point.
+ *  - `OBJECT` was `object` — `ERROR missing function keyword`. Ballerina has no bare `object` attach point,
+ *    so the constant is **deliberately absent** from this map: `renderAnnotation` then returns null and the
+ *    caller drops the entry. Omitting a declaration beats emitting one a model may copy and cannot compile.
+ *
+ * The six source-only points were equally broken — declared without `const`/`source` they fail with
+ * "annotation declaration with 'source' attach point(s) should be a 'const' declaration" — and are fixed
+ * here by carrying the flag rather than by dropping them, because the const form is legal with a type
+ * constraint (`public const annotation Cfg A1 on source listener;` compiles) and so loses no information.
+ *
+ * `ATTACHMENT_POINT_SYNTAX_IS_COMPILER_VERIFIED` in the test suite pins every entry to a form that was
+ * actually built; that guard is what stops a fourth wrong token being added by inspection.
+ */
+const ATTACHMENT_POINT_LABELS: Record<string, AttachmentPoint> = {
+    // Curated service-index points.
+    SERVICE: { token: "service" },
+    OBJECT_METHOD: { token: "object function" },
     // Points supplemented from the Semantic Model, mapped to their Ballerina `on`-clause tokens.
-    TYPE: "type",
-    OBJECT: "object",
-    FUNCTION: "function",
-    RESOURCE: "resource function",
-    PARAMETER: "parameter",
-    RETURN: "return",
-    CLASS: "class",
-    FIELD: "field",
-    OBJECT_FIELD: "object field",
-    RECORD_FIELD: "record field",
-    LISTENER: "listener",
-    ANNOTATION: "annotation",
-    EXTERNAL: "external",
-    VAR: "var",
-    CONST: "const",
-    WORKER: "worker",
+    TYPE: { token: "type" },
+    FUNCTION: { token: "function" },
+    RESOURCE: { token: "service remote function" },
+    PARAMETER: { token: "parameter" },
+    RETURN: { token: "return" },
+    CLASS: { token: "class" },
+    FIELD: { token: "field" },
+    OBJECT_FIELD: { token: "object field" },
+    RECORD_FIELD: { token: "record field" },
+    // Source-only points: `public const annotation N on source <token>;`.
+    LISTENER: { token: "listener", sourceOnly: true },
+    ANNOTATION: { token: "annotation", sourceOnly: true },
+    EXTERNAL: { token: "external", sourceOnly: true },
+    VAR: { token: "var", sourceOnly: true },
+    CONST: { token: "const", sourceOnly: true },
+    WORKER: { token: "worker", sourceOnly: true },
 };
 
 /**
@@ -148,7 +186,12 @@ function qualifyDeclaredType(type: Type | undefined, listenerAlias: string | nul
     );
     let result = type.name;
     for (const recordName of internalNames) {
-        const regex = new RegExp(`\\b${escapeRegExp(recordName)}\\b`, "g");
+        // Lookarounds rather than `\b…\b`. A record name can end in `]` — `AnydataConsumerRecord[]` is what
+        // the pipeline strips the alias off for kafka's payload slot — and `\b` after `]` demands a word
+        // character that is not there at end of string, so the name silently stayed bare and uncompilable.
+        // The leading `(?<![\w:])` additionally refuses to match inside an already-qualified name, so a
+        // prefix can never be applied twice.
+        const regex = new RegExp(`(?<![\\w:])${escapeRegExp(recordName)}(?!\\w)`, "g");
         result = result.replace(regex, `${listenerAlias}:${recordName}`);
     }
     return result;
@@ -591,7 +634,8 @@ function renderStandaloneFunction(func: RemoteFunction): string {
  * one of these when writing the signature. Before this, every member after the first was invisible —
  * `rabbitmq`'s `BytesMessage` and `kafka`'s `BytesConsumerRecord[]` reached the prompt nowhere.
  */
-function renderAlternativeNotes(method: ServiceRemoteFunction, indent: string): string[] {
+function renderAlternativeNotes(method: ServiceRemoteFunction, listenerAlias: string | null,
+                               indent: string): string[] {
     const lines: string[] = [];
     for (const param of method.parameters ?? []) {
         const alternatives = param.alternatives ?? [];
@@ -601,8 +645,11 @@ function renderAlternativeNotes(method: ServiceRemoteFunction, indent: string): 
         if (alternatives.length === 0 || param.repeatable) {
             continue;
         }
-        const rendered = alternatives.map((type) =>
-            applyPrefixToTypeName(type.name, collectExternalLinks(type)));
+        // Qualified, exactly as the signature one line below is. This note offers a type the reader may
+        // WRITE IN PLACE OF the declared one, so it has to be written the way the reader must write it —
+        // `kafka`'s note offered `BytesConsumerRecord[]` directly above a signature saying
+        // `kafka:AnydataConsumerRecord[]`, and a reader taking the alternative got `unknown type`.
+        const rendered = alternatives.map((type) => qualifyDeclaredType(type, listenerAlias));
         lines.push(`${indent}# ${paramLabel(param)} may also be: ${rendered.join(", ")}`);
     }
     return lines;
@@ -649,13 +696,17 @@ function renderRepeatNotes(method: ServiceRemoteFunction, listenerAlias: string 
  *
  * Named and tested rather than inlined, so "why is this type missing from the note?" has an answer.
  */
-function suppressMembersAlreadyVisible(types: Type[] | undefined, visible: Set<string>): string[] {
+function suppressMembersAlreadyVisible(types: Type[] | undefined, visible: Set<string>,
+                                       listenerAlias: string | null): string[] {
     if (!types || types.length === 0) {
         return [];
     }
     const kept: string[] = [];
     for (const type of types) {
-        const rendered = applyPrefixToTypeName(type.name, collectExternalLinks(type));
+        // Qualified on both sides of the comparison. The `visible` set is built the same way, so the
+        // suppression still matches exactly — changing one side alone would make every type look novel
+        // and re-state the whole surface the signature already shows.
+        const rendered = qualifyDeclaredType(type, listenerAlias);
         if (!visible.has(rendered)) {
             kept.push(rendered);
         }
@@ -680,9 +731,8 @@ function renderBindingNotes(method: ServiceRemoteFunction, listenerAlias: string
             continue;
         }
         const visible = new Set<string>([
-            applyPrefixToTypeName(param.type.name, collectExternalLinks(param.type)),
-            ...(param.alternatives ?? []).map((type) =>
-                applyPrefixToTypeName(type.name, collectExternalLinks(type))),
+            qualifyDeclaredType(param.type, listenerAlias),
+            ...(param.alternatives ?? []).map((type) => qualifyDeclaredType(type, listenerAlias)),
         ]);
         const modeLines: string[] = [];
         for (const mode of binding.modes) {
@@ -737,8 +787,10 @@ function renderBindingMode(mode: BindingMode, paramName: string, visible: Set<st
         return `\`${paramName}\` may bind to ${subject}${overrides}`;
     }
 
-    const kept = suppressMembersAlreadyVisible(mode.typeConstraint, visible);
-    const excluded = suppressMembersAlreadyVisible(mode.excludes, new Set<string>());
+    const kept = suppressMembersAlreadyVisible(mode.typeConstraint, visible, listenerAlias);
+    // `excludes` is compared against an empty visible set on purpose: a prohibition is derivable from
+    // nothing else, so it survives even when every positive member is already on the page.
+    const excluded = suppressMembersAlreadyVisible(mode.excludes, new Set<string>(), listenerAlias);
     if (mode.mode === "streamable") {
         // The declared members are already whole stream types; wrapping them again would emit
         // `stream<stream<...>>`.
@@ -765,7 +817,15 @@ function renderBindingMode(mode: BindingMode, paramName: string, visible: Set<st
  */
 function renderParamDef(param: ParameterDef, listenerAlias: string | null = null): string {
     const annotations = renderRequirementAttachments(param.annotationRefs, listenerAlias);
-    return `${annotations}${param.type.name}${param.name ? " " + param.name : ""}`;
+    // Module-qualified, not `param.type.name` raw. The name arrives with the library's own prefix already
+    // STRIPPED and an `internal` link carrying it instead, so the raw form is a type the reader's module
+    // cannot see: `mcp`'s handler rendered `CallToolParams params` and the compiler answered
+    // `ERROR unknown type 'CallToolParams'`. This is a handler signature meant to be copied verbatim, so
+    // the alias has to go back on. `renderParam` (client/function parameters) is deliberately NOT changed:
+    // those come from the symbol-processing pipeline, already carry the form the reader must write, and
+    // re-qualifying them would double a prefix that is already correct.
+    return `${annotations}${qualifyDeclaredType(param.type, listenerAlias)}`
+        + `${param.name ? " " + param.name : ""}`;
 }
 
 /**
@@ -824,10 +884,16 @@ const RESOURCE_PATH_PLACEHOLDER = "pathSegment";
  * No corpus document reaches that fallback.
  */
 function renderMethodSignature(method: ServiceRemoteFunction): string {
+    // The declared `isolated` qualifier, when the service type's own declaration carries one. It leads the
+    // signature because that is the only position Ballerina accepts, and it is not decoration: implementing
+    // `mcp:AdvancedService`'s handlers without it fails with "mismatched function signatures", printing an
+    // expected and a found half that are character-for-character identical — the compiler prints neither
+    // qualifier, so the reader is given no way to see what differs.
+    const qualifier = method.isolated ? "isolated " : "";
     if (method.type !== "resource" || !method.accessor) {
-        return `remote function ${method.name}`;
+        return `${qualifier}remote function ${method.name}`;
     }
-    return `resource function ${method.accessor} ${RESOURCE_PATH_PLACEHOLDER}`;
+    return `${qualifier}resource function ${method.accessor} ${RESOURCE_PATH_PLACEHOLDER}`;
 }
 
 function renderResourceNote(method: ServiceRemoteFunction, indent: string): string {
@@ -1328,18 +1394,188 @@ function renderHandlerTemplate(template: ServiceRemoteFunction | undefined,
 }
 
 /**
+ * Spec §4 — the handlers below are *shapes*, not names.
+ *
+ * A document that declares `addMode: "many"` while listing named options is describing an open-ended,
+ * author-named catalog whose members happen to come in a fixed set of signature shapes. `grpc` is the
+ * corpus instance: its `unary`, `serverStreaming`, `clientStreaming` and `bidiStreaming` are labels for the
+ * four RPC shapes, and a real gRPC handler is named after its proto RPC (`SayHello`) — so those four names
+ * appear in no working program.
+ *
+ * Rendered as a note rather than by suppressing the signatures, because the signatures are the valuable
+ * part: they state the parameter and return shape of each kind of RPC, which is exactly what a generator
+ * needs. What was missing was any signal distinguishing them from a genuinely fixed vocabulary —
+ * `salesforce`'s `onCreate`/`onUpdate` render identically and *are* the real method names.
+ */
+function renderAuthorNamedHandlerNote(service: FixedService): string[] {
+    if (!service.authorNamedHandlers) {
+        return [];
+    }
+    return [
+        "# The handlers below are signature SHAPES, not handler names — this service type takes any",
+        "# number of handlers and you choose each one's name (for gRPC, the name of the proto RPC).",
+        "# Match the shape your RPC needs; do not write a handler literally named after a shape.",
+    ];
+}
+
+/**
+ * The handler block shared by both shapes a fixed service can take.
+ *
+ * `terminator` is the only difference between them, and it is forced by the compiler rather than chosen:
+ * a `service … on new …` declaration lists method *declarations* ending in `;`, whereas a `service class`
+ * must *define* its methods — `remote function onOpen(websocket:Caller caller) returns error?;` inside one
+ * is `ERROR missing equal token` / `missing external keyword`. Everything else about a handler — its notes,
+ * its §8 obligations, its presence marker — is identical in both, so it is written once here.
+ */
+function renderHandlers(service: FixedService, listenerAlias: string | null,
+                        terminator: string): string[] {
+    const lines: string[] = [];
+    for (const method of service.methods ?? []) {
+        const desc = method.description ? `    # ${method.description}\n` : "";
+        const dep = method.isDeprecated ? "    @deprecated\n" : "";
+        // Spec §7: a repeatable slot is never written into the signature — the document states no name
+        // for it, so emitting one would invent a parameter. `renderRepeatNotes` states it instead.
+        const params = (method.parameters ?? [])
+            .filter((param) => !param.repeatable)
+            .map((param) => renderParamDef(param, listenerAlias)).join(", ");
+        const returnAnnotations = renderRequirementAttachments(
+            method.return?.annotationRefs, listenerAlias);
+        // Qualified for the same reason the parameters are: `returns ListToolsResult|ServerError` named two
+        // types the reader's module cannot see. A union is handled member-wise by `qualifyDeclaredType`,
+        // which prefixes only the members carrying a link — so `error?` and `anydata|error` stay untouched.
+        const returnStr = method.return?.type
+            ? ` returns ${returnAnnotations}${qualifyDeclaredType(method.return.type, listenerAlias)}`
+            : "";
+
+        // Documentation order mirrors a real Ballerina doc comment: the description leads, then every note
+        // about the signature, and only then the annotations — Ballerina metadata puts every `#` line ahead
+        // of every annotation, so both the §8 obligation block and `@deprecated` follow the notes.
+        //
+        // Within the notes the order is: what the handler is (description, resource shape), then what its
+        // parameters may hold (alternatives, then how they bind), then which of them may be omitted, then
+        // what their annotations mean. Each layer is narrower than the one above it.
+        const notes = [
+            renderAlternativeNotes(method, listenerAlias, "    "),
+            renderRepeatNotes(method, listenerAlias, "    "),
+            renderBindingNotes(method, listenerAlias, "    "),
+            renderParamAnnotationNotes(method, listenerAlias, "    "),
+        ].flat();
+        const noteBlock = notes.length > 0 ? notes.join("\n") + "\n" : "";
+        const obligations = renderAnnotationRequirementLines(
+            method.annotationRefs, listenerAlias, "handler", "    ");
+        const obligationBlock = obligations.length > 0 ? obligations.join("\n") + "\n" : "";
+
+        lines.push(`${desc}${renderResourceNote(method, "    ")}${noteBlock}`
+            + `${renderOptionalParamNote(method, "    ")}${obligationBlock}`
+            + `${dep}    ${renderMethodSignature(method)}(${params})${returnStr}${terminator}`
+            + `${renderPresenceMarker(method)}`);
+        lines.push("");
+    }
+    return lines;
+}
+
+/**
+ * Spec §2 `listeners[].services` — a service type no listener declares it can host.
+ *
+ * Such a type cannot be written as `service … on new …`: the compiler rejects
+ * `service websocket:Service on new websocket:Listener(...)` with "service type is not supported by the
+ * listener". But it is not dead either — `websocket`'s `Service` is the *return* of its `UpgradeService`
+ * resource, and its nine handlers exist nowhere else in the catalog, because the library's own `Service`
+ * object type is a marker that declares none of them (the compiler plugin enforces the contract at
+ * user-code compile time, so `objectType.methods()` is empty and the Types section renders `class Service
+ * { }`). Rendering it as a listener attachment was uncompilable; dropping it would delete the nine
+ * signatures from the prompt entirely. It is written as what a reader actually writes instead.
+ *
+ * Three things are deliberately NOT carried over from the attachment shape, each because it is illegal or
+ * meaningless here rather than merely redundant:
+ *  - **the §8 service-scope annotation block** — verified: `@websocket:ServiceConfig` on a `service class`
+ *    is `ERROR annotation 'ballerina/websocket:…:ServiceConfig' is not allowed on class`. Those annotations
+ *    are declared `on service`, and a class is not a service declaration;
+ *  - **the §3 cardinality notes** — they describe how many listeners the type may attach to, and it
+ *    attaches to none;
+ *  - **the §3 identifier slot** — there is no `service <identifier> on new …` line to put one in.
+ *
+ * The §6 constraint notes ARE carried over, and they are load-bearing: compiling this block with all nine
+ * websocket handlers gives exactly `Cannot have onTextMessage with onMessage remote function` and the
+ * matching `onBinaryMessage` error. Honour them and it builds.
+ */
+function renderServiceClass(service: FixedService, listenerAlias: string | null): string {
+    const lines: string[] = [];
+
+    // Spec §2: the listener's side-effect imports still belong to the program that hosts this type, so they
+    // are stated rather than dropped — the enclosing service still constructs the listener.
+    for (const directive of service.requiredImports ?? []) {
+        if (directive && directive.module) {
+            const alias = directive.alias ? ` as ${directive.alias}` : "";
+            lines.push(`# Requires: import ${directive.module}${alias};`);
+        }
+    }
+    lines.push(...renderConstraintLines(service.constraints, listenerAlias));
+
+    const foreignModule = service.serviceTypeModule;
+    const alias = (foreignModule ? deriveModulePrefix(foreignModule) : "") || listenerAlias;
+    const qualifiedType = service.name && alias ? `${alias}:${service.name}` : service.name ?? "";
+    const agentNote = foreignModule && service.name
+        ? ` // Special Agent Note: ${service.name} FROM ${foreignModule} package`
+        : "";
+
+    lines.push(`// This service type is never attached to a listener — no listener in this library `
+        + `declares it.`);
+    lines.push(`// Write it as a \`service class\` that includes the type, and return an instance of that `
+        + `class`);
+    lines.push(`// wherever a \`${qualifiedType}\` is required.`);
+    if (service.isDeprecated) {
+        lines.push("@deprecated");
+    }
+    // A concrete, legal identifier rather than a `<placeholder>`: the reader renames it, and an unlexable
+    // token here would break the one block in this section that is meant to compile as written.
+    lines.push(`service class ${service.name ?? "Service"}Impl {${agentNote}`);
+    lines.push(`    *${qualifiedType};`);
+    lines.push("");
+    // Spec §4 `addMode: "many"`: an open-ended catalog's handler shape belongs here too. No corpus service
+    // type is both open-ended and unattachable, so this is latent — but omitting it would silently delete
+    // the *only* description of how to write a handler for such a type, which is the one thing this block
+    // exists to convey.
+    lines.push(...renderHandlerTemplate(service.handlerTemplate, listenerAlias));
+    // `{ }` rather than `;` — a class defines its methods; see `renderHandlers`.
+    lines.push(...renderHandlers(service, listenerAlias, " { }"));
+
+    if (lines[lines.length - 1] === "") {
+        lines.pop();
+    }
+    lines.push("}");
+    return lines.join("\n");
+}
+
+/**
  * Renders a fixed service.
  */
 function renderFixedService(service: FixedService): string {
     const lines: string[] = [];
+    // Hoisted above the listener arguments because they need it too — see the qualification note below.
+    const listenerAlias = deriveListenerAlias(service.listener.name);
+
+    // Spec §2 `listeners[].services`: a service type no listener can host takes an entirely different
+    // shape, so the branch is taken before any of the attachment-specific notes are built.
+    if (service.notListenerAttachable) {
+        return renderServiceClass(service, listenerAlias);
+    }
+
     // A default is emitted ONLY for an optional parameter. Every parameter used to get one, which told the
     // model that a mandatory value — kafka's `bootstrapServers`, grpc's `port`, websocket's `'listener` — had
     // a default it could leave alone. The `optional` flag has always been on the wire (set from the init
     // method's DEFAULTABLE/INCLUDED_RECORD parameter kind); it was simply not consulted. A required parameter
     // with a type-derived placeholder value is the one case where saying less is strictly more correct.
+    //
+    // The type is module-qualified for the same reason a handler parameter's is: this argument list is part
+    // of a `service ... on new ...` line the reader copies whole, and the library's own prefix was stripped
+    // on the way out. Rendered raw it produced `ListenerConfiguration config = {}` for mcp, websocket,
+    // websub and grpc, and `ConsumerConfiguration config = {}` for kafka — none of which resolve in the
+    // reader's module. Note `renderGenericService` renders its own listener line and is deliberately left
+    // alone: it serves the curated http/graphql overlay, whose text is hand-written and already correct.
     const listenerParams = service.listener.parameters.map((p) => {
         const suffix = p.optional === true && p.default !== undefined ? ` = ${p.default}` : "";
-        return `${p.type.name} ${p.name}${suffix}`;
+        return `${qualifyDeclaredType(p.type, listenerAlias)} ${p.name}${suffix}`;
     }).join(", ");
 
     // Spec §2: the listener's side-effect imports are required only by code that uses this service,
@@ -1362,7 +1598,8 @@ function renderFixedService(service: FixedService): string {
     // sandwich documentation between two annotations for a service that is both deprecated and
     // carries a §8 obligation — a shape no corpus document has today, which is exactly why the
     // ordering has to be right by construction rather than by observation.
-    const listenerAlias = deriveListenerAlias(service.listener.name);
+    //
+    // (`listenerAlias` is computed at the top of this function, where the listener arguments need it.)
 
     // Spec §3 and §6, both stated as `#` lines above the declaration for the same reason the §8 block is:
     // they are obligations on code that does not exist yet, and Ballerina metadata puts documentation ahead
@@ -1371,6 +1608,7 @@ function renderFixedService(service: FixedService): string {
     // Spec §3's cardinality, first among the service-level notes because it is the only one that can make
     // the reader write a *different number* of declarations rather than a different declaration.
     lines.push(...renderCardinalityNotes(service));
+    lines.push(...renderAuthorNamedHandlerNote(service));
 
     const identifierSlot = renderIdentifierSlot(service.identifier);
     lines.push(...identifierSlot.notes);
@@ -1403,44 +1641,7 @@ function renderFixedService(service: FixedService): string {
     // every handler here takes.
     lines.push(...renderHandlerTemplate(service.handlerTemplate, listenerAlias));
 
-    for (const method of service.methods ?? []) {
-        const desc = method.description ? `    # ${method.description}\n` : "";
-        const dep = method.isDeprecated ? "    @deprecated\n" : "";
-        // Spec §7: a repeatable slot is never written into the signature — the document states no name
-        // for it, so emitting one would invent a parameter. `renderRepeatNotes` states it instead.
-        const params = (method.parameters ?? [])
-            .filter((param) => !param.repeatable)
-            .map((param) => renderParamDef(param, listenerAlias)).join(", ");
-        const returnAnnotations = renderRequirementAttachments(
-            method.return?.annotationRefs, listenerAlias);
-        const returnStr = method.return?.type
-            ? ` returns ${returnAnnotations}${method.return.type.name}`
-            : "";
-
-        // Documentation order mirrors a real Ballerina doc comment: the description leads, then every note
-        // about the signature, and only then the annotations — Ballerina metadata puts every `#` line ahead
-        // of every annotation, so both the §8 obligation block and `@deprecated` follow the notes.
-        //
-        // Within the notes the order is: what the handler is (description, resource shape), then what its
-        // parameters may hold (alternatives, then how they bind), then which of them may be omitted, then
-        // what their annotations mean. Each layer is narrower than the one above it.
-        const notes = [
-            renderAlternativeNotes(method, "    "),
-            renderRepeatNotes(method, listenerAlias, "    "),
-            renderBindingNotes(method, listenerAlias, "    "),
-            renderParamAnnotationNotes(method, listenerAlias, "    "),
-        ].flat();
-        const noteBlock = notes.length > 0 ? notes.join("\n") + "\n" : "";
-        const obligations = renderAnnotationRequirementLines(
-            method.annotationRefs, listenerAlias, "handler", "    ");
-        const obligationBlock = obligations.length > 0 ? obligations.join("\n") + "\n" : "";
-
-        lines.push(`${desc}${renderResourceNote(method, "    ")}${noteBlock}`
-            + `${renderOptionalParamNote(method, "    ")}${obligationBlock}`
-            + `${dep}    ${renderMethodSignature(method)}(${params})${returnStr};`
-            + `${renderPresenceMarker(method)}`);
-        lines.push("");
-    }
+    lines.push(...renderHandlers(service, listenerAlias, ";"));
 
     // Remove trailing empty line
     if (lines[lines.length - 1] === "") {
@@ -1452,15 +1653,23 @@ function renderFixedService(service: FixedService): string {
 }
 
 /**
- * Renders a library annotation declaration. Every `AnnotationAttachPoint` the compiler can
- * report has a label in `ATTACHMENT_POINT_LABELS`; an entry whose point is unrecognised
- * yields `null` and is dropped by the caller.
+ * Renders a library annotation declaration.
+ *
+ * An attach point with no entry in `ATTACHMENT_POINT_LABELS` yields `null` and is dropped by the caller.
+ * That is the deliberate treatment for a point Ballerina has no declarable syntax for (`OBJECT`): the
+ * catalog is the model's authoritative API reference, so a declaration that cannot compile is worse than a
+ * declaration that is absent — the model can discover a missing annotation from the compiler, but it will
+ * copy an uncompilable one straight into the generated file.
  */
 function renderAnnotation(annotation: Annotation): string | null {
     const point = ATTACHMENT_POINT_LABELS[annotation.attachmentPoint];
     if (!point) {
         return null;
     }
+    // A source-only point is declared `const` and written `on source <token>`; both halves are obligatory
+    // and neither is derivable from the other, so they travel together on the point.
+    const keyword = point.sourceOnly ? "public const annotation" : "public annotation";
+    const onClause = point.sourceOnly ? `source ${point.token}` : point.token;
 
     const lines: string[] = [];
     if (annotation.description) {
@@ -1480,7 +1689,7 @@ function renderAnnotation(annotation: Annotation): string | null {
         agentNote = buildSpecialAgentNote(externalLinks);
     }
 
-    lines.push(`public annotation ${typeSlot}${annotation.name} on ${point};${agentNote}`);
+    lines.push(`${keyword} ${typeSlot}${annotation.name} on ${onClause};${agentNote}`);
     return lines.join("\n");
 }
 

@@ -586,12 +586,18 @@ public class CopilotSchemaServicesTest {
 
         Assert.assertEquals(service.getAsJsonObject("listener").get("name").getAsString(),
                 "websub:Listener");
-        // onHubError is skipped: the metadata declares param type "HubError", which websub 2.15.0
-        // does not declare (the compiler plugin expects InternalHubError) — emitting it would
-        // render an uncompilable prompt. Reported upstream; it reappears once the metadata is fixed.
+        // onHubError is now emitted. It used to be silently dropped because the metadata declared its
+        // param as "HubError", which the package does not declare — the veto that protected the prompt
+        // from an uncompilable signature also made a real handler invisible. The document now says
+        // "InternalHubError", which is what websub actually declares: verified by compiling a subscriber
+        // service with `onHubError(websub:InternalHubError err)` (builds) against the same handler typed
+        // `websub:HubError` ("unknown type 'HubError'"). The handler itself is genuinely part of the
+        // contract — websub's plugin rejects an invented handler name but accepts this one.
         Assert.assertEquals(methodNames(service), List.of("onEventNotification",
                 "onSubscriptionVerification", "onUnsubscriptionVerification",
-                "onSubscriptionValidationDenied"));
+                "onSubscriptionValidationDenied", "onHubError"));
+        assertInternalLink(paramNamed(methodNamed(service, "onHubError"), "internalHubError"),
+                "InternalHubError");
 
         // The metadata deliberately leaves these params unnamed: names are generated from the
         // declared type — idiomatic, compilable Ballerina.

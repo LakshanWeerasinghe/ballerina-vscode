@@ -47,6 +47,7 @@ final class AspectRegistry {
         this.handlerAspects = List.of(
                 new HandlerIdentityAspect(),
                 new HandlerKindAspect(),
+                new HandlerQualifierAspect(),
                 new HandlerPresenceAspect(),
                 new HttpResourceExtrasAspect(),
                 new GraphqlResourceExtrasAspect(),

@@ -62,8 +62,12 @@ final class HandlerCatalogAspect implements ServiceAspect {
                     draft.veto(id(), specSection(), typeName, none.reason());
             case HandlerCatalogResolver.HandlerCatalog.Concrete concrete ->
                     buildDeclared(scope, draft, concrete.methods());
-            case HandlerCatalogResolver.HandlerCatalog.Options options ->
-                    buildFromOptions(scope, draft, options.options());
+            case HandlerCatalogResolver.HandlerCatalog.Options options -> {
+                if (options.authorNamed()) {
+                    draft.setAuthorNamedHandlers();
+                }
+                buildFromOptions(scope, draft, options.options());
+            }
             case HandlerCatalogResolver.HandlerCatalog.Many many ->
                     buildTemplate(scope, draft, many.template());
         }

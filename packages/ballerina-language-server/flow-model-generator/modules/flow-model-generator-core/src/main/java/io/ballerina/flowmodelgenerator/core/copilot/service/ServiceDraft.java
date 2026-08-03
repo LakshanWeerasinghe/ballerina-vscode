@@ -150,6 +150,40 @@ final class ServiceDraft {
     }
 
     /**
+     * Spec §2 {@code listeners[].services} — <b>no</b> listener in this document declares it can host this
+     * service type, so it must never be written as {@code service … on new …}.
+     *
+     * <p>Named for the prohibition and emitted only when true, the same rule
+     * {@link #setSingleListenerOnly()} follows: presence means "there is a restriction to state", so a
+     * consumer never has to tell {@code false} from absent.
+     *
+     * <p>The restriction is real, not editorial. {@code websocket} declares two service types and lists
+     * only {@code upgradeService} under its listener; the compiler rejects
+     * {@code service websocket:Service on new websocket:Listener(...)} with "service type is not supported
+     * by the listener". Such a type is reached another way — for {@code websocket}, as the return of the
+     * upgrade resource — so it is still worth rendering, just never as a listener attachment.
+     */
+    void setNotListenerAttachable() {
+        json.addProperty("notListenerAttachable", true);
+    }
+
+    /**
+     * Spec §4 — the document declares this catalog {@code addMode: "many"} (open-ended, user-named) but
+     * supplies named options rather than the single {@code "*"} entry, so the names it lists are handler
+     * <b>shapes</b> and the author picks each real name.
+     *
+     * <p>Emitted only when true, per the omission rule. Without it a consumer renders {@code grpc}'s
+     * {@code unary}/{@code serverStreaming}/{@code clientStreaming}/{@code bidiStreaming} exactly as it
+     * renders {@code salesforce}'s {@code onCreate}/{@code onUpdate} — and only the latter are names a
+     * real program contains. A gRPC handler is named after its proto RPC ({@code SayHello}), so the four
+     * shape labels appear in no generated service; presenting them as a fixed vocabulary invites a model
+     * to write methods the compiler will never dispatch to.
+     */
+    void setAuthorNamedHandlers() {
+        json.addProperty("authorNamedHandlers", true);
+    }
+
+    /**
      * Spec §4 {@code addMode: "many"} — the shape every handler of this service type takes, for a catalog
      * whose handler <i>names</i> are the author's to choose.
      *

@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -32,13 +34,13 @@
             "params": [
               { "type": { "name": "anydata" }, "presence": "required" }
             ],
-            "returns": { "name": "stream<anydata, Error?>" }
+            "returns": { "name": "stream<anydata, grpc:Error?>" }
           },
           {
             "name": "clientStreaming",
             "kind": "remote",
             "params": [
-              { "type": { "name": "stream<anydata, Error?>" }, "presence": "required" }
+              { "type": { "name": "stream<anydata, grpc:Error?>" }, "presence": "required" }
             ],
             "returns": [{ "name": "anydata" }, { "name": "error" }]
           },
@@ -46,7 +48,7 @@
             "name": "bidiStreaming",
             "kind": "remote",
             "params": [
-              { "type": { "name": "stream<anydata, Error?>" }, "presence": "required" }
+              { "type": { "name": "stream<anydata, grpc:Error?>" }, "presence": "required" }
             ],
             "returns": { "name": "()" }
           }
@@ -63,7 +65,5 @@
       "appliesTo": ["service"],
       "presence": "optional"
     }
-  ],
-
-  "dataBindingRules": []
+  ]
 }

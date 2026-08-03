@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -26,7 +28,8 @@
               {
                 "type": [{ "name": "AnydataConsumerRecord[]" }, { "name": "BytesConsumerRecord[]" }],
                 "presence": "required",
-                "dataBinding": "consumerRecordPayload"
+                "dataBinding": "consumerRecordPayload",
+                "annotations": ["payload"]
               },
               { "type": { "name": "Caller" }, "presence": "optional" }
             ],
@@ -46,7 +49,14 @@
     }
   ],
 
-  "annotations": [],
+  "annotations": [
+    {
+      "id": "payload",
+      "type": { "name": "Payload" },
+      "attachPoint": "parameter",
+      "presence": "optional"
+    }
+  ],
 
   "dataBindingRules": [
     {

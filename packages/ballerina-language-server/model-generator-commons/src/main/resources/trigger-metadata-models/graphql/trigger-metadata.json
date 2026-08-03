@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -81,7 +83,5 @@
       "attachPoint": "parameter",
       "presence": "optional"
     }
-  ],
-
-  "dataBindingRules": []
+  ]
 }

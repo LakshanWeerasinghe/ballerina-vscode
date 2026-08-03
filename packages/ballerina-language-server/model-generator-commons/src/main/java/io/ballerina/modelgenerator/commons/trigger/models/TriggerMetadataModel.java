@@ -41,6 +41,11 @@ import java.util.List;
  * empty array is never used in their place, consistent with the rest of this schema: a field that
  * would be empty, unused, or fully derivable from other fields is left out.
  *
+ * @param version          the spec version this instance conforms to, e.g. {@code "v1"}. Required by the
+ *                         spec ("Bump it whenever a field's meaning changes incompatibly"), but
+ *                         {@code null} for any document authored before the key existed — which is why
+ *                         {@code SpecVersionGate} reads an absent version as acceptable-with-warning
+ *                         rather than rejecting it
  * @param listeners        the connector's listener entry point(s); always at least one — a listener
  *                         is structurally required, so there is no presence marker on this array
  * @param serviceTypes     the connector's service-type alternatives. Exactly one entry means it is the
@@ -55,6 +60,7 @@ import java.util.List;
  * @since 1.10.0
  */
 public record TriggerMetadataModel(
+        String version,
         List<Listener> listeners,
         List<ServiceType> serviceTypes,
         List<Annotation> annotations,

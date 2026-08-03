@@ -228,7 +228,7 @@ public class HandlerAnnotationResolverTest {
     }
 
     static AnnotationRegistry registryOf(TriggerMetadataModel.Annotation... annotations) {
-        return AnnotationRegistry.of(new TriggerMetadataModel(null, null, List.of(annotations), null));
+        return AnnotationRegistry.of(new TriggerMetadataModel(null, null, null, List.of(annotations), null));
     }
 
     static TriggerMetadataModel.Annotation annotation(String id, String name, String attachPoint,

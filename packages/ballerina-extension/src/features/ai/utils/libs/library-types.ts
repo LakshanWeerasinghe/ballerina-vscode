@@ -211,6 +211,11 @@ export interface ServiceRemoteFunction {
     optional?: boolean;
     name: string;
     isDeprecated?: boolean;
+    // The declared method carries `isolated`, introspected from the semantic model (the document models no
+    // qualifiers, and should not — they are introspectable). An implementation that omits it does NOT
+    // compile: the compiler reports "mismatched function signatures" whose expected and found halves print
+    // identically, because it prints neither qualifier. Present only when the qualifier is declared.
+    isolated?: boolean;
     // Spec §5 resource extras. `accessor` is resolved by the Java-side AccessorPrecedencePolicy; the rest are
     // the legal vocabularies the document declares, rendered as placeholders and notes (spec §11.2: the
     // concrete values are intent-derived and must never be invented).
@@ -332,6 +337,17 @@ export interface Service {
     singleListenerOnly?: boolean;
     // Spec §3 `multipleServicesPerListenerAllowed: false`. Same presence rule as `singleListenerOnly`.
     singleServicePerListenerOnly?: boolean;
+    // Spec §2 `listeners[].services`: no listener declares it can host this service type, so it must never
+    // be written as `service … on new …` — the compiler rejects that with "service type is not supported by
+    // the listener". Present only when the restriction holds. `renderFixedService` renders such a type as a
+    // `service class` that includes it, which is how `websocket`'s Service is actually reached.
+    notListenerAttachable?: boolean;
+    // Spec §4: the document declares this catalog `addMode: "many"` (open-ended, user-named) while listing
+    // named options instead of the single `"*"` entry, so those names are handler SHAPES and the author
+    // names each real handler. Present only when that mismatch holds. Without the note, `grpc`'s `unary` /
+    // `serverStreaming` read exactly like `salesforce`'s genuinely-fixed `onCreate` / `onUpdate` — but a
+    // real gRPC handler is named after its proto RPC, so those four labels appear in no working program.
+    authorNamedHandlers?: boolean;
 }
 
 export interface Annotation {

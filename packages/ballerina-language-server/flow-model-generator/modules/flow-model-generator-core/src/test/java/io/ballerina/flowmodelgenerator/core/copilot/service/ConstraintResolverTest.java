@@ -44,7 +44,7 @@ public class ConstraintResolverTest {
      * Spec §8's registry, as rabbitmq and smb declare it: the id is lowercase, the annotation it names is
      * not. Keeping them distinct is what makes the resolution observable.
      */
-    private static final AnnotationRegistry REGISTRY = AnnotationRegistry.of(new TriggerMetadataModel(
+    private static final AnnotationRegistry REGISTRY = AnnotationRegistry.of(new TriggerMetadataModel(null,
             null, null,
             List.of(new TriggerMetadataModel.Annotation("serviceConfig",
                     new TypeRef("ServiceConfig", null),
