@@ -59,9 +59,11 @@ final class ServiceIdentityResolver {
      * @param foreign           whether the type belongs to a module other than home
      * @param declaredByPackage whether the resolved package declares this type; always {@code true} for
      *                          a foreign type, which cannot be checked against this module's symbols
+     * @param alternatives      whether the document declares more than one service type, which spec §3
+     *                          makes each of them "individually optional"
      */
     record ServiceIdentity(String typeName, String serviceTypeModule, boolean foreign,
-                           boolean declaredByPackage) {
+                           boolean declaredByPackage, boolean alternatives) {
     }
 
     /**
@@ -112,12 +114,15 @@ final class ServiceIdentityResolver {
     /**
      * Resolves the full identity, including whether the resolved package backs a home-module type.
      *
-     * @param serviceType  the service type
-     * @param homeModule   the document's home module
-     * @param declaresType whether the resolved package declares a type of the given name
+     * @param serviceType      the service type
+     * @param homeModule       the document's home module
+     * @param declaresType     whether the resolved package declares a type of the given name
+     * @param serviceTypeCount how many service types the document declares, which is spec §3's <i>only</i>
+     *                         statement about whether this one is mandatory: "one entry = required;
+     *                         multiple entries = each individually optional"
      */
     static ServiceIdentity resolve(TriggerMetadataModel.ServiceType serviceType, String homeModule,
-                                   Predicate<String> declaresType) {
+                                   Predicate<String> declaresType, int serviceTypeCount) {
         String typeName = serviceType == null || serviceType.type() == null
                 ? null : serviceType.type().name();
         boolean foreign = isForeign(serviceType, homeModule);
@@ -125,6 +130,6 @@ final class ServiceIdentityResolver {
         // neither possible nor meaningful for it.
         boolean declared = foreign || (typeName != null && declaresType.test(typeName));
         return new ServiceIdentity(typeName, serviceTypeModule(serviceType, homeModule).orElse(null),
-                foreign, declared);
+                foreign, declared, serviceTypeCount > 1);
     }
 }

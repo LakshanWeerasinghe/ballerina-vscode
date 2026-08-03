@@ -57,12 +57,14 @@ final class AspectRegistry {
                 new ReturnAnnotationAspect());
         this.paramAspects = List.of(
                 new ParamTypeAspect(),
+                new ParamRepeatAspect(),
                 new ParamAnnotationAspect(),
                 new DataBindingAspect());
         this.serviceAspects = List.of(
                 // Must run first: it resolves the service-type id every later component is scoped to,
                 // and it is the component that can veto the entry outright.
                 new ServiceIdentityAspect(),
+                new CardinalityAspect(),
                 new RequiredImportAspect(),
                 // Must run after identity: identity is what can veto the entry, and an annotation
                 // obligation resolved for a service type that is about to be dropped is output nothing

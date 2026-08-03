@@ -64,7 +64,39 @@ final class HandlerCatalogAspect implements ServiceAspect {
                     buildDeclared(scope, draft, concrete.methods());
             case HandlerCatalogResolver.HandlerCatalog.Options options ->
                     buildFromOptions(scope, draft, options.options());
+            case HandlerCatalogResolver.HandlerCatalog.Many many ->
+                    buildTemplate(scope, draft, many.template());
         }
+    }
+
+    /**
+     * An open-ended service type: the wildcard describes the shape of a handler the author will name.
+     *
+     * <p>Built through the <b>same</b> handler and parameter aspects a named option goes through, rather
+     * than by a bespoke path. That is what keeps §5's kind and return, §7's types and alternatives, and
+     * §8's function- and parameter-scope obligations owned by exactly one component each: the template
+     * gains every one of them for free, and a later spec change to any of them cannot leave the template
+     * behind.
+     */
+    private void buildTemplate(TriggerScope scope, ServiceDraft draft,
+                               TriggerMetadataModel.ServiceType.HandlerOption template) {
+        HandlerScope handlerScope = new HandlerScope(scope, template, null);
+        HandlerDraft handlerDraft = new HandlerDraft();
+
+        if (ParamTypeResolver.signatureReferencesUndeclaredType(template, scope.declaresType())) {
+            // Same guard a named option gets: a template naming a type the resolved package does not
+            // declare would describe a handler nobody can write.
+            handlerDraft.veto(id(), specSection(), scope.serviceTypeName(),
+                    "its handler template references a type the resolved package does not declare");
+            draft.setHandlerTemplate(handlerDraft);
+            return;
+        }
+
+        for (HandlerAspect aspect : registry.handlerAspects()) {
+            aspect.contribute(handlerScope, handlerDraft);
+        }
+        buildOptionParams(handlerScope, handlerDraft, template.params());
+        draft.setHandlerTemplate(handlerDraft);
     }
 
     /** A concrete service type: every handler and parameter is read from the semantic model. */
@@ -90,10 +122,7 @@ final class HandlerCatalogAspect implements ServiceAspect {
             return;
         }
         for (TriggerMetadataModel.ServiceType.HandlerOption option : options) {
-            if (option == null || option.name() == null
-                    || TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(option.name())) {
-                // A wildcard slot is an open-ended, user-named handler; it has no fixed signature to
-                // emit. Rendering it as a template is a later phase.
+            if (option == null || option.name() == null) {
                 continue;
             }
 
@@ -120,8 +149,14 @@ final class HandlerCatalogAspect implements ServiceAspect {
      *
      * <p>The name pool is seeded with every authored name in the option <i>before</i> any name is
      * generated, so a generated name can never collide with an authored one declared later in the list.
-     * The positional fallback uses the slot's index in the full list, including slots skipped as
-     * repeatable, which keeps a generated name stable when an unrelated slot is added or removed.
+     * The positional fallback uses the slot's index in the full list, which keeps a generated name stable
+     * when an unrelated slot is added or removed.
+     *
+     * <p><b>A repeatable slot is no longer skipped.</b> It used to be dropped here outright, which cost
+     * the prompt everything §7 says about it — {@code mcp}'s five repeatable slots carry three union type
+     * surfaces and three {@code @http:Header} obligations that reached the prompt nowhere. It is now built
+     * like any other slot, marked by {@link ParamRepeatAspect}, and left out of the rendered signature by
+     * the consumer rather than by this loop.
      */
     private void buildOptionParams(HandlerScope handlerScope, HandlerDraft handlerDraft,
                                    List<TriggerMetadataModel.ServiceType.Param> params) {
@@ -135,11 +170,7 @@ final class HandlerCatalogAspect implements ServiceAspect {
             }
         }
         for (int i = 0; i < params.size(); i++) {
-            TriggerMetadataModel.ServiceType.Param param = params.get(i);
-            if (ParamTypeResolver.isRepeatable(param)) {
-                continue;
-            }
-            ParamScope paramScope = new ParamScope(handlerScope, param, null, i, usedNames);
+            ParamScope paramScope = new ParamScope(handlerScope, params.get(i), null, i, usedNames);
             handlerDraft.addParam(runParamAspects(paramScope));
         }
     }

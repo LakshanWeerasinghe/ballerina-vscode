@@ -120,6 +120,55 @@ function escapeRegExp(str: string): string {
 }
 
 /**
+ * A type name as it must be written in the *user's* module.
+ *
+ * Three cases, told apart by the links the pipeline attached rather than by inspecting the name:
+ *  - an **external** link means the type belongs to another package, so it takes that package's prefix —
+ *    the same rule every other cross-module reference in this file follows;
+ *  - an **internal** link means the library stripped its own prefix off on the way out, so the listener's
+ *    alias goes back on: `Session` was `mcp:Session`, and a service body written by the reader needs it;
+ *  - **no link at all** is either a builtin (`anydata`, `string|int`) or a name that already carries a
+ *    foreign prefix (`http:Headers`), and neither takes an alias.
+ *
+ * Deduplicated by record name, so a union naming the same type twice cannot be prefixed twice.
+ */
+function qualifyDeclaredType(type: Type | undefined, listenerAlias: string | null): string {
+    if (!type) {
+        return "";
+    }
+    const externalLinks = collectExternalLinks(type);
+    if (externalLinks.length > 0) {
+        return applyPrefixToTypeName(type.name, externalLinks);
+    }
+    if (!listenerAlias) {
+        return type.name;
+    }
+    const internalNames = new Set(
+        (type.links ?? []).filter((link) => link.category === "internal").map((link) => link.recordName)
+    );
+    let result = type.name;
+    for (const recordName of internalNames) {
+        const regex = new RegExp(`\\b${escapeRegExp(recordName)}\\b`, "g");
+        result = result.replace(regex, `${listenerAlias}:${recordName}`);
+    }
+    return result;
+}
+
+/**
+ * How a note refers to a parameter slot.
+ *
+ * A repeatable slot (spec §7 `addMode: "many"`) usually has no name — the document leaves each occurrence's
+ * name to the author — so a note built from `param.name` would read "`undefined` may also be: …". Every
+ * note that names a slot goes through here so that cannot happen.
+ */
+function paramLabel(param: ParameterDef): string {
+    if (param.name) {
+        return `\`${param.name}\``;
+    }
+    return param.repeatable ? "each repeated parameter" : "this parameter";
+}
+
+/**
  * Builds the "// Special Agent Note: ..." comment for external links.
  * Groups record names by library name.
  */
@@ -546,12 +595,46 @@ function renderAlternativeNotes(method: ServiceRemoteFunction, indent: string): 
     const lines: string[] = [];
     for (const param of method.parameters ?? []) {
         const alternatives = param.alternatives ?? [];
-        if (alternatives.length === 0) {
+        // A repeatable slot's whole type surface is stated by `renderRepeatNotes`, in one sentence that
+        // also says the slot repeats. Emitting a second "may also be" line for it would split one fact
+        // across two notes and imply the slot appears in the signature, which it does not.
+        if (alternatives.length === 0 || param.repeatable) {
             continue;
         }
         const rendered = alternatives.map((type) =>
             applyPrefixToTypeName(type.name, collectExternalLinks(type)));
-        lines.push(`${indent}# \`${param.name}\` may also be: ${rendered.join(", ")}`);
+        lines.push(`${indent}# ${paramLabel(param)} may also be: ${rendered.join(", ")}`);
+    }
+    return lines;
+}
+
+/**
+ * Spec §7 `addMode: "many"` — the `#` lines describing a slot that repeats.
+ *
+ * The slot is deliberately absent from the signature (the document names no parameter, so writing one
+ * would invent API), which makes this note the *only* place its type surface appears. It therefore states
+ * the full surface — the codegen-default type plus every alternative — rather than deferring to
+ * `renderAlternativeNotes` the way a fixed slot does.
+ *
+ * Types are written as the reader must write them, module-qualified, because this describes code the
+ * reader is about to author rather than a signature already spelled out above.
+ */
+function renderRepeatNotes(method: ServiceRemoteFunction, listenerAlias: string | null,
+                           indent: string): string[] {
+    const lines: string[] = [];
+    for (const param of method.parameters ?? []) {
+        if (!param.repeatable) {
+            continue;
+        }
+        const surface = [param.type, ...(param.alternatives ?? [])]
+            .map((type) => qualifyDeclaredType(type, listenerAlias))
+            .filter((name) => name !== "");
+        const named = param.name ? ` (\`${param.name}\`)` : "";
+        const types = surface.length > 1
+            ? `${surface[0]} (or ${surface.slice(1).join(", ")})`
+            : surface[0] ?? "";
+        lines.push(`${indent}# Zero or more further parameters${named} of type ${types} may be added, `
+            + `each independently named.`);
     }
     return lines;
 }
@@ -691,8 +774,10 @@ function renderParamDef(param: ParameterDef, listenerAlias: string | null = null
  * Returns "" when every parameter is required, which is the common case.
  */
 function renderOptionalParamNote(method: ServiceRemoteFunction, indent: string): string {
+    // A repeatable slot is excluded: it is not in the signature, so "may be omitted" is meaningless for
+    // it, and naming it here would advertise a parameter the reader cannot find above.
     const optionalNames = (method.parameters ?? [])
-        .filter((param) => param.optional && param.name)
+        .filter((param) => param.optional && param.name && !param.repeatable)
         .map((param) => param.name as string);
     if (optionalNames.length === 0) {
         return "";
@@ -974,8 +1059,22 @@ function renderParamAnnotationNotes(
     const lines: string[] = [];
     for (const param of method.parameters ?? []) {
         for (const annotation of param.annotationRefs ?? []) {
-            lines.push(inSignatureNote(annotation, `The \`${param.name}\` parameter`,
-                "before its type", listenerAlias, indent));
+            // A repeatable slot has no signature entry, so `param.name` would be undefined and the
+            // "already written, fill the {}" branch would point at a `{}` that is nowhere on the page.
+            // Both are corrected by naming the slot differently and always describing how to write it.
+            // A handler may declare more than one repeatable slot — mcp's streamable template has two,
+            // and only the `string`-union one carries @http:Header. A bare "Each repeated parameter"
+            // reads as applying to both, and taken at its word on the `anydata` slot the compiler
+            // rejects it: "Invalid type of header param … expected one of the string, int, float,
+            // decimal, boolean types". The slot is named by the type it accepts, which is the only
+            // discriminator a slot without a name has.
+            const subject = param.repeatable
+                ? (param.name
+                    ? `Each repeated \`${param.name}\` parameter`
+                    : `Each repeated \`${param.type.name}\` parameter`)
+                : `The ${paramLabel(param)} parameter`;
+            lines.push(inSignatureNote(annotation, subject, "before its type", listenerAlias, indent,
+                !param.repeatable));
         }
     }
     // The return carries its obligations in the same way and for the same reason: an optional one is not
@@ -994,17 +1093,21 @@ function renderParamAnnotationNotes(
  * A required annotation is already written there, so the note says what to put in it; an optional one is
  * not written at all, so the note says how to write it. `position` names where it goes, which differs
  * between a parameter and the return.
+ *
+ * `writtenInSignature` is false for a slot that has no signature entry at all — a spec §7 repeatable
+ * parameter — where "fill the `{}`" would point at a placeholder that appears nowhere.
  */
 function inSignatureNote(
     annotation: AnnotationRequirement,
     subject: string,
     position: string,
     listenerAlias: string | null,
-    indent: string
+    indent: string,
+    writtenInSignature: boolean = true
 ): string {
     const { qualifiedName, constraint, provenanceNote } = qualifyRequirement(annotation, listenerAlias);
     const fields = constraint ? ` Its fields are those of ${constraint}.` : "";
-    const obligation = annotation.presence === "required"
+    const obligation = annotation.presence === "required" && writtenInSignature
         ? `must carry @${qualifiedName} — fill the \`{}\`.`
         : `may carry @${qualifiedName}, written \`@${qualifiedName} {}\` ${position}.`;
     return `${indent}# ${subject} ${obligation}${fields}`
@@ -1118,6 +1221,113 @@ function renderConstraintMember(
 }
 
 /**
+ * Spec §3 `multipleListenersAllowed` / `multipleServicesPerListenerAllowed` — stated only as prohibitions.
+ *
+ * The pipeline sends a key only when the connector forbids something, so there is no permissive case to
+ * filter here. The reason it does is worth repeating at the point of use: the shape a generator writes by
+ * default — one service, one listener — is legal whether or not the connector allows more, so the
+ * permissive value changes nothing it would otherwise produce, while the prohibition is what stands
+ * between the model and code that does not compile.
+ *
+ * Two lines rather than one merged sentence: `kafka` is the only service type in the corpus where both
+ * fire, and a combined line would state something false for `ballerinax/trigger.google.calendar`, where
+ * only the second holds.
+ */
+function renderCardinalityNotes(service: Service): string[] {
+    const lines: string[] = [];
+    if (service.singleListenerOnly) {
+        lines.push("# This service type attaches to exactly one listener — do not write `on l1, l2`.");
+    }
+    if (service.singleServicePerListenerOnly) {
+        lines.push("# This listener hosts at most one service of this type; a second one needs its own "
+            + "listener.");
+    }
+    return lines;
+}
+
+/**
+ * Spec §4 `addMode: "many"` — the body of a service type whose handlers the author names.
+ *
+ * **Every line is a `//` comment, and that is forced rather than stylistic.** A `#` documentation line is
+ * only legal immediately before a declaration; inside an otherwise empty service body the compiler rejects
+ * it outright — verified: `ERROR documentation not attached to a construct`, followed by cascading parse
+ * errors. So the notes cannot use the `#` form the rest of this file uses for guidance, and the signature
+ * cannot be live code either: spec §11.1 is explicit that such a handler "cannot yield a compilable
+ * signature", because the name is the author's to choose.
+ *
+ * What is emitted is therefore a commented template that invents nothing beyond the name placeholder:
+ * the kind, the parameter types, the return and the annotation obligations are all things the document
+ * states. Types are module-qualified because the reader writes them in their own module — the same rule
+ * the §9 `*envelope;` note already follows.
+ *
+ * Verified by compiling the filled-in form: substituting a real name for `<handlerName>` and uncommenting
+ * yields a service that builds against the resolved package.
+ */
+function renderHandlerTemplate(template: ServiceRemoteFunction | undefined,
+                               listenerAlias: string | null): string[] {
+    if (!template) {
+        return [];
+    }
+    const indent = "    ";
+    const lines: string[] = [
+        `${indent}// This service type takes any number of handlers, and you choose each one's name.`,
+        `${indent}// Declare as many as the requirement needs, following this shape:`,
+    ];
+
+    const fixedParams = (template.parameters ?? []).filter((param) => !param.repeatable);
+    const params = fixedParams
+        .map((param) => {
+            const attachments = renderRequirementAttachments(param.annotationRefs, listenerAlias);
+            const typeName = qualifyDeclaredType(param.type, listenerAlias);
+            return `${attachments}${typeName}${param.name ? " " + param.name : ""}`;
+        })
+        .join(", ");
+    const returnType = qualifyDeclaredType(template.return?.type, listenerAlias);
+    const returnStr = returnType ? ` returns ${returnType}` : "";
+    // The same policy `renderMethodSignature` applies to a named resource handler, and for the same
+    // reason: when the document supplies no accessor there is none to write, and substituting `get`
+    // would be inventing API. Falling back to `remote function` keeps the line copyable. No corpus
+    // document reaches the fallback — the two rendered templates are both `remote`, and the resource
+    // wildcards (http, graphql) are replaced wholesale by the curated generic-services overlay.
+    // A resource handler's *path* is what a remote handler's name is — so the author-chosen slot is the
+    // path placeholder, and appending `<handlerName>` after it as well would emit
+    // `resource function get pathSegment <handlerName>(...)`, which is not a signature at all.
+    const declarator = template.type === "resource" && template.accessor
+        ? `resource function ${template.accessor} ${RESOURCE_PATH_PLACEHOLDER}`
+        : "remote function <handlerName>";
+
+    // The same facts a real handler states, in the same order, but as `//` prose. Reused from the shared
+    // renderers so that a change to what §7 or §8 says reaches the template automatically; only the `# `
+    // marker is swapped, because of the compiler rule above.
+    const notes = [
+        renderOptionalParamNote(template, "").trimEnd(),
+        ...renderRepeatNotes(template, listenerAlias, ""),
+        ...renderParamAnnotationNotes(template, listenerAlias, ""),
+    ].filter((note) => note !== "");
+    for (const note of notes) {
+        lines.push(`${indent}// ${note.replace(/^# ?/, "")}`);
+    }
+
+    // The obligation block and the signature are the two lines a reader actually copies, so they are
+    // written as real Ballerina behind the `// ` and nothing else: uncommenting them, substituting a name
+    // and adding a body must compile. (A body is required — like every handler this file renders, the
+    // signature ends in `;` and is a declaration, not a definition.) That is why `{}` appears here where
+    // the declaration-level block uses `{...}` — `{...}` is not an expression, so it would turn a
+    // copyable line into a guaranteed compile error the moment the comment marker comes off.
+    for (const annotation of template.annotationRefs ?? []) {
+        const { qualifiedName, constraint, provenanceNote } =
+            qualifyRequirement(annotation, listenerAlias);
+        const required = annotation.presence === "required";
+        const fields = constraint ? ` Its fields are those of ${constraint}.` : "";
+        lines.push(`${indent}// A handler ${required ? "must" : "may"} carry @${qualifiedName}.${fields}`
+            + `${provenanceNote ? " " + provenanceNote : ""}`);
+        lines.push(`${indent}// @${qualifiedName} {} // ${required ? "required" : "optional"}`);
+    }
+    lines.push(`${indent}// ${declarator}(${params})${returnStr};`);
+    return lines;
+}
+
+/**
  * Renders a fixed service.
  */
 function renderFixedService(service: FixedService): string {
@@ -1158,6 +1368,10 @@ function renderFixedService(service: FixedService): string {
     // they are obligations on code that does not exist yet, and Ballerina metadata puts documentation ahead
     // of annotations. The identifier note precedes the constraint lines because a constraint may refer to the
     // identifier as one of its alternatives.
+    // Spec §3's cardinality, first among the service-level notes because it is the only one that can make
+    // the reader write a *different number* of declarations rather than a different declaration.
+    lines.push(...renderCardinalityNotes(service));
+
     const identifierSlot = renderIdentifierSlot(service.identifier);
     lines.push(...identifierSlot.notes);
     lines.push(...renderConstraintLines(service.constraints, listenerAlias));
@@ -1183,10 +1397,19 @@ function renderFixedService(service: FixedService): string {
     lines.push(`service ${serviceTypePrefix}${identifierSlot.fragment}on new `
         + `${service.listener.name}(${listenerParams}) {${agentNote}`);
 
+    // Spec §4 `addMode: "many"`: an open-ended catalog has no methods to list, so the body carries the
+    // rule for writing one instead. Emitted before the methods because no corpus service type has both,
+    // and a template that followed real methods would read as an afterthought rather than as the shape
+    // every handler here takes.
+    lines.push(...renderHandlerTemplate(service.handlerTemplate, listenerAlias));
+
     for (const method of service.methods ?? []) {
         const desc = method.description ? `    # ${method.description}\n` : "";
         const dep = method.isDeprecated ? "    @deprecated\n" : "";
+        // Spec §7: a repeatable slot is never written into the signature — the document states no name
+        // for it, so emitting one would invent a parameter. `renderRepeatNotes` states it instead.
         const params = (method.parameters ?? [])
+            .filter((param) => !param.repeatable)
             .map((param) => renderParamDef(param, listenerAlias)).join(", ");
         const returnAnnotations = renderRequirementAttachments(
             method.return?.annotationRefs, listenerAlias);
@@ -1203,6 +1426,7 @@ function renderFixedService(service: FixedService): string {
         // what their annotations mean. Each layer is narrower than the one above it.
         const notes = [
             renderAlternativeNotes(method, "    "),
+            renderRepeatNotes(method, listenerAlias, "    "),
             renderBindingNotes(method, listenerAlias, "    "),
             renderParamAnnotationNotes(method, listenerAlias, "    "),
         ].flat();
@@ -1258,6 +1482,36 @@ function renderAnnotation(annotation: Annotation): string | null {
 
     lines.push(`public annotation ${typeSlot}${annotation.name} on ${point};${agentNote}`);
     return lines.join("\n");
+}
+
+/**
+ * Spec §3's array cardinality — stated **once per library**, not once per service.
+ *
+ * The claim is about the *set* of service types a document declares, so repeating it on each entry says
+ * nothing extra; `ballerinax/trigger.github` would carry ten identical copies of it.
+ *
+ * The wording follows §3 literally: "multiple entries = each individually optional, choice left to
+ * whatever supplied the generation intent". It deliberately does **not** say "pick exactly one" — §3
+ * imposes no such rule, and `websocket` is the counter-example that makes the distinction load-bearing:
+ * its `UpgradeService` handler *returns* its `Service`, so both are routinely declared together.
+ *
+ * `//` rather than `#`: a `#` line here would attach to the first service declaration as its
+ * documentation, which is both semantically wrong for a library-level statement and would sit in front of
+ * that service's own `#` notes and annotations.
+ *
+ * The count comes from the entries actually rendered, so a service type dropped by a veto can never make
+ * this line promise something the reader cannot find below.
+ */
+function renderServiceAlternativesNote(services: Service[]): string[] {
+    const count = services.filter((service) => service.alternatives).length;
+    if (count < 2) {
+        return [];
+    }
+    return [
+        "",
+        `// This library declares ${count} service types. Each is individually optional —`,
+        "// declare the ones the requirement needs, not all of them.",
+    ];
 }
 
 /**
@@ -1335,6 +1589,7 @@ export function toSyntaxString(libraries: Library[]): string {
         if (lib.services && lib.services.length > 0) {
             output.push("");
             output.push("// --- Service ---");
+            output.push(...renderServiceAlternativesNote(lib.services));
             for (const service of lib.services) {
                 output.push("");
                 output.push(renderService(service));

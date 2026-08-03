@@ -70,6 +70,11 @@ export interface ParameterDef {
     annotationRefs?: AnnotationRequirement[];
     // Spec §9: how this slot's raw value may be projected into a user-defined type.
     binding?: ParamBinding;
+    // Spec §7 `addMode: "many"`: the slot repeats zero or more times, each occurrence independently named
+    // and typed by the author. Such a slot must NOT be written into the signature — the document states no
+    // name for it, so emitting one would invent a parameter — and `name` is correspondingly absent unless
+    // the document authored one. What it does state is the legal type surface of each occurrence.
+    repeatable?: boolean;
 }
 
 // Spec §9 `dataBindingRules[]`, as resolved for one parameter slot.
@@ -316,6 +321,17 @@ export interface Service {
     identifier?: ServiceIdentifier;
     // Spec §6: the exclusivity constraints this service type declares.
     constraints?: ServiceConstraint[];
+    // Spec §3's array cardinality: the document declares more than one service type, so this one is
+    // "individually optional" rather than mandatory. NOT a mutual-exclusivity marker — §3 leaves the
+    // choice to the generation intent and imposes no "exactly one of N" rule, and `websocket` declares two
+    // service types where the first's handler returns the second, so both are routinely written together.
+    alternatives?: boolean;
+    // Spec §3 `multipleListenersAllowed: false` — this service type attaches to exactly one listener.
+    // Present only when the connector forbids it; the permissive case states nothing, because the
+    // one-service-one-listener shape a generator writes by default is legal either way.
+    singleListenerOnly?: boolean;
+    // Spec §3 `multipleServicesPerListenerAllowed: false`. Same presence rule as `singleListenerOnly`.
+    singleServicePerListenerOnly?: boolean;
 }
 
 export interface Annotation {
@@ -335,6 +351,12 @@ export interface FixedService extends Service {
     type: "fixed";
     // Absent for fixed services whose service type declares no methods (e.g. mcp's marker Service).
     methods?: ServiceRemoteFunction[];
+    // Spec §4 `addMode: "many"`: the shape every handler of this service type takes, for a catalog whose
+    // handler names are the author's to choose. Typed as a ServiceRemoteFunction because it is one in
+    // every respect but its name — but it is deliberately NOT in `methods`, because it is not writable
+    // as-is. Spec §11.1: such a handler "cannot yield a compilable signature", so it renders as commented
+    // guidance and never as syntax.
+    handlerTemplate?: ServiceRemoteFunction;
 }
 
 export interface Library {

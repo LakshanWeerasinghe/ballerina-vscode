@@ -21,8 +21,10 @@ package io.ballerina.flowmodelgenerator.core.copilot.service;
 import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 /**
  * Owns <b>spec §4 {@code handlers}</b>: which of the two sources a service type's handlers come from.
@@ -36,6 +38,8 @@ import java.util.Optional;
  */
 final class HandlerCatalogResolver {
 
+    private static final Logger LOGGER = Logger.getLogger(HandlerCatalogResolver.class.getName());
+
     private HandlerCatalogResolver() {
         // Prevent instantiation
     }
@@ -43,13 +47,12 @@ final class HandlerCatalogResolver {
     /**
      * Where a service type's handlers come from.
      *
-     * <p>{@code addMode: "many"} does not yet get its own variant: today a wildcard {@code "*"} option is
-     * skipped by name during iteration, so a many-shaped document lands in {@link Options} and contributes
-     * nothing. Turning that into a rendered template is a later phase; introducing the variant here before
-     * anything renders it would change no output while adding an unread branch.
+     * <p>Sealed so a new source cannot be added without every consumer being forced to handle it: the
+     * catalog decides whether a service body is built from the semantic model, from a fixed vocabulary, or
+     * from an open-ended template, and a silently unhandled variant would emit an empty body.
      */
     sealed interface HandlerCatalog permits HandlerCatalog.Concrete, HandlerCatalog.Options,
-            HandlerCatalog.None {
+            HandlerCatalog.Many, HandlerCatalog.None {
 
         /**
          * The service type declares its own methods; the semantic model is authoritative.
@@ -66,6 +69,20 @@ final class HandlerCatalogResolver {
          */
         record Options(List<TriggerMetadataModel.ServiceType.HandlerOption> options)
                 implements HandlerCatalog {
+        }
+
+        /**
+         * An open-ended catalog: spec §4's {@code addMode: "many"}, "user-named (HTTP resource methods,
+         * GraphQL fields, MCP tools); represented as one {@code options} entry named {@code "*"}".
+         *
+         * <p>Distinct from {@link Options} because the shape it describes is not a handler but the
+         * <i>rule for writing</i> handlers: the author names each one, so there is no fixed signature to
+         * emit and consequently no entry in {@code methods}.
+         *
+         * @param template the wildcard option, which states everything about such a handler except its
+         *                 name
+         */
+        record Many(TriggerMetadataModel.ServiceType.HandlerOption template) implements HandlerCatalog {
         }
 
         /**
@@ -99,7 +116,7 @@ final class HandlerCatalogResolver {
     static HandlerCatalog resolve(TriggerMetadataModel.ServiceType serviceType, String typeName,
                                   TriggerSemanticFacts facts) {
         if (!isConcrete(serviceType)) {
-            return new HandlerCatalog.Options(serviceType.handlers().options());
+            return openOrFixed(serviceType.handlers(), typeName);
         }
         Optional<ObjectTypeSymbol> objectType = facts.serviceObjectType(typeName);
         if (objectType.isEmpty()) {
@@ -108,5 +125,74 @@ final class HandlerCatalogResolver {
             return new HandlerCatalog.None("no introspectable service object type");
         }
         return new HandlerCatalog.Concrete(facts.declaredMethods(objectType.get()));
+    }
+
+    /**
+     * Splits a marker type's vocabulary into the open-ended and the fixed shape.
+     *
+     * <p><b>The wildcard, not {@code addMode}, is the discriminator.</b> Spec §4 ties the two together —
+     * {@code "many"} is "represented as one options entry named {@code \"*\"}" — but two corpus documents
+     * break that tie, and reading the pair rather than the flag is what lets both degrade sensibly instead
+     * of rendering nothing:
+     *
+     * <ul>
+     *   <li><b>{@code grpc}</b> declares {@code addMode: "many"} with four <i>named</i> options
+     *       ({@code unary}, {@code serverStreaming}, {@code clientStreaming}, {@code bidiStreaming}) and no
+     *       wildcard. Those four are real, fully-specified signatures; treating the type as open-ended
+     *       because of the flag would discard all of them and emit a template instead.</li>
+     *   <li><b>{@code graphql}</b> declares three {@code "*"} entries under one {@code options} list where
+     *       spec §4 allows one. The first is taken and the rest reported — dropping the service type over a
+     *       document defect would lose more than it protects.</li>
+     * </ul>
+     *
+     * <p>Both are document defects belonging to the validator phase; this component's job is to tolerate
+     * them visibly, never to fix them silently.
+     */
+    private static HandlerCatalog openOrFixed(TriggerMetadataModel.ServiceType.Handlers handlers,
+                                              String typeName) {
+        List<TriggerMetadataModel.ServiceType.HandlerOption> options = handlers.options();
+        boolean declaresMany =
+                TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_MANY.equals(handlers.addMode());
+        List<TriggerMetadataModel.ServiceType.HandlerOption> wildcards = wildcardsOf(options);
+
+        if (wildcards.isEmpty()) {
+            if (declaresMany && options != null && !options.isEmpty()) {
+                LOGGER.warning("Service type '" + typeName + "' declares addMode: \"many\" with "
+                        + options.size() + " named option(s) and no \"*\" entry (spec §4 represents an"
+                        + " open-ended catalog as one option named \"*\"); treating the named options as a"
+                        + " fixed vocabulary so their signatures are not lost");
+            }
+            return new HandlerCatalog.Options(options);
+        }
+
+        if (wildcards.size() > 1) {
+            LOGGER.warning("Service type '" + typeName + "' declares " + wildcards.size()
+                    + " \"*\" options where spec §4 allows one; taking the first");
+        }
+        if (options.size() > wildcards.size()) {
+            LOGGER.warning("Service type '" + typeName + "' mixes a \"*\" option with "
+                    + (options.size() - wildcards.size()) + " named option(s); spec §4 defines the two as"
+                    + " alternative shapes, so the named options are not emitted");
+        }
+        if (!declaresMany) {
+            LOGGER.warning("Service type '" + typeName + "' declares a \"*\" option under addMode: "
+                    + handlers.addMode() + " (spec §4 pairs the wildcard with \"many\")");
+        }
+        return new HandlerCatalog.Many(wildcards.get(0));
+    }
+
+    private static List<TriggerMetadataModel.ServiceType.HandlerOption> wildcardsOf(
+            List<TriggerMetadataModel.ServiceType.HandlerOption> options) {
+        List<TriggerMetadataModel.ServiceType.HandlerOption> wildcards = new ArrayList<>();
+        if (options == null) {
+            return wildcards;
+        }
+        for (TriggerMetadataModel.ServiceType.HandlerOption option : options) {
+            if (option != null && TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME
+                    .equals(option.name())) {
+                wildcards.add(option);
+            }
+        }
+        return wildcards;
     }
 }

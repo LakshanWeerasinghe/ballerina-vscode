@@ -92,12 +92,75 @@ public class HandlerCatalogResolverTest {
     }
 
     @Test
-    public void testManyModeStillResolvesThroughTheOptionsPath() {
-        // §4's `addMode: "many"` is represented "as one options entry named \"*\"". It resolves like any
-        // other option list; the wildcard is recognised when the handlers are built, not here.
+    public void testManyModeResolvesToAnOpenEndedCatalog() {
+        // §4: `addMode: "many"` is "open-ended, user-named … represented as one options entry named
+        // \"*\"". It is a different kind of catalog from a fixed vocabulary, not a list containing one
+        // odd member, because nothing in it can be emitted as a signature.
         HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
                 serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
                         false, "many", List.of(option("*")))),
+                "Service", null);
+        Assert.assertTrue(catalog instanceof HandlerCatalogResolver.HandlerCatalog.Many,
+                "Expected an open-ended catalog, got: " + catalog);
+    }
+
+    @Test
+    public void testTheWildcardItselfIsCarriedAsTheTemplate() {
+        // Everything §5 states about such a handler — kind, params, returns, annotations — lives on the
+        // wildcard entry, so the entry itself is what the lower tiers must be given.
+        TriggerMetadataModel.ServiceType.HandlerOption wildcard = option("*");
+        HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
+                serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
+                        false, "many", List.of(wildcard))),
+                "Service", null);
+        Assert.assertSame(((HandlerCatalogResolver.HandlerCatalog.Many) catalog).template(), wildcard);
+    }
+
+    @Test
+    public void testManyWithNamedOptionsAndNoWildcardKeepsTheNamedOptions() {
+        // ballerina/grpc's real shape: `addMode: "many"` with four *named* options and no "*" entry.
+        // Spec §4 says a many-shaped catalog is represented by a wildcard, so the document is
+        // non-conformant — but its four options are fully-specified signatures, and discarding them in
+        // favour of a template would lose real API over a document defect. Degrade, never drop.
+        HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
+                serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
+                        false, "many", List.of(option("unary"), option("serverStreaming")))),
+                "Service", null);
+        Assert.assertTrue(catalog instanceof HandlerCatalogResolver.HandlerCatalog.Options,
+                "Expected the named options to survive, got: " + catalog);
+        Assert.assertEquals(((HandlerCatalogResolver.HandlerCatalog.Options) catalog).options().size(), 2);
+    }
+
+    @Test
+    public void testSeveralWildcardsTakeTheFirst() {
+        // ballerina/graphql declares three "*" entries under one options list where §4 allows one.
+        // Dropping the service type over that would lose more than it protects.
+        TriggerMetadataModel.ServiceType.HandlerOption first = option("*");
+        HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
+                serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
+                        false, "many", List.of(first, option("*"), option("*")))),
+                "Service", null);
+        Assert.assertSame(((HandlerCatalogResolver.HandlerCatalog.Many) catalog).template(), first);
+    }
+
+    @Test
+    public void testAWildcardIsRecognisedEvenWhenTheDocumentSaysSubset() {
+        // The wildcard, not `addMode`, is what makes a catalog open-ended: a "*" entry has no name to
+        // emit whatever the flag says, so trusting the flag here would render a method called `*`.
+        HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
+                serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
+                        false, "subset", List.of(option("*")))),
+                "Service", null);
+        Assert.assertTrue(catalog instanceof HandlerCatalogResolver.HandlerCatalog.Many,
+                "Expected an open-ended catalog, got: " + catalog);
+    }
+
+    @Test
+    public void testAFixedVocabularyIsUnaffectedByTheWildcardRule() {
+        // The overwhelmingly common shape must be untouched by the tolerance logic above.
+        HandlerCatalogResolver.HandlerCatalog catalog = HandlerCatalogResolver.resolve(
+                serviceType(false, new TriggerMetadataModel.ServiceType.Handlers(
+                        false, "subset", List.of(option("onMessage"), option("onError")))),
                 "Service", null);
         Assert.assertTrue(catalog instanceof HandlerCatalogResolver.HandlerCatalog.Options);
     }

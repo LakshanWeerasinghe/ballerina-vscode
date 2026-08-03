@@ -46,7 +46,7 @@ final class ServiceIdentityAspect implements ServiceAspect {
     @Override
     public void contribute(TriggerScope scope, ServiceDraft draft) {
         ServiceIdentityResolver.ServiceIdentity identity = ServiceIdentityResolver.resolve(
-                scope.serviceType(), scope.homeModule(), scope.declaresType());
+                scope.serviceType(), scope.homeModule(), scope.declaresType(), declaredServiceTypes(scope));
 
         if (identity.typeName() == null) {
             draft.veto(id(), specSection(), scope.libraryName(),
@@ -64,5 +64,24 @@ final class ServiceIdentityAspect implements ServiceAspect {
         // this module's symbols is then a deliberate no-op unless the module declares the name itself.
         draft.setName(identity.typeName());
         draft.setServiceTypeModule(identity.serviceTypeModule());
+        draft.setAlternatives(identity.alternatives());
+    }
+
+    /**
+     * How many service types are genuine alternatives to this one — the count spec §3's optionality rule
+     * is read against.
+     *
+     * <p>Not the size of {@code serviceTypes[]}: a service type the paired listener cannot host is not an
+     * alternative to the ones it can, it is a different construct reached another way. The distinction is
+     * spec §2's {@code services}, so the count comes from {@link ListenerPairingResolver}, which owns it.
+     */
+    private static int declaredServiceTypes(TriggerScope scope) {
+        if (scope.document() == null || scope.document().serviceTypes() == null) {
+            // A scope built without a document (the handler-tier test seam) states nothing about
+            // alternatives; a single entry is the safe reading, and it emits no note.
+            return 1;
+        }
+        return ListenerPairingResolver.hostedServiceTypeCount(
+                scope.listener(), scope.document().serviceTypes());
     }
 }

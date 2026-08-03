@@ -80,6 +80,41 @@ final class ListenerPairingResolver {
     }
 
     /**
+     * How many of a document's service types <b>one listener can actually host</b> — spec §2's
+     * {@code services}: "{@code serviceTypes[].id} values this listener can host".
+     *
+     * <p>This is the count spec §3's optionality rule has to be read against, and it is <b>not</b> the
+     * size of {@code serviceTypes[]}. {@code websocket} is the case that separates them: it declares two
+     * service types, but its listener lists only {@code upgradeService}. Its {@code Service} is reached
+     * as the <i>return</i> of the upgrade resource, never attached to a listener — verified with the
+     * compiler, which rejects {@code service websocket:Service on new websocket:Listener(...)} with
+     * "service type is not supported by the listener". Counting declarations rather than hostable types
+     * would call those two alternatives and invite exactly that program.
+     *
+     * <p>A listener that declares no {@code services} list constrains nothing, so the document's own
+     * count stands — the same fallback {@link #hostOf} applies for the same reason.
+     *
+     * @param listener     the hosting listener; may be {@code null}
+     * @param serviceTypes the document's service types; may be {@code null}
+     * @return the number of service types this listener can host
+     */
+    static int hostedServiceTypeCount(TriggerMetadataModel.Listener listener,
+                                      List<TriggerMetadataModel.ServiceType> serviceTypes) {
+        int declared = serviceTypes == null ? 0 : serviceTypes.size();
+        if (listener == null || listener.services() == null || listener.services().isEmpty()) {
+            return declared;
+        }
+        int hosted = 0;
+        for (TriggerMetadataModel.ServiceType serviceType : serviceTypes == null ? List.<
+                TriggerMetadataModel.ServiceType>of() : serviceTypes) {
+            if (serviceType != null && listener.services().contains(serviceType.id())) {
+                hosted++;
+            }
+        }
+        return hosted;
+    }
+
+    /**
      * Pairs every service type with its listener and that listener's resolved class.
      *
      * <p>A listener class that cannot be resolved means the resolved package no longer matches the

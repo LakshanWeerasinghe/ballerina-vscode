@@ -35,10 +35,11 @@ import java.util.function.Predicate;
  *   <li>{@code type} is a {@code TypeRef} or array, and per §1 "the first element is the codegen
  *       default" — so the emitted signature is the first member.</li>
  *   <li>{@code presence} is {@code required}/{@code optional}.</li>
- *   <li>{@code addMode: "many"} means the slot "repeats zero or more times, each occurrence
- *       independently named/typed" — an open-ended authoring shape with no fixed-signature counterpart,
- *       so such a slot contributes no parameter.</li>
  * </ul>
+ *
+ * <p>{@code addMode} is <b>not</b> owned here — see {@link ParamRepeatResolver}. It used to be, which put
+ * two of §7's four keys in one component and one in another for no reason; the renderer treats
+ * {@code presence} and {@code addMode} completely differently, so they are genuinely separate constructs.
  *
  * <p>{@code name} is the interesting one: §7 calls it an "optional domain-meaningful name … added only
  * where real source evidence shows it matters". Where the document states one it wins; where it does not,
@@ -62,14 +63,6 @@ final class ParamTypeResolver {
     /** Spec §7 {@code presence}: {@code "optional"} is the only value that changes the signature. */
     static boolean isOptional(TriggerMetadataModel.ServiceType.Param param) {
         return PRESENCE_OPTIONAL.equals(param.presence());
-    }
-
-    /**
-     * Spec §7 {@code addMode: "many"}: a repeatable slot is user-named and user-typed, so it has no
-     * place in a fixed signature and is skipped.
-     */
-    static boolean isRepeatable(TriggerMetadataModel.ServiceType.Param param) {
-        return TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_MANY.equals(param.addMode());
     }
 
     /**

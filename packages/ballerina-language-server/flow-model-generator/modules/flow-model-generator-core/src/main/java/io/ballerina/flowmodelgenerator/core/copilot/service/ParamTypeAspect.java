@@ -60,9 +60,17 @@ final class ParamTypeAspect implements ParamAspect {
         }
 
         TriggerMetadataModel.ServiceType.Param param = scope.param();
-        String name = ParamTypeResolver.resolveName(param, scope.position(),
-                TypeRefResolver.moduleAlias(packageName), scope.siblingNames());
-        scope.siblingNames().add(name);
+        // Spec §7: a repeatable slot's occurrences are "each independently named" by the author, so there
+        // is no single name for it and none is synthesized. An authored name is still a real fact and is
+        // kept. Reading ParamRepeatResolver's predicate rather than the raw key leaves §7's `addMode` with
+        // exactly one owner.
+        String name = ParamRepeatResolver.isRepeatable(param)
+                ? param.name()
+                : ParamTypeResolver.resolveName(param, scope.position(),
+                        TypeRefResolver.moduleAlias(packageName), scope.siblingNames());
+        if (name != null) {
+            scope.siblingNames().add(name);
+        }
 
         ParamTypeResolver.ParamType type = ParamTypeResolver.resolveType(param, packageName,
                 service.declaresType());

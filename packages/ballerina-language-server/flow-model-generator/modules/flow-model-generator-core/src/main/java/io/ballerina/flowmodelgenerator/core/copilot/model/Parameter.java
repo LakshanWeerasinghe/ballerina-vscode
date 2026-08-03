@@ -55,6 +55,15 @@ public class Parameter {
     private List<ServiceAnnotationRef> annotationRefs;
     // Spec §9 — how this slot's raw value may be projected into a user-defined type.
     private ParamBinding binding;
+    /**
+     * Spec §7 {@code addMode: "many"} — this slot repeats zero or more times, each occurrence
+     * independently named and typed by the author.
+     *
+     * <p>Boxed and emitted only when true. A renderer must keep such a slot <b>out of the signature</b>:
+     * the document states no name for it, so writing one would invent a parameter. What it states instead
+     * is the legal type surface of each occurrence, which is worth saying in a note.
+     */
+    private Boolean repeatable;
 
     public Parameter() {
     }
@@ -129,5 +138,13 @@ public class Parameter {
 
     public void setBinding(ParamBinding binding) {
         this.binding = binding;
+    }
+
+    public Boolean isRepeatable() {
+        return repeatable;
+    }
+
+    public void setRepeatable(Boolean repeatable) {
+        this.repeatable = repeatable;
     }
 }

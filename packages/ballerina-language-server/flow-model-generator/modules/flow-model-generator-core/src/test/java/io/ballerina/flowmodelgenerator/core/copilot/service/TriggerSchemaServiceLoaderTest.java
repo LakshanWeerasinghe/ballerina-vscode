@@ -310,7 +310,7 @@ public class TriggerSchemaServiceLoaderTest {
     }
 
     @Test
-    public void testBuildOptionMethodsSkipsRepeatableParamsAndNilReturns() {
+    public void testBuildOptionMethodsMarksRepeatableParamsAndDropsNilReturns() {
         JsonArray methods = TriggerSchemaServiceLoader.buildOptionMethods(
                 List.of(option("onTool", "remote", "optional",
                         List.of(param("meta", "ToolMeta", "required", null),
@@ -318,10 +318,23 @@ public class TriggerSchemaServiceLoaderTest {
                         List.of(new TypeRef("()", null)))),
                 "Service", Set.of("ToolMeta")::contains, "testmod");
         JsonObject method = methods.get(0).getAsJsonObject();
-        Assert.assertEquals(method.getAsJsonArray("parameters").size(), 1,
-                "addMode: many parameter slots must be skipped");
-        Assert.assertEquals(method.getAsJsonArray("parameters").get(0).getAsJsonObject()
+        JsonArray parameters = method.getAsJsonArray("parameters");
+
+        // A repeatable slot used to be dropped here, which cost the prompt everything §7 says about it.
+        // It now reaches the wire marked, and it is the consumer that keeps it out of the signature.
+        Assert.assertEquals(parameters.size(), 2,
+                "A repeatable slot is carried to the wire, not discarded");
+        Assert.assertEquals(parameters.get(0).getAsJsonObject()
                 .getAsJsonObject("type").get("name").getAsString(), "ToolMeta");
+        Assert.assertFalse(parameters.get(0).getAsJsonObject().has("repeatable"),
+                "Spec §7: \"Absent = at most one\" is the default and is never restated");
+
+        JsonObject repeatable = parameters.get(1).getAsJsonObject();
+        Assert.assertTrue(repeatable.get("repeatable").getAsBoolean());
+        Assert.assertEquals(repeatable.getAsJsonObject("type").get("name").getAsString(), "string");
+        Assert.assertFalse(repeatable.has("name"),
+                "§7 leaves each occurrence's name to the author, so none is synthesized");
+
         Assert.assertFalse(method.has("return"), "A nil return carries no information");
     }
 }

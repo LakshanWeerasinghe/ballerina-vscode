@@ -67,19 +67,9 @@ public class ParamTypeResolverTest {
         Assert.assertFalse(ParamTypeResolver.isOptional(param(null, "Caller", null, null)));
     }
 
-    // ---- §7 addMode --------------------------------------------------------------------
-
-    @Test
-    public void testRepeatableSlotIsRecognised() {
-        // "each occurrence independently named/typed" — an authoring concept with no fixed signature.
-        Assert.assertTrue(ParamTypeResolver.isRepeatable(param(null, "string", "optional", "many")));
-    }
-
-    @Test
-    public void testAbsentAddModeMeansAtMostOne() {
-        // §7: "Absent = at most one."
-        Assert.assertFalse(ParamTypeResolver.isRepeatable(param(null, "string", "required", null)));
-    }
+    // §7's `addMode` moved to ParamRepeatResolverTest when it gained its own owner: the renderer treats
+    // `presence` and `addMode` completely differently — one keeps a slot in the signature, the other takes
+    // it out — so they are separate constructs and get separate suites.
 
     // ---- §7 type, resolved per §1 -------------------------------------------------------
 

@@ -626,6 +626,28 @@ function collectServiceTypeRefs(service: Service): Type[] {
     if (service.type !== "fixed") {
         return refs;
     }
+    // Spec §4 `addMode: "many"`: the handler template names types the reader must write — mcp's
+    // `mcp:Session`, `http:Headers`, `http:Request` — in a body that lists no methods at all. Without this
+    // the template would be the one construct in the catalog that can name a type nothing defines.
+    const template = (service as FixedService).handlerTemplate;
+    if (template) {
+        for (const annotation of template.annotationRefs ?? []) {
+            add(annotation?.typeConstraint);
+        }
+        for (const param of template.parameters ?? []) {
+            add(param.type);
+            for (const alternative of param.alternatives ?? []) {
+                add(alternative);
+            }
+            for (const annotation of param.annotationRefs ?? []) {
+                add(annotation?.typeConstraint);
+            }
+        }
+        add(template.return?.type);
+        for (const annotation of template.return?.annotationRefs ?? []) {
+            add(annotation?.typeConstraint);
+        }
+    }
     for (const method of (service as FixedService).methods ?? []) {
         // Spec §8 at function scope — same reasoning, one tier down.
         for (const annotation of method.annotationRefs ?? []) {

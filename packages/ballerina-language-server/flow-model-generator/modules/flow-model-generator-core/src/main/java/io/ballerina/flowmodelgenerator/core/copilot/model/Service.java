@@ -57,6 +57,35 @@ public class Service {
     private ServiceIdentifier identifier;
     // Spec §6: the exclusivity constraints this service type declares (`oneOf` / `atMostOne`).
     private List<ServiceConstraint> constraints;
+    /**
+     * Spec §3's array cardinality: the document declares more than one service type, so this one is
+     * "individually optional" rather than mandatory. Boxed and emitted only when true.
+     *
+     * <p>Not a synonym for "mutually exclusive". Spec §3 leaves the choice "to whatever supplied the
+     * generation intent" and imposes no "exactly one of N" rule — {@code websocket} declares two service
+     * types where the first's handler <i>returns</i> the second, so both are routinely declared together.
+     */
+    private Boolean alternatives;
+    /**
+     * Spec §3 {@code multipleListenersAllowed: false} — this service type attaches to exactly one
+     * listener. Present only when the connector forbids it; a permissive value states nothing, because the
+     * one-service-one-listener shape a generator writes by default is legal either way.
+     */
+    private Boolean singleListenerOnly;
+    /**
+     * Spec §3 {@code multipleServicesPerListenerAllowed: false} — one listener hosts at most one service
+     * of this type. Same presence rule as {@link #singleListenerOnly}.
+     */
+    private Boolean singleServicePerListenerOnly;
+    /**
+     * Spec §4 {@code addMode: "many"} — the shape every handler of this service type takes, for a catalog
+     * whose handler names are the author's to choose.
+     *
+     * <p>Typed as {@link ServiceRemoteFunction} because it <i>is</i> one in every respect but its name:
+     * same kind, parameters, return and annotation obligations. It is held apart from {@link #methods}
+     * because it is not writable as-is — a consumer must render it as guidance, never as a signature.
+     */
+    private ServiceRemoteFunction handlerTemplate;
     @SerializedName("methods")
     private List<ServiceRemoteFunction> methods;
     private String testGenerationInstruction;
@@ -136,6 +165,38 @@ public class Service {
 
     public void setConstraints(List<ServiceConstraint> constraints) {
         this.constraints = constraints;
+    }
+
+    public Boolean isAlternatives() {
+        return alternatives;
+    }
+
+    public void setAlternatives(Boolean alternatives) {
+        this.alternatives = alternatives;
+    }
+
+    public Boolean isSingleListenerOnly() {
+        return singleListenerOnly;
+    }
+
+    public void setSingleListenerOnly(Boolean singleListenerOnly) {
+        this.singleListenerOnly = singleListenerOnly;
+    }
+
+    public Boolean isSingleServicePerListenerOnly() {
+        return singleServicePerListenerOnly;
+    }
+
+    public void setSingleServicePerListenerOnly(Boolean singleServicePerListenerOnly) {
+        this.singleServicePerListenerOnly = singleServicePerListenerOnly;
+    }
+
+    public ServiceRemoteFunction getHandlerTemplate() {
+        return handlerTemplate;
+    }
+
+    public void setHandlerTemplate(ServiceRemoteFunction handlerTemplate) {
+        this.handlerTemplate = handlerTemplate;
     }
 
     public List<ServiceRemoteFunction> getMethods() {

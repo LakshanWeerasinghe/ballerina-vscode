@@ -207,6 +207,97 @@ public class TriggerPipelineContractTest {
     }
 
     @Test
+    public void testEveryConstructAddedForP6HasARegisteredOwner() {
+        List<String> serviceIds = REGISTRY.serviceAspects().stream().map(ServiceAspect::id).toList();
+        List<String> paramIds = REGISTRY.paramAspects().stream().map(ParamAspect::id).toList();
+
+        Assert.assertTrue(serviceIds.contains("cardinality"),
+                "§3's multiple*Allowed pair must name an owner: " + serviceIds);
+        Assert.assertTrue(paramIds.contains("paramRepeat"),
+                "§7's addMode must name an owner: " + paramIds);
+        // §3's alternatives and §4's open-ended catalog are owned by components that already exist, so
+        // what is pinned for them is that they did not acquire a second owner.
+        Assert.assertEquals(serviceIds.stream().filter("serviceIdentity"::equals).count(), 1);
+        Assert.assertEquals(serviceIds.stream().filter("handlerCatalog"::equals).count(), 1);
+    }
+
+    @Test
+    public void testAddModeAndPresenceAreSeparateOwners() {
+        // §7 has four keys and the renderer treats two of them oppositely: `presence` keeps a slot in the
+        // signature and notes it, `addMode` takes the slot out entirely. They were one component until the
+        // second behaviour existed; merging them again would put one component in charge of both.
+        List<String> paramIds = REGISTRY.paramAspects().stream().map(ParamAspect::id).toList();
+        Assert.assertTrue(paramIds.containsAll(List.of("paramType", "paramRepeat")), paramIds.toString());
+        Assert.assertNotEquals(paramIds.indexOf("paramType"), paramIds.indexOf("paramRepeat"));
+    }
+
+    @Test
+    public void testCardinalityRunsBetweenIdentityAndTheCatalog() {
+        List<String> ids = REGISTRY.serviceAspects().stream().map(ServiceAspect::id).toList();
+        Assert.assertTrue(ids.indexOf("cardinality") > ids.indexOf("serviceIdentity"), ids.toString());
+        Assert.assertTrue(ids.indexOf("cardinality") < ids.indexOf("handlerCatalog"), ids.toString());
+    }
+
+    @Test
+    public void testTheP6ServiceKeysFollowTheOmissionRule() {
+        ServiceDraft draft = new ServiceDraft();
+        draft.setAlternatives(false);
+        draft.setHandlerTemplate(null);
+        Assert.assertFalse(draft.toJson().has("alternatives"),
+                "Spec §3: a sole service type is required, and that is not restated");
+        Assert.assertFalse(draft.toJson().has("handlerTemplate"),
+                "A fixed vocabulary has no template");
+        Assert.assertFalse(draft.toJson().has("singleListenerOnly"),
+                "A permissive cardinality states nothing");
+        Assert.assertFalse(draft.toJson().has("singleServicePerListenerOnly"));
+    }
+
+    @Test
+    public void testTheP6ParamKeyFollowsTheOmissionRule() {
+        ParamDraft draft = new ParamDraft();
+        draft.setRepeatable(false);
+        Assert.assertFalse(draft.toJson().has("repeatable"),
+                "Spec §7: \"Absent = at most one\" is the default and is never restated");
+    }
+
+    @Test
+    public void testRepeatableSitsAfterPresenceInTheParamKeyOrder() {
+        // Key order stays a property of the draft even as §7 gains a fourth writer.
+        ParamDraft draft = new ParamDraft();
+        draft.setBinding(new JsonObject());
+        draft.setRepeatable(true);
+        draft.setAnnotationRefs(arrayOf("x"));
+        draft.setAlternatives(arrayOf("T"));
+        draft.setOptional(true);
+        draft.setType(new JsonObject());
+        draft.setName("headerValue");
+        Assert.assertEquals(new ArrayList<>(draft.toJson().keySet()),
+                List.of("name", "type", "optional", "repeatable", "alternatives", "annotationRefs",
+                        "binding"));
+    }
+
+    @Test
+    public void testAnOpenEndedTemplateIsNeverEmittedAsAMethod() {
+        // The separation the whole design rests on: a template has no name, so putting it in `methods`
+        // would place an unwritable signature in a list whose every other member is copyable.
+        JsonArray methods = TriggerSchemaServiceLoader.buildOptionMethods(
+                List.of(option("*")), "Service", NONE, "testmod");
+        Assert.assertTrue(methods.isEmpty());
+    }
+
+    @Test
+    public void testAVetoedTemplateDoesNotVetoItsService() {
+        ServiceDraft draft = new ServiceDraft();
+        HandlerDraft template = new HandlerDraft();
+        template.veto("handlerCatalog", "§4", "Service", "references an undeclared type");
+        draft.setHandlerTemplate(template);
+
+        Assert.assertFalse(draft.isVetoed(), "A dropped template must not drop its service");
+        Assert.assertFalse(draft.toJson().has("handlerTemplate"));
+        Assert.assertEquals(draft.vetoes().size(), 1, "...but the reason is still reported");
+    }
+
+    @Test
     public void testEveryConstructAddedForP4HasARegisteredOwner() {
         // The traceability guard made concrete: each of these ids is the single owner of one spec construct,
         // so a construct cannot be silently unwired by deleting its registry line.

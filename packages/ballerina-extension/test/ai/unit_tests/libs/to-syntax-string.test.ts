@@ -1785,5 +1785,232 @@ suite("toSyntaxString", () => {
                 noLine(result, marker);
             }
         });
+
+        // ---- §3 cardinality ----
+
+        test("§3: only a prohibition is stated; a permissive cardinality renders nothing", () => {
+            // The permissive value changes no output a generator would otherwise produce — one service on
+            // one listener is legal either way — so it must not spend a line saying so.
+            const permissive = renderService(service([method()]));
+            noLine(permissive, "exactly one listener");
+            noLine(permissive, "at most one service");
+        });
+
+        test("§3: the two cardinality prohibitions are independent lines", () => {
+            // kafka is the only corpus service type where both fire; trigger.google.calendar fires only
+            // the second. One merged sentence would state something false for the latter.
+            const both = renderService(service([method()],
+                { singleListenerOnly: true, singleServicePerListenerOnly: true }));
+            assert.ok(both.includes(
+                "# This service type attaches to exactly one listener — do not write `on l1, l2`."),
+                `got:\n${both}`);
+            assert.ok(both.includes("# This listener hosts at most one service of this type;"),
+                `got:\n${both}`);
+
+            const onlySecond = renderService(service([method()],
+                { singleServicePerListenerOnly: true }));
+            noLine(onlySecond, "exactly one listener");
+            assert.ok(onlySecond.includes("# This listener hosts at most one service of this type;"),
+                `got:\n${onlySecond}`);
+        });
+
+        // ---- §3 alternatives ----
+
+        test("§3: the alternatives note is emitted once per library, not once per service", () => {
+            // The claim is about the *set* of service types, so repeating it per entry says nothing
+            // extra — trigger.github would otherwise carry ten identical copies.
+            const lib = {
+                name: "ballerinax/trigger.github", description: "", typeDefs: [], clients: [],
+                services: [
+                    service([method()], { name: "IssuesService", alternatives: true }),
+                    service([method()], { name: "PushService", alternatives: true }),
+                    service([method()], { name: "LabelService", alternatives: true }),
+                ],
+            } as unknown as Library;
+            const result = toSyntaxString([lib]);
+            const occurrences = result.split("Each is individually optional").length - 1;
+            assert.strictEqual(occurrences, 1, `expected exactly one note, got:\n${result}`);
+            assert.ok(result.includes("// This library declares 3 service types."), `got:\n${result}`);
+        });
+
+        test("§3: alternatives never claims mutual exclusivity", () => {
+            // §3 says "each individually optional, choice left to whatever supplied the generation
+            // intent" — there is no "at least one of N" rule. websocket is the counter-example that
+            // makes this load-bearing: its UpgradeService handler *returns* its Service, so both are
+            // routinely declared together.
+            const lib = {
+                name: "ballerina/websocket", description: "", typeDefs: [], clients: [],
+                services: [
+                    service([method()], { name: "UpgradeService", alternatives: true }),
+                    service([method()], { name: "Service", alternatives: true }),
+                ],
+            } as unknown as Library;
+            const result = toSyntaxString([lib]);
+            for (const forbidden of ["exactly one", "only one of", "do not declare all"]) {
+                noLine(result, forbidden);
+            }
+            assert.ok(result.includes("declare the ones the requirement needs, not all of them."),
+                `got:\n${result}`);
+        });
+
+        test("§3: a sole service type states nothing about alternatives", () => {
+            const result = renderService(service([method()]));
+            noLine(result, "service types");
+        });
+
+        // ---- §7 repeatable ----
+
+        test("§7: a repeatable slot is kept out of the signature and stated as a note", () => {
+            // "each occurrence independently named/typed" — the document states no name, so writing one
+            // would invent a parameter in a signature meant to be copied.
+            const result = renderService(service([method({
+                parameters: [
+                    { name: "meta", description: "", type: { name: "ToolMeta" } },
+                    { description: "", type: { name: "string" }, optional: true, repeatable: true },
+                ],
+            })]));
+            assert.ok(result.includes("remote function onConsumerRecord(ToolMeta meta)"),
+                `the repeatable slot must not reach the signature:\n${result}`);
+            assert.ok(result.includes(
+                "# Zero or more further parameters of type string may be added, each independently named."),
+                `got:\n${result}`);
+        });
+
+        test("§7: a repeatable slot is not listed among the omittable parameters", () => {
+            // It is not in the signature at all, so "may be omitted" would point at nothing.
+            const result = renderService(service([method({
+                parameters: [
+                    { description: "", type: { name: "string" }, optional: true, repeatable: true },
+                ],
+            })]));
+            noLine(result, "Optional parameters");
+        });
+
+        test("§7: a repeatable slot states its whole type surface in one note", () => {
+            // mcp's shape: string|int|boolean|decimal|float. The alternatives note is suppressed for it,
+            // because splitting one fact across two notes would imply the slot is in the signature.
+            const result = renderService(service([method({
+                parameters: [{
+                    description: "", type: { name: "string" }, optional: true, repeatable: true,
+                    alternatives: [{ name: "int" }, { name: "boolean" }],
+                }],
+            })]));
+            assert.ok(result.includes("of type string (or int, boolean) may be added"), `got:\n${result}`);
+            noLine(result, "may also be");
+        });
+
+        test("§7: an unnamed repeatable slot never renders `undefined`", () => {
+            const result = renderService(service([method({
+                parameters: [{
+                    description: "", type: { name: "string" }, optional: true, repeatable: true,
+                    annotationRefs: [{
+                        name: "Header", module: "ballerina/http", presence: "optional",
+                        attachPoint: "parameter",
+                    }],
+                }],
+            })]));
+            noLine(result, "undefined");
+            assert.ok(result.includes("# Each repeated `string` parameter may carry @http:Header"),
+                `got:\n${result}`);
+        });
+
+        // ---- §4 handler template ----
+
+        test("§4: an open-ended catalog renders a fully commented template", () => {
+            // §11.1: such a handler "cannot yield a compilable signature", so nothing here may be live
+            // code. A `#` line would not even parse inside an otherwise empty service body — verified:
+            // "ERROR documentation not attached to a construct".
+            const result = renderService(service([], {
+                methods: undefined,
+                handlerTemplate: {
+                    name: "*", type: "remote",
+                    parameters: [{
+                        name: "session", description: "",
+                        type: { name: "Session", links: [{ category: "internal", recordName: "Session" }] },
+                        optional: true,
+                    }],
+                    return: { type: { name: "anydata|error" } },
+                },
+            }));
+            const body = result.split("\n").filter((l) => l.trim().startsWith("//")
+                && l.startsWith("    "));
+            assert.ok(body.length > 0, `expected a commented template, got:\n${result}`);
+            assert.ok(result.includes(
+                "    // remote function <handlerName>(kafka:Session session) returns anydata|error;"),
+                `the type is qualified for the user's module:\n${result}`);
+            noLine(result, "    remote function <handlerName>");
+        });
+
+        test("§4: the template's annotation uses `{}`, never `{...}`", () => {
+            // The two lines a reader copies must uncomment to compilable Ballerina. `{...}` is not an
+            // expression — verified: "incompatible types: expected a map or a record, found 'other'".
+            const result = renderService(service([], {
+                methods: undefined,
+                handlerTemplate: {
+                    name: "*", type: "remote", parameters: [],
+                    return: { type: { name: "anydata|error" } },
+                    annotationRefs: [{ name: "Tool", presence: "optional", attachPoint: "function" }],
+                },
+            }));
+            assert.ok(result.includes("    // @kafka:Tool {} // optional"), `got:\n${result}`);
+            noLine(result, "{...}");
+        });
+
+        test("§8: a repeatable slot's annotation note names which slot it means", () => {
+            // mcp's streamable template has TWO repeatable slots and only the string-union one carries
+            // @http:Header. "Each repeated parameter" reads as applying to both, and taken at its word on
+            // the anydata slot the compiler rejects it: "Invalid type of header param … expected one of
+            // the string, int, float, decimal, boolean types".
+            const result = renderService(service([method({
+                parameters: [
+                    { description: "", type: { name: "anydata" }, optional: true, repeatable: true },
+                    {
+                        description: "", type: { name: "string" }, optional: true, repeatable: true,
+                        annotationRefs: [{
+                            name: "Header", module: "ballerina/http", presence: "optional",
+                            attachPoint: "parameter",
+                        }],
+                    },
+                ],
+            })]));
+            assert.ok(result.includes("# Each repeated `string` parameter may carry @http:Header"),
+                `the note must name the slot it applies to:\n${result}`);
+            noLine(result, "# Each repeated parameter may carry");
+        });
+
+        test("§4: a resource template's author-chosen slot is the path, not a name placeholder", () => {
+            // A resource handler's path is what a remote handler's name is. Emitting both would produce
+            // `resource function get pathSegment <handlerName>(...)`, which is not a signature.
+            const result = renderService(service([], {
+                methods: undefined,
+                handlerTemplate: {
+                    name: "*", type: "resource", accessor: "get", parameters: [],
+                    return: { type: { name: "anydata|error" } },
+                },
+            }));
+            assert.ok(result.includes("    // resource function get pathSegment() returns anydata|error;"),
+                `got:\n${result}`);
+            noLine(result, "pathSegment <handlerName>");
+        });
+
+        test("§4: a resource template with no accessor never invents one", () => {
+            // The same policy renderMethodSignature applies: inventing `get` would be inventing API.
+            const result = renderService(service([], {
+                methods: undefined,
+                handlerTemplate: {
+                    name: "*", type: "resource", parameters: [],
+                    return: { type: { name: "anydata|error" } },
+                },
+            }));
+            assert.ok(result.includes("    // remote function <handlerName>() returns anydata|error;"),
+                `got:\n${result}`);
+            noLine(result, "resource function");
+        });
+
+        test("§4: a fixed vocabulary renders no template", () => {
+            const result = renderService(service([method()]));
+            noLine(result, "<handlerName>");
+            noLine(result, "you choose each one's name");
+        });
     });
 });

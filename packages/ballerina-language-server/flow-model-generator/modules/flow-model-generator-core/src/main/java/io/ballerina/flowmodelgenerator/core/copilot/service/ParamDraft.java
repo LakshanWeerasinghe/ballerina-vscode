@@ -48,6 +48,7 @@ final class ParamDraft {
     private String description;
     private JsonObject type;
     private boolean optional;
+    private boolean repeatable;
     private JsonArray alternatives;
     private JsonArray annotationRefs;
     private JsonObject binding;
@@ -72,6 +73,18 @@ final class ParamDraft {
     /** Spec §7 {@code params[].presence}: emitted only for an optional slot. */
     void setOptional(boolean optional) {
         this.optional = optional;
+    }
+
+    /**
+     * Spec §7 {@code params[].addMode: "many"} — the slot repeats, each occurrence independently named
+     * and typed by the author.
+     *
+     * <p>Emitted only when true, per the omission rule; "at most one" is §7's stated default for an absent
+     * key. A consumer must read this as "do not put this slot in the signature": the document states no
+     * name for it, so writing one would invent a parameter.
+     */
+    void setRepeatable(boolean repeatable) {
+        this.repeatable = repeatable;
     }
 
     /**
@@ -131,6 +144,9 @@ final class ParamDraft {
         }
         if (optional) {
             json.addProperty("optional", true);
+        }
+        if (repeatable) {
+            json.addProperty("repeatable", true);
         }
         if (alternatives != null) {
             json.add("alternatives", alternatives);

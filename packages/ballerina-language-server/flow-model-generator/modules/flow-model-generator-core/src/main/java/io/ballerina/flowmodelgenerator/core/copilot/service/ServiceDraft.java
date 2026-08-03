@@ -60,6 +60,40 @@ final class ServiceDraft {
     }
 
     /**
+     * Spec §3's array cardinality: this service type is one of several the document declares, so it is
+     * "individually optional" rather than mandatory.
+     *
+     * <p>Emitted only when true, per the omission rule — a document declaring a single service type says
+     * nothing here, and that single entry is required.
+     */
+    void setAlternatives(boolean alternatives) {
+        if (alternatives) {
+            json.addProperty("alternatives", true);
+        }
+    }
+
+    /**
+     * Spec §3 {@code multipleListenersAllowed: false} — this service type attaches to exactly one
+     * listener.
+     *
+     * <p>Named for the <b>prohibition</b> rather than mirroring the document's key, so that presence means
+     * "there is a restriction to state" and the omission rule applies unchanged. A wire key
+     * {@code multipleListeners: false} would instead force every consumer to tell {@code false} from
+     * absent — the tri-state trap §5's {@code presence} already fell into once.
+     */
+    void setSingleListenerOnly() {
+        json.addProperty("singleListenerOnly", true);
+    }
+
+    /**
+     * Spec §3 {@code multipleServicesPerListenerAllowed: false} — one listener hosts at most one service
+     * of this type. Same naming rule as {@link #setSingleListenerOnly()}.
+     */
+    void setSingleServicePerListenerOnly() {
+        json.addProperty("singleServicePerListenerOnly", true);
+    }
+
+    /**
      * Spec §1: the {@code org/module} a cross-module service type belongs to. Absent for a home-module
      * type, which the renderer then prefixes with the listener's alias.
      */
@@ -113,6 +147,32 @@ final class ServiceDraft {
         if (listener != null) {
             json.add("listener", listener);
         }
+    }
+
+    /**
+     * Spec §4 {@code addMode: "many"} — the shape every handler of this service type takes, for a catalog
+     * whose handler <i>names</i> are the author's to choose.
+     *
+     * <p><b>Deliberately not a {@code methods} entry.</b> A template is not a handler: it has no name, so
+     * emitting it alongside real methods would put an unwritable signature in a list whose every other
+     * member is copyable. Two existing tests pin exactly that separation
+     * ({@code CopilotSchemaServicesTest}: "Wildcard (addMode: many) handlers must not surface as literal
+     * methods"), and keeping the template in its own slot is what lets a consumer render it as guidance
+     * rather than as syntax.
+     *
+     * <p>A vetoed template is dropped with its reason and the service still renders — the same policy a
+     * dropped handler follows.
+     */
+    void setHandlerTemplate(HandlerDraft template) {
+        if (template == null) {
+            return;
+        }
+        nonFatal.addAll(template.diagnostics());
+        if (template.isVetoed()) {
+            nonFatal.addAll(template.vetoes());
+            return;
+        }
+        json.add("handlerTemplate", template.toJson());
     }
 
     /**
