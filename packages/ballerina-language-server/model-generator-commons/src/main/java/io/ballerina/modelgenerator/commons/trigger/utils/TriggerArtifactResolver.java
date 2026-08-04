@@ -101,6 +101,19 @@ public final class TriggerArtifactResolver {
     }
 
     /**
+     * The module's curated short human name for compact UI surfaces (e.g. the listener edit view's
+     * "&lt;name&gt; Listener Configuration" title); empty when the module declares none, in which case
+     * callers keep their derived fallback (typically the capitalized package name).
+     */
+    public static Optional<String> resolveShortDisplayName(String orgName, String packageName,
+                                                           String moduleName, String version) {
+        return metadata(orgName, packageName, moduleName, version)
+                .map(TriggerArtifactModel::shortDisplayName)
+                .map(String::trim)
+                .filter(name -> !name.isEmpty());
+    }
+
+    /**
      * The service-annotation field names to try, in order, for the instance-label suffix (e.g.
      * {@code ["queueName", "topicName"]}); empty when the module has no metadata or no such fields.
      */

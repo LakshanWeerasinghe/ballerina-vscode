@@ -330,9 +330,14 @@ public class SchemaDrivenServiceBuilder extends AbstractServiceBuilder {
         if (listenerName == null) {
             return;
         }
+        // Prefer the schema-shipped default (a connector-curated name like "azFilesListener") as the
+        // base; fall back to the protocol-derived "<lastSegment>Listener" when the model ships none.
+        String shippedName = listenerName.getValue();
+        String baseName = (shippedName == null || shippedName.isBlank())
+                ? LISTENER_VAR_NAME.formatted(getProtocol(context.moduleName()))
+                : shippedName.trim();
         String uniqueName = Utils.generateVariableIdentifier(context.semanticModel(), context.document(),
-                context.document().syntaxTree().rootNode().lineRange().endLine(),
-                LISTENER_VAR_NAME.formatted(getProtocol(context.moduleName())));
+                context.document().syntaxTree().rootNode().lineRange().endLine(), baseName);
         listenerName.setValue(uniqueName);
     }
 
