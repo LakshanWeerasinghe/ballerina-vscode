@@ -608,7 +608,8 @@ public record TriggerUISchemaModel(
      * @param subLabel    secondary text shown under {@code label}
      * @param addLabel    the label used when offering to add this node
      * @param groupName   the logical group this node is listed under
-     * @param badge       a short badge tag shown on the node
+     * @param badge       a short badge tag shown on the node, free for any use
+     * @param deprecated  whether this node is deprecated; the reason, if any, is in {@code notice}
      */
     public record Metadata(
             String label,
@@ -618,6 +619,7 @@ public record TriggerUISchemaModel(
             String subLabel,
             String addLabel,
             String groupName,
-            String badge) {
+            String badge,
+            Boolean deprecated) {
     }
 }
