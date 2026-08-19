@@ -139,7 +139,7 @@ public class TriggerModelSynthesizerTest {
                 TriggerMetadataModel.Annotation.ATTACH_POINT_SERVICE,
                 null, TriggerMetadataModel.Annotation.PRESENCE_REQUIRED);
 
-        return new TriggerMetadataModel(
+        return new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), List.of(annotation), null);
     }
 
@@ -339,7 +339,7 @@ public class TriggerModelSynthesizerTest {
         TriggerMetadataModel.DataBindingRule bindingRule = new TriggerMetadataModel.DataBindingRule(
                 "consumerRecordPayload", null, "array", List.of(includedRecord));
 
-        TriggerMetadataModel authoring = new TriggerMetadataModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), null, List.of(bindingRule));
 
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
@@ -396,7 +396,7 @@ public class TriggerModelSynthesizerTest {
         TriggerMetadataModel.DataBindingRule bindingRule = new TriggerMetadataModel.DataBindingRule(
                 "csvRowBinding", null, "array", List.of(direct, streamable));
 
-        TriggerMetadataModel authoring = new TriggerMetadataModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), null, List.of(bindingRule));
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
         TriggerLibraryFacts facts = new TriggerLibraryFacts(List.of(listenerFacts), List.of(), List.of());
@@ -468,7 +468,7 @@ public class TriggerModelSynthesizerTest {
                 false, TriggerMetadataModel.ServiceType.Handlers.ADD_MODE_SUBSET, List.of(option));
         TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "service", new TypeRef("Service", null), false, false, false, null, handlers, null);
-        TriggerMetadataModel authoring = new TriggerMetadataModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), null, null);
 
         TriggerLibraryFacts.Listener listenerFacts = new TriggerLibraryFacts.Listener("Listener", List.of());
@@ -530,7 +530,7 @@ public class TriggerModelSynthesizerTest {
         TriggerMetadataModel.Annotation fnAnnotation = new TriggerMetadataModel.Annotation(
                 "fnConfig", new TypeRef("FunctionConfig", null), TriggerMetadataModel.Annotation.ATTACH_POINT_FUNCTION,
                 null, TriggerMetadataModel.Annotation.PRESENCE_OPTIONAL);
-        TriggerMetadataModel authoring = new TriggerMetadataModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), List.of(fnAnnotation), null);
 
         TriggerLibraryFacts.Param mode = new TriggerLibraryFacts.Param(
@@ -581,7 +581,7 @@ public class TriggerModelSynthesizerTest {
                 List.of());
         TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
                 "calendarService", new TypeRef("CalendarService", null), true, true, false, null, handlers, null);
-        TriggerMetadataModel authoring = new TriggerMetadataModel(
+        TriggerMetadataModel authoring = new TriggerMetadataModel(null,
                 List.of(listener), List.of(serviceType), null, null);
 
         TriggerLibraryFacts.Param clientId = new TriggerLibraryFacts.Param(

@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "CdcListener" },
@@ -105,7 +107,6 @@
   "dataBindingRules": [
     {
       "id": "rowState",
-      "envelopeType": { "name": "record {}" },
       "supportedModes": [
         {
           "mode": "direct",

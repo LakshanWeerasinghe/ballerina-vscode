@@ -22,6 +22,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.projects.Package;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +45,12 @@ public class ServiceLoader {
 
     private static final Logger LOGGER = Logger.getLogger(ServiceLoader.class.getName());
     private static final String GENERIC_SERVICES_JSON_PATH = "/copilot/generic-services.json";
+    /**
+     * System property that forces the trigger-service source: {@code "index"} pins every library to
+     * the SQLite service-index path; anything else (including unset) lets schema-driven libraries be
+     * served from trigger metadata + the semantic model.
+     */
+    static final String TRIGGER_SOURCE_PROPERTY = "ballerina.copilot.triggerSource";
 
     // Lazily cached generic services keyed by library name
     private static volatile Map<String, JsonArray> genericServicesCache;
@@ -67,6 +75,40 @@ public class ServiceLoader {
      * @return JsonArray containing all services for this library
      */
     public static JsonArray loadAllServices(String libraryName) {
+        return mergeWithGenericServices(libraryName, ServiceIndexLoader.loadFromServiceIndex(libraryName));
+    }
+
+    /**
+     * Loads all services for a library, preferring the schema-driven path (trigger metadata +
+     * semantic model) whenever a metadata document resolves for the library, with an automatic
+     * fallback to the SQLite service-index when it yields nothing. Setting the system property
+     * {@value #TRIGGER_SOURCE_PROPERTY} to {@code "index"} pins everything to the SQLite path.
+     *
+     * <p>The schema path is attempted for every library, not a fixed set: {@code loadServices}
+     * returns empty for anything with no metadata document, which is the overwhelming majority and
+     * costs one {@code stat} against the already-resolved package. Falling through is therefore the
+     * normal case and is not logged.
+     *
+     * @param libraryName   the library name (e.g., "ballerinax/kafka")
+     * @param pkg           the resolved package the caller already compiled (may be null)
+     * @param semanticModel the package's semantic model (may be null)
+     * @return JsonArray containing all services for this library
+     */
+    public static JsonArray loadAllServices(String libraryName, Package pkg, SemanticModel semanticModel) {
+        if (!"index".equals(System.getProperty(TRIGGER_SOURCE_PROPERTY))) {
+            JsonArray schemaServices = TriggerSchemaServiceLoader.loadServices(libraryName, pkg, semanticModel);
+            if (!schemaServices.isEmpty()) {
+                return mergeWithGenericServices(libraryName, schemaServices);
+            }
+        }
+        return loadAllServices(libraryName);
+    }
+
+    /**
+     * Applies the generic-services overlay: a generic-services.json entry sharing its {@code name}
+     * with a fixed entry takes precedence and the fixed one is dropped.
+     */
+    private static JsonArray mergeWithGenericServices(String libraryName, JsonArray fixedServices) {
         JsonArray genericServices = getGenericServices(libraryName);
 
         Set<String> genericNames = new HashSet<>();
@@ -78,7 +120,7 @@ public class ServiceLoader {
         }
 
         JsonArray services = new JsonArray();
-        for (JsonElement element : ServiceIndexLoader.loadFromServiceIndex(libraryName)) {
+        for (JsonElement element : fixedServices) {
             JsonObject svc = element.getAsJsonObject();
             if (svc.has("name") && genericNames.contains(svc.get("name").getAsString())) {
                 continue;

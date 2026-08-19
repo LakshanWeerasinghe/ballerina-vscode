@@ -31,11 +31,38 @@ import java.util.List;
 public class ServiceRemoteFunction {
     private String name;
     private String type;
+    /**
+     * The declared method carries the {@code isolated} qualifier, so an implementation must repeat it.
+     * Introspected from the semantic model, never from the document — a qualifier is exactly the kind
+     * of fact the DRY principle keeps out of the metadata. Boxed and emitted only when true.
+     *
+     * <p>Omitting it fails with "mismatched function signatures" whose expected and found halves print
+     * identically, because the compiler prints neither qualifier.
+     */
+    private Boolean isolated;
     private String description;
     private List<Parameter> parameters;
     @SerializedName("return")
     private Return returnInfo;
-    private boolean optional;
+    // Spec §5 `options[].presence`, tri-state. Boxed on purpose: the pipeline omits the key entirely under
+    // `addMode: "many"`, where the document is not saying whether a handler is required, and a primitive
+    // would silently turn that into `false` on the JSON round-trip — asserting "required" for a handler
+    // nobody said anything about. Null means "not stated"; the renderer emits no marker for it.
+    private Boolean optional;
+    // Spec §5 resource extras. The accessor is resolved (AccessorPrecedencePolicy); the rest are the legal
+    // vocabularies the document declares, which the renderer turns into placeholders and notes.
+    private String accessor;
+    private List<String> methodValues;
+    private Boolean methodRequired;
+    private List<String> pathForm;
+    private Boolean pathRequired;
+    private List<String> fieldNameForm;
+    private Boolean fieldNameRequired;
+    private String graphqlOperation;
+    // Spec §8 at `attachPoint: "function"` — annotations the generated handler must or may carry. Named
+    // `annotationRefs` to match parameter scope, where `annotations` is already taken by the semantic
+    // model's own attachments; consistency across the three scopes beats saving a word at the free one.
+    private List<ServiceAnnotationRef> annotationRefs;
     @SerializedName("isDeprecated")
     private Boolean deprecated;
 
@@ -49,6 +76,14 @@ public class ServiceRemoteFunction {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Boolean isIsolated() {
+        return isolated;
+    }
+
+    public void setIsolated(Boolean isolated) {
+        this.isolated = isolated;
     }
 
     public String getType() {
@@ -83,12 +118,84 @@ public class ServiceRemoteFunction {
         this.returnInfo = returnInfo;
     }
 
-    public boolean isOptional() {
+    public Boolean isOptional() {
         return optional;
     }
 
-    public void setOptional(boolean optional) {
+    public void setOptional(Boolean optional) {
         this.optional = optional;
+    }
+
+    public String getAccessor() {
+        return accessor;
+    }
+
+    public void setAccessor(String accessor) {
+        this.accessor = accessor;
+    }
+
+    public List<String> getMethodValues() {
+        return methodValues;
+    }
+
+    public void setMethodValues(List<String> methodValues) {
+        this.methodValues = methodValues;
+    }
+
+    public Boolean isMethodRequired() {
+        return methodRequired;
+    }
+
+    public void setMethodRequired(Boolean methodRequired) {
+        this.methodRequired = methodRequired;
+    }
+
+    public List<String> getPathForm() {
+        return pathForm;
+    }
+
+    public void setPathForm(List<String> pathForm) {
+        this.pathForm = pathForm;
+    }
+
+    public Boolean isPathRequired() {
+        return pathRequired;
+    }
+
+    public void setPathRequired(Boolean pathRequired) {
+        this.pathRequired = pathRequired;
+    }
+
+    public List<String> getFieldNameForm() {
+        return fieldNameForm;
+    }
+
+    public void setFieldNameForm(List<String> fieldNameForm) {
+        this.fieldNameForm = fieldNameForm;
+    }
+
+    public Boolean isFieldNameRequired() {
+        return fieldNameRequired;
+    }
+
+    public void setFieldNameRequired(Boolean fieldNameRequired) {
+        this.fieldNameRequired = fieldNameRequired;
+    }
+
+    public String getGraphqlOperation() {
+        return graphqlOperation;
+    }
+
+    public void setGraphqlOperation(String graphqlOperation) {
+        this.graphqlOperation = graphqlOperation;
+    }
+
+    public List<ServiceAnnotationRef> getAnnotationRefs() {
+        return annotationRefs;
+    }
+
+    public void setAnnotationRefs(List<ServiceAnnotationRef> annotationRefs) {
+        this.annotationRefs = annotationRefs;
     }
 
     public Boolean isDeprecated() {

@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -119,7 +121,40 @@
             "returns": [{ "name": "error" }, { "name": "()" }]
           }
         ]
-      }
+      },
+
+      "rules": [
+        {
+          "id": "eventVsFormatFile",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFile" }]
+        },
+        {
+          "id": "eventVsFormatText",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFileText" }]
+        },
+        {
+          "id": "eventVsFormatJson",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFileJson" }]
+        },
+        {
+          "id": "eventVsFormatXml",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFileXml" }]
+        },
+        {
+          "id": "eventVsFormatCsv",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFileCsv" }]
+        },
+        {
+          "id": "eventVsFormatDelete",
+          "type": "atMostOne",
+          "members": [{ "handler": "onFileChange" }, { "handler": "onFileDelete" }]
+        }
+      ]
     }
   ],
 

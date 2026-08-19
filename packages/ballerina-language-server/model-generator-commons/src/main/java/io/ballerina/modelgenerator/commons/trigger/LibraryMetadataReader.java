@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 /**
  * The abstract, connector-agnostic entry point for reading the trigger model family. Any LS extension
@@ -71,6 +72,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class LibraryMetadataReader {
 
+    private static final Logger LOGGER = Logger.getLogger(LibraryMetadataReader.class.getName());
+
     private static final String TRIGGER_METADATA_RESOURCE_PATH = "resources/trigger-metadata.json";
     private static final String TRIGGER_UI_SCHEMA_RESOURCE_PATH = "resources/trigger-ui-schema.json";
     private static final String PACKAGED_TRIGGER_METADATA_ROOT = "trigger-metadata-models";
@@ -102,6 +105,32 @@ public final class LibraryMetadataReader {
         return packageRoot(moduleInfo).flatMap(this::readTriggerMetadataModel);
     }
 
+    /**
+     * The connector's own {@code resources/trigger-metadata.json}, read from a package the caller has
+     * already resolved. The same document {@link #getTriggerMetadataModel(ModuleInfo)} returns; use
+     * this wherever the caller already holds the {@link Package}, so no second — and potentially
+     * network-bound — resolution is paid. That matters for callers that consult this for every
+     * library rather than a curated few: the read then costs one {@code stat}.
+     *
+     * <p>Deliberately not an overload of {@link #getTriggerMetadataModel(ModuleInfo)}: both take an
+     * unrelated reference type, so a {@code null} argument would be ambiguous at every call site.
+     *
+     * @param pkg the already-resolved package (may be {@code null})
+     * @return the parsed document, or empty when the package ships none
+     */
+    public Optional<TriggerMetadataModel> getShippedTriggerMetadataModel(Package pkg) {
+        if (pkg == null) {
+            return Optional.empty();
+        }
+        try {
+            return readTriggerMetadataModel(pkg.project().sourceRoot());
+        } catch (Throwable e) {
+            // Mirrors packageRoot()'s contract: a failure here means "no metadata", never a
+            // propagated error, since callers sit on hot request paths.
+            return Optional.empty();
+        }
+    }
+
     /** The connector's own {@code resources/trigger-ui-schema.json}, resolved from its {@code .bala}. */
     public Optional<TriggerUISchemaModel> getTriggerUISchemaModel(ModuleInfo moduleInfo) {
         return packageRoot(moduleInfo).flatMap(this::readTriggerUISchemaModel);
@@ -127,10 +156,41 @@ public final class LibraryMetadataReader {
                 return Optional.empty();
             }
             String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            return Optional.ofNullable(TriggerMetadataGson.instance().fromJson(json, TriggerMetadataModel.class));
+            return gated(TriggerMetadataGson.instance().fromJson(json, TriggerMetadataModel.class),
+                    resourcePath);
         } catch (IOException | JsonParseException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Applies the spec's top-level {@code version} gate to a freshly-parsed document.
+     *
+     * <p>Every read goes through here, so a document declaring a version this build does not implement can
+     * never reach a consumer by a path that forgot to check. A rejected document is returned as empty,
+     * which every caller already treats as "this library ships no metadata" and degrades accordingly —
+     * that existing fallback is what makes rejection safe rather than fatal.
+     *
+     * @param document the parsed document; may be {@code null}
+     * @param source   what was read, for the log line
+     * @return the document, or empty when it declares an unimplementable version
+     */
+    private Optional<TriggerMetadataModel> gated(TriggerMetadataModel document, String source) {
+        if (document == null) {
+            return Optional.empty();
+        }
+        SpecVersionGate.VersionVerdict verdict = SpecVersionGate.evaluate(document);
+        if (verdict == SpecVersionGate.VersionVerdict.REJECT) {
+            LOGGER.warning("Ignoring " + source + ": it declares spec version '" + document.version()
+                    + "', which this build does not implement (expected '" + SpecVersionGate.VERSION_V1
+                    + "'). Falling back to the service index.");
+            return Optional.empty();
+        }
+        if (verdict == SpecVersionGate.VersionVerdict.ACCEPT_WITH_WARNING) {
+            LOGGER.fine(() -> source + " declares no spec `version`; reading it as '"
+                    + SpecVersionGate.VERSION_V1 + "'.");
+        }
+        return Optional.of(document);
     }
 
     /**
@@ -140,7 +200,8 @@ public final class LibraryMetadataReader {
     private Optional<TriggerMetadataModel> readTriggerMetadataModel(Path packageRoot) {
         return readResourceFile(packageRoot, TRIGGER_METADATA_RESOURCE_PATH).flatMap(json -> {
             try {
-                return Optional.ofNullable(TriggerMetadataGson.instance().fromJson(json, TriggerMetadataModel.class));
+                return gated(TriggerMetadataGson.instance().fromJson(json, TriggerMetadataModel.class),
+                        packageRoot.resolve(TRIGGER_METADATA_RESOURCE_PATH).toString());
             } catch (JsonParseException e) {
                 return Optional.empty();
             }

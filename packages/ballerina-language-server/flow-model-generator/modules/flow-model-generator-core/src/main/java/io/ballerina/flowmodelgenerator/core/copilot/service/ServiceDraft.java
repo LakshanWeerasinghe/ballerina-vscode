@@ -1,0 +1,277 @@
+/*
+ *  Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com)
+ *
+ *  WSO2 LLC. licenses this file to you under the Apache License,
+ *  Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ */
+
+package io.ballerina.flowmodelgenerator.core.copilot.service;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * The accumulating output of one service entry, written by the service-level components in registry
+ * order and read once at the end.
+ *
+ * <p>Wraps a {@link JsonObject} rather than a POJO deliberately: the two enrichers and the
+ * generic-services merge that run after this loader all consume a {@code JsonArray}, so the pipeline
+ * must produce one. Conversion to the {@code Service} POJO still happens once, further downstream.
+ *
+ * <p>Every setter is a no-op for absent input, which is how the spec's general rule — "a field that
+ * would be empty, unused, or fully derivable from other fields is left out" — is enforced in one place
+ * rather than at each call site.
+ *
+ * @since 1.7.0
+ */
+final class ServiceDraft {
+
+    private final JsonObject json = new JsonObject();
+    private final JsonArray methods = new JsonArray();
+    // Vetoes raised against this entry — any one of them drops it.
+    private final List<Veto> vetoes = new ArrayList<>();
+    // Non-fatal drops: a handler that could not be built, an annotation obligation that could not be
+    // resolved, a binding rule that does not exist. Reported, but the entry survives — a service type whose
+    // contract is partly unusable still has a usable remainder.
+    private final List<Veto> nonFatal = new ArrayList<>();
+
+    /** Spec §3: the wire contract's fixed discriminator for a metadata-derived service. */
+    void setKind(String kind) {
+        json.addProperty("type", kind);
+    }
+
+    /** Spec §3 {@code serviceTypes[].type}: the service object type's name. */
+    void setName(String name) {
+        json.addProperty("name", name);
+    }
+
+    /**
+     * Spec §3's array cardinality: this service type is one of several the document declares, so it is
+     * "individually optional" rather than mandatory.
+     *
+     * <p>Emitted only when true, per the omission rule — a document declaring a single service type says
+     * nothing here, and that single entry is required.
+     */
+    void setAlternatives(boolean alternatives) {
+        if (alternatives) {
+            json.addProperty("alternatives", true);
+        }
+    }
+
+    /**
+     * Spec §3 {@code multipleListenersAllowed: false} — this service type attaches to exactly one
+     * listener.
+     *
+     * <p>Named for the <b>prohibition</b> rather than mirroring the document's key, so that presence means
+     * "there is a restriction to state" and the omission rule applies unchanged. A wire key
+     * {@code multipleListeners: false} would instead force every consumer to tell {@code false} from
+     * absent — the tri-state trap §5's {@code presence} already fell into once.
+     */
+    void setSingleListenerOnly() {
+        json.addProperty("singleListenerOnly", true);
+    }
+
+    /**
+     * Spec §3 {@code multipleServicesPerListenerAllowed: false} — one listener hosts at most one service
+     * of this type. Same naming rule as {@link #setSingleListenerOnly()}.
+     */
+    void setSingleServicePerListenerOnly() {
+        json.addProperty("singleServicePerListenerOnly", true);
+    }
+
+    /**
+     * Spec §1: the {@code org/module} a cross-module service type belongs to. Absent for a home-module
+     * type, which the renderer then prefixes with the listener's alias.
+     */
+    void setServiceTypeModule(String module) {
+        if (module != null && !module.isEmpty()) {
+            json.addProperty("serviceTypeModule", module);
+        }
+    }
+
+    /** Spec §2 {@code listeners[].requiredImports}: side-effect-only imports the generated code needs. */
+    void setRequiredImports(JsonArray imports) {
+        if (imports != null && !imports.isEmpty()) {
+            json.add("requiredImports", imports);
+        }
+    }
+
+    /**
+     * Spec §8 {@code annotations[]} at {@code attachPoint: "service"}: the annotations this service type
+     * must or may carry. Omitted when it carries none, so a service with no obligation says nothing
+     * rather than carrying an empty array.
+     */
+    void setAnnotations(JsonArray annotations) {
+        if (annotations != null && !annotations.isEmpty()) {
+            json.add("annotations", annotations);
+        }
+    }
+
+    /**
+     * Spec §3 {@code serviceTypes[].identifier}: the slot between {@code service} and {@code on new …}.
+     * Omitted when the connector does not consult it — spec §3: "Omit the whole key if the identifier slot
+     * carries no meaning for this connector."
+     */
+    void setIdentifier(JsonObject identifier) {
+        if (identifier != null) {
+            json.add("identifier", identifier);
+        }
+    }
+
+    /**
+     * Spec §6 {@code rules[]}: the exclusivity constraints this service type declares. Omitted when it
+     * declares none, which is 8 of the 13 corpus documents.
+     */
+    void setConstraints(JsonArray constraints) {
+        if (constraints != null && !constraints.isEmpty()) {
+            json.add("constraints", constraints);
+        }
+    }
+
+    /** Spec §2 {@code listeners[].type}: the listener the service attaches to, with its init params. */
+    void setListener(JsonObject listener) {
+        if (listener != null) {
+            json.add("listener", listener);
+        }
+    }
+
+    /**
+     * Spec §2 {@code listeners[].services} — <b>no</b> listener in this document declares it can host this
+     * service type, so it must never be written as {@code service … on new …}.
+     *
+     * <p>Named for the prohibition and emitted only when true, the same rule
+     * {@link #setSingleListenerOnly()} follows: presence means "there is a restriction to state", so a
+     * consumer never has to tell {@code false} from absent.
+     *
+     * <p>The restriction is real, not editorial. {@code websocket} declares two service types and lists
+     * only {@code upgradeService} under its listener; the compiler rejects
+     * {@code service websocket:Service on new websocket:Listener(...)} with "service type is not supported
+     * by the listener". Such a type is reached another way — for {@code websocket}, as the return of the
+     * upgrade resource — so it is still worth rendering, just never as a listener attachment.
+     */
+    void setNotListenerAttachable() {
+        json.addProperty("notListenerAttachable", true);
+    }
+
+    /**
+     * Spec §4 — the document declares this catalog {@code addMode: "many"} (open-ended, user-named) but
+     * supplies named options rather than the single {@code "*"} entry, so the names it lists are handler
+     * <b>shapes</b> and the author picks each real name.
+     *
+     * <p>Emitted only when true, per the omission rule. Without it a consumer renders {@code grpc}'s
+     * {@code unary}/{@code serverStreaming}/{@code clientStreaming}/{@code bidiStreaming} exactly as it
+     * renders {@code salesforce}'s {@code onCreate}/{@code onUpdate} — and only the latter are names a
+     * real program contains. A gRPC handler is named after its proto RPC ({@code SayHello}), so the four
+     * shape labels appear in no generated service; presenting them as a fixed vocabulary invites a model
+     * to write methods the compiler will never dispatch to.
+     */
+    void setAuthorNamedHandlers() {
+        json.addProperty("authorNamedHandlers", true);
+    }
+
+    /**
+     * Spec §4 {@code addMode: "many"} — the shape every handler of this service type takes, for a catalog
+     * whose handler <i>names</i> are the author's to choose.
+     *
+     * <p><b>Deliberately not a {@code methods} entry.</b> A template is not a handler: it has no name, so
+     * emitting it alongside real methods would put an unwritable signature in a list whose every other
+     * member is copyable. Two existing tests pin exactly that separation
+     * ({@code CopilotSchemaServicesTest}: "Wildcard (addMode: many) handlers must not surface as literal
+     * methods"), and keeping the template in its own slot is what lets a consumer render it as guidance
+     * rather than as syntax.
+     *
+     * <p>A vetoed template is dropped with its reason and the service still renders — the same policy a
+     * dropped handler follows.
+     */
+    void setHandlerTemplate(HandlerDraft template) {
+        if (template == null) {
+            return;
+        }
+        nonFatal.addAll(template.diagnostics());
+        if (template.isVetoed()) {
+            nonFatal.addAll(template.vetoes());
+            return;
+        }
+        json.add("handlerTemplate", template.toJson());
+    }
+
+    /**
+     * Appends one built handler, or records why it was dropped. Order is preserved — spec §7: "Array
+     * order is meaningful".
+     */
+    void addHandler(HandlerDraft handler) {
+        if (handler == null) {
+            return;
+        }
+        nonFatal.addAll(handler.diagnostics());
+        if (handler.isVetoed()) {
+            nonFatal.addAll(handler.vetoes());
+            return;
+        }
+        methods.add(handler.toJson());
+    }
+
+    /**
+     * Records that this service entry must be dropped. The orchestrator, not the component, performs
+     * the drop, so every exclusion goes through one place and carries a reason.
+     *
+     * <p><b>Fatal.</b> Reserve it for what makes the whole entry unusable — a service type the resolved
+     * package does not declare, or a handler catalog that cannot be resolved. For anything that makes one
+     * <i>contribution</i> unusable, use {@link #drop} instead.
+     */
+    void veto(String aspectId, String specSection, String subject, String reason) {
+        vetoes.add(new Veto(aspectId, specSection, subject, reason));
+    }
+
+    /**
+     * Records that a contribution was dropped, without dropping the entry.
+     *
+     * <p>Introduced because the fatal channel was being used for a non-fatal case: an annotation the
+     * resolved package does not declare went through {@link #veto}, which made
+     * {@link TriggerSchemaServiceLoader} skip the <i>entire service</i> — the exact opposite of what
+     * {@link ServiceAnnotationResolver}'s own contract states ("A dropped annotation never drops its
+     * service"). Latent, because every corpus service annotation resolves; real, because the first one that
+     * does not would silently delete a whole service from the prompt.
+     */
+    void drop(String aspectId, String specSection, String subject, String reason) {
+        nonFatal.add(new Veto(aspectId, specSection, subject, reason));
+    }
+
+    /** Whether this entry itself was vetoed. A dropped handler or obligation does not drop its service. */
+    boolean isVetoed() {
+        return !vetoes.isEmpty();
+    }
+
+    /** Every drop recorded while building this entry, fatal or not. */
+    List<Veto> vetoes() {
+        List<Veto> all = new ArrayList<>(vetoes);
+        all.addAll(nonFatal);
+        return all;
+    }
+
+    /**
+     * The finished entry. {@code methods} is omitted when empty — a service type whose contract
+     * declares no methods (mcp's marker {@code Service}) is legitimate and must not render an empty
+     * array.
+     */
+    JsonObject toJson() {
+        if (!methods.isEmpty()) {
+            json.add("methods", methods);
+        }
+        return json;
+    }
+}

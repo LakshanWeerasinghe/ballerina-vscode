@@ -31,9 +31,15 @@ import java.util.Set;
 import java.util.logging.Logger;
 
 /**
- * Loads annotation descriptors from the service-index.sqlite database for Copilot.
- * Emits only annotations attached at SERVICE or OBJECT_METHOD points, and resolves
- * {@code type_constraint} via {@link TypeResolver} so the shape matches parameter types.
+ * Loads the curated annotation descriptors from the service-index.sqlite database for Copilot.
+ * Emits only annotations attached at SERVICE or OBJECT_METHOD points — the two points the index
+ * curates — and resolves {@code type_constraint} via {@link TypeResolver} so the shape matches
+ * parameter types.
+ *
+ * <p>This is deliberately the <em>only</em> source here. Annotations for every other attachment
+ * point, and for libraries the index never covered, come from the Semantic Model via
+ * {@code SymbolProcessor} and are merged by {@code CopilotLibraryManager}; a second
+ * semantic-model path in this class would only re-emit what that merge already produces.</p>
  *
  * @since 1.7.0
  */

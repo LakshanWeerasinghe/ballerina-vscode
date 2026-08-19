@@ -22,6 +22,9 @@ under the License.
     <test name="trigger-model-test" parallel="false">
         <classes>
             <class name="io.ballerina.modelgenerator.commons.trigger.LibraryMetadataReaderTest"/>
+            <class name="io.ballerina.modelgenerator.commons.trigger.utils.TypeRefResolverTest"/>
+            <class name="io.ballerina.modelgenerator.commons.trigger.SpecVersionGateTest"/>
+            <class name="io.ballerina.modelgenerator.commons.trigger.validation.TriggerMetadataCorpusTest"/>
         </classes>
     </test>
 </suite>

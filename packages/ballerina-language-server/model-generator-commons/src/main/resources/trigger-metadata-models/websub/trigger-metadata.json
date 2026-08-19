@@ -1,4 +1,6 @@
 {
+  "version": "v1",
+
   "listeners": [
     {
       "type": { "name": "Listener" },
@@ -64,7 +66,7 @@
             "kind": "remote",
             "presence": "optional",
             "params": [
-              { "type": { "name": "HubError" }, "presence": "required" }
+              { "type": { "name": "InternalHubError" }, "presence": "required" }
             ],
             "returns": [{ "name": "Acknowledgement" }, { "name": "()" }]
           }
@@ -81,7 +83,5 @@
       "appliesTo": ["service"],
       "presence": "optional"
     }
-  ],
-
-  "dataBindingRules": []
+  ]
 }
