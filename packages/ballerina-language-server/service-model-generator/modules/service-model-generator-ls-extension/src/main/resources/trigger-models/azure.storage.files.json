@@ -7,9 +7,9 @@
   "orgName": "ballerinax",
   "packageName": "azure.storage.files",
   "moduleName": "azure.storage.files",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "type": "files",
-  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_0.9.0.png",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.0.png",
   "kind": "file",
   "listenerKind": "SINGLE_SELECT_LISTENER",
   "initProperties": {
@@ -1213,7 +1213,7 @@
               "typeMembers": [
                 {
                   "type": "ServiceConfiguration",
-                  "packageInfo": "ballerinax:azure.storage.files:0.9.0",
+                  "packageInfo": "ballerinax:azure.storage.files:1.0.0",
                   "packageName": "azure.storage.files",
                   "kind": "RECORD_TYPE",
                   "selected": true
@@ -1293,7 +1293,7 @@
                       "label": "Row Schema",
                       "description": "Create a record type describing one row of the file. Each row arrives as one record."
                     },
-                    "value": "string[][]",
+                    "value": "record {}[]",
                     "enabled": false,
                     "editable": false,
                     "optional": false,
@@ -1302,7 +1302,7 @@
                       {
                         "fieldType": "PAYLOAD_TYPE",
                         "selected": true,
-                        "ballerinaType": "string[][]",
+                        "ballerinaType": "record {}[]",
                         "template": "{{type}}"
                       }
                     ],
@@ -1312,7 +1312,7 @@
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
-                      "defaultType": "string[]",
+                      "defaultType": "record {}",
                       "template": "{{type}}[]"
                     }
                   }
@@ -1627,7 +1627,7 @@
                 "afterError": {
                   "metadata": {
                     "label": "On Error",
-                    "description": "Action when the handler fails or the file content does not match the expected format."
+                    "description": "Action when the handler returns an error. Also applies when the file content does not match the expected format, unless an onError handler is declared."
                   },
                   "types": [
                     {
@@ -1818,9 +1818,9 @@
                   "payload": {
                     "metadata": {
                       "label": "Content Schema",
-                      "description": "Create a record type describing the file content. Defaults to map<json>; bare json is not supported."
+                      "description": "Create a record type describing the file content. Defaults to json."
                     },
-                    "value": "map<json>",
+                    "value": "json",
                     "enabled": true,
                     "editable": true,
                     "optional": false,
@@ -1829,7 +1829,7 @@
                       {
                         "fieldType": "PAYLOAD_TYPE",
                         "selected": true,
-                        "ballerinaType": "map<json>",
+                        "ballerinaType": "json",
                         "formats": [
                           {
                             "supported": [
@@ -1849,7 +1849,7 @@
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
-                      "defaultType": "map<json>",
+                      "defaultType": "json",
                       "template": "{{type}}"
                     }
                   }
@@ -2164,7 +2164,7 @@
                 "afterError": {
                   "metadata": {
                     "label": "On Error",
-                    "description": "Action when the handler fails or the file content does not match the expected format."
+                    "description": "Action when the handler returns an error. Also applies when the file content does not match the expected format, unless an onError handler is declared."
                   },
                   "types": [
                     {
@@ -2691,7 +2691,7 @@
                 "afterError": {
                   "metadata": {
                     "label": "On Error",
-                    "description": "Action when the handler fails or the file content does not match the expected format."
+                    "description": "Action when the handler returns an error. Also applies when the file content does not match the expected format, unless an onError handler is declared."
                   },
                   "types": [
                     {
@@ -3214,7 +3214,7 @@
                 "afterError": {
                   "metadata": {
                     "label": "On Error",
-                    "description": "Action when the handler fails or the file content does not match the expected format."
+                    "description": "Action when the handler returns an error. Also applies when the file content does not match the expected format, unless an onError handler is declared."
                   },
                   "types": [
                     {
@@ -3737,7 +3737,7 @@
                 "afterError": {
                   "metadata": {
                     "label": "On Error",
-                    "description": "Action when the handler fails or the file content does not match the expected format."
+                    "description": "Action when the handler returns an error. Also applies when the file content does not match the expected format, unless an onError handler is declared."
                   },
                   "types": [
                     {
@@ -3876,7 +3876,7 @@
         {
           "metadata": {
             "label": "On Error",
-            "description": "Invoked when an error occurs while processing a file in the monitored directory.",
+            "description": "Invoked when a poll fails or a file's content does not match the expected format. Errors returned by the other handlers are not sent here.",
             "addLabel": "Add On Error Handler",
             "badge": "onError"
           },
@@ -3901,7 +3901,7 @@
             {
               "metadata": {
                 "label": "Azure Files Error",
-                "description": "The error that occurred while processing the file."
+                "description": "The error reported by the listener: a failed poll, or content that does not match the expected format."
               },
               "kind": "REQUIRED",
               "type": {
@@ -3925,7 +3925,7 @@
               "name": {
                 "metadata": {
                   "label": "err",
-                  "description": "The error that occurred while processing the file."
+                  "description": "The error reported by the listener: a failed poll, or content that does not match the expected format."
                 },
                 "placeholder": "err",
                 "value": "err",
