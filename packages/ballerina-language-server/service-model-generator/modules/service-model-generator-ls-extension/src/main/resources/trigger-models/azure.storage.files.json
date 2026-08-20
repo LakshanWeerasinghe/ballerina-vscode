@@ -1288,6 +1288,33 @@
                 "optional": false,
                 "advanced": false,
                 "properties": {
+                  "stream": {
+                    "metadata": {
+                      "label": "Stream (Large Files)",
+                      "description": "Process the file content in chunks."
+                    },
+                    "value": false,
+                    "types": [
+                      {
+                        "fieldType": "FLAG",
+                        "selected": true,
+                        "template": "stream<{{type}}, error?>"
+                      }
+                    ],
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "PAYLOAD_MODIFIER",
+                      "modifier": "stream",
+                      "template": "stream<{{type}}, error?>",
+                      "supersedes": [
+                        "base"
+                      ],
+                      "targetParam": "payload"
+                    }
+                  },
                   "payload": {
                     "metadata": {
                       "label": "Row Schema",
@@ -3402,6 +3429,33 @@
                 "optional": false,
                 "advanced": false,
                 "properties": {
+                  "stream": {
+                    "metadata": {
+                      "label": "Stream (Large Files)",
+                      "description": "Process the file content in chunks."
+                    },
+                    "value": false,
+                    "types": [
+                      {
+                        "fieldType": "FLAG",
+                        "selected": true,
+                        "template": "stream<{{type}}, error?>"
+                      }
+                    ],
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "codedata": {
+                      "type": "PAYLOAD_MODIFIER",
+                      "modifier": "stream",
+                      "template": "stream<{{type}}, error?>",
+                      "supersedes": [
+                        "base"
+                      ],
+                      "targetParam": "payload"
+                    }
+                  },
                   "payload": {
                     "metadata": {
                       "label": "Content",
