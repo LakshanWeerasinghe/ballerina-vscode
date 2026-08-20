@@ -295,10 +295,13 @@ public record Artifact(String id, LineRange location, String type, String name, 
         }
 
         public Builder serviceNameWithPath(String path) {
+            // A string-literal attach point (`service files:Service "/invoices" on lsn`) reaches here with its
+            // quotes, unlike the identifier form (`service /invoices on lsn`).
+            String attachPoint = unquote(path);
             if (module == null || !entryPointMap.containsKey(module)) {
-                this.name = path;
+                this.name = attachPoint;
             } else {
-                this.name = entryPointMap.get(module) + " - " + path;
+                this.name = entryPointMap.get(module) + " - " + attachPoint;
             }
             return this;
         }
@@ -361,6 +364,13 @@ public record Artifact(String id, LineRange location, String type, String name, 
                     visibility == null ? null : visibility.getValue(), icon,
                     module, new HashMap<>(children), metadata == null ? null : new HashMap<>(metadata));
         }
+    }
+
+    private static String unquote(String value) {
+        if (value == null || value.length() < 2 || !value.startsWith("\"") || !value.endsWith("\"")) {
+            return value;
+        }
+        return value.substring(1, value.length() - 1);
     }
 
     public static String resolveServiceName(String module, String name) {
