@@ -4031,8 +4031,7 @@
     {
       "key": "path",
       "displayName": "Monitored Path",
-      "kind": "SERVICE_ANNOTATION",
-      "path": "ServiceConfig.path"
+      "kind": "SERVICE_BASE_PATH"
     }
   ],
   "importStatements": []

@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Represents an artifact in the project tree.
@@ -114,7 +115,7 @@ public record Artifact(String id, LineRange location, String type, String name, 
             Map.entry("ftp", "FTP Integration"),
             Map.entry("file", "Local Files"),
             Map.entry("smb", "SMB Integration"),
-            Map.entry("files", "Azure Storage Files Integration"),
+            Map.entry("azure.storage.files", "Azure Files Integration"),
             Map.entry("business", "Whatsapp Event Integration"),
             Map.entry("chat", "Google Chat Event Integration"),
             Map.entry("telegram", "Telegram Event Integration")
@@ -136,8 +137,15 @@ public record Artifact(String id, LineRange location, String type, String name, 
             "postgresql", new String[]{"tables"},
             "mysql", new String[]{"tables"},
             "ftp", new String[]{"path"},
+            "smb", new String[]{"path"},
             "rabbitmq", new String[]{"queueName"}
     );
+
+    /**
+     * Modules that carry the service's watched path in its attach point instead of a service annotation, so the
+     * entry-point label appends the attach point even though the service also has a type descriptor.
+     */
+    private static final Set<String> attachPointNamedModules = Set.of("azure.storage.files");
 
     public static String getCategory(String type) {
         return typeCategoryMap.getOrDefault(type, CATEGORY_DEFAULT);
@@ -293,6 +301,12 @@ public record Artifact(String id, LineRange location, String type, String name, 
                 this.name = entryPointMap.get(module) + " - " + path;
             }
             return this;
+        }
+
+        // Azure Files-style triggers watch the path in `service files:Service "/invoices" on lsn`, so the attach
+        // point is the only place the watched path appears.
+        public boolean usesAttachPointAsName() {
+            return module != null && attachPointNamedModules.contains(module);
         }
 
         public Builder serviceName(String name) {
