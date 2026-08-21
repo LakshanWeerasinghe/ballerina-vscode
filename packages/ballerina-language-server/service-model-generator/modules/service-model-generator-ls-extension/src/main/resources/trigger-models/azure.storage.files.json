@@ -7,9 +7,9 @@
   "orgName": "ballerinax",
   "packageName": "azure.storage.files",
   "moduleName": "azure.storage.files",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "files",
-  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.0.png",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.1.png",
   "kind": "file",
   "listenerKind": "SINGLE_SELECT_LISTENER",
   "initProperties": {
@@ -1213,7 +1213,7 @@
               "typeMembers": [
                 {
                   "type": "ServiceConfiguration",
-                  "packageInfo": "ballerinax:azure.storage.files:1.0.0",
+                  "packageInfo": "ballerinax:azure.storage.files:1.0.1",
                   "packageName": "azure.storage.files",
                   "kind": "RECORD_TYPE",
                   "selected": true
@@ -1320,17 +1320,28 @@
                       "label": "Row Schema",
                       "description": "Create a record type describing one row of the file. Each row arrives as one record."
                     },
-                    "value": "record {}[]",
-                    "enabled": false,
-                    "editable": false,
+                    "value": "string[][]",
+                    "enabled": true,
+                    "editable": true,
                     "optional": false,
                     "advanced": false,
                     "types": [
                       {
                         "fieldType": "PAYLOAD_TYPE",
                         "selected": true,
-                        "ballerinaType": "record {}[]",
-                        "template": "{{type}}"
+                        "formats": [
+                          {
+                            "supported": [
+                              "schema",
+                              "browse",
+                              "json",
+                              "xml"
+                            ],
+                            "defaultFormat": "schema"
+                          }
+                        ],
+                        "ballerinaType": "string[][]",
+                        "template": "{{type}}[]"
                       }
                     ],
                     "codedata": {
@@ -1339,7 +1350,7 @@
                       "boundType": "",
                       "typeConstraint": "anydata",
                       "bindingKind": "USER_SELECTED",
-                      "defaultType": "record {}",
+                      "defaultType": "string[]",
                       "template": "{{type}}[]"
                     }
                   }
