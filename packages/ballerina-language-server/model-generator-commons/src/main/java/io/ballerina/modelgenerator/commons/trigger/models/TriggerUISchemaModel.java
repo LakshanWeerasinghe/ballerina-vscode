@@ -197,6 +197,8 @@ public record TriggerUISchemaModel(
      *                            parameter)
      * @param properties          additional configurable properties for this function
      * @param returnType          this function's return type descriptor
+     * @param layout              optional presentation order/grouping for this handler's form inputs;
+     *                            absent -> the designer's own default layout (see {@link LayoutSection})
      * @param codedata            source-generation metadata for this function
      * @param validations         the validation rules applied to this function
      */
@@ -221,8 +223,44 @@ public record TriggerUISchemaModel(
             Map<String, Parameter> parameterSchema,
             Map<String, Property> properties,
             ReturnType returnType,
+            List<LayoutSection> layout,
             Codedata codedata,
             List<ValidationRule> validations) {
+    }
+
+    /**
+     * One section of a handler form's authored layout, declaring which inputs appear in it and in what
+     * order. Entirely optional: a {@code FunctionModel} with no {@code layout} renders in the designer's
+     * default order, which is what every model shipped before this field existed does.
+     *
+     * <p>{@code fields} names the form's addressable units. An author's own identifiers are used bare --
+     * a parameter's name, a {@code properties} key, or a payload {@code bindingGroup} (which addresses
+     * the whole group, as does any one member's name). The form's built-in units use reserved
+     * {@code $}-prefixed ids, which can never collide with a Ballerina identifier:
+     * {@code $variant}, {@code $description}, {@code $name}, {@code $documentation},
+     * {@code $parameters}, {@code $returnType} and {@code $headers}. Separately, {@code *rest} stands for
+     * every unit no section claimed, letting a partial layout say where the remainder goes; without it the
+     * remainder is appended after the declared sections. It is prefixed {@code *} rather than {@code $}
+     * because it is a placement directive, not the name of a unit, and because a {@code properties} key is
+     * an arbitrary schema-authored string -- a field literally called {@code $rest} is possible, whereas
+     * nothing can be called {@code *rest}. An id matching no unit is skipped -- a handler variant may
+     * legitimately lack a field its siblings have.
+     *
+     * @param id          an identifier for this section, for diagnostics and stable render keys
+     * @param label       the heading rendered above this section; absent -> an ordered run with no
+     *                    heading, which is how a layout orders inputs without grouping them
+     * @param description explanatory text rendered under {@code label}
+     * @param advanced    {@code true} renders this section inside the form's collapsed "Advanced
+     *                    Configurations" box rather than in the main body, for a group the user only needs
+     *                    occasionally; meaningful only on a labelled section
+     * @param fields      the ids of the units in this section, in the order they should appear
+     */
+    public record LayoutSection(
+            String id,
+            String label,
+            String description,
+            Boolean advanced,
+            List<String> fields) {
     }
 
     /**

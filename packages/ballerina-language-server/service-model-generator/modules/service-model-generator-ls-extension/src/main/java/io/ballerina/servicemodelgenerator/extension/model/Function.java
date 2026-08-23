@@ -79,6 +79,9 @@ public class Function {
     @JsonAdapter(RepeatableSerializer.class)
     private Repeatable repeatable;
     private Boolean nameEditable;
+    // Optional presentation order/grouping for this handler's form inputs (see LayoutSection). Absent ->
+    // the designer's own default layout. Never affects the emitted signature, which follows `parameters`.
+    private List<LayoutSection> layout;
 
     public Function(MetaData metadata, List<String> qualifiers, String kind, Value accessor, Value name,
                     Value documentation, List<Parameter> parameters, Map<String, Parameter> schema,
@@ -442,6 +445,14 @@ public class Function {
 
     public void setNameEditable(Boolean nameEditable) {
         this.nameEditable = nameEditable;
+    }
+
+    public List<LayoutSection> getLayout() {
+        return layout;
+    }
+
+    public void setLayout(List<LayoutSection> layout) {
+        this.layout = layout;
     }
 
     public boolean isCanAddParameters() {

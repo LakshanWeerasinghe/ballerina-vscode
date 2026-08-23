@@ -101,11 +101,54 @@ export enum RepeatBehavior {
 }
 
 /**
+ * One section of a handler form's authored layout: which of the form's inputs appear in it, and in what
+ * order. Optional at every level -- a handler with no `layout` renders in the designer's own default
+ * order, and a partial layout only has to name the units it wants to move.
+ *
+ * `fields` names the form's addressable units. An author's own identifiers are used bare -- a
+ * parameter's name, a `properties` key, or a payload `bindingGroup` (which addresses the whole group,
+ * as does any one member's name). The form's built-in units use reserved `$`-prefixed ids, which can
+ * never collide with a Ballerina identifier -- and must not, since real connectors ship parameters
+ * literally named `headers` (mcp) and `parameters` (sap.jco):
+ *
+ * - `$variant` / `$description` -- the variant dropdown and the handler's own documentation
+ * - `$name` / `$documentation` / `$parameters` / `$returnType` -- the renamable-handler fields
+ * - `$headers` -- the individually-bound HTTP header block
+ * The one `*`-prefixed id is a placement directive rather than a name, and lives in its own namespace so
+ * no author-chosen name can shadow it (a `properties` key is an arbitrary string, so a field literally
+ * called `$rest` is possible; nothing can be called `*rest`):
+ *
+ * - `*rest` -- every unit no section claimed, so a partial layout can say where the remainder goes;
+ *   without it the remainder is appended after the declared sections
+ *
+ * An id matching no unit is skipped with a dev warning: a handler variant may legitimately lack a
+ * field its siblings have. Presentation only -- layout never reorders the emitted signature, which
+ * always follows `parameters`.
+ */
+export interface HandlerLayoutSection {
+    /** Identifier for this section; used for diagnostics and stable render keys. */
+    id?: string;
+    /** Heading rendered above this section. Absent -> an ordered run with no heading. */
+    label?: string;
+    /** Explanatory text rendered under `label`. */
+    description?: string;
+    /**
+     * `true` renders this section inside the form's collapsed "Advanced Configurations" box rather than in
+     * the main body — for a group the user only needs occasionally. Meaningful only on a labelled
+     * section; an unlabelled one has no heading to collapse under.
+     */
+    advanced?: boolean;
+    /** Ids of the units in this section, in the order they should appear. */
+    fields: string[];
+}
+
+/**
  * `group`/`variantLabel`/`addLabel`/`repeatable`/`nameEditable` are handler-catalog fields carried
  * by schema-driven triggers (unified TriggerModel): functions sharing a `group` are format variants
  * of one logical handler (labelled by `variantLabel`, offered under `addLabel`); `repeatable` says
  * whether/how the handler may be added more than once (see {@link RepeatBehavior}) and
- * `nameEditable: false` locks the emitted function name to the variant's.
+ * `nameEditable: false` locks the emitted function name to the variant's. `layout` is the optional
+ * presentation order/grouping of the handler form's inputs (see {@link HandlerLayoutSection}).
  */
 export interface FunctionModel {
     metadata?: MetaData;
@@ -134,6 +177,7 @@ export interface FunctionModel {
     returnType: ReturnTypeModel;
     documentation?: PropertyModel;
     qualifiers?: string[];
+    layout?: HandlerLayoutSection[];
 }
 
 
