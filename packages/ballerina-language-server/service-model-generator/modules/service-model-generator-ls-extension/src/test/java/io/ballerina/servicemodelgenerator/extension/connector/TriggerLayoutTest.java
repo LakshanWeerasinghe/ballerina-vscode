@@ -41,24 +41,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Corpus guard over every bundled trigger model's authored handler {@code layout}.
- *
- * <p>A layout id is resolved in the webview, so a typo in one ({@code $header} for {@code $headers},
- * a renamed parameter a layout still names) does not fail any build -- it silently drops that input out of
- * its intended section and into the remainder. This test moves that class of mistake to build time.
- *
- * <p>Ids are resolved against the <b>wire</b> model the designer actually receives, not the authoring
- * schema: {@link TriggerFunctionAdapter} lifts a {@code COMPLEX_PAYLOAD}'s composition siblings (e.g. FTP's
- * {@code stream} flag, which the schema nests inside the payload parameter's own type tree) up into the
- * function's {@code properties}. Resolving against the schema shape instead would reject exactly the ids a
- * layout legitimately needs.
- *
- * <p>For a handler that fans out into format variants, an id need only resolve in one of them -- a variant
- * may genuinely lack a field its siblings have, which the designer skips by design.
- *
- * <p>The vocabulary is otherwise deliberately shallow: the reserved {@code $}-prefixed ids, and -- for a
- * bare id -- whether some variant has a parameter, property or binding group by that name. It does not
- * model how the designer renders a unit, so it stays correct without tracking the form.
+ * Corpus guard over every bundled trigger model's authored handler {@code layout}. Layout ids are resolved
+ * in the webview, so a typo silently drops an input into the remainder instead of failing a build; this
+ * moves that to build time. Ids resolve against the wire model, since the adapter lifts a
+ * {@code COMPLEX_PAYLOAD}'s composition siblings into the function's {@code properties}. For a handler that
+ * fans out into variants, an id need only resolve in one of them.
  *
  * @since 1.9.0
  */
@@ -71,18 +58,10 @@ public class TriggerLayoutTest {
     private static final Set<String> RESERVED_IDS = Set.of(
             "$variant", "$description", "$name", "$documentation", "$parameters", "$returnType", "$headers");
 
-    /**
-     * The one placement directive. Deliberately {@code *}-prefixed rather than {@code $}: it names no unit,
-     * and a {@code properties} key is an arbitrary schema-authored string, so a field could legitimately be
-     * called {@code $rest} -- nothing can be called {@code *rest}.
-     */
+    /** The one placement directive; {@code *}-prefixed because it names no unit. */
     private static final String REST_DIRECTIVE = "*rest";
 
-    /**
-     * Every bundled module key, read off the registry rather than listed here so a newly bundled connector
-     * is covered without touching this test. A hard failure on an empty registry is deliberate: it would
-     * make every assertion below vacuously pass, which is worse than a failure.
-     */
+    /** Every bundled module key, read off the registry. Fails hard on an empty registry. */
     @DataProvider(name = "bundledModules")
     public Object[][] bundledModules() {
         Map<String, JsonElement> registry;
@@ -153,10 +132,6 @@ public class TriggerLayoutTest {
         Assert.assertTrue(restCount <= 1,
                 where + ": \"" + REST_DIRECTIVE + "\" may appear at most once; later placements are ignored");
 
-        // The reason the reserved ids are prefixed at all. A `properties` key is an arbitrary string, so a
-        // handler *could* ship a field named "$name" -- and the designer, which registers its own built-in
-        // units first, would then resolve that id to the built-in and leave the author's field unreachable.
-        // Fail loudly here instead of shipping a silently unaddressable field.
         for (String id : addressable) {
             Assert.assertFalse(RESERVED_IDS.contains(id) || REST_DIRECTIVE.equals(id),
                     where + ": the field \"" + id + "\" collides with a reserved layout id, so a layout "
@@ -164,10 +139,7 @@ public class TriggerLayoutTest {
         }
     }
 
-    /**
-     * Every bare id an author may legitimately write for this handler, unioned over its wire variants.
-     * Read off the wire model so the lifted composition siblings are included -- see the class javadoc.
-     */
+    /** Every bare id an author may write for this handler, unioned over its wire variants. */
     private Set<String> addressableIds(TriggerUISchemaModel.FunctionModel handler) {
         Set<String> ids = new LinkedHashSet<>();
         for (Function variant : TriggerFunctionAdapter.toFunctions(handler)) {

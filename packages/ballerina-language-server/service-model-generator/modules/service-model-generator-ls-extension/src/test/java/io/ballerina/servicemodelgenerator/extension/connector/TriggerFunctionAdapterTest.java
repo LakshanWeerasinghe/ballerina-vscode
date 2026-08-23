@@ -80,14 +80,7 @@ public class TriggerFunctionAdapterTest {
                 moduleName + ": onRead's single payload param must not be grouped");
     }
 
-    /**
-     * A handler that authors no {@code layout} must reach the designer with none, so the form falls back
-     * to its own default order rather than to an empty one -- the difference between "every connector
-     * renders as it always did" and "every connector renders an empty form".
-     *
-     * <p>Asserted over the whole bundled corpus rather than one hand-picked handler, so it keeps holding
-     * as connectors start authoring layouts. {@code TriggerLayoutTest} covers the authored side.
-     */
+    /** A handler that authors no layout must reach the designer with none, not with an empty one. */
     @Test(dataProvider = "cdcModules")
     public void testAbsentAuthoredLayoutStaysAbsent(String moduleName) {
         TriggerUISchemaModel model = model(moduleName);
@@ -122,7 +115,7 @@ public class TriggerFunctionAdapterTest {
                 "a null layout must not become an empty list");
     }
 
-    /** An authored layout must survive the schema -> wire hop intact, section order and all. */
+    /** An authored layout must survive the schema -> wire hop intact. */
     @Test
     public void testAuthoredLayoutReachesTheWireModel() {
         TriggerUISchemaModel.FunctionModel authored = withLayout(
@@ -148,10 +141,7 @@ public class TriggerFunctionAdapterTest {
         Assert.assertEquals(layout.get(2).fields(), List.of("*rest"));
     }
 
-    /**
-     * One authored layout describes the handler, so every variant the adapter fans out must carry it --
-     * otherwise picking a different format in the form would silently reset its layout to the default.
-     */
+    /** Every variant the adapter fans out must carry the handler's layout. */
     @Test
     public void testEveryFannedOutVariantCarriesTheLayout() {
         TriggerUISchemaModel.FunctionModel authored = withLayout(
@@ -168,7 +158,7 @@ public class TriggerFunctionAdapterTest {
         }
     }
 
-    /** Copies a schema function, substituting its layout -- records have no wither. */
+    /** Copies a schema function, substituting its layout. */
     private TriggerUISchemaModel.FunctionModel withLayout(TriggerUISchemaModel.FunctionModel model,
                                                           List<TriggerUISchemaModel.LayoutSection> layout) {
         return new TriggerUISchemaModel.FunctionModel(model.metadata(), model.name(), model.nameEditable(),

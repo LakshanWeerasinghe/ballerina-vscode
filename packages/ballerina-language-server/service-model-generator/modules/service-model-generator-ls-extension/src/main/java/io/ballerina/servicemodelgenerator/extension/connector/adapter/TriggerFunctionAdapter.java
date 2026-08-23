@@ -119,8 +119,6 @@ public final class TriggerFunctionAdapter {
         function.setAddDescription(model.metadata() == null ? null : model.metadata().addDescription());
         function.setRepeatable(Repeatable.orDefault(model.repeatable()).effective(function.getGroup()));
         function.setNameEditable(model.nameEditable());
-        // One authored layout describes the handler, so every fanned-out variant inherits it. A variant
-        // that lacks a field the layout names is fine: the designer skips ids that resolve to nothing.
         function.setLayout(toLayout(model.layout()));
         function.setProperties(toWireProperties(model, variant));
         function.setSchema(toParameterSchema(model.parameterSchema()));
@@ -170,11 +168,7 @@ public final class TriggerFunctionAdapter {
         };
     }
 
-    /**
-     * Copies the authored layout across to the wire model. Presentation only -- deliberately passed
-     * through unvalidated, since the designer is the only thing that can resolve an id to a form unit
-     * and already skips (with a warning) any id it cannot.
-     */
+    /** Copies the authored layout across to the wire model, unvalidated: the designer resolves the ids. */
     private static List<LayoutSection> toLayout(List<TriggerUISchemaModel.LayoutSection> sections) {
         if (sections == null || sections.isEmpty()) {
             return null;

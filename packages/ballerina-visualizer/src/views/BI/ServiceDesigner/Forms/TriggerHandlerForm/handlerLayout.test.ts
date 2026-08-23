@@ -16,20 +16,11 @@
  * under the License.
  */
 
-// L1: the pure layout resolution behind TriggerHandlerForm's section order and grouping.
-//
-// The invariant that matters most here is the *absence* of an authored layout: `layout` is optional at
-// every level, and 27 bundled connector models shipped before it existed. If resolveHandlerLayout ever
-// stops reproducing the form's historical unit order for a handler with no `layout`, every one of those
-// connectors silently re-arranges its handler form, with no compiler and no snapshot to catch it.
-//
-// The `$`-prefixed reserved ids are the other load-bearing detail: real connectors ship parameters
-// literally named `headers` (mcp's newTool) and `parameters` (sap.jco's onCall), so bare ids would
-// address the wrong unit. Those two cases are pinned below.
+// L1: the pure layout resolution behind TriggerHandlerForm's section order and grouping. The invariant
+// that matters most is the absence of an authored layout, which is the path every bundled model takes.
 
-// Same mock rationale as payloadComposer.test.ts: the @wso2/ballerina-core barrel re-exports
-// WSConnection, which pulls in the ESM-only vscode-ws-jsonrpc. Nothing in this module needs a runtime
-// value from the package -- every import is a type, erased at compile time -- so an empty mock suffices.
+// Mocked for the same reason as payloadComposer.test.ts: the @wso2/ballerina-core barrel pulls in the
+// ESM-only vscode-ws-jsonrpc, and nothing here needs a runtime value from it.
 jest.mock("@wso2/ballerina-core", () => ({}));
 
 import type { FunctionModel, ParameterModel, PropertyModel } from "@wso2/ballerina-core";
@@ -47,9 +38,7 @@ import {
     resolveHandlerLayout,
 } from "./handlerLayout";
 
-// ---------------------------------------------------------------------------------------------
 // Fixture builders — same minimal-but-real shapes as payloadComposer.test.ts.
-// ---------------------------------------------------------------------------------------------
 
 function prop(overrides: Partial<PropertyModel> = {}): PropertyModel {
     return { enabled: true, editable: true, optional: false, advanced: false, value: "", ...overrides };
@@ -126,8 +115,7 @@ const cdcOnUpdate = fn({
     parameters: [payload("before", "rowState"), payload("after", "rowState"), advancedParam("tableName")],
 });
 
-// mcp's newTool: renamable, addable params, an editable return type, a `header` schema — and a
-// parameter literally named `headers`, which must never be mistaken for the header block.
+// mcp's newTool: renamable, addable params, a `header` schema, and a parameter named `headers`.
 const mcpNewTool = fn({
     name: prop({ value: "", editable: true }),
     documentation: prop({ editable: true }),
@@ -160,8 +148,6 @@ describe("handlerUnitsOf", () => {
     });
 
     it("takes the artifact fields from the caller rather than re-deriving them", () => {
-        // The caller already built the ArtifactForm fields; re-deriving the same gating here is exactly
-        // how the two would drift apart.
         expect(handlerUnitsOf(mcpNewTool, MCP_ARTIFACT_KEYS)
             .filter((unit) => unit.kind === "ARTIFACT_FIELD")
             .map((unit) => [unit.id, unit.fieldKey])).toEqual([
@@ -176,8 +162,6 @@ describe("handlerUnitsOf", () => {
         const payloads = handlerUnitsOf(cdcOnUpdate).filter((unit) => unit.kind === "PAYLOAD");
         expect(payloads).toHaveLength(1);
         expect(payloads[0].id).toBe("rowState");
-        // An author reads `before`/`after` in the schema, not the group they were folded into, so both
-        // must reach the same section.
         expect(payloads[0].altIds).toEqual(expect.arrayContaining(["before", "after"]));
     });
 
@@ -188,8 +172,6 @@ describe("handlerUnitsOf", () => {
 });
 
 describe("resolveHandlerLayout with no authored layout", () => {
-    // The zero-regression invariant: every connector that shipped before `layout` existed has no
-    // `layout`, so this is the path all 27 bundled models take.
     const corpus: [string, FunctionModel, string[]][] = [
         ["kafka onConsumerRecord", kafkaOnConsumerRecord, []],
         ["ftp onFileJson", ftpOnFileJson, []],
@@ -231,7 +213,6 @@ describe("resolveHandlerLayout with an authored layout", () => {
         expect(sections.map((section) => [section.key, section.label, section.units.map((u) => u.id)])).toEqual([
             ["adv", "Advanced", ["caller", "fileInfo"]],
             ["msg", "Message", ["content", "stream"]],
-            // Everything unnamed keeps its default order, appended after the declared sections.
             [LAYOUT_ID_REST, undefined, [LAYOUT_ID_VARIANT, LAYOUT_ID_DESCRIPTION, "rows", "afterFileProcessing"]],
         ]);
     });
@@ -252,7 +233,6 @@ describe("resolveHandlerLayout with an authored layout", () => {
     });
 
     it("keeps a section with no label as an ordered run with no heading", () => {
-        // This is how a layout orders inputs without grouping them.
         const [section] = resolveHandlerLayout(fn({
             ...kafkaOnConsumerRecord,
             layout: [{ fields: ["caller", "records", LAYOUT_ID_REST] }],
@@ -322,7 +302,6 @@ describe("reserved $-prefixed ids", () => {
 
     afterEach(() => warn.mockRestore());
 
-    // mcp's newTool really does have a parameter named `headers` alongside a `header` schema block.
     it("distinguishes a parameter named `headers` from the header block", () => {
         const bare = resolveHandlerLayout(fn({
             ...mcpNewTool,
@@ -337,7 +316,6 @@ describe("reserved $-prefixed ids", () => {
         expect(reserved[0].units.map((unit) => unit.kind)).toEqual(["HEADERS"]);
     });
 
-    // sap.jco's onCall really does have a parameter named `parameters`.
     it("distinguishes a parameter named `parameters` from the parameter manager", () => {
         const bare = resolveHandlerLayout(fn({
             ...sapOnCall,
@@ -349,8 +327,6 @@ describe("reserved $-prefixed ids", () => {
             ...mcpNewTool,
             layout: [{ id: "g", label: "G", fields: [LAYOUT_ID_PARAMETERS] }],
         }), MCP_ARTIFACT_KEYS);
-        // `$parameters` names the parameter manager, so the whole ArtifactForm block moves into "g" with
-        // it (see "artifact block cohesion" below); the point here is that it landed there at all.
         expect(reserved[0].key).toBe("g");
         expect(reserved[0].units.map((unit) => unit.fieldKey)).toContain("parameters");
         expect(reserved[0].units.every((unit) => unit.kind === "ARTIFACT_FIELD")).toBe(true);
@@ -367,9 +343,6 @@ describe("artifact block cohesion", () => {
     afterEach(() => warn.mockRestore());
 
     it("collapses artifact fields to the first one's position, ordered as declared", () => {
-        // They share one react-hook-form context, so they render as a single ArtifactForm however the
-        // layout interleaved them with other units. Naming two of them orders those two first; the two
-        // the layout left alone follow, since they have nowhere else to go.
         const [section] = resolveHandlerLayout(fn({
             ...mcpNewTool,
             layout: [{
@@ -393,7 +366,6 @@ describe("artifact block cohesion", () => {
         expect(sections[0].key).toBe("ident");
         expect(sections[0].units.map((unit) => unit.fieldKey))
             .toEqual(["name", "documentation", "parameters", "returnType"]);
-        // Not an authoring mistake — the author split nothing, so this must stay quiet.
         expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("cannot be"));
     });
 
@@ -441,8 +413,6 @@ describe("orderArtifactFieldKeys", () => {
 
 describe("layout never reorders the emitted signature", () => {
     it("leaves functionModel.parameters untouched", () => {
-        // The generated handler signature follows `parameters` order, so a presentation-only feature must
-        // not touch it. Guarding the array identity catches an accidental in-place sort.
         const model = fn({
             ...ftpOnFileJson,
             layout: [{ id: "adv", label: "Advanced", fields: ["caller", "fileInfo", "content"] }],
@@ -527,8 +497,6 @@ describe("advanced sections", () => {
     });
 
     it("refuses advanced on an unlabeled section, since there is no heading to collapse under", () => {
-        // Without a label the group would be indistinguishable from the loose advanced units, so honouring
-        // the flag would silently discard the author's grouping instead of failing visibly.
         const [section] = resolveHandlerLayout(fn({
             ...mcpNewTool,
             layout: [{ advanced: true, fields: [LAYOUT_ID_HEADERS] }],
@@ -547,10 +515,8 @@ describe("advanced sections", () => {
 });
 
 describe("the layouts actually shipped in trigger-models", () => {
-    // Both fixtures mirror the real wire output (verified against TriggerFunctionAdapter's own), which is
-    // the shape that matters: the LS lifts FTP's `stream` flag out of the payload parameter's
-    // COMPLEX_PAYLOAD type tree into the function's own `properties` before the designer ever sees it.
-
+    // Fixtures mirror the real wire output: the LS lifts FTP's `stream` flag out of the payload
+    // parameter's COMPLEX_PAYLOAD tree into the function's own `properties`.
     it("ftp/smb onFileCsv defines the row schema before offering the stream flag", () => {
         const onFileCsv = fn({
             name: prop({ value: "onFileCsv", editable: false }),
@@ -563,8 +529,7 @@ describe("the layouts actually shipped in trigger-models", () => {
             layout: [{ fields: [LAYOUT_ID_VARIANT, LAYOUT_ID_DESCRIPTION, "content", "stream", LAYOUT_ID_REST] }],
         });
 
-        // Without the layout the modifier comes first — the user meets "Stream (Large Files)" before there
-        // is a row schema for it to apply to.
+        // Without the layout the modifier comes before the row schema it applies to.
         expect(handlerUnitsOf(onFileCsv).map((unit) => unit.id))
             .toEqual([LAYOUT_ID_VARIANT, LAYOUT_ID_DESCRIPTION, "stream", "content", "afterFileProcessing",
                 "fileInfo", "caller"]);
@@ -589,20 +554,15 @@ describe("the layouts actually shipped in trigger-models", () => {
         });
         const sections = resolveHandlerLayout(newTool, MCP_ARTIFACT_KEYS);
 
-        // The two named groups are advanced; everything else stays in the unclaimed remainder, whose own
-        // advanced unit (`meta`) heads the box above them.
         expect(sections.map((section) => [section.key, section.advanced ?? false])).toEqual([
             ["transportParameters", true],
             ["requestAccess", true],
             [LAYOUT_ID_REST, false],
         ]);
         expect(sections[0].units.map((unit) => unit.kind)).toEqual(["HEADERS"]);
-        // The renderer suppresses a unit's own heading blurb when its section is labeled, so that the
-        // group's description is the only one shown. That hinges on `label` being set here.
         expect(sections[0].label).toBeTruthy();
         expect(sections[0].description).toBeTruthy();
         expect(sections[1].units.map((unit) => unit.id)).toEqual(["request", "headers"]);
-        // `headers` here is the parameter, not the header block — the two coexist on this handler.
         expect(sections[1].units.every((unit) => unit.kind === "ADVANCED_PARAM")).toBe(true);
         expect(sections[2].units.map((unit) => unit.id)).toEqual([
             LAYOUT_ID_VARIANT, LAYOUT_ID_DESCRIPTION, LAYOUT_ID_NAME, "$documentation", LAYOUT_ID_PARAMETERS,

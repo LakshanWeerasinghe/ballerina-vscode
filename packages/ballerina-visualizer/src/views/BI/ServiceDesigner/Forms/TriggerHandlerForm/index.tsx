@@ -157,9 +157,6 @@ export interface TriggerHandlerFormProps {
 /** A ParamManager template's own sub-fields, in the order they should render as a mini add/edit form. */
 const PARAM_TEMPLATE_SUB_FIELDS = ["type", "name", "defaultValue", "documentation"] as const;
 
-// Unit kinds that share one wrapper when they land next to each other: the four artifact fields are one
-// ArtifactForm, flags and modifiers are one checkbox column, and the advanced params sit with the header
-// editor in one collapsible.
 type HandlerUnitKindSet = ReadonlySet<HandlerUnitKind>;
 const ARTIFACT_KINDS: HandlerUnitKindSet = new Set<HandlerUnitKind>(["ARTIFACT_FIELD"]);
 const FLAG_KINDS: HandlerUnitKindSet = new Set<HandlerUnitKind>(["FLAG", "MODIFIER"]);
@@ -375,11 +372,8 @@ function buildArtifactFields(fn: FunctionModel | null | undefined): FormField[] 
     return fields;
 }
 
-/**
- * The handler's ArtifactForm fields, ordered by its authored `layout` when it has one. Ordering happens
- * here, inside the rebuild, rather than in render: the `fields` array identity ArtifactForm receives has
- * to stay stable while the user types (see `artifactFields` below).
- */
+/** ArtifactForm fields ordered by the authored `layout`. Done in the rebuild, not render, so the
+ * `fields` array identity stays stable while the user types. */
 function buildOrderedArtifactFields(fn: FunctionModel | null | undefined): FormField[] {
     const fields = buildArtifactFields(fn);
     if (!fn?.layout || fields.length < 2) {
@@ -604,8 +598,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     };
 
     // ----- opt-in framework params (advanced) -----
-    // The list itself now comes from handlerUnitsOf (kind ADVANCED_PARAM), which reads the same
-    // `advanced: true` marker; only the toggle handler lives here.
 
     const handleAdvancedParamToggle = (param: ParameterModel, checked: boolean) => {
         if (!functionModel) {
@@ -690,8 +682,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     };
 
     // ----- annotations -----
-    // Enumerated by handlerUnitsOf (kind ANNOTATION), which walks the same two codedata roles —
-    // COMPLEX_FUNCTION_ANNOTATION then ANNOTATION_ATTACHMENT — in that order.
 
     const handleAnnotationChange = (annotationKey: string, updated: PropertyModel) => {
         setFunctionModel((prev) => prev
@@ -810,16 +800,8 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const handlerDescription = functionModel.metadata?.description?.trim();
     const showAnnotationsDivider = hasVariants || metadataFlags.length > 0 || modifierFlags.length > 0;
 
-    // ----- layout -----
-    // Section order and grouping come from the handler's authored `layout`; a handler with none resolves
-    // to a single unlabeled section holding every unit in this form's historical order, so nothing moved
-    // for the connectors that shipped before `layout` existed. See handlerLayout.ts.
     const sections = resolveHandlerLayout(functionModel, artifactFields.map((field) => field.key));
 
-    // The "Advanced Configurations" box is rendered once, after the main body, and holds two things: the
-    // advanced units an unlabeled section left at default chrome, and any section the layout marked
-    // `advanced`. A labeled, non-advanced section keeps its advanced units in place under its own
-    // heading — naming a group is an explicit request to show it there, not to file it away.
     const advancedSections = sections.filter((section) => section.advanced);
     const looseAdvancedUnits = sections
         .filter((section) => !section.advanced && !section.label)
@@ -832,15 +814,10 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         .filter((section) => section.units.length > 0);
     const hasAdvancedBox = looseAdvancedUnits.length > 0 || advancedSections.length > 0;
 
-    // The divider that used to sit unconditionally above the annotations belongs to the first annotation
-    // run only, and only where that run keeps its default chrome (an unlabeled section) — a labeled
-    // section draws its own divider with its heading.
     const firstAnnotationSectionKey = bodySections
         .find((section) => section.units.some((unit) => unit.kind === "ANNOTATION"))?.key;
 
     // ----- per-unit renderers -----
-    // Each is the exact JSX this form has always used for that unit. `layout` decides where a unit appears
-    // and under which heading — never how it looks.
 
     const renderVariant = (): ReactNode => hasVariants ? (
         /* Variant selection — sibling functions of the same group */
@@ -862,11 +839,11 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     const renderDescription = (): ReactNode =>
         handlerDescription ? <MarkdownDescription description={handlerDescription} /> : null;
 
-    /* User-renamable name / editable return type / addable parameters (e.g. an MCP tool). Rendered
-       through ArtifactForm — the same IdentifierField/TypeEditor/ParamManager widgets (type completion,
-       identifier validation, inline param table) the rest of the visualizer uses — with its own Save
-       button hidden since this form's Save (below) owns the actual save. The four fields share one
-       react-hook-form context, which is why handlerLayout keeps them in a single block. */
+    /* User-renamable name / editable return type / addable parameters (e.g. an MCP
+       tool). Rendered through ArtifactForm — the same IdentifierField/TypeEditor/
+       ParamManager widgets (type completion, identifier validation, inline param
+       table) the rest of the visualizer uses — with its own Save button hidden since
+       this form's Save (below) owns the actual save. */
     const renderArtifactForm = (): ReactNode =>
         artifactFields.length > 0 && props.filePath && artifactLineRange ? (
             <ArtifactForm
@@ -908,7 +885,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     );
 
     /* Payload schema — one section per binding group (CDC onUpdate's before/after share a group and
-       render as a single section; see groupedPayloadParametersOf). */
+       render as a single section; see groupedPayloadParams). */
     const renderPayload = (unit: HandlerUnit): ReactNode => {
         const displayParam = boundRepresentativeOf(functionModel, unit.parameter);
         if (displayParam.type?.codedata?.bindable !== true) {
@@ -1063,8 +1040,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                         <Typography variant="body2" sx={{ marginTop: 12, marginBottom: 0 }}>
                             {headerTemplate.metadata?.label || "HTTP Headers"}
                         </Typography>
-                        {/* Suppressed inside a labeled group: the group's own heading and description
-                            already introduce this block, and printing both reads as duplication. */}
                         {!inLabeledGroup && headerTemplate.metadata?.description && (
                             <Typography
                                 variant="body3"
@@ -1105,14 +1080,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         );
     };
 
-    /**
-     * The units of one section, batched into the chrome each kind needs: the artifact fields into one
-     * ArtifactForm, a run of flags into one column, the advanced params and headers into the collapsible.
-     *
-     * An unlabeled section keeps every unit's default chrome, so a unit the layout never named renders
-     * exactly where and how it does today. A labeled section shows its units plainly under its heading —
-     * no collapsible, no extra divider.
-     */
+    /** One section's units, batched into the chrome each kind needs. */
     const renderSectionUnits = (section: ResolvedSection): ReactNode[] => {
         const plain = !!section.label;
         const units = section.units;
@@ -1123,8 +1091,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                 nodes.push(<Fragment key={key}>{node}</Fragment>);
             }
         };
-        // Consumes the maximal run of `kinds` starting at `from`, so consecutive same-chrome units share
-        // one wrapper however the layout interleaved them with other kinds.
         const runFrom = (from: number, kinds: HandlerUnitKindSet): HandlerUnit[] => {
             const run: HandlerUnit[] = [];
             for (let i = from; i < units.length && kinds.has(units[i].kind); i++) {
@@ -1173,9 +1139,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                 }
                 case "ADVANCED_PARAM":
                 case "HEADERS": {
-                    // The collapsible box is emitted once, after the main body. Anything reaching here is
-                    // already inside it, or inside a labeled group the author asked to show in place —
-                    // either way it renders plainly.
                     const run = runFrom(index, ADVANCED_KINDS);
                     push(`advanced-${unit.id}`, renderAdvancedBody(run, plain));
                     index += run.length;
@@ -1210,11 +1173,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                         />
                     )}
 
-                    {/* Everything below is ordered and grouped by the handler's authored `layout`. With
-                        none — which is every connector that shipped before `layout` existed — this is a
-                        single unlabeled section holding every unit in the order they are hard-coded above,
-                        so the rendered form is unchanged. A labeled section draws a divider and heading and
-                        shows its units plainly; an unlabeled one keeps each unit's default chrome. */}
                     {bodySections.map((section) => {
                         const body = renderSectionUnits(section);
                         if (body.length === 0) {
@@ -1244,9 +1202,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                         );
                     })}
 
-                    {/* The one Advanced Configurations box: the advanced units no section claimed (default
-                        chrome, exactly as before `layout` existed), followed by every group the layout
-                        marked `advanced`, each under its own heading. */}
                     {hasAdvancedBox && (
                         <>
                             <Divider />

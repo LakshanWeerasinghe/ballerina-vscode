@@ -30,26 +30,16 @@ import {
 } from "./payloadComposer";
 
 /**
- * Resolves a schema-driven handler's authored `layout` (see `HandlerLayoutSection`) into the ordered,
- * grouped sections TriggerHandlerForm renders.
+ * Resolves a schema-driven handler's authored `layout` into the ordered, grouped sections
+ * TriggerHandlerForm renders. No layout -> one unlabeled section holding every unit in the form's
+ * historical order.
  *
- * The whole feature is opt-in: a handler with no `layout` resolves to a single unlabeled section holding
- * every unit in the form's historical order, which is why adding this changed nothing for the connectors
- * that shipped before it existed. A partial layout only has to name the units it wants to move; whatever
- * it leaves alone lands in the `*rest` section, or after the declared ones when there is no `*rest`.
+ * An unlabeled section keeps each unit's default chrome (the flags column, the advanced box, the divider
+ * before annotations); a labeled section shows its units plainly under its heading, and may set `advanced`
+ * to sit inside the collapsed advanced box.
  *
- * Section chrome follows one rule: **an unlabeled section keeps each unit's default chrome** (the flags
- * column, the "Advanced Configurations" collapsible, the divider before annotations), **a labeled section
- * shows its units plainly under its heading**. So "leave it out and it stays exactly as it is today; put
- * it in a named group and it appears under that heading".
- *
- * A labeled section may additionally set `advanced`, which moves the whole group inside the collapsed
- * "Advanced Configurations" box — for a group the user only needs occasionally. Those sections render after
- * whatever loose advanced units the box already holds, in the order the layout declared them.
- *
- * Two id namespaces, kept apart so neither can shadow the other: `$`-prefixed ids name the form's own
- * built-in units, and the single `*`-prefixed id ({@link LAYOUT_ID_REST}) is a placement directive rather
- * than a name. Everything else is an author's own identifier, used bare.
+ * Two id namespaces: `$`-prefixed ids name the form's built-in units, and `*rest` is a placement directive
+ * rather than a name. Everything else is an author's own identifier, used bare.
  */
 
 /** The variant/format dropdown. */
@@ -66,21 +56,12 @@ export const LAYOUT_ID_PARAMETERS = "$parameters";
 export const LAYOUT_ID_RETURN_TYPE = "$returnType";
 /** The individually-bound HTTP header block. */
 export const LAYOUT_ID_HEADERS = "$headers";
-/**
- * Directive: every unit no section claimed, in default order.
- *
- * Prefixed `*` rather than `$` deliberately. It is not the name of a unit like `$name` or `$headers` are
- * — it is an instruction about placement — and it lives in its own namespace so that no author-chosen
- * name can ever be mistaken for it. Unlike a Ballerina identifier, a `properties` key is an arbitrary
- * schema-authored string, so a field literally called `$rest` is possible; nothing may be called `*rest`.
- */
+/** Directive: every unit no section claimed, in default order. */
 export const LAYOUT_ID_REST = "*rest";
 
 /**
- * Layout id -> ArtifactForm `FormField.key`. The `$` prefix is load-bearing, not cosmetic: real
- * connectors ship parameters literally named `headers` (mcp's `newTool`) and `parameters` (sap.jco's
- * `onCall`), so bare ids would silently address the wrong unit. No Ballerina identifier starts with
- * `$`, so the two namespaces provably never overlap.
+ * Layout id -> ArtifactForm `FormField.key`. The `$` prefix is load-bearing: real connectors ship
+ * parameters named `headers` (mcp) and `parameters` (sap.jco), which bare ids would collide with.
  */
 const ARTIFACT_FIELD_KEY_BY_ID: Record<string, string> = {
     [LAYOUT_ID_NAME]: "name",
@@ -107,18 +88,11 @@ export type HandlerUnitKind =
     | "ADVANCED_PARAM"
     | "HEADERS";
 
-/**
- * One addressable thing the handler form can render. Carries only what the renderer needs to look the
- * unit's data back up — the form keeps rendering from `functionModel`, so a unit never holds a stale copy.
- */
+/** One addressable thing the handler form can render. */
 export interface HandlerUnit {
     /** The primary id an author writes in `layout[].fields`. */
     id: string;
-    /**
-     * Extra ids that also address this unit. Only payload sections use these: a CDC `onUpdate` binds
-     * `before`/`after` as one section under `bindingGroup: "rowState"`, so `rowState`, `before` and
-     * `after` all name the same section.
-     */
+    /** Extra ids that also address this unit; only payload sections use these (binding-group members). */
     altIds?: string[];
     kind: HandlerUnitKind;
     /** The `fn.properties` key, for FLAG / MODIFIER / ANNOTATION units. */
@@ -143,7 +117,7 @@ export interface ResolvedSection {
     units: HandlerUnit[];
 }
 
-/** Dev-only diagnostics. Authoring mistakes are reported, never thrown — a bad id must not blank a form. */
+/** Dev-only diagnostics: authoring mistakes are reported, never thrown. */
 function warn(message: string): void {
     // eslint-disable-next-line no-console
     console.warn(`[TriggerHandlerForm layout] ${message}`);
@@ -151,13 +125,8 @@ function warn(message: string): void {
 
 /**
  * Every unit the handler form can render, in the order it rendered them before `layout` existed.
- *
- * `artifactFieldKeys` comes from the caller's already-built ArtifactForm fields rather than being
- * re-derived here, so the two can never disagree about which of name/documentation/parameters/returnType
- * a given handler actually offers.
- *
- * Units are emitted unconditionally where the form itself decides visibility at render time (the variant
- * dropdown, the description) — resolution only has to know the unit exists to be addressable.
+ * `artifactFieldKeys` comes from the caller's already-built ArtifactForm fields so the two cannot
+ * disagree. Units the form gates at render time are still emitted, so they stay addressable.
  */
 export function handlerUnitsOf(fn: FunctionModel, artifactFieldKeys: string[] = []): HandlerUnit[] {
     if (!fn) {
@@ -183,8 +152,6 @@ export function handlerUnitsOf(fn: FunctionModel, artifactFieldKeys: string[] = 
         units.push({ id: propertyKey, kind: "MODIFIER", propertyKey, property });
     }
 
-    // One unit per rendered payload section. Addressable by its binding group *or* by any member's name,
-    // since an author reading the schema sees the member names, not the group they were folded into.
     for (const param of groupedPayloadParametersOf(fn)) {
         const group = bindingGroupOf(param);
         const memberNames = group
@@ -238,16 +205,9 @@ function indexUnits(units: HandlerUnit[]): Map<string, HandlerUnit> {
 }
 
 /**
- * Keeps the ArtifactForm block whole. Its four fields share one react-hook-form context, so they cannot
- * be split across sections or interleaved with other units — but they can be *ordered*, which is what an
- * author naming them is really asking for. Every ARTIFACT_FIELD unit therefore collapses to the position
- * of the first one, in the relative order the layout gave them.
- *
- * A consequence worth knowing when authoring: naming *one* artifact field moves the whole block to that
- * position, because the fields the layout left alone have nowhere else to go.
- *
- * `declaredKeys` are the sections the author actually wrote, so the "you split them" warning fires only
- * on a real authoring mistake — never merely because some fields stayed behind in the remainder.
+ * Keeps the ArtifactForm block whole: its four fields share one react-hook-form context, so they can be
+ * ordered but not split. They collapse to the position of the first one, so naming any of them moves the
+ * whole block. `declaredKeys` excludes the remainder, so the split warning fires only on a real mistake.
  */
 function consolidateArtifactUnits(sections: ResolvedSection[], declaredKeys: Set<string>): ResolvedSection[] {
     const owners = sections.filter((section) => section.units.some((unit) => unit.kind === "ARTIFACT_FIELD"));
@@ -277,12 +237,7 @@ function consolidateArtifactUnits(sections: ResolvedSection[], declaredKeys: Set
     });
 }
 
-/**
- * The handler form's sections, in render order.
- *
- * No authored layout -> one unlabeled section holding every unit in default order, i.e. exactly the form
- * the connector rendered before this feature existed.
- */
+/** The handler form's sections, in render order. */
 export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: string[] = []): ResolvedSection[] {
     const units = handlerUnitsOf(fn, artifactFieldKeys);
     const layout = fn?.layout;
@@ -308,7 +263,6 @@ export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: strin
             }
             const unit = byId.get(field);
             if (!unit) {
-                // Expected and harmless: a handler variant may not have every field its siblings do.
                 warn(`section "${key}" names "${field}", which matches no field on this handler -- skipped`);
                 continue;
             }
@@ -335,8 +289,6 @@ export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: strin
         };
     });
 
-    // Whatever the layout did not name keeps its default order and default chrome, so a partial layout is
-    // always safe to write. It goes where `*rest` said, else after everything the author did name.
     const remainder = units.filter((unit) => !claimed.has(unit));
     let remainderKey: string | undefined;
     if (remainder.length > 0) {
@@ -356,8 +308,7 @@ export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: strin
 }
 
 /**
- * Orders the caller's ArtifactForm fields to match the resolved layout. ArtifactForm renders with
- * `preserveFieldOrder`, so the array order is the display order. Field keys the layout never named keep
+ * Orders the caller's ArtifactForm fields to match the resolved layout. Keys the layout never named keep
  * their original relative order, after the ones it did.
  */
 export function orderArtifactFieldKeys(sections: ResolvedSection[], artifactFieldKeys: string[]): string[] {
