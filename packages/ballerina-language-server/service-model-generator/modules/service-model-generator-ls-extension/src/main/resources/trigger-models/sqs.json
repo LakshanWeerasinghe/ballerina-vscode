@@ -277,10 +277,56 @@
                             "path": "auth.sessionToken"
                           }
                         },
-                        "endpoint": {
+                        "fips": {
                           "metadata": {
-                            "label": "Endpoint",
-                            "description": "Optional endpoint options: FIPS/dualstack variants, or a custom endpoint override (e.g. LocalStack, VPC interface endpoints)"
+                            "label": "FIPS",
+                            "description": "Use the FIPS 140-validated endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.fips"
+                          }
+                        },
+                        "dualstack": {
+                          "metadata": {
+                            "label": "Dualstack",
+                            "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.dualstack"
+                          }
+                        },
+                        "customEndpoint": {
+                          "metadata": {
+                            "label": "Custom Endpoint",
+                            "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
                           },
                           "value": "",
                           "enabled": true,
@@ -289,15 +335,20 @@
                           "advanced": true,
                           "types": [
                             {
-                              "fieldType": "EXPRESSION",
-                              "ballerinaType": "sqs:EndpointConfig",
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
                               "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
                             }
                           ],
                           "codedata": {
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
-                            "path": "endpoint"
+                            "path": "endpoint.customEndpoint"
                           }
                         },
                         "pollInterval": {
@@ -511,10 +562,56 @@
                             "path": "auth.credentialsFilePath"
                           }
                         },
-                        "endpoint": {
+                        "fips": {
                           "metadata": {
-                            "label": "Endpoint",
-                            "description": "Optional endpoint options: FIPS/dualstack variants, or a custom endpoint override (e.g. LocalStack, VPC interface endpoints)"
+                            "label": "FIPS",
+                            "description": "Use the FIPS 140-validated endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.fips"
+                          }
+                        },
+                        "dualstack": {
+                          "metadata": {
+                            "label": "Dualstack",
+                            "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.dualstack"
+                          }
+                        },
+                        "customEndpoint": {
+                          "metadata": {
+                            "label": "Custom Endpoint",
+                            "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
                           },
                           "value": "",
                           "enabled": true,
@@ -523,15 +620,20 @@
                           "advanced": true,
                           "types": [
                             {
-                              "fieldType": "EXPRESSION",
-                              "ballerinaType": "sqs:EndpointConfig",
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
                               "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
                             }
                           ],
                           "codedata": {
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
-                            "path": "endpoint"
+                            "path": "endpoint.customEndpoint"
                           }
                         },
                         "pollInterval": {
@@ -722,10 +824,56 @@
                             }
                           ]
                         },
-                        "endpoint": {
+                        "fips": {
                           "metadata": {
-                            "label": "Endpoint",
-                            "description": "Optional endpoint options: FIPS/dualstack variants, or a custom endpoint override (e.g. LocalStack, VPC interface endpoints)"
+                            "label": "FIPS",
+                            "description": "Use the FIPS 140-validated endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.fips"
+                          }
+                        },
+                        "dualstack": {
+                          "metadata": {
+                            "label": "Dualstack",
+                            "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                          },
+                          "value": false,
+                          "enabled": true,
+                          "editable": true,
+                          "optional": true,
+                          "advanced": true,
+                          "types": [
+                            {
+                              "fieldType": "FLAG",
+                              "ballerinaType": "boolean",
+                              "selected": true
+                            }
+                          ],
+                          "codedata": {
+                            "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                            "position": 1,
+                            "path": "endpoint.dualstack"
+                          }
+                        },
+                        "customEndpoint": {
+                          "metadata": {
+                            "label": "Custom Endpoint",
+                            "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
                           },
                           "value": "",
                           "enabled": true,
@@ -734,15 +882,20 @@
                           "advanced": true,
                           "types": [
                             {
-                              "fieldType": "EXPRESSION",
-                              "ballerinaType": "sqs:EndpointConfig",
+                              "fieldType": "TEXT",
+                              "ballerinaType": "string",
                               "selected": true
+                            },
+                            {
+                              "fieldType": "EXPRESSION",
+                              "ballerinaType": "string",
+                              "selected": false
                             }
                           ],
                           "codedata": {
                             "argType": "LISTENER_PARAM_CONFIG_FIELD",
                             "position": 1,
-                            "path": "endpoint"
+                            "path": "endpoint.customEndpoint"
                           }
                         },
                         "pollInterval": {
