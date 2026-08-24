@@ -41,13 +41,13 @@ import java.util.Set;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_SERVICE_TYPE_DESCRIPTOR;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_ANNOTATION_ATTACHMENT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_EXISTING_LISTENER;
-import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_LISTENER_CONFIG;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_LISTENER_VAR_NAME;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_MODIFIER;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_SERVICE_ANNOTATION;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DATA_BINDING;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.DEFAULT_LISTENER_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DB_KIND_OPTIONAL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.FIELD_TYPE_FLAG;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_REQUIRED;
@@ -108,6 +108,31 @@ public final class TriggerModelSynthesizer {
                                                      String id, String displayName, String icon, String kind,
                                                      String orgName, String packageName, String moduleName,
                                                      String version) {
+        return synthesize(authoring, facts, crossModuleFacts,
+                singleListenerModel(authoring, listenerModel), id, displayName, icon, kind, orgName,
+                packageName, moduleName, version);
+    }
+
+    /** The one resolved {@code Listener} keyed by the type it describes, for single-listener callers. */
+    private static Map<String, Listener> singleListenerModel(TriggerMetadataModel authoring,
+                                                             Listener listenerModel) {
+        if (listenerModel == null || authoring == null
+                || authoring.listeners() == null || authoring.listeners().isEmpty()) {
+            return Map.of();
+        }
+        return Map.of(listenerTypeName(authoring.listeners().get(0)), listenerModel);
+    }
+
+    /**
+     * As the other overloads, but with one resolved {@code Listener} per declared listener type, keyed by
+     * that type's simple name. A type absent from the map renders with its name alone.
+     */
+    public static Optional<TriggerUISchemaModel> synthesize(TriggerMetadataModel authoring, TriggerLibraryFacts facts,
+                                                     Map<String, TriggerLibraryFacts> crossModuleFacts,
+                                                     Map<String, Listener> listenerModels,
+                                                     String id, String displayName, String icon, String kind,
+                                                     String orgName, String packageName, String moduleName,
+                                                     String version) {
         if (authoring == null || facts == null
                 || authoring.listeners() == null || authoring.listeners().isEmpty()
                 || authoring.serviceTypes() == null || authoring.serviceTypes().isEmpty()) {
@@ -120,12 +145,11 @@ public final class TriggerModelSynthesizer {
         TriggerMetadataModel.ServiceType primary = serviceTypes.get(0);
         ConnectorIdentity identity = new ConnectorIdentity(orgName, packageName, moduleName, version);
 
-        TriggerMetadataModel.Listener primaryListener = authoring.listeners().get(0);
-        TriggerLibraryFacts.Listener listenerFacts = findListener(primaryListener, facts);
-        String listenerTypeName = primaryListener.type() == null || primaryListener.type().name() == null
-                ? "Listener" : primaryListener.type().name();
+        List<TriggerUISchemaModel.ListenerModel> listeners = buildListenerModels(authoring, facts,
+                listenerModels == null ? Map.of() : listenerModels, moduleName);
         Map<String, TriggerUISchemaModel.Property> initProperties = new LinkedHashMap<>();
-        buildListenerChoice(listenerFacts, listenerModel, moduleName, listenerTypeName, initProperties);
+        ListenerChoiceDeriver.derive(listeners, null, null)
+                .ifPresent(listener -> initProperties.put(LISTENER_KEY, listener));
         buildInitServiceAnnotations(primary, authoring, facts, crossFacts, identity, initProperties);
         buildIdentifierField(primary, initProperties);
         if (multiType) {
@@ -144,8 +168,8 @@ public final class TriggerModelSynthesizer {
 
         return Optional.of(new TriggerUISchemaModel(
                 SCHEMA_VERSION, id, displayName, null, "", orgName, packageName, moduleName, version,
-                kind, icon, kind, listenerKind, initProperties, serviceTypeModels, List.of(),
-                importStatements, null));
+                kind, icon, kind, listenerKind, initProperties, null, listeners, serviceTypeModels,
+                List.of(), importStatements, null));
     }
 
     /** The key {@code crossModuleFacts} is looked up by, for a {@link TypeRef.PackageInfo}. */
@@ -246,48 +270,73 @@ public final class TriggerModelSynthesizer {
                 .field(field).nameEditable(true).build();
     }
 
-    private static final String LISTENER_CONFIG_GROUP_KEY = "listenerConfig";
-
     /**
-     * Builds the {@code listener} CHOICE (create-new / use-existing); always includes both branches.
-     * Every create-new field is nested inside one {@code listenerConfig} {@code GROUP_SECTION}. Each
-     * field's widget is looked up by name from {@code listenerModel} (see {@link #enrichListenerParam})
-     * rather than rebuilt; {@code listenerFacts} supplies only the structure needed to assign correct
-     * {@code argType}/position codedata (see {@link #walkListenerParams}).
+     * One {@link TriggerUISchemaModel.ListenerModel} per declared listener, in declaration order;
+     * {@link ListenerChoiceDeriver} turns the list into the init form's listener field. Each field's widget
+     * is looked up by name from that listener's own {@code Listener} model (see
+     * {@link #enrichListenerParam}) rather than rebuilt.
      */
-    private static void buildListenerChoice(TriggerLibraryFacts.Listener listenerFacts, Listener listenerModel,
-                                            String moduleName, String listenerTypeName,
-                                            Map<String, TriggerUISchemaModel.Property> initProperties) {
-        Map<String, TriggerUISchemaModel.Property> groupProps = new LinkedHashMap<>();
-        groupProps.put(LISTENER_VAR_NAME_KEY, listenerVarNameProperty(moduleName, listenerTypeName));
-        if (listenerFacts != null && listenerModel != null && listenerModel.getProperties() != null) {
-            walkListenerParams(listenerFacts.initParams(), listenerModel, 1, groupProps);
+    private static List<TriggerUISchemaModel.ListenerModel> buildListenerModels(
+            TriggerMetadataModel authoring, TriggerLibraryFacts facts, Map<String, Listener> listenerModels,
+            String moduleName) {
+        Map<String, String> serviceTypeNamesById = serviceTypeNamesById(authoring);
+        List<TriggerUISchemaModel.ListenerModel> models = new ArrayList<>();
+        for (TriggerMetadataModel.Listener listener : authoring.listeners()) {
+            String typeName = listenerTypeName(listener);
+            Listener listenerModel = listenerModels.get(typeName);
+            TriggerLibraryFacts.Listener listenerFacts = findListener(listener, facts,
+                    authoring.listeners().size());
+
+            Map<String, TriggerUISchemaModel.Property> fields = new LinkedHashMap<>();
+            fields.put(LISTENER_VAR_NAME_KEY, listenerVarNameProperty(moduleName, typeName));
+            if (listenerFacts != null && listenerModel != null && listenerModel.getProperties() != null) {
+                walkListenerParams(listenerFacts.initParams(), listenerModel, 1, fields);
+            }
+            models.add(new TriggerUISchemaModel.ListenerModel(
+                    new TriggerUISchemaModel.Metadata(humanize(typeName), listener.doc(),
+                            listener.deprecated(), null, null, null, null, null,
+                            listener.deprecated() == null ? null : true, null),
+                    typeName, moduleName + ":" + typeName, null, fields, null,
+                    hostedServiceTypeNames(listener, serviceTypeNamesById)));
         }
-        TriggerUISchemaModel.Property configGroup = groupSectionProperty("Listener Configuration",
-                "Configure the listener.", groupProps);
+        return models;
+    }
 
-        Map<String, TriggerUISchemaModel.Property> createNewProps = new LinkedHashMap<>();
-        createNewProps.put(LISTENER_CONFIG_GROUP_KEY, configGroup);
-        TriggerUISchemaModel.Property createNew = new TriggerUISchemaModel.Property(
-                new TriggerUISchemaModel.Metadata("Create New Listener", "Create a new listener", null, null,
-                        null, null, null, null, null, null),
-                true, true, false, false, null, null, null, null, null, createNewProps, cd(), null);
+    /** A listener's declared type, defaulting to the conventional name when the document states none. */
+    private static String listenerTypeName(TriggerMetadataModel.Listener listener) {
+        return listener.type() == null || listener.type().name() == null
+                ? DEFAULT_LISTENER_TYPE : listener.type().name();
+    }
 
-        Map<String, TriggerUISchemaModel.Property> useExistingProps = new LinkedHashMap<>();
-        useExistingProps.put(LISTENER_KEY, existingListenerSelector());
-        TriggerUISchemaModel.Property useExisting = new TriggerUISchemaModel.Property(
-                new TriggerUISchemaModel.Metadata("Use Existing Listener", "Attach to an already-declared listener",
-                        null, null, null, null, null, null, null, null),
-                false, false, false, false, null, null, null, null, null, useExistingProps, cd(), null);
+    /** Service type ids ({@code $service}) to the type names a {@code ServiceTypeModel} is keyed by. */
+    private static Map<String, String> serviceTypeNamesById(TriggerMetadataModel authoring) {
+        Map<String, String> byId = new LinkedHashMap<>();
+        for (TriggerMetadataModel.ServiceType serviceType : authoring.serviceTypes()) {
+            if (serviceType.id() == null || serviceType.type() == null || serviceType.type().name() == null) {
+                continue;
+            }
+            byId.put(serviceType.id(), serviceType.type().name());
+        }
+        return byId;
+    }
 
-        TriggerUISchemaModel.PropertyType choiceType = new TriggerUISchemaModel.PropertyType(
-                "CHOICE", true, null, null, null, null, null, null);
-        TriggerUISchemaModel.Property choice = new TriggerUISchemaModel.Property(
-                new TriggerUISchemaModel.Metadata("Listener", "The listener this service attaches to", null, null, null,
-                        null, null, null, null, null),
-                true, true, false, false, null, null, List.of(choiceType), null,
-                List.of(createNew, useExisting), null, cdType(CD_TYPE_LISTENER_CONFIG), null);
-        initProperties.put(LISTENER_KEY, choice);
+    /** The service type names one listener can host; null when it hosts every declared type. */
+    private static List<String> hostedServiceTypeNames(TriggerMetadataModel.Listener listener,
+                                                       Map<String, String> serviceTypeNamesById) {
+        if (listener.services() == null || listener.services().isEmpty()) {
+            return null;
+        }
+        List<String> names = new ArrayList<>();
+        for (String id : listener.services()) {
+            String name = serviceTypeNamesById.get(id);
+            if (name != null) {
+                names.add(name);
+            }
+        }
+        if (names.isEmpty() || names.size() == serviceTypeNamesById.size()) {
+            return null;
+        }
+        return names;
     }
 
     private static TriggerUISchemaModel.Property groupSectionProperty(String label, String description,
@@ -522,23 +571,26 @@ public final class TriggerModelSynthesizer {
     }
 
     /**
-     * The introspected listener matching the authoring schema's declared type, or the first one on a
-     * miss (including when the authoring schema declares no type at all).
+     * The introspected listener matching the authoring schema's declared type. On a miss: the first one when
+     * the document declares a single listener, else {@code null} — with several there is no tie-breaker, and
+     * guessing would describe one listener with another's parameters.
      */
     private static TriggerLibraryFacts.Listener findListener(TriggerMetadataModel.Listener listener,
-                                                              TriggerLibraryFacts facts) {
+                                                              TriggerLibraryFacts facts, int declaredCount) {
         if (facts.listeners() == null || facts.listeners().isEmpty()) {
             return null;
         }
         String name = listener.type() == null ? null : listener.type().name();
         if (name != null) {
-            int colon = name.lastIndexOf(':');
-            String simpleName = colon < 0 ? name : name.substring(colon + 1);
+            String simpleName = simpleName(name);
             for (TriggerLibraryFacts.Listener candidate : facts.listeners()) {
                 if (candidate.type().equals(simpleName)) {
                     return candidate;
                 }
             }
+        }
+        if (declaredCount > 1) {
+            return null;
         }
         return facts.listeners().get(0);
     }
