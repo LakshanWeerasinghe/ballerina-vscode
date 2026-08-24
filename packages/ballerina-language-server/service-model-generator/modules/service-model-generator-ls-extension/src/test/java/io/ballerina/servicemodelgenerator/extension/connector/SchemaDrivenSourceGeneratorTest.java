@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -302,6 +303,32 @@ public class SchemaDrivenSourceGeneratorTest {
 
     private static Value selectedChoice(Value choiceField) {
         return choiceField.getChoices().stream().filter(Value::isEnabled).findFirst().orElseThrow();
+    }
+
+    /**
+     * Selecting a listener type emits that type, with no generator change: {@code collect} already descends
+     * the enabled branch and {@code listenerTypeOf} already reads {@code ballerinaType} off the name field.
+     */
+    @Test
+    public void testSelectedListenerTypeDecidesTheEmittedDeclaration() throws Exception {
+        ServiceInitModel creation = loadMcpMulti();
+        Assert.assertEquals(SchemaDrivenSourceGenerator.buildListenerDeclaration(creation),
+                "listener mcp:StreamableHttpListener mcpListener = new (8080);",
+                "the fixture ships the Streamable HTTP branch selected");
+
+        ServiceInitModel deprecated = loadMcpMulti();
+        List<Value> branches = deprecated.getProperties().get("listener").getChoices().getFirst()
+                .getProperties().get("listenerType").getChoices();
+        branches.get(0).setEnabled(false);
+        branches.get(1).setEnabled(true);
+        Assert.assertEquals(SchemaDrivenSourceGenerator.buildListenerDeclaration(deprecated),
+                "listener mcp:Listener mcpListener = new (8080);",
+                "selecting the other listener type must emit that type, with the same arguments");
+    }
+
+    private ServiceInitModel loadMcpMulti() throws Exception {
+        Path path = resource("connector_models/mcp_multi/resources/service-creation.json");
+        return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), ServiceInitModel.class);
     }
 
     private Path resource(String name) throws Exception {

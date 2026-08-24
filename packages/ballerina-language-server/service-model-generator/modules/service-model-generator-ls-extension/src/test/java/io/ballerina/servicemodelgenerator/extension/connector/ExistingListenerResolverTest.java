@@ -346,9 +346,57 @@ public class ExistingListenerResolverTest {
         return model.getProperties().get("listener").getChoices().getFirst().getProperties();
     }
 
+    /** A single-listener connector has no selector, so an existing listener reads against create-new. */
+    @Test
+    public void testSingleListenerConnectorHasNoTypeBranches() throws Exception {
+        Value createNewBranch = loadHubspotCreationModel().getProperties()
+                .get("configureListener").getChoices().get(0);
+        Assert.assertTrue(ExistingListenerResolver.listenerTypeBranches(createNewBranch).isEmpty(),
+                "hubspot declares one listener, so there is nothing to match a declared listener against");
+    }
+
+    /**
+     * An existing listener is read against the branch describing its own type; the branches do not agree on
+     * parameters, so the wrong one would map its arguments onto the wrong fields.
+     */
+    @Test
+    public void testExistingListenerIsMatchedToItsOwnTypeBranch() throws Exception {
+        Value createNewBranch = loadMcpMultiCreationModel().getProperties()
+                .get("listener").getChoices().get(0);
+        List<Value> branches = ExistingListenerResolver.listenerTypeBranches(createNewBranch);
+        Assert.assertEquals(branches.size(), 2, "the fixture declares two listener types");
+
+        Assert.assertSame(ExistingListenerResolver.matchByListenerType(branches, "StreamableHttpListener"),
+                branches.get(0));
+        Assert.assertSame(ExistingListenerResolver.matchByListenerType(branches, "Listener"),
+                branches.get(1));
+        Assert.assertSame(ExistingListenerResolver.matchByListenerType(branches, "streamablehttplistener"),
+                branches.get(0), "matched case-insensitively, as Ballerina type names reach us verbatim");
+    }
+
+    /** An unreadable or unknown type degrades to the selected branch rather than resolving nothing. */
+    @Test
+    public void testAnUnknownListenerTypeFallsBackToTheSelectedBranch() throws Exception {
+        Value createNewBranch = loadMcpMultiCreationModel().getProperties()
+                .get("listener").getChoices().get(0);
+        List<Value> branches = ExistingListenerResolver.listenerTypeBranches(createNewBranch);
+
+        Assert.assertSame(ExistingListenerResolver.matchByListenerType(branches, null), branches.get(0),
+                "an unreadable type falls back to the selected branch");
+        Assert.assertSame(ExistingListenerResolver.matchByListenerType(branches, "SomeOtherListener"),
+                branches.get(0), "so does a type no branch describes");
+    }
+
     private ServiceInitModel loadHubspotCreationModel() throws Exception {
-        Path path = Paths.get(getClass().getClassLoader()
-                .getResource("connector_models/hubspot/resources/service-creation.json").toURI());
+        return load("connector_models/hubspot/resources/service-creation.json");
+    }
+
+    private ServiceInitModel loadMcpMultiCreationModel() throws Exception {
+        return load("connector_models/mcp_multi/resources/service-creation.json");
+    }
+
+    private ServiceInitModel load(String resource) throws Exception {
+        Path path = Paths.get(getClass().getClassLoader().getResource(resource).toURI());
         return new Gson().fromJson(Files.readString(path, StandardCharsets.UTF_8), ServiceInitModel.class);
     }
 }
