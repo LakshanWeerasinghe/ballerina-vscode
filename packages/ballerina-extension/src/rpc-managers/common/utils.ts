@@ -34,7 +34,7 @@ import {
 import { readOrWriteReadmeContent, resolveReadmePath } from '../bi-diagram/utils';
 import { README_FILE } from '../../utils/bi';
 
-export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-ballerina-integrator/issues";
+export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-integrator/issues";
 const PACKAGE_FILE = "PACKAGE.md";
 
 interface ProgressMessage {
