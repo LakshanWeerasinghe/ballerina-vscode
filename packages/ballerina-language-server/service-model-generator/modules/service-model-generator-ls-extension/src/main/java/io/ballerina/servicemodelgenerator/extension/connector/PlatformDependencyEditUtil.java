@@ -36,6 +36,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -116,7 +117,12 @@ public final class PlatformDependencyEditUtil {
     }
 
     private static String relativize(Project project, String rawPath) {
-        Path rawCandidate = Path.of(rawPath);
+        Path rawCandidate;
+        try {
+            rawCandidate = Path.of(rawPath);
+        } catch (InvalidPathException e) {
+            return rawPath.replace('\\', '/');
+        }
         if (!rawCandidate.isAbsolute()) {
             return rawPath.replace('\\', '/');
         }
