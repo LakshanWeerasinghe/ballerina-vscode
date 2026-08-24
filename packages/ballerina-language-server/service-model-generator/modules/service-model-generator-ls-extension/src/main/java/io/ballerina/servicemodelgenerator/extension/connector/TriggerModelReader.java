@@ -58,6 +58,8 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_LISTENER;
+
 /**
  * Reads the unified {@code trigger-ui-schema.json} for a connector, bundled, shipped, or synthesized.
  */
@@ -156,6 +158,10 @@ public class TriggerModelReader {
     }
 
     private final Gson gson = new Gson();
+    /** Static counterpart of {@link #gson}, for the init-form derivation that runs before binding. */
+    private static final Gson DERIVATION_GSON = new Gson();
+    private static final Type LISTENER_MODEL_LIST_TYPE =
+            new TypeToken<List<TriggerUISchemaModel.ListenerModel>>() { }.getType();
     private final Cache<String, Optional<TriggerUISchemaModel>> bundledTriggerCache =
             Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
     private final Cache<String, Optional<JsonObject>> bundledInitJsonCache =
@@ -186,8 +192,42 @@ public class TriggerModelReader {
                 remapped.add(key, root.get(key));
             }
         }
-        remapped.add("properties", initProperties);
+        remapped.add("properties", withDerivedListenerField(root, initProperties.getAsJsonObject()));
         return Optional.of(remapped);
+    }
+
+    /**
+     * The init form's properties with the listener field derived from a model's declared {@code listeners}
+     * placed first. An authored listener field wins, so this can be adopted per connector.
+     */
+    private static JsonObject withDerivedListenerField(JsonObject root, JsonObject authored) {
+        JsonElement listeners = root.get("listeners");
+        if (listeners == null || !listeners.isJsonArray() || listeners.getAsJsonArray().isEmpty()
+                || authored.has(PROP_KEY_LISTENER)) {
+            return authored.deepCopy();
+        }
+        JsonElement derived = null;
+        try {
+            List<TriggerUISchemaModel.ListenerModel> declared =
+                    DERIVATION_GSON.fromJson(listeners, LISTENER_MODEL_LIST_TYPE);
+            JsonElement listenerKind = root.get("listenerKind");
+            derived = ListenerChoiceDeriver.derive(declared,
+                            listenerKind == null || listenerKind.isJsonNull()
+                                    ? null : listenerKind.getAsString(),
+                            DERIVATION_GSON.fromJson(root.get("listenerForm"),
+                                    TriggerUISchemaModel.ListenerFormModel.class))
+                    .map(DERIVATION_GSON::toJsonTree)
+                    .orElse(null);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Could not derive the listener field from `listeners`", e);
+        }
+        if (derived == null) {
+            return authored.deepCopy();
+        }
+        JsonObject ordered = new JsonObject();
+        ordered.add(PROP_KEY_LISTENER, derived);
+        authored.entrySet().forEach(entry -> ordered.add(entry.getKey(), entry.getValue()));
+        return ordered;
     }
 
     /** A fresh {@link ServiceInitModel} bound from {@link #initFormJson}; never a shared instance. */
@@ -422,13 +462,13 @@ public class TriggerModelReader {
         Map<String, TriggerLibraryFacts> crossModuleFacts =
                 resolveCrossModuleFacts(metadata, resolvedOrg, resolvedPackageName);
 
-        Listener listenerModel = resolveListenerModel(metadata, semanticModel, resolvedOrg,
+        Map<String, Listener> listenerModels = resolveListenerModels(metadata, semanticModel, resolvedOrg,
                 resolvedPackageName, moduleName, resolvedVersion);
 
         String displayName = TriggerModelSynthesizer.humanize(moduleName);
         String icon = CommonUtils.generateIcon(resolvedOrg, resolvedPackageName, resolvedVersion);
 
-        return TriggerModelSynthesizer.synthesize(metadata, facts, crossModuleFacts, listenerModel, moduleName,
+        return TriggerModelSynthesizer.synthesize(metadata, facts, crossModuleFacts, listenerModels, moduleName,
                 displayName, icon, "event", resolvedOrg, resolvedPackageName, moduleName, resolvedVersion);
     }
 
@@ -477,22 +517,37 @@ public class TriggerModelReader {
         }
     }
 
-    /** Resolves the listener init-form template via {@link ListenerUtil#getListenerModelFromConnectorPackage}. */
-    private static Listener resolveListenerModel(TriggerMetadataModel metadata, SemanticModel semanticModel,
-                                                 String orgName, String packageName, String moduleName,
-                                                 String version) {
-        try {
-            String listenerType = metadata.listeners().get(0).type().name();
-            Codedata codedata = new Codedata.Builder()
-                    .setType(listenerType)
-                    .setOrgName(orgName)
-                    .setPackageName(packageName)
-                    .setModuleName(moduleName)
-                    .setVersion(version)
-                    .build();
-            return ListenerUtil.getListenerModelFromConnectorPackage(codedata, semanticModel, null).orElse(null);
-        } catch (Throwable e) {
-            return null;
+    /**
+     * One listener init-form template per declared listener, keyed by its type's simple name. A type that
+     * cannot be introspected is left out, costing only that listener its parameter widgets.
+     */
+    private static Map<String, Listener> resolveListenerModels(TriggerMetadataModel metadata,
+                                                               SemanticModel semanticModel, String orgName,
+                                                               String packageName, String moduleName,
+                                                               String version) {
+        Map<String, Listener> models = new LinkedHashMap<>();
+        if (metadata.listeners() == null) {
+            return models;
         }
+        for (TriggerMetadataModel.Listener listener : metadata.listeners()) {
+            if (listener.type() == null || listener.type().name() == null) {
+                continue;
+            }
+            String listenerType = listener.type().name();
+            try {
+                Codedata codedata = new Codedata.Builder()
+                        .setType(listenerType)
+                        .setOrgName(orgName)
+                        .setPackageName(packageName)
+                        .setModuleName(moduleName)
+                        .setVersion(version)
+                        .build();
+                ListenerUtil.getListenerModelFromConnectorPackage(codedata, semanticModel, null)
+                        .ifPresent(model -> models.put(listenerType, model));
+            } catch (Throwable e) {
+                LOGGER.log(Level.FINE, "Could not resolve the listener model for " + listenerType, e);
+            }
+        }
+        return models;
     }
 }
