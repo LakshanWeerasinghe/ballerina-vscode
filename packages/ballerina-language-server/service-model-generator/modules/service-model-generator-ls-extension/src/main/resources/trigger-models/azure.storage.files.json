@@ -75,7 +75,8 @@
                   "types": [
                     {
                       "fieldType": "IDENTIFIER",
-                      "selected": true
+                      "selected": true,
+                      "ballerinaType": "azure.storage.files:Listener"
                     }
                   ],
                   "value": "azFilesListener",

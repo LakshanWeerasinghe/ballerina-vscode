@@ -150,6 +150,46 @@ public class BundledTriggerMetadataTest {
     }
 
     /**
+     * Spec §2: a document may declare more than one listener, and the two invariants the UI schema's
+     * listener branching rests on — a branch is identified by its listener type's simple name, so two
+     * listeners may not share one; and side effects are emitted per document rather than per selected
+     * branch, so every listener in a document must need the same ones.
+     */
+    @Test
+    public void testMultiListenerDocumentsAreDistinctAndAgreeOnSideEffects() {
+        int multiListenerDocuments = 0;
+        for (String module : bundledModules()) {
+            List<TriggerMetadataModel.Listener> listeners = read(module).listeners();
+            if (listeners.size() < 2) {
+                continue;
+            }
+            multiListenerDocuments++;
+            Set<String> typeNames = new HashSet<>();
+            for (TriggerMetadataModel.Listener listener : listeners) {
+                Assert.assertNotNull(listener.type(), module + ": listeners[].type is required");
+                String typeName = listener.type().name();
+                assertProse(typeName, module + ": listeners[].type.name");
+                Assert.assertTrue(typeNames.add(typeName), module + ": two listeners both named `" + typeName
+                        + "`. A listener branch is identified by its type name, so a duplicate makes"
+                        + " matching a declared listener back to its branch ambiguous.");
+            }
+            TriggerMetadataModel.Listener first = listeners.get(0);
+            for (TriggerMetadataModel.Listener listener : listeners) {
+                Assert.assertEquals(asSet(listener.requiredImports()), asSet(first.requiredImports()),
+                        module + ": " + listener.type().name() + " needs different imports than "
+                                + first.type().name() + ". Imports are emitted per document, not per"
+                                + " selected branch, so they must be scoped to the branch first.");
+                Assert.assertEquals(asSet(listener.platformDependencies()), asSet(first.platformDependencies()),
+                        module + ": " + listener.type().name() + " needs different platform dependencies"
+                                + " than " + first.type().name() + ". Same reason as imports.");
+            }
+        }
+        Assert.assertTrue(multiListenerDocuments > 0, "No document in the corpus declares more than one"
+                + " listener, so this test would pass even if the invariants it pins were violated."
+                + " ballerina/mcp is the instance: StreamableHttpListener plus a deprecated Listener.");
+    }
+
+    /**
      * Spec §0: a handler, its params and its return carry hierarchical ids scoped under their owner.
      *
      * <p>Also pins the containment rule the spec states in prose — "built by appending the child's own name
@@ -452,6 +492,11 @@ public class BundledTriggerMetadataTest {
 
     private static List<TriggerMetadataModel.Subject> safeSubjects(List<TriggerMetadataModel.Subject> subjects) {
         return subjects == null ? List.of() : subjects;
+    }
+
+    /** A list compared by membership rather than order; absent and empty are the same thing here. */
+    private static <T> Set<T> asSet(List<T> values) {
+        return values == null ? Set.of() : new HashSet<>(values);
     }
 
     private static void assertId(String id, String where) {
