@@ -18,7 +18,7 @@
 
 import React, { createRef, useCallback, useEffect, useRef, useState } from "react";
 import {
-    BALLERINA_INTEGRATOR_ISSUES_URL,
+    PRODUCT_INTEGRATOR_ISSUES_URL,
     KeyboardNavigationManager,
     MachineStateValue,
     STModification,
@@ -1051,7 +1051,7 @@ const MainPanel = () => {
         <>
             <Global styles={globalStyles} />
             <VisualizerContainer id="visualizer-container">
-                <ErrorBoundary goHome={handleNavigateToOverview} errorMsg="An error occurred in the visualizer" issueUrl={BALLERINA_INTEGRATOR_ISSUES_URL} ref={errorBoundaryRef} resetKeys={[viewComponent]}>
+                <ErrorBoundary goHome={handleNavigateToOverview} errorMsg="An error occurred in the visualizer" issueUrl={PRODUCT_INTEGRATOR_ISSUES_URL} ref={errorBoundaryRef} resetKeys={[viewComponent]}>
                     {/* {navActive && <NavigationBar showHome={showHome} />} */}
                     {showNavProgress && <ProgressIndicator id="visualizer-nav-progress" />}
                     {(showOverlay || modalStack.length > 0) && <Overlay />}

@@ -27,7 +27,7 @@ import {
     CommandsResponse,
     CommonRPCAPI,
     Completion,
-    BALLERINA_INTEGRATOR_ISSUES_URL,
+    PRODUCT_INTEGRATOR_ISSUES_URL,
     CompletionParams,
     DefaultOrgNameResponse,
     DiagnosticData,
@@ -316,7 +316,7 @@ export class CommonRpcManager implements CommonRPCAPI {
 
     async showErrorMessage(params: ShowErrorMessageRequest): Promise<void> {
         const messageWithLink = new MarkdownString(params.message);
-        messageWithLink.appendMarkdown(`\n\nPlease [create an issue](${BALLERINA_INTEGRATOR_ISSUES_URL}) if the issue persists.`);
+        messageWithLink.appendMarkdown(`\n\nPlease [create an issue](${PRODUCT_INTEGRATOR_ISSUES_URL}) if the issue persists.`);
         window.showErrorMessage(messageWithLink.value);
     }
 

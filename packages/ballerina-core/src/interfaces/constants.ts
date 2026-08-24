@@ -16,7 +16,7 @@
  * under the License.
  */
 
-export const BALLERINA_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-integrator/issues";
+export const PRODUCT_INTEGRATOR_ISSUES_URL = "https://github.com/wso2/product-integrator/issues";
 
 export const SHARED_COMMANDS = {
     FORCE_UPDATE_PROJECT_ARTIFACTS: 'ballerina.force.update.artifacts',

@@ -18,7 +18,7 @@
 
 import React from "react";
 
-import { BALLERINA_INTEGRATOR_ISSUES_URL, CodeData, LinePosition, NodePosition } from "@wso2/ballerina-core";
+import { CodeData, LinePosition, NodePosition } from "@wso2/ballerina-core";
 import { DataMapperErrorBoundary } from "@wso2/ballerina-data-mapper";
 
 import { TopNavigationBar } from "../../components/TopNavigationBar";
