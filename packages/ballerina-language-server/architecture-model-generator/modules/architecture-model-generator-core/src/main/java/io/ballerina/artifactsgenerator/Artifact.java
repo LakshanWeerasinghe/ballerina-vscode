@@ -142,10 +142,11 @@ public record Artifact(String id, LineRange location, String type, String name, 
     );
 
     /**
-     * Modules that carry the service's watched path in its attach point instead of a service annotation, so the
-     * entry-point label appends the attach point even though the service also has a type descriptor.
+     * Modules whose service can carry its watched path in the attach point, so the entry-point label appends that
+     * path even though the service also has a type descriptor. Azure Files has no path annotation at all; SMB has
+     * one that wins whenever it is present, which leaves the attach point as its fallback.
      */
-    private static final Set<String> attachPointNamedModules = Set.of("azure.storage.files");
+    private static final Set<String> attachPointNamedModules = Set.of("azure.storage.files", "smb");
 
     public static String getCategory(String type) {
         return typeCategoryMap.getOrDefault(type, CATEGORY_DEFAULT);
@@ -365,15 +366,17 @@ public record Artifact(String id, LineRange location, String type, String name, 
     }
 
     /**
-     * Whether the module carries its service's watched path in the attach point rather than a service annotation,
-     * as in {@code service files:Service "/invoices" on lsn}, where the attach point is the only place the path
-     * appears.
+     * Whether the module can take its service's watched path from the attach point, as in
+     * {@code service files:Service /invoices on lsn}.
+     *
+     * <p>An entry-point label is required too, since without one {@code serviceNameWithPath} would emit a bare
+     * path with no connector name — worse than the type-descriptor label this branch pre-empts.
      *
      * @param module the module name the semantic model reports
      * @return true when the attach point supplies the name
      */
     public static boolean usesAttachPointAsName(String module) {
-        return module != null && attachPointNamedModules.contains(module);
+        return module != null && attachPointNamedModules.contains(module) && entryPointMap.containsKey(module);
     }
 
     static String unquote(String value) {

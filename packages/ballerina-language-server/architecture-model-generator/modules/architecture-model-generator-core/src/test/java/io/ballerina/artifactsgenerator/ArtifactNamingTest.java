@@ -28,14 +28,15 @@ import org.testng.annotations.Test;
  */
 public class ArtifactNamingTest {
 
-    @Test(description = "Name Azure Files services from the attach point, and no other module")
+    @Test(description = "Name Azure Files and SMB services from the attach point, and no other module")
     public void testUsesAttachPointAsName() {
         Assert.assertTrue(Artifact.usesAttachPointAsName("azure.storage.files"));
-        // ftp and smb carry the watched path in a service annotation, so their attach point is not the name.
+        // SMB's @smb:ServiceConfig path wins when present, so this is only its fallback.
+        Assert.assertTrue(Artifact.usesAttachPointAsName("smb"));
         Assert.assertFalse(Artifact.usesAttachPointAsName("ftp"));
-        Assert.assertFalse(Artifact.usesAttachPointAsName("smb"));
         Assert.assertFalse(Artifact.usesAttachPointAsName("http"));
         Assert.assertFalse(Artifact.usesAttachPointAsName(null));
+        Assert.assertFalse(Artifact.usesAttachPointAsName("not.a.module"));
     }
 
     @Test(description = "Strip the quotes a string-literal attach point arrives with")
