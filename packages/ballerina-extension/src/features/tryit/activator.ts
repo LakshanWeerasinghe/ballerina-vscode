@@ -35,6 +35,7 @@ import { getCurrentProjectRoot } from "../../utils/project-utils";
 import { requiresPackageSelection, selectIntegrationOrPrompt } from "../../utils/command-utils";
 import { VisualizerWebview } from "../../views/visualizer/webview";
 import { TracerMachine } from "../tracing";
+import { resolveServiceType, ServiceType } from "./service-type";
 
 // File constants
 const FILE_NAMES = {
@@ -416,29 +417,6 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
     }
 }
 
-// The design model reports service types as module-qualified names (e.g. 'mcp:StreamableHttpService'),
-// so the module prefix is what identifies the kind. A substring match on the type name would classify
-// MCP services as HTTP, since 'StreamableHttpService' contains 'Http'.
-function resolveServiceType(type: string): ServiceType | undefined {
-    // The design model omits the type for services whose listener could not be resolved.
-    if (!type) {
-        return undefined;
-    }
-
-    switch (type.split(':')[0].trim().toLowerCase()) {
-        case 'http':
-            return ServiceType.HTTP;
-        case 'graphql':
-            return ServiceType.GRAPHQL;
-        case 'mcp':
-            return ServiceType.MCP;
-        case 'ai':
-            return ServiceType.AGENT;
-        default:
-            return undefined;
-    }
-}
-
 async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] | null> {
     try {
         const langClient = StateMachine.langClient();
@@ -455,7 +433,7 @@ async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] |
                 const trimmedPath = absolutePath.trim();
                 const name = displayName || (trimmedPath.startsWith('/') ? trimmedPath.substring(1) : trimmedPath);
 
-                const serviceType = resolveServiceType(type);
+                const serviceType = resolveServiceType(type)!;
 
                 const listener = {
                     name: attachedListeners
@@ -1086,13 +1064,6 @@ function disposeErrorWatcher() {
 }
 
 // Service information interface
-enum ServiceType {
-    HTTP = 'HTTP',
-    AGENT = 'AI Agent',
-    GRAPHQL = 'GraphQL',
-    MCP = 'MCP'
-}
-
 interface ServiceInfo {
     name?: string;
     basePath: string;
