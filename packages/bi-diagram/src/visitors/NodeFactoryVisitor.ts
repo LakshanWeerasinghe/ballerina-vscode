@@ -182,7 +182,7 @@ export class NodeFactoryVisitor implements BaseVisitor {
     }
 
     // Comments render as note chips on another node, so they never count as branch content.
-    private getRenderableChildren(branch: Branch): FlowNode[] {
+    private getRenderableBranchChildren(branch: Branch): FlowNode[] {
         return branch.children?.filter((child) => child.codedata.node !== "COMMENT") ?? [];
     }
 
@@ -334,7 +334,7 @@ export class NodeFactoryVisitor implements BaseVisitor {
             }
 
             // get last child node model
-            const renderableChildren = this.getRenderableChildren(branch);
+            const renderableChildren = this.getRenderableBranchChildren(branch);
             const lastNode = renderableChildren.at(-1);
             if (!lastNode) {
                 console.error("Branch has no renderable children", branch);
@@ -548,7 +548,7 @@ export class NodeFactoryVisitor implements BaseVisitor {
         endContainerEmptyNode.setParentFlowNode(node);
         this.lastNodeModel = endContainerEmptyNode;
 
-        const renderableChildren = this.getRenderableChildren(branch);
+        const renderableChildren = this.getRenderableBranchChildren(branch);
         if (renderableChildren.length === 1 && renderableChildren[0].codedata.node === "EMPTY") {
             const branchEmptyNodeModel = renderableChildren[0];
 
@@ -703,7 +703,7 @@ export class NodeFactoryVisitor implements BaseVisitor {
             this.lastNodeModel = containerNodeModel;
         }
 
-        const bodyRenderableChildren = this.getRenderableChildren(bodyBranch);
+        const bodyRenderableChildren = this.getRenderableBranchChildren(bodyBranch);
         if (bodyRenderableChildren.at(0)?.codedata.node === "EMPTY") {
             const branchEmptyNodeModel = bodyRenderableChildren.at(0);
             if (!branchEmptyNodeModel || !branchEmptyNodeModel.viewState) {
