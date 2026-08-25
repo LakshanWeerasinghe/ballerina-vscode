@@ -19,7 +19,7 @@
       "concrete": false,
       "multipleListenersAllowed": false,
       "annotations": ["$serviceConfig"],
-      "identifier": { "presence": "optional", "form": ["basePath"] },
+      "identifier": { "presence": "required", "form": ["basePath"] },
       "handlers": {
         "backedByConcreteType": false,
         "options": [

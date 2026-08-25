@@ -306,10 +306,8 @@ public record Artifact(String id, LineRange location, String type, String name, 
             return this;
         }
 
-        // Azure Files-style triggers watch the path in `service files:Service "/invoices" on lsn`, so the attach
-        // point is the only place the watched path appears.
-        public boolean usesAttachPointAsName() {
-            return module != null && attachPointNamedModules.contains(module);
+        public String module() {
+            return module;
         }
 
         public Builder serviceName(String name) {
@@ -366,7 +364,19 @@ public record Artifact(String id, LineRange location, String type, String name, 
         }
     }
 
-    private static String unquote(String value) {
+    /**
+     * Whether the module carries its service's watched path in the attach point rather than a service annotation,
+     * as in {@code service files:Service "/invoices" on lsn}, where the attach point is the only place the path
+     * appears.
+     *
+     * @param module the module name the semantic model reports
+     * @return true when the attach point supplies the name
+     */
+    public static boolean usesAttachPointAsName(String module) {
+        return module != null && attachPointNamedModules.contains(module);
+    }
+
+    static String unquote(String value) {
         if (value == null || value.length() < 2 || !value.startsWith("\"") || !value.endsWith("\"")) {
             return value;
         }
