@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
+ * Copyright (c) 2026, WSO2 LLC. (https://www.wso2.com) All Rights Reserved.
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -31,10 +31,18 @@ interface DropdownEditorProps {
     field: FormField;
 }
 
-export function FileSelect(props: DropdownEditorProps) {
+/**
+ * A FILE_SELECT sibling for fields that must resolve to a path relative to the current
+ * integration (e.g. platform-dependency JARs) — a file picked from outside the integration is
+ * copied into it (under `libs/` by default) rather than merely validated. Kept as its own
+ * component, deliberately not a shared refactor of {@link FileSelect}: that component's
+ * `selectFileOrDirPath` RPC is also used by OpenAPI-spec import and MCP cert/keystore pickers,
+ * none of which want copy-into-project semantics.
+ */
+export function ProjectFileSelect(props: DropdownEditorProps) {
     const { field } = props;
     const { form } = useFormContext();
-    const { setValue, control } = form;
+    const { setValue, setError, control } = form;
 
     const { rpcClient } = useRpcContext();
 
@@ -42,7 +50,7 @@ export function FileSelect(props: DropdownEditorProps) {
         try {
             const extensions = getPrimaryInputType(field.types)?.extensions;
             const filters = extensions?.length ? { [field.label]: extensions } : undefined;
-            const selection = await rpcClient.getCommonRpcClient().selectFileOrDirPath({ isFile: true, filters });
+            const selection = await rpcClient.getCommonRpcClient().selectProjectRelativeFile({ filters });
             // A dismissed dialog (and a host that rejected the selection) comes back
             // with an empty path — keep any earlier pick rather than clearing it.
             if (selection?.path) {
@@ -50,6 +58,7 @@ export function FileSelect(props: DropdownEditorProps) {
             }
         } catch (error) {
             console.error(">>> Error selecting the file", error);
+            setError(field.key, { type: "file_select_failed", message: `Failed to select ${field.label}. Please try again.` });
         }
     };
 
