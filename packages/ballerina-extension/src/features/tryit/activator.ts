@@ -416,6 +416,29 @@ async function findServiceForResource(services: ServiceInfo[], resourceMetadata:
     }
 }
 
+// The design model reports service types as module-qualified names (e.g. 'mcp:StreamableHttpService'),
+// so the module prefix is what identifies the kind. A substring match on the type name would classify
+// MCP services as HTTP, since 'StreamableHttpService' contains 'Http'.
+function resolveServiceType(type: string): ServiceType | undefined {
+    // The design model omits the type for services whose listener could not be resolved.
+    if (!type) {
+        return undefined;
+    }
+
+    switch (type.split(':')[0].trim().toLowerCase()) {
+        case 'http':
+            return ServiceType.HTTP;
+        case 'graphql':
+            return ServiceType.GRAPHQL;
+        case 'mcp':
+            return ServiceType.MCP;
+        case 'ai':
+            return ServiceType.AGENT;
+        default:
+            return undefined;
+    }
+}
+
 async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] | null> {
     try {
         const langClient = StateMachine.langClient();
@@ -427,25 +450,12 @@ async function getAvailableServices(projectDir: string): Promise<ServiceInfo[] |
         });
 
         const services = response.designModel.services
-            .filter(({ type }) => {
-                const lowerType = type.toLowerCase();
-                return lowerType.includes('http') || lowerType.includes('ai') || lowerType.includes('graphql') || lowerType.includes('mcp');
-            })
+            .filter(({ type }) => resolveServiceType(type) !== undefined)
             .map(({ displayName, absolutePath, location, attachedListeners, type }) => {
                 const trimmedPath = absolutePath.trim();
                 const name = displayName || (trimmedPath.startsWith('/') ? trimmedPath.substring(1) : trimmedPath);
 
-                let serviceType: ServiceType;
-                const lowerType = type.toLowerCase();
-                if (lowerType.includes('http')) {
-                    serviceType = ServiceType.HTTP;
-                } else if (lowerType.includes('graphql')) {
-                    serviceType = ServiceType.GRAPHQL;
-                } else if (lowerType.includes('mcp')) {
-                    serviceType = ServiceType.MCP;
-                } else {
-                    serviceType = ServiceType.AGENT;
-                }
+                const serviceType = resolveServiceType(type);
 
                 const listener = {
                     name: attachedListeners
