@@ -45,7 +45,15 @@ describe('resolveServiceType', () => {
         expect(resolveServiceType(type as string)).toBeUndefined();
     });
 
-    it('tolerates the indentation the anonymous-listener path carries', () => {
-        expect(resolveServiceType('        http:Service')).toBe(ServiceType.HTTP);
+    // The anonymous-listener path builds the type from the listener's source code, so
+    // whatever trivia precedes the type descriptor rides along:
+    //   service /x on new
+    //           // a standalone comment
+    //           http:Listener(9201)
+    it.each([
+        ['indentation', '        http:Service'],
+        ['a standalone comment line', '        // a standalone comment\n        http:Service'],
+    ])('sees past %s', (_case, type) => {
+        expect(resolveServiceType(type)).toBe(ServiceType.HTTP);
     });
 });

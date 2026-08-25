@@ -24,14 +24,14 @@ export enum ServiceType {
 }
 
 // Match the module prefix, not a substring of the whole name: 'mcp:StreamableHttpService'
-// contains 'Http'. trim() because the anonymous-listener path builds the type from source
-// code and can carry the listener's indentation.
+// contains 'Http'. The anonymous-listener path builds the type from source code, so the
+// prefix arrives with the listener's leading trivia attached, comments included.
 export function resolveServiceType(type: string): ServiceType | undefined {
     if (!type) {
         return undefined;
     }
 
-    switch (type.split(':')[0].trim().toLowerCase()) {
+    switch (type.replace(/\/\/[^\n]*/g, '').split(':')[0].trim().toLowerCase()) {
         case 'http':
             return ServiceType.HTTP;
         case 'graphql':
