@@ -75,6 +75,46 @@ public class DriverDependencyFieldTest {
     }
 
     @Test
+    public void testGroupIsCollapsedWhenEveryDriverIsAlreadyDeclared() throws URISyntaxException {
+        ServiceInitModel initModel = loadSapJcoInitModel();
+        Project project = load("platform_dependency/both_declared");
+
+        PlatformDependencyEditUtil.populateDriverDependencyFields(initModel, project);
+
+        Map<String, Value> driverFields = PlatformDependencyEditUtil
+                .findDriverDependencyFields(initModel.getProperties());
+        driverFields.values().forEach(field -> Assert.assertFalse(field.isEnabled(),
+                "every declared driver must be hidden"));
+        Value group = initModel.getProperties().get("driverDependencies");
+        Assert.assertNotNull(group, "sap.jco must ship the driver fields inside a group");
+        Assert.assertFalse(group.isEnabled(),
+                "a group left with nothing but hidden drivers must not render as an empty section");
+    }
+
+    @Test
+    public void testGroupStaysEnabledWhileAnyDriverIsStillNeeded() throws URISyntaxException {
+        ServiceInitModel initModel = loadSapJcoInitModel();
+        Project project = load("platform_dependency/already_declared");
+
+        PlatformDependencyEditUtil.populateDriverDependencyFields(initModel, project);
+
+        Assert.assertTrue(initModel.getProperties().get("driverDependencies").isEnabled(),
+                "the group must stay visible while the idoc driver is still unanswered");
+    }
+
+    @Test
+    public void testOverlaySkipsConnectorsWithoutABundledModel() throws URISyntaxException {
+        Listener listener = new Listener(null, null, null, null, null, "http", "ballerina", "2.14.0",
+                null, null, null, new LinkedHashMap<>(), null);
+        Project project = load("platform_dependency/no_dependency");
+
+        PlatformDependencyEditUtil.overlayDriverDependencies(listener, "ballerina", "http", "2.14.0", project);
+
+        Assert.assertTrue(listener.getProperties().isEmpty(),
+                "a connector with no bundled trigger model must not be resolved on the listener-model path");
+    }
+
+    @Test
     public void testFilledFieldsProduceOneTomlEditEach() throws URISyntaxException {
         ServiceInitModel filledModel = loadSapJcoInitModel();
         Map<String, Value> driverFields = PlatformDependencyEditUtil

@@ -658,6 +658,5 @@ export async function evaluateAsyncClientRules(
             });
         }
     }
-
     return failures;
 }

@@ -213,7 +213,15 @@ export async function copyIntoIntegration(root: string, src: string, targetDir: 
     }
 }
 
-export async function applyBallerinaTomlEdit(tomlPath: Uri, textEdit: TextEdit) {
+/**
+ * Applies one `Ballerina.toml` edit and resolves only once it has landed.
+ *
+ * Callers apply edits in an `await` loop, and a single operation can now emit several inserts at
+ * the same computed position (a local `[[dependency]]` plus one `[[platform.java21.dependency]]`
+ * per driver JAR). Returning the `applyEdit` promise is what makes that loop sequential — without
+ * it the edits race against each other on the same document version.
+ */
+export async function applyBallerinaTomlEdit(tomlPath: Uri, textEdit: TextEdit): Promise<boolean> {
     const workspaceEdit = new WorkspaceEdit();
 
     const range = new Range(new Position(textEdit.range.start.line, textEdit.range.start.character),
@@ -223,11 +231,11 @@ export async function applyBallerinaTomlEdit(tomlPath: Uri, textEdit: TextEdit) 
     workspaceEdit.replace(tomlPath, range, textEdit.newText);
 
     // Apply the edit
-    workspace.applyEdit(workspaceEdit).then(success => {
-        if (success) {
-        } else {
-        }
-    });
+    const success = await workspace.applyEdit(workspaceEdit);
+    if (!success) {
+        console.error(`>>> Failed to apply Ballerina.toml edit at ${tomlPath.fsPath}`);
+    }
+    return success;
 }
 
 export async function selectSampleDownloadPath(): Promise<string> {

@@ -30,7 +30,6 @@ import io.ballerina.toml.syntax.tree.DocumentNode;
 import io.ballerina.toml.syntax.tree.KeyValueNode;
 import io.ballerina.toml.syntax.tree.SyntaxKind;
 import io.ballerina.toml.syntax.tree.TableArrayNode;
-import io.ballerina.toml.syntax.tree.TableNode;
 import org.ballerinalang.langserver.commons.toml.common.TomlSyntaxTreeUtil;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -141,6 +140,39 @@ public final class PlatformDependencyEditUtil {
                 field.setEnabled(false);
             }
         }
+        collapseEmptyDriverGroups(creationModel.getProperties());
+    }
+
+    /**
+     * Disables any group left holding nothing but driver-dependency fields that were just hidden.
+     * The side panel drops a disabled leaf but still renders its enclosing group, so without this a
+     * project already declaring every driver shows an empty section header (e.g. "SAP Driver
+     * Libraries"). Purely a display concern: source generation ignores these fields either way,
+     * since their codedata carries no {@code argType}.
+     */
+    private static void collapseEmptyDriverGroups(Map<String, Value> properties) {
+        if (properties == null) {
+            return;
+        }
+        for (Value value : properties.values()) {
+            if (value == null || value.getProperties() == null || value.getProperties().isEmpty()) {
+                continue;
+            }
+            collapseEmptyDriverGroups(value.getProperties());
+            if (allHiddenDriverFields(value.getProperties())) {
+                value.setEnabled(false);
+            }
+        }
+    }
+
+    private static boolean allHiddenDriverFields(Map<String, Value> properties) {
+        for (Value child : properties.values()) {
+            if (child == null || child.isEnabled() || child.getCodedata() == null
+                    || child.getCodedata().getDriverDependency() == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static void addDriverDependenciesIfPresent(Map<String, List<TextEdit>> edits, Project project,
@@ -160,6 +192,15 @@ public final class PlatformDependencyEditUtil {
     public static void overlayDriverDependencies(Listener listener, String orgName, String moduleName,
                                                   String version, Project project) {
         if (listener == null || project == null) {
+            return;
+        }
+        // This runs on every getListenerModel call, so resolve no further than the bundled registry.
+        // Driver dependencies are declared only by bundled trigger models today; without this gate
+        // every non-bundled connector (http, grpc, ...) would fall through to LibraryMetadataReader
+        // for a template that can never carry one — and for a connector not yet in the local
+        // repository that resolution is deliberately not memoized (TriggerModelReader.Resolution),
+        // so it would re-run on every fetch. Revisit if a connector-shipped model ever needs one.
+        if (!TriggerModelReader.getInstance().hasBundledTriggerModel(moduleName)) {
             return;
         }
         Optional<ServiceInitModel> template = TriggerModelReader.getInstance()
@@ -185,6 +226,16 @@ public final class PlatformDependencyEditUtil {
         }
     }
 
+    /**
+     * The declared {@code [[platform.java21.dependency]]} matching {@code dependency} by
+     * {@code groupId}/{@code artifactId}.
+     *
+     * <p>The match deliberately ignores {@code version}, unlike {@link LocalDependencyEditUtil},
+     * which rewrites a drifted version in place. For a {@code scope = "provided"} dependency the
+     * JAR at {@code path} is what actually resolves and the version is inert metadata, so a project
+     * already pointing at its own SAP JCo build is treated as configured rather than having its
+     * manifest silently rewritten.
+     */
     private static Optional<Map<String, String>> findEntry(Project project, DriverDependency dependency) {
         if (project == null || dependency == null || dependency.getGroupId() == null
                 || dependency.getArtifactId() == null) {
@@ -206,7 +257,8 @@ public final class PlatformDependencyEditUtil {
             }
             Map<String, String> fields = new LinkedHashMap<>();
             for (KeyValueNode field : tableArrayNode.fields()) {
-                fields.put(field.identifier().toSourceCode().trim(), unquote(field.value().toSourceCode()));
+                fields.put(field.identifier().toSourceCode().trim(),
+                        TomlDependencyUtil.unquote(field.value().toSourceCode()));
             }
             if (dependency.getGroupId().equals(fields.get("groupId"))
                     && dependency.getArtifactId().equals(fields.get("artifactId"))) {
@@ -216,17 +268,9 @@ public final class PlatformDependencyEditUtil {
         return Optional.empty();
     }
 
-    private static String unquote(String raw) {
-        String trimmed = raw.trim();
-        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
-            return trimmed.substring(1, trimmed.length() - 1);
-        }
-        return trimmed;
-    }
-
     private static TextEdit createPlatformDependencyEdit(BallerinaToml toml, DriverDependency dependency,
                                                           String relativePath) {
-        Position dependencyStart = new Position(getDependencyStartLine(toml), 0);
+        Position dependencyStart = new Position(TomlDependencyUtil.getDependencyStartLine(toml), 0);
         StringBuilder dependencyText = new StringBuilder();
         dependencyText.append(String.format("[[platform.java21.dependency]]%npath = \"%s\"%ngroupId = \"%s\"%n"
                         + "artifactId = \"%s\"%nversion = \"%s\"%n", tomlString(relativePath),
@@ -267,18 +311,5 @@ public final class PlatformDependencyEditUtil {
             }
         }
         return escaped.toString();
-    }
-
-    private static int getDependencyStartLine(BallerinaToml toml) {
-        DocumentNode tomlSyntaxTree = toml.tomlDocument().syntaxTree().rootNode();
-        int lastDocumentLine = tomlSyntaxTree.lineRange().endLine().line();
-        int candidateLine = tomlSyntaxTree.members().stream()
-                .filter(member -> member.kind().equals(SyntaxKind.TABLE)
-                        && TomlSyntaxTreeUtil.toQualifiedName(((TableNode) member).identifier().value())
-                                .equals("package"))
-                .findFirst()
-                .map(member -> member.lineRange().endLine().line() + 2)
-                .orElse(lastDocumentLine);
-        return Math.min(candidateLine, lastDocumentLine);
     }
 }

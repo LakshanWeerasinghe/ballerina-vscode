@@ -81,7 +81,6 @@ export function mapPropertiesToFormFields(properties: { [key: string]: PropertyM
             placeholder: property.placeholder,
             addNewButton: property.addNewButton,
             lineRange: property?.codedata?.lineRange,
-            codedata: property?.codedata,
             advanceProps: !dynamicFormFields ? mapPropertiesToFormFields(property.properties) : undefined,
             dynamicFormFields,
             groupName: property?.metadata?.groupName,

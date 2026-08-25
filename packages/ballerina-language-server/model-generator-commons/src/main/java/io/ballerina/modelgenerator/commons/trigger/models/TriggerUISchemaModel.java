@@ -148,7 +148,8 @@ public record TriggerUISchemaModel(
      * @param formats       the data-binding formats offered, when applicable
      * @param validations   the validation rules applied to this candidate
      * @param extensions    the file extensions offered by a FILE_SELECT/PROJECT_FILE_SELECT candidate
-     *                      (e.g. {@code [".jar"]}), when applicable
+     *                      without a leading dot (e.g. {@code ["jar"]}), matching the
+     *                      {@code showOpenDialog} filter format they are passed to, when applicable
      */
     public record PropertyType(
             String fieldType,
