@@ -148,28 +148,50 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) 
         };
 
         /**
-         * Applies theme on initial load and theme changes.
+         * The current theme, as "light" or "dark".
+         *
+         * `useRpcContext` defaults `rpcClient` to null, so any host that renders this
+         * outside a VisualizerContext provider gets null rather than a client — the
+         * migration wizard's AI enhancement step reaches here through the federated
+         * remote, which has no provider. Fall back to the theme class VS Code puts on
+         * `document.body` instead of dereferencing null.
          */
-        const applyCurrentTheme = async () => {
-            const themeKind = await rpcClient.getVisualizerRpcClient().getThemeKind(); // Returns "light" or "dark"
-            let extractedTheme: string;
+        const resolveTheme = async (): Promise<string> => {
+            if (!rpcClient) {
+                return document.body.classList.contains("vscode-light") ||
+                    document.body.classList.contains("vscode-high-contrast-light")
+                    ? "light"
+                    : "dark";
+            }
+            const themeKind = await rpcClient.getVisualizerRpcClient().getThemeKind();
             switch (themeKind) {
                 case ColorThemeKind.Light:
                 case ColorThemeKind.HighContrastLight:
-                    extractedTheme = "light";
-                    break;
+                    return "light";
                 default:
-                    extractedTheme = "dark";
-                    break;
+                    return "dark";
             }
-            injectHighlightTheme(extractedTheme);
         };
 
-        rpcClient.onProjectContentUpdated(() => {
-            applyCurrentTheme();
-        });
+        /**
+         * Applies theme on initial load and theme changes.
+         */
+        const applyCurrentTheme = async () => {
+            injectHighlightTheme(await resolveTheme());
+        };
 
-        applyCurrentTheme();
+        void applyCurrentTheme();
+
+        if (!rpcClient) {
+            return;
+        }
+
+        // Returns an unsubscribe; without calling it every mount of this renderer leaks a
+        // listener, and a streaming agent view mounts one per markdown block.
+        const unsubscribe = rpcClient.onProjectContentUpdated(() => {
+            void applyCurrentTheme();
+        });
+        return () => unsubscribe?.();
     }, [rpcClient]);
 
     /**
