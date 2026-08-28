@@ -384,6 +384,23 @@ describe("artifact block cohesion", () => {
         expect(b?.units.map((unit) => unit.kind)).toEqual(["HEADERS"]);
         expect(warn).toHaveBeenCalledWith(expect.stringContaining("cannot be"));
     });
+
+    it("still counts a section as explicitly declared when it also hosts *rest, so a real split is caught", () => {
+        // Regression: exclusion used to be keyed off which section absorbed the remainder, so a
+        // section that both named its own field (here $name) and happened to host *rest was wrongly
+        // treated as "just the remainder" -- masking a genuine split with g2 below.
+        const sections = resolveHandlerLayout(fn({
+            ...mcpNewTool,
+            layout: [
+                { id: "g1", fields: [LAYOUT_ID_NAME, LAYOUT_ID_REST] },
+                { id: "g2", label: "G2", fields: [LAYOUT_ID_RETURN_TYPE] },
+            ],
+        }), MCP_ARTIFACT_KEYS);
+        expect(sections.map((section) => section.key)).toEqual(["g1"]);
+        expect(sections[0].units.slice(0, 4).map((unit) => unit.fieldKey))
+            .toEqual(["name", "documentation", "parameters", "returnType"]);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("cannot be"));
+    });
 });
 
 describe("orderArtifactFieldKeys", () => {
@@ -511,6 +528,46 @@ describe("advanced sections", () => {
             layout: [{ id: "g", label: "G", description: "   ", fields: [LAYOUT_ID_HEADERS] }],
         }), MCP_ARTIFACT_KEYS);
         expect(section.description).toBeUndefined();
+    });
+});
+
+describe("duplicate ids", () => {
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+        warn = jest.spyOn(console, "warn").mockImplementation(() => { });
+    });
+
+    afterEach(() => warn.mockRestore());
+
+    it("warns when two units share a primary id, keeping the first registered addressable", () => {
+        // A parameter that is both a bindable payload and opted into "advanced" is enumerated twice
+        // by handlerUnitsOf -- once as PAYLOAD, once as ADVANCED_PARAM -- both under its bare name.
+        const collidingParam = param({
+            kind: "DATA_BINDING",
+            advanced: true,
+            name: prop({ value: "content" }),
+            type: prop({ codedata: { type: "PAYLOAD_TYPE", bindable: true } as any }),
+        });
+        const sections = resolveHandlerLayout(fn({
+            ...kafkaOnConsumerRecord,
+            parameters: [collidingParam],
+            layout: [{ id: "msg", label: "Message", fields: ["content"] }],
+        }));
+        expect(sections[0].units.map((unit) => unit.kind)).toEqual(["PAYLOAD"]);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("names more than one field"));
+    });
+
+    it("disambiguates a section id reused across sections by appending its index, and warns", () => {
+        const sections = resolveHandlerLayout(fn({
+            ...kafkaOnConsumerRecord,
+            layout: [
+                { id: "dup", label: "First", fields: ["records"] },
+                { id: "dup", label: "Second", fields: ["caller"] },
+            ],
+        }));
+        expect(sections.map((section) => section.key)).toEqual(["dup", "dup-1", LAYOUT_ID_REST]);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("reused by more than one section"));
     });
 });
 
