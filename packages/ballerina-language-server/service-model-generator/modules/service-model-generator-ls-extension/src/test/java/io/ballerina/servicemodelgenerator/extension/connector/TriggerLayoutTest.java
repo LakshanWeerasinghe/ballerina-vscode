@@ -23,8 +23,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerFunctionAdapter;
+import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Parameter;
+import io.ballerina.servicemodelgenerator.extension.model.Value;
+import io.ballerina.servicemodelgenerator.extension.util.Constants;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -139,11 +142,24 @@ public class TriggerLayoutTest {
         }
     }
 
-    /** Every bare id an author may write for this handler, unioned over its wire variants. */
+    /** Property {@code codedata.type} values {@code handlerUnitsOf} in handlerLayout.ts renders as a unit. */
+    private static final Set<String> ADDRESSABLE_PROPERTY_TYPES = Set.of(
+            "METADATA_FLAG", Constants.CD_TYPE_PAYLOAD_MODIFIER, Constants.CD_TYPE_COMPLEX_FUNCTION_ANNOTATION,
+            Constants.CD_TYPE_ANNOTATION_ATTACHMENT);
+
+    /**
+     * Every bare id an author may write for this handler, unioned over its wire variants. Mirrors the
+     * predicate {@code handlerUnitsOf} (handlerLayout.ts) uses to decide what it renders as a unit: a
+     * plain, non-advanced, non-payload parameter (e.g. asb's {@code caller}) never becomes a unit there,
+     * so it must not be addressable here either.
+     */
     private Set<String> addressableIds(TriggerUISchemaModel.FunctionModel handler) {
         Set<String> ids = new LinkedHashSet<>();
         for (Function variant : TriggerFunctionAdapter.toFunctions(handler)) {
             for (Parameter parameter : orEmpty(variant.getParameters())) {
+                if (!parameter.isAdvanced() && !isPayloadParameter(parameter)) {
+                    continue;
+                }
                 if (parameter.getName() != null && parameter.getName().getValue() != null
                         && !parameter.getName().getValue().isBlank()) {
                     ids.add(parameter.getName().getValue());
@@ -153,10 +169,26 @@ public class TriggerLayoutTest {
                 }
             }
             if (variant.getProperties() != null) {
-                ids.addAll(variant.getProperties().keySet());
+                for (Map.Entry<String, Value> property : variant.getProperties().entrySet()) {
+                    Codedata codedata = property.getValue() != null ? property.getValue().getCodedata() : null;
+                    if (codedata != null && ADDRESSABLE_PROPERTY_TYPES.contains(codedata.getType())) {
+                        ids.add(property.getKey());
+                    }
+                }
             }
         }
         return ids;
+    }
+
+    /** Whether a parameter is a payload (data-binding) parameter; mirrors {@code isPayloadParameter} in
+     * payloadComposer.ts. */
+    private boolean isPayloadParameter(Parameter parameter) {
+        if (Constants.DATA_BINDING.equals(parameter.getKind())) {
+            return true;
+        }
+        Codedata codedata = parameter.getType() != null ? parameter.getType().getCodedata() : null;
+        String type = codedata != null ? codedata.getType() : null;
+        return Constants.CD_TYPE_PAYLOAD_TYPE.equals(type) || Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD.equals(type);
     }
 
     private List<TriggerUISchemaModel.FunctionModel> allHandlers(TriggerUISchemaModel.ServiceTypeModel type) {

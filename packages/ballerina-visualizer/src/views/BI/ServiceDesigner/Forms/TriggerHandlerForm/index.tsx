@@ -789,6 +789,11 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
         filterType: functionModel?.metadata?.label || "",
     };
 
+    const sections = useMemo(
+        () => functionModel ? resolveHandlerLayout(functionModel, artifactFields.map((field) => field.key)) : [],
+        [functionModel, artifactFields]
+    );
+
     if (!functionModel) {
         return null;
     }
@@ -799,8 +804,6 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
     // non-empty — most handlers ship no description.
     const handlerDescription = functionModel.metadata?.description?.trim();
     const showAnnotationsDivider = hasVariants || metadataFlags.length > 0 || modifierFlags.length > 0;
-
-    const sections = resolveHandlerLayout(functionModel, artifactFields.map((field) => field.key));
 
     const advancedSections = sections.filter((section) => section.advanced);
     const looseAdvancedUnits = sections
@@ -1214,25 +1217,31 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
                             </CollapsibleHeader>
                             <CollapsibleContent isExpanded={isAdvancedExpanded}>
                                 {looseAdvancedUnits.length > 0 && renderAdvancedBody(looseAdvancedUnits)}
-                                {advancedSections.map((section) => (
-                                    <Fragment key={section.key}>
-                                        <Typography variant="body2" sx={{ marginTop: 12, marginBottom: 0 }}>
-                                            {section.label}
-                                        </Typography>
-                                        {section.description && (
-                                            <Typography
-                                                variant="body3"
-                                                sx={{
-                                                    color: "var(--vscode-descriptionForeground)",
-                                                    marginBottom: 4,
-                                                }}
-                                            >
-                                                {section.description}
+                                {advancedSections.map((section) => {
+                                    const body = renderSectionUnits(section);
+                                    if (body.length === 0) {
+                                        return null;
+                                    }
+                                    return (
+                                        <Fragment key={section.key}>
+                                            <Typography variant="body2" sx={{ marginTop: 12, marginBottom: 0 }}>
+                                                {section.label}
                                             </Typography>
-                                        )}
-                                        {renderSectionUnits(section)}
-                                    </Fragment>
-                                ))}
+                                            {section.description && (
+                                                <Typography
+                                                    variant="body3"
+                                                    sx={{
+                                                        color: "var(--vscode-descriptionForeground)",
+                                                        marginBottom: 4,
+                                                    }}
+                                                >
+                                                    {section.description}
+                                                </Typography>
+                                            )}
+                                            {body}
+                                        </Fragment>
+                                    );
+                                })}
                             </CollapsibleContent>
                         </>
                     )}

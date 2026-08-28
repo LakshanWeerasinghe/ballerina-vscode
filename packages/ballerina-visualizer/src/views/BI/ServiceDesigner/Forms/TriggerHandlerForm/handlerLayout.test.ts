@@ -514,9 +514,12 @@ describe("advanced sections", () => {
     });
 });
 
-describe("the layouts actually shipped in trigger-models", () => {
-    // Fixtures mirror the real wire output: the LS lifts FTP's `stream` flag out of the payload
-    // parameter's COMPLEX_PAYLOAD tree into the function's own `properties`.
+describe("layout resolution against shapes mirroring the ftp/mcp trigger models", () => {
+    // These are hand-built fixtures shaped like the real wire output (the LS lifts FTP's `stream`
+    // flag out of the payload parameter's COMPLEX_PAYLOAD tree into the function's own
+    // `properties`), not the shipped ftp.json/mcp.json read from disk -- editing those files' authored
+    // `layout` won't fail this suite. TriggerLayoutTest.java reads the real bundled models, but only
+    // checks that every authored field id resolves, not the resulting order.
     it("ftp/smb onFileCsv defines the row schema before offering the stream flag", () => {
         const onFileCsv = fn({
             name: prop({ value: "onFileCsv", editable: false }),

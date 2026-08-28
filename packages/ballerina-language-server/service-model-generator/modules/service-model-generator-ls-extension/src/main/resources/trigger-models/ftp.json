@@ -3305,6 +3305,17 @@
               }
             }
           ],
+          "layout": [
+            {
+              "fields": [
+                "$variant",
+                "$description",
+                "content",
+                "stream",
+                "*rest"
+              ]
+            }
+          ],
           "returnType": {
             "metadata": {
               "label": "Return Type",
