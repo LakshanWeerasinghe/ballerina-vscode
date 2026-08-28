@@ -27,8 +27,9 @@ const SIGN_IN_TIMEOUT_MS = 300_000;
 /**
  * Manages the sign-in / cancel-sign-in flow.
  *
- * Returns `isSigningIn` state and stable `handleSignIn` / `handleCancelSignIn`
- * callbacks. Cleans up the internal timeout on unmount.
+ * Returns `isSigningIn` state, a `canSignIn` capability flag and stable
+ * `handleSignIn` / `handleCancelSignIn` callbacks. Cleans up the internal
+ * timeout on unmount.
  */
 export function useSignIn() {
     const { wsClient } = useVisualizerContext();
@@ -89,5 +90,5 @@ export function useSignIn() {
             .catch((error) => console.error("Cancel sign-in command failed:", error));
     };
 
-    return { isSigningIn, handleSignIn, handleCancelSignIn };
+    return { isSigningIn, canSignIn: canRunCommand, handleSignIn, handleCancelSignIn };
 }

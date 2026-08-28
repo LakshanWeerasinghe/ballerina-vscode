@@ -145,12 +145,17 @@ export interface OrgFieldProps {
     orgNameError?: string | null;
     description: string;
     isSigningIn: boolean;
+    /**
+     * Whether this host can actually run the sign-in command. Defaults to `true`;
+     * pass `false` to suppress the sign-in hint where the button would be inert.
+     */
+    canSignIn?: boolean;
     onOrgChange: (value: string) => void;
     onSignIn: () => void;
     onCancelSignIn: () => void;
 }
 
-export function OrgField({ organizations, orgName, orgNameError, description, isSigningIn, onOrgChange, onSignIn, onCancelSignIn }: OrgFieldProps) {
+export function OrgField({ organizations, orgName, orgNameError, description, isSigningIn, canSignIn = true, onOrgChange, onSignIn, onCancelSignIn }: OrgFieldProps) {
     const hasOrgs = organizations !== undefined && organizations.length > 0;
 
     // Track which suggestion is keyboard-highlighted (index into filteredSuggestions).
@@ -277,7 +282,7 @@ export function OrgField({ organizations, orgName, orgNameError, description, is
                 )}
             </OrgComboboxWrapper>
             <Description>{description}</Description>
-            {!hasOrgs && (
+            {!hasOrgs && canSignIn && (
                 <SignInHint>
                     <Codicon
                         name="account"
@@ -323,7 +328,7 @@ export function AdvancedConfigurationSection({
     hasError,
     hidePackageName
 }: AdvancedConfigurationSectionProps) {
-    const { isSigningIn, handleSignIn, handleCancelSignIn } = useSignIn();
+    const { isSigningIn, canSignIn, handleSignIn, handleCancelSignIn } = useSignIn();
 
     const createWithinProject = data.projectHandle !== undefined;
 
@@ -345,6 +350,7 @@ export function AdvancedConfigurationSection({
                             orgNameError={orgNameError}
                             description="The organization that owns this project."
                             isSigningIn={isSigningIn}
+                            canSignIn={canSignIn}
                             onOrgChange={(value) => onChange({ orgName: value })}
                             onSignIn={handleSignIn}
                             onCancelSignIn={handleCancelSignIn}
@@ -389,6 +395,7 @@ export function AdvancedConfigurationSection({
                         orgNameError={orgNameError}
                         description="The organization that owns this package."
                         isSigningIn={isSigningIn}
+                        canSignIn={canSignIn}
                         onOrgChange={(value) => onChange({ orgName: value })}
                         onSignIn={handleSignIn}
                         onCancelSignIn={handleCancelSignIn}

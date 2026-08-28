@@ -148,22 +148,34 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) 
         };
 
         /**
+         * The theme class VS Code puts on `document.body`, as "light" or "dark".
+         */
+        const resolveThemeFromBodyClass = (): string =>
+            document.body.classList.contains("vscode-light") ||
+            document.body.classList.contains("vscode-high-contrast-light")
+                ? "light"
+                : "dark";
+
+        /**
          * The current theme, as "light" or "dark".
          *
          * `useRpcContext` defaults `rpcClient` to null, so any host that renders this
          * outside a VisualizerContext provider gets null rather than a client — the
          * migration wizard's AI enhancement step reaches here through the federated
-         * remote, which has no provider. Fall back to the theme class VS Code puts on
-         * `document.body` instead of dereferencing null.
+         * remote, which has no provider. Fall back to the body class instead of
+         * dereferencing null, and likewise when the RPC round trip fails, so a rejected
+         * `getThemeKind` still yields a usable theme rather than an unhandled rejection.
          */
         const resolveTheme = async (): Promise<string> => {
             if (!rpcClient) {
-                return document.body.classList.contains("vscode-light") ||
-                    document.body.classList.contains("vscode-high-contrast-light")
-                    ? "light"
-                    : "dark";
+                return resolveThemeFromBodyClass();
             }
-            const themeKind = await rpcClient.getVisualizerRpcClient().getThemeKind();
+            let themeKind: ColorThemeKind;
+            try {
+                themeKind = await rpcClient.getVisualizerRpcClient().getThemeKind();
+            } catch {
+                return resolveThemeFromBodyClass();
+            }
             switch (themeKind) {
                 case ColorThemeKind.Light:
                 case ColorThemeKind.HighContrastLight:
@@ -183,7 +195,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdownContent }) 
         void applyCurrentTheme();
 
         if (!rpcClient) {
-            return;
+            // No client means no `onProjectContentUpdated` to hang a theme change off, so
+            // watch the class VS Code rewrites on <body> instead - otherwise the fallback
+            // theme is applied once at mount and a later host theme switch is never picked up.
+            const observer = new MutationObserver(() => {
+                void applyCurrentTheme();
+            });
+            observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+            return () => observer.disconnect();
         }
 
         // Returns an unsubscribe; without calling it every mount of this renderer leaks a
