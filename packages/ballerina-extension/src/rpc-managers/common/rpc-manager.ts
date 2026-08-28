@@ -78,7 +78,6 @@ import {
     askFileOrFolderPath,
     askFilePath,
     askProjectPath,
-    BALLERINA_INTEGRATOR_ISSUES_URL,
     copyIntoIntegration,
     findWorkspaceTypeFromWorkspaceFolders,
     getFirstBalaPath,
