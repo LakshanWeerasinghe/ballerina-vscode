@@ -201,7 +201,7 @@
               "enabled": true,
               "editable": true,
               "optional": true,
-              "advanced": false
+              "advanced": true
             }
           }
         }

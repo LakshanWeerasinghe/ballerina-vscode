@@ -3951,6 +3951,17 @@
             "documentation": {
               "default": "Handles a newly created file, binding its content using the Raw Bytes format."
             },
+            "layout": [
+              {
+                "fields": [
+                  "$variant",
+                  "$description",
+                  "content",
+                  "stream",
+                  "*rest"
+                ]
+              }
+            ],
             "properties": {
               "fileHandling": {
                 "key": "fileHandling",
@@ -5053,7 +5064,8 @@
           "function": {
             "nameEditable": false,
             "repeatable": "FALSE",
-            "canAddParameters": false
+            "canAddParameters": false,
+            "properties": {}
           },
           "returnType": {
             "target": {

@@ -8,7 +8,7 @@
     "description": "Create a service to handle WhatsApp Business Cloud webhook events",
     "type": "whatsapp"
   },
-  "importPrefix": "whatsapp",
+  "importPrefix": "business",
   "listeners": [
     {
       "target": {
@@ -186,14 +186,14 @@
           },
           "metadata": {
             "label": "On Messages",
-            "description": "Inbound messages or status updates; see MessagesNotification for narrowing."
+            "description": "Inbound messages or status updates."
           },
           "function": {
             "nameEditable": false,
             "repeatable": "FALSE",
             "canAddParameters": false,
             "documentation": {
-              "default": "Inbound messages or status updates; see MessagesNotification for narrowing."
+              "default": "Inbound messages or status updates."
             }
           },
           "parameters": [
@@ -233,8 +233,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:MessagesNotification",
-                    "default": "whatsapp:MessagesNotification",
+                    "placeholder": "business:MessagesNotification",
+                    "default": "business:MessagesNotification",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -304,7 +304,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onMessages",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -367,8 +367,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:AccountReviewUpdate",
-                    "default": "whatsapp:AccountReviewUpdate",
+                    "placeholder": "business:AccountReviewUpdate",
+                    "default": "business:AccountReviewUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -438,7 +438,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onAccountReviewUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -501,8 +501,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:AccountUpdate",
-                    "default": "whatsapp:AccountUpdate",
+                    "placeholder": "business:AccountUpdate",
+                    "default": "business:AccountUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -572,7 +572,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onAccountUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -635,8 +635,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:BusinessCapabilityUpdate",
-                    "default": "whatsapp:BusinessCapabilityUpdate",
+                    "placeholder": "business:BusinessCapabilityUpdate",
+                    "default": "business:BusinessCapabilityUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -706,7 +706,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onBusinessCapabilityUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -769,8 +769,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:MessageTemplateQualityUpdate",
-                    "default": "whatsapp:MessageTemplateQualityUpdate",
+                    "placeholder": "business:MessageTemplateQualityUpdate",
+                    "default": "business:MessageTemplateQualityUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -840,7 +840,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onMessageTemplateQualityUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -903,8 +903,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:MessageTemplateStatusUpdate",
-                    "default": "whatsapp:MessageTemplateStatusUpdate",
+                    "placeholder": "business:MessageTemplateStatusUpdate",
+                    "default": "business:MessageTemplateStatusUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -974,7 +974,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onMessageTemplateStatusUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1037,8 +1037,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:PhoneNumberNameUpdate",
-                    "default": "whatsapp:PhoneNumberNameUpdate",
+                    "placeholder": "business:PhoneNumberNameUpdate",
+                    "default": "business:PhoneNumberNameUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -1108,7 +1108,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onPhoneNumberNameUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1171,8 +1171,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:PhoneNumberQualityUpdate",
-                    "default": "whatsapp:PhoneNumberQualityUpdate",
+                    "placeholder": "business:PhoneNumberQualityUpdate",
+                    "default": "business:PhoneNumberQualityUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -1242,7 +1242,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onPhoneNumberQualityUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1305,8 +1305,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:Security",
-                    "default": "whatsapp:Security",
+                    "placeholder": "business:Security",
+                    "default": "business:Security",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -1376,7 +1376,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onSecurity",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1439,8 +1439,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:TemplateCategoryUpdate",
-                    "default": "whatsapp:TemplateCategoryUpdate",
+                    "placeholder": "business:TemplateCategoryUpdate",
+                    "default": "business:TemplateCategoryUpdate",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -1510,7 +1510,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onTemplateCategoryUpdate",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1573,8 +1573,8 @@
                   },
                   "field": {
                     "key": "type",
-                    "placeholder": "whatsapp:HandlerError",
-                    "default": "whatsapp:HandlerError",
+                    "placeholder": "business:HandlerError",
+                    "default": "business:HandlerError",
                     "state": {
                       "enabled": true,
                       "editable": false,
@@ -1644,7 +1644,7 @@
             "codedata": {
               "type": "FUNCTION",
               "originalName": "onError",
-              "moduleName": "whatsapp"
+              "moduleName": "business"
             }
           },
           "state": {
@@ -1657,7 +1657,7 @@
       "source": {
         "codedata": {
           "type": "SERVICE_TYPE_DESCRIPTOR",
-          "moduleName": "whatsapp",
+          "moduleName": "business",
           "originalName": "WhatsAppService"
         }
       }

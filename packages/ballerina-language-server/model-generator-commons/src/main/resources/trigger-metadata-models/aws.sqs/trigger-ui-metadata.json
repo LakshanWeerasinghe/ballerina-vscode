@@ -193,15 +193,30 @@
                 "properties": {
                   "accessKeyId": {
                     "key": "accessKeyId",
+                    "metadata": {
+                      "label": "Access Key ID",
+                      "description": "AWS access key ID used to identify the AWS account."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
                     "validations": [
                       {
                         "rule": "common.validate.required"
                       }
                     ],
-                    "metadata": {
-                      "label": "Access Key ID",
-                      "description": "AWS access key ID used to identify the AWS account."
-                    },
                     "source": {
                       "codedata": {
                         "argType": "LISTENER_PARAM_CONFIG_FIELD",
@@ -218,15 +233,30 @@
                   },
                   "secretAccessKey": {
                     "key": "secretAccessKey",
+                    "metadata": {
+                      "label": "Secret Access Key",
+                      "description": "AWS secret access key used to authenticate the user."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
                     "validations": [
                       {
                         "rule": "common.validate.required"
                       }
                     ],
-                    "metadata": {
-                      "label": "Secret Access Key",
-                      "description": "AWS secret access key used to authenticate the user."
-                    },
                     "source": {
                       "codedata": {
                         "argType": "LISTENER_PARAM_CONFIG_FIELD",
@@ -247,6 +277,21 @@
                       "label": "Session Token",
                       "description": "Optional session token used for temporary credentials."
                     },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
                     "source": {
                       "codedata": {
                         "argType": "LISTENER_PARAM_CONFIG_FIELD",
@@ -258,7 +303,363 @@
                       "enabled": true,
                       "editable": true,
                       "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
                       "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
                     }
                   }
                 },
@@ -284,7 +685,11 @@
                     "widget": {
                       "derived": false,
                       "overrides": [
-                        { "widgetKind": "TEXT", "selected": true, "ballerinaType": "string" }
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        }
                       ]
                     },
                     "source": {
@@ -311,7 +716,11 @@
                     "widget": {
                       "derived": false,
                       "overrides": [
-                        { "widgetKind": "TEXT", "selected": true, "ballerinaType": "string" }
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        }
                       ]
                     },
                     "source": {
@@ -325,7 +734,363 @@
                       "enabled": true,
                       "editable": true,
                       "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
                       "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
                     }
                   }
                 },
@@ -351,14 +1116,12 @@
                     "widget": {
                       "derived": false,
                       "overrides": [
-                        { "widgetKind": "TEXT", "selected": true, "ballerinaType": "string" }
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        }
                       ]
-                    },
-                    "state": {
-                      "editable": false,
-                      "enabled": true,
-                      "optional": false,
-                      "advanced": false
                     },
                     "source": {
                       "codedata": {
@@ -366,6 +1129,2761 @@
                         "position": 1,
                         "path": "auth"
                       }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "metadata": {
+                  "label": "Assume Role",
+                  "description": "Obtain temporary credentials by assuming an IAM role using AWS STS."
+                },
+                "properties": {
+                  "roleArn": {
+                    "key": "roleArn",
+                    "metadata": {
+                      "label": "Role ARN",
+                      "description": "ARN of the IAM role to assume."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.roleArn"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "roleSessionName": {
+                    "key": "roleSessionName",
+                    "metadata": {
+                      "label": "Role Session Name",
+                      "description": "An identifier for the assumed role session. Auto-generated if not provided."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.roleSessionName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "externalId": {
+                    "key": "externalId",
+                    "metadata": {
+                      "label": "External ID",
+                      "description": "A unique identifier used for third-party cross-account role assumption."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.externalId"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "duration": {
+                    "key": "duration",
+                    "placeholder": "3600",
+                    "default": "3600",
+                    "metadata": {
+                      "label": "Session Duration",
+                      "description": "The duration of the assumed role session in seconds."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.duration"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "stsRegion": {
+                    "key": "stsRegion",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "STS Region",
+                      "description": "AWS region for the STS endpoint used to assume the role."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.stsRegion"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "sourceCredentials": {
+                    "key": "sourceCredentials",
+                    "metadata": {
+                      "label": "Source Credentials",
+                      "description": "Credentials used to assume the role. Defaults to auto-resolved credentials if not specified."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": true,
+                          "ballerinaType": "sqs:AuthConfig"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.sourceCredentials"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "metadata": {
+                  "label": "Web Identity",
+                  "description": "Authenticate by exchanging an OIDC web identity token for temporary AWS credentials via STS."
+                },
+                "properties": {
+                  "roleArn": {
+                    "key": "roleArn",
+                    "metadata": {
+                      "label": "Role ARN",
+                      "description": "ARN of the IAM role to assume using the web identity token."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.roleArn"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "webIdentityTokenFile": {
+                    "key": "webIdentityTokenFile",
+                    "metadata": {
+                      "label": "Web Identity Token File",
+                      "description": "Path to the file containing the OIDC token for authentication."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.webIdentityTokenFile"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "roleSessionName": {
+                    "key": "roleSessionName",
+                    "metadata": {
+                      "label": "Role Session Name",
+                      "description": "An identifier for the assumed role session. Auto-generated if not provided."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.roleSessionName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "stsRegion": {
+                    "key": "stsRegion",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "STS Region",
+                      "description": "AWS region for the STS endpoint used for web identity token exchange."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.stsRegion"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "metadata": {
+                  "label": "SSO Credentials",
+                  "description": "Authenticate using IAM Identity Center (SSO) credentials."
+                },
+                "properties": {
+                  "ssoStartUrl": {
+                    "key": "ssoStartUrl",
+                    "metadata": {
+                      "label": "SSO Start URL",
+                      "description": "The IAM Identity Center start URL (e.g. https://my-sso-portal.awsapps.com/start)."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.ssoStartUrl"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "ssoRegion": {
+                    "key": "ssoRegion",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "SSO Region",
+                      "description": "AWS region where IAM Identity Center is configured."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.ssoRegion"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "accountId": {
+                    "key": "accountId",
+                    "metadata": {
+                      "label": "Account ID",
+                      "description": "The AWS account ID associated with the SSO permission set."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.accountId"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "roleName": {
+                    "key": "roleName",
+                    "metadata": {
+                      "label": "Role Name",
+                      "description": "The IAM role name from the SSO permission set."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.roleName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "ssoSessionName": {
+                    "key": "ssoSessionName",
+                    "metadata": {
+                      "label": "SSO Session Name",
+                      "description": "Session name defined in ~/.aws/config. Enables automatic token refresh."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.ssoSessionName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "metadata": {
+                  "label": "Process Credentials",
+                  "description": "Obtain credentials from an external process or command."
+                },
+                "properties": {
+                  "command": {
+                    "key": "command",
+                    "metadata": {
+                      "label": "Command",
+                      "description": "Command arguments to execute for obtaining credentials (e.g. [\"my-credential-process\", \"--profile\", \"default\"])."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": true,
+                          "ballerinaType": "string[]"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "auth.command"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "region": {
+                    "key": "region",
+                    "default": "\"us-east-1\"",
+                    "metadata": {
+                      "label": "Region",
+                      "description": "AWS region for the SQS connection"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "ballerinaType": "string",
+                          "options": [
+                            {
+                              "label": "US East (N. Virginia) - us-east-1",
+                              "value": "\"us-east-1\""
+                            },
+                            {
+                              "label": "US East (Ohio) - us-east-2",
+                              "value": "\"us-east-2\""
+                            },
+                            {
+                              "label": "US West (N. California) - us-west-1",
+                              "value": "\"us-west-1\""
+                            },
+                            {
+                              "label": "US West (Oregon) - us-west-2",
+                              "value": "\"us-west-2\""
+                            },
+                            {
+                              "label": "Africa (Cape Town) - af-south-1",
+                              "value": "\"af-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hong Kong) - ap-east-1",
+                              "value": "\"ap-east-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Mumbai) - ap-south-1",
+                              "value": "\"ap-south-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Hyderabad) - ap-south-2",
+                              "value": "\"ap-south-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Singapore) - ap-southeast-1",
+                              "value": "\"ap-southeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Sydney) - ap-southeast-2",
+                              "value": "\"ap-southeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Jakarta) - ap-southeast-3",
+                              "value": "\"ap-southeast-3\""
+                            },
+                            {
+                              "label": "Asia Pacific (Tokyo) - ap-northeast-1",
+                              "value": "\"ap-northeast-1\""
+                            },
+                            {
+                              "label": "Asia Pacific (Seoul) - ap-northeast-2",
+                              "value": "\"ap-northeast-2\""
+                            },
+                            {
+                              "label": "Asia Pacific (Osaka) - ap-northeast-3",
+                              "value": "\"ap-northeast-3\""
+                            },
+                            {
+                              "label": "Canada (Central) - ca-central-1",
+                              "value": "\"ca-central-1\""
+                            },
+                            {
+                              "label": "Europe (Frankfurt) - eu-central-1",
+                              "value": "\"eu-central-1\""
+                            },
+                            {
+                              "label": "Europe (Zurich) - eu-central-2",
+                              "value": "\"eu-central-2\""
+                            },
+                            {
+                              "label": "Europe (Ireland) - eu-west-1",
+                              "value": "\"eu-west-1\""
+                            },
+                            {
+                              "label": "Europe (London) - eu-west-2",
+                              "value": "\"eu-west-2\""
+                            },
+                            {
+                              "label": "Europe (Paris) - eu-west-3",
+                              "value": "\"eu-west-3\""
+                            },
+                            {
+                              "label": "Europe (Stockholm) - eu-north-1",
+                              "value": "\"eu-north-1\""
+                            },
+                            {
+                              "label": "Europe (Milan) - eu-south-1",
+                              "value": "\"eu-south-1\""
+                            },
+                            {
+                              "label": "Europe (Spain) - eu-south-2",
+                              "value": "\"eu-south-2\""
+                            },
+                            {
+                              "label": "Middle East (UAE) - me-central-1",
+                              "value": "\"me-central-1\""
+                            },
+                            {
+                              "label": "Middle East (Bahrain) - me-south-1",
+                              "value": "\"me-south-1\""
+                            },
+                            {
+                              "label": "South America (S\u00e3o Paulo) - sa-east-1",
+                              "value": "\"sa-east-1\""
+                            }
+                          ]
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "sqs:Region|string"
+                        }
+                      ]
+                    },
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "region"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "fips": {
+                    "key": "fips",
+                    "default": false,
+                    "metadata": {
+                      "label": "FIPS",
+                      "description": "Use the FIPS 140-validated endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.fips"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "dualstack": {
+                    "key": "dualstack",
+                    "default": false,
+                    "metadata": {
+                      "label": "Dualstack",
+                      "description": "Use the dualstack (IPv4/IPv6) endpoint variant"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "boolean"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.dualstack"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "customEndpoint": {
+                    "key": "customEndpoint",
+                    "default": "",
+                    "metadata": {
+                      "label": "Custom Endpoint",
+                      "description": "Full endpoint URL override (e.g. http://localhost:4566). When set, FIPS and Dualstack options are ignored."
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true,
+                          "ballerinaType": "string"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "string"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 1,
+                        "path": "endpoint.customEndpoint"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "pollInterval": {
+                    "key": "pollInterval",
+                    "placeholder": "30",
+                    "default": "1",
+                    "metadata": {
+                      "label": "Poll Interval",
+                      "description": "Interval between polling attempts in seconds"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "decimal"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "decimal"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "pollInterval"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "waitTime": {
+                    "key": "waitTime",
+                    "placeholder": "20",
+                    "default": "20",
+                    "metadata": {
+                      "label": "Wait Time",
+                      "description": "Duration in seconds for which the polling waits for messages"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "waitTime"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
+                    }
+                  },
+                  "visibilityTimeout": {
+                    "key": "visibilityTimeout",
+                    "placeholder": "30",
+                    "default": "30",
+                    "metadata": {
+                      "label": "Visibility Timeout",
+                      "description": "Duration in seconds for which the received message remains invisible to other consumers"
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "NUMBER",
+                          "selected": true,
+                          "ballerinaType": "int"
+                        },
+                        {
+                          "widgetKind": "EXPRESSION",
+                          "selected": false,
+                          "ballerinaType": "int"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                        "position": 2,
+                        "path": "visibilityTimeout"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": true
                     }
                   }
                 },
@@ -382,140 +3900,6 @@
               "editable": true,
               "optional": false,
               "advanced": false
-            }
-          },
-          "region": {
-            "key": "region",
-            "placeholder": "us-east-1",
-            "default": "\"us-east-1\"",
-            "validations": [
-              {
-                "rule": "common.validate.required"
-              }
-            ],
-            "metadata": {
-              "label": "Region",
-              "description": "AWS region (e.g. us-east-1)"
-            },
-            "widget": {
-              "derived": false,
-              "overrides": [
-                { "widgetKind": "TEXT", "selected": true, "ballerinaType": "string" },
-                { "widgetKind": "EXPRESSION", "selected": false, "ballerinaType": "sqs:Region|string" }
-              ]
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                "position": 1,
-                "path": "region"
-              }
-            },
-            "state": {
-              "enabled": true,
-              "editable": true,
-              "optional": false,
-              "advanced": false
-            }
-          },
-          "endpoint": {
-            "key": "endpoint",
-            "default": "",
-            "metadata": {
-              "label": "Endpoint",
-              "description": "Optional endpoint options: FIPS/dualstack variants, or a custom endpoint override (e.g. LocalStack, VPC interface endpoints)"
-            },
-            "widget": {
-              "derived": false,
-              "overrides": [
-                { "widgetKind": "EXPRESSION", "selected": true, "ballerinaType": "sqs:EndpointConfig" }
-              ]
-            },
-            "state": {
-              "advanced": true,
-              "enabled": true,
-              "editable": true,
-              "optional": true
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                "position": 1,
-                "path": "endpoint"
-              }
-            }
-          },
-          "pollInterval": {
-            "key": "pollInterval",
-            "placeholder": "1",
-            "default": "1",
-            "metadata": {
-              "label": "Poll Interval",
-              "description": "Interval between polling attempts in seconds"
-            },
-            "widget": {
-              "derived": false,
-              "overrides": [
-                { "widgetKind": "NUMBER", "selected": true, "ballerinaType": "decimal" },
-                { "widgetKind": "EXPRESSION", "selected": false, "ballerinaType": "decimal" }
-              ]
-            },
-            "state": {
-              "advanced": true,
-              "enabled": true,
-              "editable": true,
-              "optional": true
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                "position": 2,
-                "path": "pollInterval"
-              }
-            }
-          },
-          "waitTime": {
-            "key": "waitTime",
-            "placeholder": "20",
-            "default": "20",
-            "metadata": {
-              "label": "Wait Time",
-              "description": "Duration in seconds for which the polling waits for messages"
-            },
-            "state": {
-              "advanced": true,
-              "enabled": true,
-              "editable": true,
-              "optional": true
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                "position": 2,
-                "path": "waitTime"
-              }
-            }
-          },
-          "visibilityTimeout": {
-            "key": "visibilityTimeout",
-            "placeholder": "30",
-            "default": "30",
-            "metadata": {
-              "label": "Visibility Timeout",
-              "description": "Duration in seconds for which the received message remains invisible to other consumers"
-            },
-            "state": {
-              "advanced": true,
-              "enabled": true,
-              "editable": true,
-              "optional": true
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_CONFIG_FIELD",
-                "position": 2,
-                "path": "visibilityTimeout"
-              }
             }
           }
         }
