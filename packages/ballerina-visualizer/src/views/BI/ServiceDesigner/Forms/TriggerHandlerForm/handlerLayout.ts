@@ -56,7 +56,11 @@ export const LAYOUT_ID_PARAMETERS = "$parameters";
 export const LAYOUT_ID_RETURN_TYPE = "$returnType";
 /** The individually-bound HTTP header block. */
 export const LAYOUT_ID_HEADERS = "$headers";
-/** Directive: every unit no section claimed, in default order. */
+/**
+ * Directive: every unit no section claimed, in default order. Placement is section-granular: it
+ * always appends the remainder at the end of whichever section's `fields` names it, regardless of
+ * where in that array it sits (`["*rest", "stream"]` resolves to `[stream, ...remainder]`).
+ */
 export const LAYOUT_ID_REST = "*rest";
 
 /**
@@ -186,13 +190,20 @@ export function handlerUnitsOf(fn: FunctionModel, artifactFieldKeys: string[] = 
     return units.filter((unit) => !!unit.id);
 }
 
-/** Index every unit by its primary id, then by its alt ids. First registration wins. */
+/**
+ * Index every unit by its primary id, then by its alt ids. First registration wins; a later unit
+ * sharing an earlier one's primary id is shadowed -- it can never be named by a layout and always
+ * falls into the remainder, so it's flagged rather than silently dropped.
+ */
 function indexUnits(units: HandlerUnit[]): Map<string, HandlerUnit> {
     const byId = new Map<string, HandlerUnit>();
     for (const unit of units) {
-        if (!byId.has(unit.id)) {
-            byId.set(unit.id, unit);
+        if (byId.has(unit.id)) {
+            warn(`"${unit.id}" names more than one field on this handler; only the first is addressable `
+                + "by a layout");
+            continue;
         }
+        byId.set(unit.id, unit);
     }
     for (const unit of units) {
         for (const altId of unit.altIds ?? []) {
@@ -207,14 +218,18 @@ function indexUnits(units: HandlerUnit[]): Map<string, HandlerUnit> {
 /**
  * Keeps the ArtifactForm block whole: its four fields share one react-hook-form context, so they can be
  * ordered but not split. They collapse to the position of the first one, so naming any of them moves the
- * whole block. `declaredKeys` excludes the remainder, so the split warning fires only on a real mistake.
+ * whole block. `explicitlyDeclaredKeys` names sections that explicitly claimed at least one field before
+ * the remainder was merged in, so a section that both names a field and hosts `*rest` still counts as a
+ * real, deliberate split -- and the split warning fires only on an actual mistake.
  */
-function consolidateArtifactUnits(sections: ResolvedSection[], declaredKeys: Set<string>): ResolvedSection[] {
+function consolidateArtifactUnits(
+    sections: ResolvedSection[], explicitlyDeclaredKeys: Set<string>
+): ResolvedSection[] {
     const owners = sections.filter((section) => section.units.some((unit) => unit.kind === "ARTIFACT_FIELD"));
     if (owners.length === 0) {
         return sections;
     }
-    const split = owners.filter((section) => declaredKeys.has(section.key));
+    const split = owners.filter((section) => explicitlyDeclaredKeys.has(section.key));
     if (split.length > 1) {
         warn(
             "the name/documentation/parameters/returnType fields share one form context and cannot be " +
@@ -247,10 +262,16 @@ export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: strin
 
     const byId = indexUnits(units);
     const claimed = new Set<HandlerUnit>();
+    const seenSectionKeys = new Set<string>();
     let restAt = -1;
 
     const sections: ResolvedSection[] = layout.map((section: HandlerLayoutSection, index: number) => {
-        const key = section.id?.trim() || `$section-${index}`;
+        let key = section.id?.trim() || `$section-${index}`;
+        if (seenSectionKeys.has(key)) {
+            warn(`section id "${key}" is reused by more than one section; disambiguating it for rendering`);
+            key = `${key}-${index}`;
+        }
+        seenSectionKeys.add(key);
         const picked: HandlerUnit[] = [];
         for (const field of section.fields ?? []) {
             if (field === LAYOUT_ID_REST) {
@@ -289,22 +310,23 @@ export function resolveHandlerLayout(fn: FunctionModel, artifactFieldKeys: strin
         };
     });
 
+    // Captured before the remainder is merged in, so a section that both names a field and hosts
+    // `*rest` (e.g. `fields: ["$name", "*rest"]`) is still recognised as explicitly declared.
+    const explicitlyDeclaredKeys = new Set(
+        sections.filter((section) => section.units.length > 0).map((section) => section.key)
+    );
+
     const remainder = units.filter((unit) => !claimed.has(unit));
-    let remainderKey: string | undefined;
     if (remainder.length > 0) {
         if (restAt === -1) {
-            remainderKey = LAYOUT_ID_REST;
-            sections.push({ key: remainderKey, units: remainder });
+            sections.push({ key: LAYOUT_ID_REST, units: remainder });
         } else {
-            remainderKey = sections[restAt].key;
             sections[restAt] = { ...sections[restAt], units: [...sections[restAt].units, ...remainder] };
         }
     }
 
-    const declaredKeys = new Set(
-        sections.map((section) => section.key).filter((key) => key !== remainderKey)
-    );
-    return consolidateArtifactUnits(sections, declaredKeys).filter((section) => section.units.length > 0);
+    return consolidateArtifactUnits(sections, explicitlyDeclaredKeys)
+        .filter((section) => section.units.length > 0);
 }
 
 /**

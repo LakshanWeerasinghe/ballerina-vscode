@@ -2800,7 +2800,18 @@
         "addLabel": "Add On Create Handler (Raw Bytes)",
         "addDescription": "Invoked when a file is created in the monitored directory.",
         "repeatable": "ONE_EACH_PER_GROUP",
-        "nameEditable": false
+        "nameEditable": false,
+        "layout": [
+          {
+            "fields": [
+              "$variant",
+              "$description",
+              "content",
+              "stream",
+              "*rest"
+            ]
+          }
+        ]
       },
       {
         "metadata": {

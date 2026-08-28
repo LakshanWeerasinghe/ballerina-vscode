@@ -106,6 +106,9 @@ export enum RepeatBehavior {
  * (`$variant`, `$description`, `$name`, `$documentation`, `$parameters`, `$returnType`, `$headers`), or
  * `*rest` for every unit no section claimed. An unresolved id is skipped with a dev warning.
  *
+ * `*rest`'s placement is section-granular, not positional: it always appends the remainder at the end
+ * of whichever section's `fields` names it, regardless of where in that array it sits.
+ *
  * Presentation only -- layout never reorders the emitted signature, which follows `parameters`.
  */
 export interface HandlerLayoutSection {

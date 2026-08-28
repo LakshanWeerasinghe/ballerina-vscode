@@ -101,9 +101,16 @@ public class TriggerLayoutTest {
         String where = moduleName + "/" + handler.name();
         Set<String> addressable = addressableIds(handler);
         Set<String> claimed = new HashSet<>();
+        Set<String> sectionIds = new HashSet<>();
         int restCount = 0;
 
         for (TriggerUISchemaModel.LayoutSection section : layout) {
+            String sectionId = section.id() != null ? section.id().trim() : "";
+            if (!sectionId.isEmpty()) {
+                Assert.assertTrue(sectionIds.add(sectionId),
+                        where + ": section id \"" + sectionId + "\" is reused by more than one section; each "
+                                + "becomes a React key in the form and must be unique");
+            }
             Assert.assertNotNull(section.fields(),
                     where + ": a layout section must declare `fields`; an empty section renders nothing");
             Assert.assertFalse(section.fields().isEmpty(),
@@ -144,8 +151,8 @@ public class TriggerLayoutTest {
 
     /** Property {@code codedata.type} values {@code handlerUnitsOf} in handlerLayout.ts renders as a unit. */
     private static final Set<String> ADDRESSABLE_PROPERTY_TYPES = Set.of(
-            "METADATA_FLAG", Constants.CD_TYPE_PAYLOAD_MODIFIER, Constants.CD_TYPE_COMPLEX_FUNCTION_ANNOTATION,
-            Constants.CD_TYPE_ANNOTATION_ATTACHMENT);
+            Constants.CD_TYPE_METADATA_FLAG, Constants.CD_TYPE_PAYLOAD_MODIFIER,
+            Constants.CD_TYPE_COMPLEX_FUNCTION_ANNOTATION, Constants.CD_TYPE_ANNOTATION_ATTACHMENT);
 
     /**
      * Every bare id an author may write for this handler, unioned over its wire variants. Mirrors the
@@ -188,7 +195,8 @@ public class TriggerLayoutTest {
         }
         Codedata codedata = parameter.getType() != null ? parameter.getType().getCodedata() : null;
         String type = codedata != null ? codedata.getType() : null;
-        return Constants.CD_TYPE_PAYLOAD_TYPE.equals(type) || Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD.equals(type);
+        return Constants.CD_TYPE_PAYLOAD_TYPE.equals(type)
+                || Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD.equals(type);
     }
 
     private List<TriggerUISchemaModel.FunctionModel> allHandlers(TriggerUISchemaModel.ServiceTypeModel type) {
