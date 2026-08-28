@@ -20,6 +20,57 @@
     "fields": [
       {
         "target": {
+          "via": "l1",
+          "id": "$listener"
+        },
+        "metadata": {
+          "label": "Monitored Path",
+          "description": "The folder on the share to monitor for file actions (e.g., /uploads or /incoming)"
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        },
+        "field": {
+          "key": "path",
+          "placeholder": "/",
+          "default": "/",
+          "metadata": {
+            "label": "Monitored Path",
+            "description": "The folder on the share to monitor for file actions (e.g., /uploads or /incoming)"
+          },
+          "source": {
+            "codedata": {
+              "type": "SERVICE_BASE_PATH"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "TEXT",
+                "selected": true,
+                "ballerinaType": "string"
+              },
+              {
+                "widgetKind": "EXPRESSION",
+                "selected": false,
+                "ballerinaType": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "target": {
           "via": "semantic",
           "kind": "serviceAnnotationField",
           "serviceType": "$service",
@@ -219,6 +270,10 @@
           "useExisting": {
             "label": "Use existing",
             "description": "Attach to a listener already declared in the project."
+          },
+          "existingListener": {
+            "label": "Listener",
+            "description": "Select an existing listener to attach to."
           }
         },
         "formFields": {

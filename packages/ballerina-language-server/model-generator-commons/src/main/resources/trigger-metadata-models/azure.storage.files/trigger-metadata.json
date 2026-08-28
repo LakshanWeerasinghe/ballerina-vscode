@@ -10,7 +10,7 @@
       "services": [
         "$service"
       ],
-      "multipleServicesAllowed": false
+      "multipleServicesAllowed": true
     }
   ],
   "serviceTypes": [
@@ -374,7 +374,22 @@
                   "name": "string",
                   "builtin": true
                 },
-                "presence": "required"
+                "presence": "required",
+                "dataBinding": {
+                  "typedescs": [
+                    {
+                      "constraint": {
+                        "name": "string",
+                        "builtin": true
+                      },
+                      "shapes": [
+                        {
+                          "form": "bare"
+                        }
+                      ]
+                    }
+                  ]
+                }
               },
               {
                 "id": "$service.onFileText.fileInfo",
@@ -452,7 +467,38 @@
                     ]
                   }
                 ],
-                "presence": "required"
+                "presence": "required",
+                "dataBinding": {
+                  "typedescs": [
+                    {
+                      "constraint": {
+                        "shape": "array",
+                        "elementType": {
+                          "name": "byte",
+                          "builtin": true
+                        }
+                      },
+                      "shapes": [
+                        {
+                          "form": "bare"
+                        },
+                        {
+                          "form": "stream",
+                          "completionType": [
+                            {
+                              "name": "error",
+                              "builtin": true
+                            },
+                            {
+                              "name": "()",
+                              "builtin": true
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
               },
               {
                 "id": "$service.onFile.fileInfo",
