@@ -211,6 +211,13 @@ final class TriggerUIMetadataCompiler {
             put(root, "shortDisplayName", l2.trigger().shortDisplayName());
             put(root, "description", l2.trigger().description());
             put(root, "type", l2.trigger().type());
+            if (l2.trigger().listenerKind() != null) {
+                if (l2.trigger().listenerKind().isEmpty()) {
+                    root.remove("listenerKind");
+                } else {
+                    root.addProperty("listenerKind", l2.trigger().listenerKind());
+                }
+            }
         }
         if (l2.metadata() != null) {
             put(root, "kind", l2.metadata().kind());
@@ -690,14 +697,23 @@ final class TriggerUIMetadataCompiler {
             }
             overlayMetadata(runtime, overlay.metadata());
             overlayState(runtime, overlay.state());
+            if (overlay.service() != null && overlay.service().name() != null) {
+                put(runtime, "name", overlay.service().name());
+            }
             if (overlay.service() != null && overlay.service().description() != null) {
                 put(runtime, "description", overlay.service().description());
             }
             if (overlay.service() != null && overlay.service().properties() != null) {
-                JsonObject existing = runtime.has("properties")
-                        ? runtime.getAsJsonObject("properties") : new JsonObject();
-                runtime.add("properties", compileFieldMap(overlay.service().properties(), propertyTemplates(existing),
-                        null));
+                if (overlay.service().properties().isEmpty()) {
+                    // An explicit empty map means L2 wants the auto-derived properties (e.g. a service
+                    // annotation the synthesizer always attaches) dropped entirely, not restated as {}.
+                    runtime.remove("properties");
+                } else {
+                    JsonObject existing = runtime.has("properties")
+                            ? runtime.getAsJsonObject("properties") : new JsonObject();
+                    runtime.add("properties",
+                            compileFieldMap(overlay.service().properties(), propertyTemplates(existing), null));
+                }
             }
             if (overlay.handlers() != null) {
                 for (TriggerUIMetadataModel.TargetedNode handler : overlay.handlers()) {
@@ -784,6 +800,7 @@ final class TriggerUIMetadataCompiler {
         mergeCodedata(function, source(overlay));
         if (overlay.function() != null) {
             TriggerUIMetadataModel.FunctionNode authored = overlay.function();
+            put(function, "name", authored.name());
             put(function, "nameEditable", authored.nameEditable());
             if (authored.nameMetadata() != null) {
                 function.add("nameMetadata", runtimeMetadata(authored.nameMetadata()));
@@ -793,13 +810,19 @@ final class TriggerUIMetadataCompiler {
             put(function, "variantLabel", authored.variantLabel());
             put(function, "group", authored.group());
             if (authored.properties() != null) {
-                // A full replacement, not a merge: L2 decomposing an auto-derived annotation property
-                // (e.g. functionConfig) into structured sub-fields (e.g. afterFileProcessing) means the
-                // derived key no longer belongs in the output.
-                JsonObject existing = function.has("properties")
-                        ? function.getAsJsonObject("properties") : new JsonObject();
-                function.add("properties", compileFieldMap(authored.properties(), propertyTemplates(existing),
-                        null));
+                if (authored.properties().isEmpty()) {
+                    // An explicit empty map means L2 wants the auto-derived properties (e.g. a handler
+                    // annotation the synthesizer always attaches) dropped entirely, not restated as {}.
+                    function.remove("properties");
+                } else {
+                    // A full replacement, not a merge: L2 decomposing an auto-derived annotation
+                    // property (e.g. functionConfig) into structured sub-fields (e.g.
+                    // afterFileProcessing) means the derived key no longer belongs in the output.
+                    JsonObject existing = function.has("properties")
+                            ? function.getAsJsonObject("properties") : new JsonObject();
+                    function.add("properties",
+                            compileFieldMap(authored.properties(), propertyTemplates(existing), null));
+                }
             }
             if (authored.layout() != null) {
                 function.add("layout", GSON.toJsonTree(authored.layout()));
@@ -831,7 +854,7 @@ final class TriggerUIMetadataCompiler {
                 }
                 JsonObject runtime = schemas.has(key) && schemas.get(key).isJsonObject()
                         ? schemas.getAsJsonObject(key) : parameterSchema(key, parameter.metadata());
-                applyParameter(runtime, parameter);
+                applyParameter(runtime, parameter, false);
                 schemas.add(key, runtime);
             }
             if (!schemas.isEmpty()) {
@@ -848,6 +871,13 @@ final class TriggerUIMetadataCompiler {
                 if (value != null) {
                     putObject(returnType, "type", value);
                     returnType.addProperty("hasError", hasErrorMember(String.valueOf(value)));
+                } else if (authored.state() != null && Boolean.TRUE.equals(authored.state().typeEditable())) {
+                    // A handler L2 marks a return as user-editable without restating a fixed type
+                    // (e.g. an addable handler whose real return type is the author's choice, not one
+                    // the synthesizer could derive) -- the synthesized placeholder type/hasError no
+                    // longer describes anything and shouldn't survive onto the editable field.
+                    returnType.remove("type");
+                    returnType.addProperty("hasError", false);
                 }
                 if (authored.state() != null) {
                     put(returnType, "editable", authored.state().editable());
@@ -889,16 +919,37 @@ final class TriggerUIMetadataCompiler {
     }
 
     private static void applyParameter(JsonObject runtime, TriggerUIMetadataModel.TargetedNode overlay) {
+        applyParameter(runtime, overlay, true);
+    }
+
+    /**
+     * {@code normalizeKind} is false for a {@code parameterSchema} template entry: there, {@code kind}
+     * describes whether the sub-field is required within the record the user fills in, a concept
+     * unrelated to {@code state.optional} (which instead says whether the templated entry itself is
+     * optional to add) -- the two must not be coupled the way an actual function parameter's are.
+     */
+    private static void applyParameter(JsonObject runtime, TriggerUIMetadataModel.TargetedNode overlay,
+                                       boolean normalizeKind) {
         overlayMetadata(runtime, overlay.metadata());
         overlayState(runtime, overlay.state());
         mergeCodedata(runtime, source(overlay));
         if (overlay.fields() != null) {
             for (TriggerUIMetadataModel.TargetedNode child : overlay.fields()) {
                 String key = child.target() == null ? null : child.target().path();
-                if (key == null || !runtime.has(key) || child.field() == null) {
+                if (key == null || child.field() == null) {
                     continue;
                 }
-                JsonObject property = applyField(child.field(), runtime.getAsJsonObject(key), Map.of(),
+                if (Boolean.TRUE.equals(child.field().literal())) {
+                    // A bare marker value (e.g. an httpParamType discriminator) rather than the usual
+                    // Property-object shape -- there is nothing to overlay metadata/state onto.
+                    runtime.add(key, GSON.toJsonTree(child.field().defaultValue()));
+                    continue;
+                }
+                // A key absent from the template (e.g. a parameterSchema entry's own companion field,
+                // like a header's overridable wire name) is built fresh rather than skipped -- every
+                // existing caller already targets a key the template has, so this only ever adds.
+                JsonObject property = applyField(child.field(), runtime.has(key) ? runtime.getAsJsonObject(key)
+                        : null, Map.of(),
                         source(child), null, 0);
                 overlayMetadata(property, child.metadata());
                 overlayState(property, child.state());
@@ -914,6 +965,9 @@ final class TriggerUIMetadataCompiler {
             put(codedata, "nameEditable", overlay.field().binding().nameEditable());
             put(codedata, "bindingKind", overlay.field().binding().bindingKind());
             runtime.add("codedata", codedata);
+        }
+        if (!normalizeKind) {
+            return;
         }
         String kind = normalizeParameterKind(string(runtime, "kind"),
                 overlay.state() == null ? null : overlay.state().optional());
@@ -948,12 +1002,17 @@ final class TriggerUIMetadataCompiler {
     /** Creates the stable common shape used by dynamically-defined MCP tool parameters. */
     private static JsonObject parameterSchema(String key, TriggerUIMetadataModel.Metadata metadata) {
         JsonObject schema = defaultProperty();
+        // Only its inner type/name/defaultValue/documentation fields carry their own advanced flag --
+        // the schema entry itself is never individually collapsible, so it doesn't restate one.
+        schema.remove("advanced");
         if (metadata != null) {
             schema.add("metadata", runtimeMetadata(metadata));
         }
         schema.addProperty("kind", "REQUIRED");
-        schema.add("type", schemaField("Type", "The type of the parameter", "string", "TYPE"));
-        schema.add("name", schemaField("Name", "The parameter's identifier", key, "IDENTIFIER"));
+        JsonObject type = schemaField("Type", "The type of the parameter", "string", "TYPE");
+        type.addProperty("placeholder", "string");
+        schema.add("type", type);
+        schema.add("name", schemaField("Name", "The parameter's identifier", null, "IDENTIFIER"));
         JsonObject defaultValue = defaultProperty();
         defaultValue.add("metadata", metadata("Default Value", "The default value, if this parameter is optional"));
         defaultValue.add("types", types("EXPRESSION", null));
@@ -972,7 +1031,7 @@ final class TriggerUIMetadataCompiler {
     private static JsonObject schemaField(String label, String description, String value, String widgetKind) {
         JsonObject field = defaultProperty();
         field.add("metadata", metadata(label, description));
-        field.addProperty("value", value);
+        put(field, "value", value);
         field.add("types", types(widgetKind, null));
         return field;
     }

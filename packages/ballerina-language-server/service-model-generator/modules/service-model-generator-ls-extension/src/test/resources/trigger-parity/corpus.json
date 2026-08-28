@@ -49,13 +49,6 @@
     "version": "1.2.0"
   },
   {
-    "key": "mcp_1.0.3",
-    "org": "ballerina",
-    "package": "mcp",
-    "module": "mcp",
-    "version": "1.0.3"
-  },
-  {
     "key": "mqtt",
     "org": "ballerina",
     "package": "mqtt",

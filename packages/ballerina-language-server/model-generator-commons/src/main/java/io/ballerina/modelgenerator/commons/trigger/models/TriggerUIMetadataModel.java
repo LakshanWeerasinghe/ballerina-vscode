@@ -66,11 +66,19 @@ public record TriggerUIMetadataModel(
             String kind) {
     }
 
+    /**
+     * @param listenerKind overrides the synthesized root {@code listenerKind}; an empty string removes
+     *                      the key entirely (e.g. a connector whose real UI has nothing to select among,
+     *                      so the synthesizer's always-populated default doesn't belong in its schema),
+     *                      a non-empty one restates a different value, and {@code null} (the default)
+     *                      leaves the synthesized value untouched
+     */
     public record Trigger(
             String displayName,
             String shortDisplayName,
             String description,
-            String type) {
+            String type,
+            String listenerKind) {
     }
 
     public record ReadOnlyMetadata(
@@ -208,6 +216,11 @@ public record TriggerUIMetadataModel(
             Boolean typeEditable) {
     }
 
+    /**
+     * @param literal when true, this field compiles to its bare {@code default} value (e.g. a plain
+     *                marker string like an {@code httpParamType} discriminator) instead of the usual
+     *                Property-object shape built from the other properties here, which are ignored
+     */
     public record Field(
             String key,
             Metadata metadata,
@@ -220,7 +233,8 @@ public record TriggerUIMetadataModel(
             List<Validation> validations,
             Binding binding,
             State state,
-            Source source) {
+            Source source,
+            Boolean literal) {
     }
 
     public record WidgetPolicy(
@@ -326,14 +340,20 @@ public record TriggerUIMetadataModel(
     }
 
     /**
+     * @param name        overrides the runtime {@code ServiceTypeModel.name} identity (e.g. a same-module,
+     *                    multi-type connector whose real API resolves each type by its bare name rather
+     *                    than the module-qualified form the synthesizer defaults a multi-type connector to)
      * @param description the service type's own catalog description, distinct from {@code metadata.description}
      * @param properties  service-level field overlays, keyed by the runtime property name
      */
-    public record ServiceNode(String description, Map<String, Field> properties) {
+    public record ServiceNode(String name, String description, Map<String, Field> properties) {
     }
 
     /**
      * @param included         whether the targeted L1 handler is exposed; absent defaults to included
+     * @param name             a default/starting name for an addable handler (e.g. {@code "newTool"});
+     *                         distinct from {@code nameEditable}, which only controls whether the user
+     *                         may change it afterward
      * @param nameEditable     whether the handler's name may be renamed
      * @param nameMetadata     presentation text for the name field
      * @param repeatable       whether this handler may be declared more than once, e.g. {@code "TRUE"}
@@ -349,6 +369,7 @@ public record TriggerUIMetadataModel(
      */
     public record FunctionNode(
             Boolean included,
+            String name,
             Boolean nameEditable,
             Metadata nameMetadata,
             String repeatable,

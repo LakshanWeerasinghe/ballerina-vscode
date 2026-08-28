@@ -1,1339 +1,1167 @@
 {
-  "variants": [
+  "version": "v1.0",
+  "metadata": {
+    "kind": "mcp"
+  },
+  "trigger": {
+    "displayName": "MCP Service",
+    "description": "Create a service that exposes tools to MCP clients over the Streamable HTTP transport.",
+    "type": "mcp",
+    "listenerKind": ""
+  },
+  "readOnlyMetadata": [
     {
-      "minVersion": "1.2.0",
-      "model": {
-        "version": "v1.0",
+      "key": "basePath",
+      "displayName": "Base Path",
+      "extractor": "SERVICE_BASE_PATH"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "serviceAnnotationField",
+          "serviceType": "$streamableHttpService",
+          "annotation": "$streamableHttpServiceConfig",
+          "path": "info.name"
+        },
         "metadata": {
-          "kind": "mcp"
+          "label": "Service Name",
+          "description": "The name of the mcp service."
         },
-        "trigger": {
-          "displayName": "MCP Service",
-          "description": "Create a service that exposes tools to MCP clients over the Streamable HTTP transport.",
-          "type": "mcp"
-        },
-        "readOnlyMetadata": [
-          {
-            "key": "basePath",
-            "displayName": "Base Path",
-            "extractor": "SERVICE_BASE_PATH"
+        "field": {
+          "key": "serviceName",
+          "placeholder": "MCP Service",
+          "default": "\"MCP Service\"",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "path": "info.name",
+              "moduleName": "mcp",
+              "originalName": "StreamableHttpServiceConfig"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
           }
-        ],
-        "initForm": {
-          "fields": [
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "path": "info.name",
+            "moduleName": "mcp",
+            "originalName": "StreamableHttpServiceConfig"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      },
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "serviceAnnotationField",
+          "serviceType": "$streamableHttpService",
+          "annotation": "$streamableHttpServiceConfig",
+          "path": "info.version"
+        },
+        "metadata": {
+          "label": "Version",
+          "description": "The version of the mcp service."
+        },
+        "field": {
+          "key": "version",
+          "placeholder": "1.0.0",
+          "default": "\"1.0.0\"",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "path": "info.version",
+              "moduleName": "mcp",
+              "originalName": "StreamableHttpServiceConfig"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "path": "info.version",
+            "moduleName": "mcp",
+            "originalName": "StreamableHttpServiceConfig"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      },
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "recordField",
+          "owner": "trigger.initProperties",
+          "path": "serviceType"
+        },
+        "metadata": {
+          "label": "Service Type",
+          "description": "The MCP service type. New services use the Streamable HTTP transport; mcp:Service is deprecated and only resolved when already present in the source."
+        },
+        "state": {
+          "hidden": true,
+          "editable": false,
+          "enabled": true,
+          "optional": false,
+          "advanced": false
+        },
+        "field": {
+          "key": "serviceType",
+          "default": "StreamableHttpService",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_TYPE_DESCRIPTOR"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": false,
+            "optional": false,
+            "advanced": false,
+            "hidden": true
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "SINGLE_SELECT",
+                "selected": true,
+                "ballerinaType": "mcp:StreamableHttpService",
+                "options": [
+                  {
+                    "label": "Streamable HTTP Service",
+                    "value": "StreamableHttpService"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_TYPE_DESCRIPTOR"
+          }
+        }
+      },
+      {
+        "target": {
+          "via": "l1",
+          "id": "$listener1"
+        },
+        "metadata": {
+          "label": "Port",
+          "description": "The port on which the MCP service listens."
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        },
+        "field": {
+          "key": "listenTo",
+          "placeholder": "8080",
+          "default": "8080",
+          "metadata": {
+            "label": "Port",
+            "description": "The port on which the MCP service listens."
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "NUMBER",
+                "selected": true,
+                "ballerinaType": "int",
+                "validations": [
+                  {
+                    "rule": "common.validate.port",
+                    "severity": "WARNING",
+                    "args": {
+                      "min": 1,
+                      "max": 65535
+                    },
+                    "message": "Port must be between {min} and {max}"
+                  }
+                ]
+              },
+              {
+                "widgetKind": "EXPRESSION",
+                "selected": false,
+                "ballerinaType": "int"
+              }
+            ]
+          },
+          "validations": [
+            {
+              "rule": "common.validate.required"
+            }
+          ],
+          "source": {
+            "codedata": {
+              "argType": "LISTENER_PARAM_REQUIRED",
+              "position": 1,
+              "originalName": "listenTo"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        }
+      },
+      {
+        "target": {
+          "via": "l1",
+          "id": "$listener1"
+        },
+        "metadata": {
+          "label": "Base Path",
+          "description": "The base path of the MCP service"
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        },
+        "field": {
+          "key": "basePath",
+          "placeholder": "/mcp",
+          "default": "/mcp",
+          "metadata": {
+            "label": "Base Path",
+            "description": "The base path of the MCP service"
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "SERVICE_PATH",
+                "selected": true,
+                "ballerinaType": "string"
+              }
+            ]
+          },
+          "validations": [
+            {
+              "rule": "common.validate.required"
+            }
+          ],
+          "source": {
+            "codedata": {
+              "type": "SERVICE_BASE_PATH"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        }
+      },
+      {
+        "target": {
+          "via": "l1",
+          "id": "$listener1"
+        },
+        "metadata": {
+          "label": "Listener Name",
+          "description": "Provide a name for the listener being created"
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": true
+        },
+        "field": {
+          "key": "listenerVarName",
+          "default": "mcpListener",
+          "metadata": {
+            "label": "Listener Name",
+            "description": "Provide a name for the listener being created"
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "IDENTIFIER",
+                "selected": true,
+                "ballerinaType": "mcp:StreamableHttpListener"
+              }
+            ]
+          },
+          "validations": [
+            {
+              "rule": "common.validate.identifier"
+            },
+            {
+              "rule": "ls.validate.unique.listener.name",
+              "message": "A listener with this name already exists in the project"
+            }
+          ],
+          "source": {
+            "codedata": {
+              "type": "LISTENER_VAR_NAME"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": true
+          }
+        }
+      }
+    ]
+  },
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$streamableHttpService"
+      },
+      "metadata": {
+        "label": "Streamable HTTP Service",
+        "description": "Handles MCP tool calls over the Streamable HTTP transport."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "name": "StreamableHttpService",
+        "description": "Defines a basic MCP service interface exposed over the Streamable HTTP transport. Tool remote functions may additionally bind HTTP request information (e.g. @http:Header parameters, an http:Headers parameter, or an http:Request parameter).",
+        "properties": {}
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$streamableHttpService.tool"
+          },
+          "metadata": {
+            "label": "Tool",
+            "description": "Define a tool function that MCP clients can discover and call.",
+            "addLabel": "Add Tool"
+          },
+          "function": {
+            "name": "newTool",
+            "nameEditable": true,
+            "nameMetadata": {
+              "label": "Tool Name",
+              "description": "The name of the MCP tool"
+            },
+            "repeatable": "TRUE",
+            "canAddParameters": true,
+            "documentation": {
+              "metadata": {
+                "label": "Tool Description",
+                "description": "Description of what this MCP tool does"
+              },
+              "placeholder": "Describe what this tool does...",
+              "editable": true
+            },
+            "layout": [
+              {
+                "id": "transportParameters",
+                "label": "Transport Parameters",
+                "description": "Access transport-level request data.",
+                "advanced": true,
+                "fields": [
+                  "$headers"
+                ]
+              },
+              {
+                "id": "requestAccess",
+                "label": "Request Access",
+                "advanced": true,
+                "fields": [
+                  "request",
+                  "headers"
+                ]
+              }
+            ],
+            "properties": {}
+          },
+          "parameters": [
             {
               "target": {
                 "via": "semantic",
-                "kind": "serviceAnnotationField",
+                "kind": "concreteParam",
                 "serviceType": "$streamableHttpService",
-                "annotation": "$streamableHttpServiceConfig",
-                "path": "info.name"
+                "handler": "newTool",
+                "name": "meta"
               },
               "metadata": {
-                "label": "Service Name",
-                "description": "The name of the mcp service."
-              },
-              "field": {
-                "key": "serviceName",
-                "placeholder": "MCP Service",
-                "default": "\"MCP Service\"",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_ANNOTATION",
-                    "path": "info.name",
-                    "moduleName": "mcp",
-                    "originalName": "StreamableHttpServiceConfig"
-                  }
-                },
-                "state": {
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
-                }
-              },
-              "source": {
-                "codedata": {
-                  "type": "SERVICE_ANNOTATION",
-                  "path": "info.name",
-                  "moduleName": "mcp",
-                  "originalName": "StreamableHttpServiceConfig"
-                }
+                "label": "Meta",
+                "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
               },
               "state": {
-                "enabled": true,
+                "advanced": true,
+                "enabled": false,
                 "editable": true,
-                "optional": false,
-                "advanced": false
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "meta.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "mcp:Meta?",
+                    "default": "mcp:Meta?",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "meta.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "meta",
+                    "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "meta",
+                    "default": "meta",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
               }
             },
             {
               "target": {
-                "via": "semantic",
-                "kind": "serviceAnnotationField",
-                "serviceType": "$streamableHttpService",
-                "annotation": "$streamableHttpServiceConfig",
-                "path": "info.version"
+                "via": "l1",
+                "id": "$streamableHttpService.tool.headers"
               },
               "metadata": {
-                "label": "Version",
-                "description": "The version of the mcp service."
+                "label": "Headers",
+                "description": "Binds the HTTP headers of the request that carried the tool call."
               },
-              "field": {
-                "key": "version",
-                "placeholder": "1.0.0",
-                "default": "\"1.0.0\"",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_ANNOTATION",
-                    "path": "info.version",
-                    "moduleName": "mcp",
-                    "originalName": "StreamableHttpServiceConfig"
+              "state": {
+                "advanced": true,
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "headers.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "http:Headers",
+                    "default": "http:Headers",
+                    "source": {
+                      "codedata": {
+                        "orgName": "ballerina",
+                        "moduleName": "http"
+                      }
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "source": {
+                    "codedata": {
+                      "orgName": "ballerina",
+                      "moduleName": "http"
+                    }
                   }
                 },
-                "state": {
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "headers.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "headers",
+                    "description": "Binds the HTTP headers of the request that carried the tool call."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "headers",
+                    "default": "headers",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
                 }
-              },
+              ],
               "source": {
                 "codedata": {
-                  "type": "SERVICE_ANNOTATION",
-                  "path": "info.version",
-                  "moduleName": "mcp",
-                  "originalName": "StreamableHttpServiceConfig"
+                  "type": "FUNCTION_PARAM"
                 }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$streamableHttpService.tool.request"
+              },
+              "metadata": {
+                "label": "Request",
+                "description": "Binds the underlying HTTP request that carried the tool call."
+              },
+              "state": {
+                "advanced": true,
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "request.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "http:Request",
+                    "default": "http:Request",
+                    "source": {
+                      "codedata": {
+                        "orgName": "ballerina",
+                        "moduleName": "http"
+                      }
+                    },
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "source": {
+                    "codedata": {
+                      "orgName": "ballerina",
+                      "moduleName": "http"
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "request.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "request",
+                    "description": "Binds the underlying HTTP request that carried the tool call."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "request",
+                    "default": "request",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "parameterSchema": [
+            {
+              "target": {
+                "via": "semantic",
+                "kind": "recordField",
+                "owner": "newTool.parameterSchema",
+                "path": "parameter"
+              },
+              "metadata": {
+                "label": "Parameter",
+                "description": "A parameter the tool call must (or may) supply."
               },
               "state": {
                 "enabled": true,
                 "editable": true,
-                "optional": false,
-                "advanced": false
-              }
+                "optional": true
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.parameter",
+                    "path": "name"
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "paramName"
+                  }
+                }
+              ]
             },
             {
               "target": {
                 "via": "semantic",
                 "kind": "recordField",
-                "owner": "trigger.initProperties",
-                "path": "serviceType"
+                "owner": "newTool.parameterSchema",
+                "path": "header"
               },
               "metadata": {
-                "label": "Service Type",
-                "description": "The MCP service type. New services use the Streamable HTTP transport; mcp:Service is deprecated and only resolved when already present in the source."
+                "label": "HTTP Headers",
+                "description": "Bind individual HTTP headers of the request that carried the tool call as typed parameters."
               },
               "state": {
-                "hidden": true,
-                "editable": false,
                 "enabled": true,
+                "editable": true,
+                "optional": true
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Type",
+                    "description": "The type of the header value"
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "string",
+                    "default": "string",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "SINGLE_SELECT",
+                          "selected": true,
+                          "options": [
+                            { "label": "string", "value": "string" },
+                            { "label": "string?", "value": "string?" },
+                            { "label": "string[]", "value": "string[]" },
+                            { "label": "int", "value": "int" },
+                            { "label": "int?", "value": "int?" },
+                            { "label": "boolean", "value": "boolean" },
+                            { "label": "boolean?", "value": "boolean?" },
+                            { "label": "decimal", "value": "decimal" },
+                            { "label": "decimal?", "value": "decimal?" },
+                            { "label": "float", "value": "float" },
+                            { "label": "float?", "value": "float?" }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "name"
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "headerName"
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "defaultValue"
+                  },
+                  "metadata": {
+                    "label": "Default Value",
+                    "description": "The default value, if this header is optional"
+                  },
+                  "field": {
+                    "key": "defaultValue"
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "documentation"
+                  },
+                  "metadata": {
+                    "label": "Description",
+                    "description": "The description of the header parameter"
+                  },
+                  "field": {
+                    "key": "documentation"
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "headerName"
+                  },
+                  "metadata": {
+                    "label": "Header Name",
+                    "description": "The wire HTTP header name, if it differs from the identifier above (e.g. \"x-request-id\"). Leave blank to derive it from the identifier."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "headerName",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TEXT",
+                          "selected": true
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.header",
+                    "path": "httpParamType"
+                  },
+                  "field": {
+                    "key": "httpParamType",
+                    "default": "HEADER",
+                    "literal": true
+                  }
+                }
+              ]
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$streamableHttpService.tool.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the MCP tool"
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false
+            },
+            "field": {
+              "state": {
+                "enabled": true,
+                "editable": true,
                 "optional": false,
-                "advanced": false
-              },
-              "field": {
-                "key": "serviceType",
-                "default": "StreamableHttpService",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_TYPE_DESCRIPTOR"
-                  }
-                },
-                "state": {
-                  "enabled": true,
-                  "editable": false,
-                  "optional": false,
-                  "advanced": false,
-                  "hidden": true
-                }
-              },
-              "source": {
-                "codedata": {
-                  "type": "SERVICE_TYPE_DESCRIPTOR"
-                }
-              }
-            }
-          ]
-        },
-        "listeners": [
-          {
-            "target": {
-              "via": "l1",
-              "id": "$listener1"
-            },
-            "listener": {
-              "metadata": {
-                "label": "Streamable HTTP Listener",
-                "description": "MCP listener over the Streamable HTTP transport, wrapping an http:Listener and dispatching each tool call to the matching method."
-              },
-              "serviceProperties": {
-                "basePath": {
-                  "key": "basePath",
-                  "placeholder": "/mcp",
-                  "default": "/mcp",
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Base Path",
-                    "description": "The base path of the MCP service"
-                  },
-                  "widget": {
-                    "overrides": [
-                      {
-                        "widgetKind": "SERVICE_PATH",
-                        "selected": true,
-                        "ballerinaType": "string"
-                      }
-                    ]
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "SERVICE_BASE_PATH"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                }
-              },
-              "form": {
-                "section": {
-                  "label": "Listener Configuration",
-                  "description": "The MCP listener this service is exposed on"
-                },
-                "typeSelector": {
-                  "label": "Listener Type",
-                  "description": "The MCP transport this service is served over"
-                }
-              },
-              "formFields": {
-                "listenerVarName": {
-                  "key": "listenerVarName",
-                  "default": "mcpListener",
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Listener Name",
-                    "description": "Provide a name for the listener being created"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "LISTENER_VAR_NAME"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                },
-                "listenTo": {
-                  "key": "listenTo",
-                  "placeholder": "8080",
-                  "default": "8080",
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Port",
-                    "description": "The port on which the MCP service listens."
-                  },
-                  "widget": {
-                    "overrides": [
-                      {
-                        "widgetKind": "NUMBER",
-                        "selected": true,
-                        "ballerinaType": "int",
-                        "validations": [
-                          {
-                            "rule": "common.validate.port",
-                            "args": {
-                              "min": 1.0,
-                              "max": 65535.0
-                            },
-                            "message": "Port must be between {min} and {max}",
-                            "severity": "WARNING"
-                          }
-                        ]
-                      },
-                      {
-                        "widgetKind": "EXPRESSION",
-                        "selected": false,
-                        "ballerinaType": "int"
-                      }
-                    ]
-                  },
-                  "source": {
-                    "codedata": {
-                      "argType": "LISTENER_PARAM_REQUIRED",
-                      "position": 1,
-                      "originalName": "listenTo"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                }
+                "typeEditable": true
               }
             }
           },
-          {
-            "target": {
-              "via": "l1",
-              "id": "$listener2"
-            },
-            "listener": {
-              "metadata": {
-                "label": "Listener",
-                "description": "Delegates every call to an internal StreamableHttpListener, so it accepts and dispatches the same service types the same way.",
-                "notice": "Renamed to make the transport explicit. Use mcp:StreamableHttpListener instead.",
-                "deprecated": true
-              },
-              "form": {
-                "section": {
-                  "label": "Listener Configuration",
-                  "description": "The MCP listener this service is exposed on"
-                },
-                "typeSelector": {
-                  "label": "Listener Type",
-                  "description": "The MCP transport this service is served over"
-                }
-              },
-              "formFields": {
-                "listenerVarName": {
-                  "key": "listenerVarName",
-                  "default": "mcpListener",
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Listener Name",
-                    "description": "Provide a name for the listener being created"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "LISTENER_VAR_NAME"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                },
-                "listenTo": {
-                  "key": "listenTo",
-                  "placeholder": "8080",
-                  "default": "8080",
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Port",
-                    "description": "The port on which the MCP service listens."
-                  },
-                  "source": {
-                    "codedata": {
-                      "argType": "LISTENER_PARAM_REQUIRED",
-                      "position": 1,
-                      "originalName": "listenTo"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "serviceTypes": [
-          {
-            "target": {
-              "via": "l1",
-              "id": "$streamableHttpService"
-            },
-            "metadata": {
-              "label": "Streamable HTTP Service",
-              "description": "Handles MCP tool calls over the Streamable HTTP transport."
-            },
-            "state": {
-              "editable": false,
-              "enabled": true
-            },
-            "handlers": [
-              {
-                "target": {
-                  "via": "l1",
-                  "id": "$streamableHttpService.tool"
-                },
-                "metadata": {
-                  "label": "Tool",
-                  "description": "Define a tool function that MCP clients can discover and call.",
-                  "addLabel": "Add Tool"
-                },
-                "function": {
-                  "nameEditable": true,
-                  "nameMetadata": {
-                    "label": "Tool Name",
-                    "description": "The name of the MCP tool"
-                  },
-                  "repeatable": "TRUE",
-                  "canAddParameters": true,
-                  "documentation": {
-                    "metadata": {
-                      "label": "Tool Description",
-                      "description": "Description of what this MCP tool does"
-                    },
-                    "placeholder": "Describe what this tool does...",
-                    "editable": true
-                  },
-                  "layout": [
-                    {
-                      "id": "transportParameters",
-                      "label": "Transport Parameters",
-                      "description": "Access transport-level request data.",
-                      "advanced": true,
-                      "fields": [
-                        "$headers"
-                      ]
-                    },
-                    {
-                      "id": "requestAccess",
-                      "label": "Request Access",
-                      "advanced": true,
-                      "fields": [
-                        "request",
-                        "headers"
-                      ]
-                    }
-                  ]
-                },
-                "parameters": [
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "concreteParam",
-                      "serviceType": "$streamableHttpService",
-                      "handler": "newTool",
-                      "name": "meta"
-                    },
-                    "metadata": {
-                      "label": "Meta",
-                      "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
-                    },
-                    "state": {
-                      "advanced": true,
-                      "enabled": false,
-                      "editable": true,
-                      "optional": true,
-                      "hidden": false
-                    },
-                    "fields": [
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "meta.parameter",
-                          "path": "type"
-                        },
-                        "metadata": {
-                          "label": "Parameter Type",
-                          "description": "The type of the parameter"
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": true,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "type",
-                          "placeholder": "mcp:Meta?",
-                          "default": "mcp:Meta?",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": true,
-                            "advanced": false
-                          }
-                        }
-                      },
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "meta.parameter",
-                          "path": "name"
-                        },
-                        "metadata": {
-                          "label": "meta",
-                          "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "name",
-                          "placeholder": "meta",
-                          "default": "meta",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        }
-                      }
-                    ],
-                    "source": {
-                      "codedata": {
-                        "type": "FUNCTION_PARAM"
-                      }
-                    }
-                  },
-                  {
-                    "target": {
-                      "via": "l1",
-                      "id": "$streamableHttpService.tool.headers"
-                    },
-                    "metadata": {
-                      "label": "Headers",
-                      "description": "Binds the HTTP headers of the request that carried the tool call."
-                    },
-                    "state": {
-                      "advanced": true,
-                      "enabled": false,
-                      "editable": true,
-                      "optional": true,
-                      "hidden": false
-                    },
-                    "fields": [
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "headers.parameter",
-                          "path": "type"
-                        },
-                        "metadata": {
-                          "label": "Parameter Type",
-                          "description": "The type of the parameter"
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "type",
-                          "placeholder": "http:Headers",
-                          "default": "http:Headers",
-                          "source": {
-                            "codedata": {
-                              "orgName": "ballerina",
-                              "moduleName": "http"
-                            }
-                          },
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        },
-                        "source": {
-                          "codedata": {
-                            "orgName": "ballerina",
-                            "moduleName": "http"
-                          }
-                        }
-                      },
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "headers.parameter",
-                          "path": "name"
-                        },
-                        "metadata": {
-                          "label": "headers",
-                          "description": "Binds the HTTP headers of the request that carried the tool call."
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "name",
-                          "placeholder": "headers",
-                          "default": "headers",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        }
-                      }
-                    ],
-                    "source": {
-                      "codedata": {
-                        "type": "FUNCTION_PARAM"
-                      }
-                    }
-                  },
-                  {
-                    "target": {
-                      "via": "l1",
-                      "id": "$streamableHttpService.tool.request"
-                    },
-                    "metadata": {
-                      "label": "Request",
-                      "description": "Binds the underlying HTTP request that carried the tool call."
-                    },
-                    "state": {
-                      "advanced": true,
-                      "enabled": false,
-                      "editable": true,
-                      "optional": true,
-                      "hidden": false
-                    },
-                    "fields": [
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "request.parameter",
-                          "path": "type"
-                        },
-                        "metadata": {
-                          "label": "Parameter Type",
-                          "description": "The type of the parameter"
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "type",
-                          "placeholder": "http:Request",
-                          "default": "http:Request",
-                          "source": {
-                            "codedata": {
-                              "orgName": "ballerina",
-                              "moduleName": "http"
-                            }
-                          },
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        },
-                        "source": {
-                          "codedata": {
-                            "orgName": "ballerina",
-                            "moduleName": "http"
-                          }
-                        }
-                      },
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "request.parameter",
-                          "path": "name"
-                        },
-                        "metadata": {
-                          "label": "request",
-                          "description": "Binds the underlying HTTP request that carried the tool call."
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "name",
-                          "placeholder": "request",
-                          "default": "request",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        }
-                      }
-                    ],
-                    "source": {
-                      "codedata": {
-                        "type": "FUNCTION_PARAM"
-                      }
-                    }
-                  }
-                ],
-                "parameterSchema": [
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "recordField",
-                      "owner": "newTool.parameterSchema",
-                      "path": "parameter"
-                    },
-                    "metadata": {
-                      "label": "Parameter",
-                      "description": "A parameter the tool call must (or may) supply."
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true
-                    }
-                  },
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "recordField",
-                      "owner": "newTool.parameterSchema",
-                      "path": "header"
-                    },
-                    "metadata": {
-                      "label": "HTTP Headers",
-                      "description": "Bind individual HTTP headers of the request that carried the tool call as typed parameters."
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true
-                    }
-                  }
-                ],
-                "returnType": {
-                  "target": {
-                    "via": "l1",
-                    "id": "$streamableHttpService.tool.returns"
-                  },
-                  "metadata": {
-                    "label": "Return Type",
-                    "description": "The return type of the MCP tool"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "FUNCTION_RETURN"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false
-                  }
-                },
-                "source": {
-                  "codedata": {
-                    "type": "FUNCTION",
-                    "moduleName": "mcp"
-                  }
-                },
-                "state": {
-                  "enabled": false,
-                  "editable": true,
-                  "optional": true
-                }
-              }
-            ],
-            "source": {
-              "codedata": {
-                "type": "SERVICE_TYPE_DESCRIPTOR",
-                "moduleName": "mcp",
-                "originalName": "StreamableHttpService"
-              }
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "moduleName": "mcp"
             }
           },
-          {
-            "target": {
-              "via": "l1",
-              "id": "$service"
-            },
-            "metadata": {
-              "label": "MCP Service",
-              "description": "Handles MCP tool calls over the Streamable HTTP transport."
-            },
-            "state": {
-              "editable": false,
-              "enabled": true
-            },
-            "handlers": [
-              {
-                "target": {
-                  "via": "l1",
-                  "id": "$service.tool"
-                },
-                "metadata": {
-                  "label": "Tool",
-                  "description": "Define a tool function that MCP clients can discover and call.",
-                  "addLabel": "Add Tool"
-                },
-                "function": {
-                  "nameEditable": true,
-                  "nameMetadata": {
-                    "label": "Tool Name",
-                    "description": "The name of the MCP tool"
-                  },
-                  "repeatable": "TRUE",
-                  "canAddParameters": true,
-                  "documentation": {
-                    "metadata": {
-                      "label": "Tool Description",
-                      "description": "Description of what this MCP tool does"
-                    },
-                    "placeholder": "Describe what this tool does...",
-                    "editable": true
-                  }
-                },
-                "parameters": [
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "concreteParam",
-                      "serviceType": "$service",
-                      "handler": "newTool",
-                      "name": "meta"
-                    },
-                    "metadata": {
-                      "label": "Meta",
-                      "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
-                    },
-                    "state": {
-                      "advanced": true,
-                      "enabled": false,
-                      "editable": true,
-                      "optional": true,
-                      "hidden": false
-                    },
-                    "fields": [
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "meta.parameter",
-                          "path": "type"
-                        },
-                        "metadata": {
-                          "label": "Parameter Type",
-                          "description": "The type of the parameter"
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": true,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "type",
-                          "placeholder": "mcp:Meta?",
-                          "default": "mcp:Meta?",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": true,
-                            "advanced": false
-                          }
-                        }
-                      },
-                      {
-                        "target": {
-                          "via": "semantic",
-                          "kind": "recordField",
-                          "owner": "meta.parameter",
-                          "path": "name"
-                        },
-                        "metadata": {
-                          "label": "meta",
-                          "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
-                        },
-                        "state": {
-                          "editable": false,
-                          "enabled": true,
-                          "optional": false,
-                          "advanced": false
-                        },
-                        "field": {
-                          "key": "name",
-                          "placeholder": "meta",
-                          "default": "meta",
-                          "state": {
-                            "enabled": true,
-                            "editable": false,
-                            "optional": false,
-                            "advanced": false
-                          }
-                        }
-                      }
-                    ],
-                    "source": {
-                      "codedata": {
-                        "type": "FUNCTION_PARAM"
-                      }
-                    }
-                  }
-                ],
-                "parameterSchema": [
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "recordField",
-                      "owner": "newTool.parameterSchema",
-                      "path": "parameter"
-                    },
-                    "metadata": {
-                      "label": "Parameter",
-                      "description": "A parameter the tool call must (or may) supply."
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true
-                    }
-                  }
-                ],
-                "returnType": {
-                  "target": {
-                    "via": "l1",
-                    "id": "$service.tool.returns"
-                  },
-                  "metadata": {
-                    "label": "Return Type",
-                    "description": "The return type of the MCP tool"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "FUNCTION_RETURN"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false
-                  }
-                },
-                "source": {
-                  "codedata": {
-                    "type": "FUNCTION",
-                    "moduleName": "mcp"
-                  }
-                },
-                "state": {
-                  "enabled": false,
-                  "editable": true,
-                  "optional": true
-                }
-              }
-            ],
-            "source": {
-              "codedata": {
-                "type": "SERVICE_TYPE_DESCRIPTOR",
-                "moduleName": "mcp",
-                "originalName": "Service"
-              }
-            }
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
           }
-        ]
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "mcp",
+          "originalName": "StreamableHttpService"
+        }
       }
     },
     {
-      "model": {
-        "version": "v1.0",
-        "metadata": {
-          "kind": "mcp"
-        },
-        "trigger": {
-          "displayName": "MCP Service",
-          "description": "Create a service that exposes tools to MCP clients.",
-          "type": "mcp"
-        },
-        "readOnlyMetadata": [
-          {
-            "key": "basePath",
-            "displayName": "Base Path",
-            "extractor": "SERVICE_BASE_PATH"
-          }
-        ],
-        "initForm": {
-          "fields": [
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "MCP Service",
+        "description": "Handles MCP tool calls over the Streamable HTTP transport."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "name": "Service",
+        "description": "Defines a transport-agnostic basic MCP service interface. Tools are declared as remote functions and cannot access transport-specific request information. Deprecated since mcp 1.2.0 in favour of mcp:StreamableHttpService.",
+        "properties": {}
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.tool"
+          },
+          "metadata": {
+            "label": "Tool",
+            "description": "Define a tool function that MCP clients can discover and call.",
+            "addLabel": "Add Tool"
+          },
+          "function": {
+            "name": "newTool",
+            "nameEditable": true,
+            "nameMetadata": {
+              "label": "Tool Name",
+              "description": "The name of the MCP tool"
+            },
+            "repeatable": "TRUE",
+            "canAddParameters": true,
+            "documentation": {
+              "metadata": {
+                "label": "Tool Description",
+                "description": "Description of what this MCP tool does"
+              },
+              "placeholder": "Describe what this tool does...",
+              "editable": true
+            },
+            "properties": {}
+          },
+          "parameters": [
             {
               "target": {
                 "via": "semantic",
-                "kind": "serviceAnnotationField",
+                "kind": "concreteParam",
                 "serviceType": "$service",
-                "annotation": "$serviceConfig",
-                "path": "info.name"
+                "handler": "newTool",
+                "name": "meta"
               },
               "metadata": {
-                "label": "Service Name",
-                "description": "The name of the mcp service."
-              },
-              "field": {
-                "key": "serviceName",
-                "placeholder": "MCP Service",
-                "default": "\"MCP Service\"",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_ANNOTATION",
-                    "path": "info.name",
-                    "moduleName": "mcp",
-                    "originalName": "ServiceConfig"
-                  }
-                },
-                "state": {
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
-                }
-              },
-              "source": {
-                "codedata": {
-                  "type": "SERVICE_ANNOTATION",
-                  "path": "info.name",
-                  "moduleName": "mcp",
-                  "originalName": "ServiceConfig"
-                }
+                "label": "Meta",
+                "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
               },
               "state": {
-                "enabled": true,
+                "advanced": true,
+                "enabled": false,
                 "editable": true,
-                "optional": false,
-                "advanced": false
-              }
-            },
-            {
-              "target": {
-                "via": "semantic",
-                "kind": "serviceAnnotationField",
-                "serviceType": "$service",
-                "annotation": "$serviceConfig",
-                "path": "info.version"
+                "optional": true,
+                "hidden": false
               },
-              "metadata": {
-                "label": "Version",
-                "description": "The version of the mcp service."
-              },
-              "field": {
-                "key": "version",
-                "placeholder": "1.0.0",
-                "default": "\"1.0.0\"",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_ANNOTATION",
-                    "path": "info.version",
-                    "moduleName": "mcp",
-                    "originalName": "ServiceConfig"
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "meta.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "mcp:Meta?",
+                    "default": "mcp:Meta?",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
                   }
                 },
-                "state": {
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "meta.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "meta",
+                    "description": "Binds the MCP request metadata (e.g. a progress token) attached to the tool call."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "meta",
+                    "default": "meta",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
                 }
-              },
+              ],
               "source": {
                 "codedata": {
-                  "type": "SERVICE_ANNOTATION",
-                  "path": "info.version",
-                  "moduleName": "mcp",
-                  "originalName": "ServiceConfig"
+                  "type": "FUNCTION_PARAM"
                 }
-              },
-              "state": {
-                "enabled": true,
-                "editable": true,
-                "optional": false,
-                "advanced": false
               }
-            },
+            }
+          ],
+          "parameterSchema": [
             {
               "target": {
                 "via": "semantic",
                 "kind": "recordField",
-                "owner": "trigger.initProperties",
-                "path": "serviceType"
+                "owner": "newTool.parameterSchema",
+                "path": "parameter"
               },
               "metadata": {
-                "label": "Service Type",
-                "description": "The MCP service type. mcp 1.0.3 offers only mcp:Service."
+                "label": "Parameter",
+                "description": "A parameter the tool call must (or may) supply."
               },
               "state": {
-                "hidden": true,
-                "editable": false,
                 "enabled": true,
-                "optional": false,
-                "advanced": false
+                "editable": true,
+                "optional": true
               },
-              "field": {
-                "key": "serviceType",
-                "default": "Service",
-                "source": {
-                  "codedata": {
-                    "type": "SERVICE_TYPE_DESCRIPTOR"
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "newTool.parameterSchema.parameter",
+                    "path": "name"
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "paramName"
                   }
-                },
-                "state": {
-                  "enabled": true,
-                  "editable": false,
-                  "optional": false,
-                  "advanced": false,
-                  "hidden": true
                 }
-              },
-              "source": {
-                "codedata": {
-                  "type": "SERVICE_TYPE_DESCRIPTOR"
-                }
-              }
+              ]
             }
-          ]
-        },
-        "listeners": [
-          {
+          ],
+          "returnType": {
             "target": {
               "via": "l1",
-              "id": "$listener2"
-            },
-            "listener": {
-              "formFields": {
-                "listenTo": {
-                  "key": "listenTo",
-                  "placeholder": "8080",
-                  "default": "8080",
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Port",
-                    "description": "The port on which the MCP service listens."
-                  },
-                  "source": {
-                    "codedata": {
-                      "argType": "LISTENER_PARAM_REQUIRED",
-                      "position": 1,
-                      "originalName": "listenTo"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                },
-                "listenerVarName": {
-                  "key": "listenerVarName",
-                  "default": "mcpListener",
-                  "validations": [
-                    {
-                      "rule": "common.validate.identifier"
-                    },
-                    {
-                      "rule": "ls.validate.unique.listener.name",
-                      "message": "A listener with this name already exists in the project"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Listener Name",
-                    "description": "Provide a name for the listener being created"
-                  },
-                  "state": {
-                    "advanced": true,
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "LISTENER_VAR_NAME"
-                    }
-                  }
-                }
-              },
-              "serviceProperties": {
-                "basePath": {
-                  "key": "basePath",
-                  "placeholder": "/mcp",
-                  "default": "/mcp",
-                  "validations": [
-                    {
-                      "rule": "common.validate.required"
-                    }
-                  ],
-                  "metadata": {
-                    "label": "Base Path",
-                    "description": "The base path of the MCP service"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "SERVICE_BASE_PATH"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false,
-                    "advanced": false
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "serviceTypes": [
-          {
-            "target": {
-              "via": "l1",
-              "id": "$service"
+              "id": "$service.tool.returns"
             },
             "metadata": {
-              "label": "MCP Service",
-              "description": "Handles MCP tool calls over the Streamable HTTP transport."
+              "label": "Return Type",
+              "description": "The return type of the MCP tool"
             },
-            "state": {
-              "editable": false,
-              "enabled": true
-            },
-            "handlers": [
-              {
-                "target": {
-                  "via": "l1",
-                  "id": "$service.tool"
-                },
-                "metadata": {
-                  "label": "Tool",
-                  "description": "Define a tool function that MCP clients can discover and call.",
-                  "addLabel": "Add Tool"
-                },
-                "function": {
-                  "nameEditable": true,
-                  "nameMetadata": {
-                    "label": "Tool Name",
-                    "description": "The name of the MCP tool"
-                  },
-                  "repeatable": "TRUE",
-                  "canAddParameters": true,
-                  "documentation": {
-                    "metadata": {
-                      "label": "Tool Description",
-                      "description": "Description of what this MCP tool does"
-                    },
-                    "placeholder": "Describe what this tool does...",
-                    "editable": true
-                  }
-                },
-                "parameterSchema": [
-                  {
-                    "target": {
-                      "via": "semantic",
-                      "kind": "recordField",
-                      "owner": "newTool.parameterSchema",
-                      "path": "parameter"
-                    },
-                    "metadata": {
-                      "label": "Parameter",
-                      "description": "A parameter the tool call must (or may) supply."
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true
-                    }
-                  }
-                ],
-                "returnType": {
-                  "target": {
-                    "via": "l1",
-                    "id": "$service.tool.returns"
-                  },
-                  "metadata": {
-                    "label": "Return Type",
-                    "description": "The return type of the MCP tool"
-                  },
-                  "source": {
-                    "codedata": {
-                      "type": "FUNCTION_RETURN"
-                    }
-                  },
-                  "state": {
-                    "enabled": true,
-                    "editable": true,
-                    "optional": false
-                  }
-                },
-                "source": {
-                  "codedata": {
-                    "type": "FUNCTION",
-                    "moduleName": "mcp"
-                  }
-                },
-                "state": {
-                  "enabled": false,
-                  "editable": true,
-                  "optional": true
-                }
-              }
-            ],
             "source": {
               "codedata": {
-                "type": "SERVICE_TYPE_DESCRIPTOR",
-                "moduleName": "mcp",
-                "originalName": "Service"
+                "type": "FUNCTION_RETURN"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false
+            },
+            "field": {
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "typeEditable": true
               }
             }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "moduleName": "mcp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
           }
-        ]
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "mcp",
+          "originalName": "Service"
+        }
       }
     }
   ]

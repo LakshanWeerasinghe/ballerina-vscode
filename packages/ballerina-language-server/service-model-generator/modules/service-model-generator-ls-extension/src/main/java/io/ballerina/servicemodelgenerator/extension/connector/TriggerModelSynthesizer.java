@@ -763,7 +763,10 @@ public final class TriggerModelSynthesizer {
                 name, many, null, option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
                 null, option.kind() == null ? null : List.of(option.kind()), null, null, false, true, !required,
                 false, null, null, null, parameters, null, properties, returnType, null,
-                cdFunction(option.name(), moduleName), null);
+                // A "many" handler's *-name is a pure addability convention, not a real backing
+                // function -- restating it as originalName would misrepresent the handler as bound to
+                // an actual method named "*".
+                cdFunction(many ? null : option.name(), moduleName), null);
     }
 
     /**
