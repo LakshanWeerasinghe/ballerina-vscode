@@ -1,0 +1,1303 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "Solace (JMS) Event Integration",
+    "description": "Create a service to handle messages from a Solace queue or topic using JMS.",
+    "type": "solace.jms"
+  },
+  "readOnlyMetadata": [
+    {
+      "key": "topicName",
+      "displayName": "Topic Name",
+      "path": "ServiceConfig.topicName",
+      "extractor": "SERVICE_ANNOTATION"
+    },
+    {
+      "key": "queueName",
+      "displayName": "Queue Name",
+      "path": "ServiceConfig.queueName",
+      "extractor": "SERVICE_ANNOTATION"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "serviceAnnotationField",
+          "serviceType": "$service",
+          "annotation": "$serviceConfig",
+          "path": "destination"
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "originalName": "ServiceConfig",
+            "moduleName": "jms"
+          }
+        },
+        "metadata": {
+          "label": "Destination",
+          "description": "The Solace destination to expect messages from."
+        },
+        "field": {
+          "key": "destination",
+          "default": "queue",
+          "choices": [
+            {
+              "default": "true",
+              "metadata": {
+                "label": "Queue",
+                "description": "Subscribe to a queue for point-to-point messaging."
+              },
+              "properties": {
+                "queueName": {
+                  "key": "queueName",
+                  "placeholder": "orders",
+                  "default": "",
+                  "validations": [
+                    {
+                      "rule": "common.validate.required"
+                    }
+                  ],
+                  "metadata": {
+                    "label": "Queue Name",
+                    "description": "The queue name to consume messages from."
+                  },
+                  "source": {
+                    "codedata": {
+                      "type": "SERVICE_ANNOTATION",
+                      "path": "queueName",
+                      "originalName": "ServiceConfig",
+                      "moduleName": "jms"
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              },
+              "source": {
+                "codedata": {
+                  "type": "MAPPING_CONSTRUCTOR"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              }
+            },
+            {
+              "default": "true",
+              "metadata": {
+                "label": "Topic",
+                "description": "Subscribe to a topic for publish/subscribe messaging."
+              },
+              "properties": {
+                "topicName": {
+                  "key": "topicName",
+                  "placeholder": "orders/events",
+                  "default": "",
+                  "validations": [
+                    {
+                      "rule": "common.validate.required"
+                    }
+                  ],
+                  "metadata": {
+                    "label": "Topic Name",
+                    "description": "The topic name to subscribe to."
+                  },
+                  "source": {
+                    "codedata": {
+                      "type": "SERVICE_ANNOTATION",
+                      "path": "topicName",
+                      "originalName": "ServiceConfig",
+                      "moduleName": "jms"
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                "durability": {
+                  "key": "durability",
+                  "default": "0",
+                  "metadata": {
+                    "label": "Durability",
+                    "description": "Durability: TEMPORARY (auto-deleted when the session disconnects) or DURABLE (pre-provisioned, named subscription)."
+                  },
+                  "choices": [
+                    {
+                      "default": "true",
+                      "metadata": {
+                        "label": "Temporary",
+                        "description": "Auto-deleted when the session disconnects."
+                      },
+                      "state": {
+                        "enabled": true,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false
+                      }
+                    },
+                    {
+                      "default": "true",
+                      "metadata": {
+                        "label": "Durable",
+                        "description": "Pre-provisioned, named subscription; survives client disconnects."
+                      },
+                      "properties": {
+                        "durabilityValue": {
+                          "key": "durabilityValue",
+                          "default": "\"DURABLE\"",
+                          "metadata": {
+                            "label": "Durability",
+                            "description": "Recorded as \"DURABLE\" to match the selection above."
+                          },
+                          "state": {
+                            "hidden": true,
+                            "editable": false,
+                            "enabled": true,
+                            "optional": false,
+                            "advanced": false
+                          },
+                          "source": {
+                            "codedata": {
+                              "type": "SERVICE_ANNOTATION",
+                              "path": "durability",
+                              "originalName": "ServiceConfig",
+                              "moduleName": "jms"
+                            }
+                          },
+                          "widget": {
+                            "derived": false,
+                            "overrides": [
+                              {
+                                "widgetKind": "TEXT",
+                                "selected": true,
+                                "ballerinaType": "jms:Durability"
+                              }
+                            ]
+                          }
+                        },
+                        "subscriberName": {
+                          "key": "subscriberName",
+                          "placeholder": "mySubscriber",
+                          "default": "",
+                          "validations": [
+                            {
+                              "rule": "common.validate.required"
+                            }
+                          ],
+                          "metadata": {
+                            "label": "Subscriber Name",
+                            "description": "The name used to identify the durable subscription. Required when durability is DURABLE."
+                          },
+                          "source": {
+                            "codedata": {
+                              "type": "SERVICE_ANNOTATION",
+                              "path": "subscriberName",
+                              "originalName": "ServiceConfig",
+                              "moduleName": "jms"
+                            }
+                          },
+                          "state": {
+                            "enabled": true,
+                            "editable": true,
+                            "optional": false,
+                            "advanced": false
+                          }
+                        }
+                      },
+                      "state": {
+                        "enabled": false,
+                        "editable": true,
+                        "optional": false,
+                        "advanced": false
+                      }
+                    }
+                  ],
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                }
+              },
+              "source": {
+                "codedata": {
+                  "type": "MAPPING_CONSTRUCTOR"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false
+              }
+            }
+          ],
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "originalName": "ServiceConfig",
+              "moduleName": "jms"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      },
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "serviceAnnotationField",
+          "serviceType": "$service",
+          "annotation": "$serviceConfig",
+          "path": "ackMode"
+        },
+        "metadata": {
+          "label": "Acknowledgement Mode",
+          "description": "The JMS session acknowledgement mode."
+        },
+        "field": {
+          "key": "ackMode",
+          "default": "\"AUTO_ACKNOWLEDGE\"",
+          "widget": {
+            "overrides": [
+              {
+                "widgetKind": "SINGLE_SELECT",
+                "selected": true,
+                "ballerinaType": "jms:AcknowledgementMode",
+                "options": [
+                  {
+                    "label": "Session Transacted",
+                    "value": "\"SESSION_TRANSACTED\""
+                  },
+                  {
+                    "label": "Auto Acknowledge",
+                    "value": "\"AUTO_ACKNOWLEDGE\""
+                  },
+                  {
+                    "label": "Client Acknowledge",
+                    "value": "\"CLIENT_ACKNOWLEDGE\""
+                  },
+                  {
+                    "label": "Dups Ok Acknowledge",
+                    "value": "\"DUPS_OK_ACKNOWLEDGE\""
+                  }
+                ]
+              }
+            ]
+          },
+          "state": {
+            "optional": false,
+            "enabled": true,
+            "editable": true,
+            "advanced": false
+          },
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "path": "ackMode",
+              "originalName": "ServiceConfig",
+              "moduleName": "jms"
+            }
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "path": "ackMode",
+            "originalName": "ServiceConfig",
+            "moduleName": "jms"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      }
+    ]
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Listener",
+            "description": "Attach the service to a new or existing listener."
+          },
+          "createNew": {
+            "label": "Create New Listener",
+            "description": "Define a new listener in the project."
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the Solace JMS listener."
+          },
+          "useExisting": {
+            "label": "Use Existing Listener",
+            "description": "Attach to a listener already declared in the project."
+          },
+          "existingListener": {
+            "label": "Listener",
+            "description": "Select an existing listener to attach to."
+          },
+          "existingListenerWidget": "MULTIPLE_SELECT_LISTENER"
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "solaceJmsListener",
+            "validations": [
+              {
+                "rule": "common.validate.identifier"
+              },
+              {
+                "rule": "ls.validate.unique.listener.name",
+                "message": "A listener with this name already exists in the project"
+              }
+            ],
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "url": {
+            "key": "url",
+            "placeholder": "smf://localhost:55555",
+            "default": "\"smf://localhost:55555\"",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "Broker URL",
+              "description": "The broker URL with format: [protocol:]host[:port]."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "originalName": "url",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "messageVpn": {
+            "key": "messageVpn",
+            "placeholder": "default",
+            "default": "\"default\"",
+            "metadata": {
+              "label": "Message VPN",
+              "description": "The name of the message VPN to connect to."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                "originalName": "messageVpn",
+                "path": "messageVpn"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "auth": {
+            "key": "auth",
+            "default": "",
+            "metadata": {
+              "label": "Authentication",
+              "description": "The authentication configuration (basic, Kerberos, or OAuth2)."
+            },
+            "choices": [
+              {
+                "default": "true",
+                "metadata": {
+                  "label": "Basic Authentication",
+                  "description": "Username and password authentication."
+                },
+                "properties": {
+                  "username": {
+                    "key": "username",
+                    "placeholder": "admin",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Username",
+                      "description": "Username for broker authentication."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.username"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "password": {
+                    "key": "password",
+                    "placeholder": "",
+                    "default": "",
+                    "metadata": {
+                      "label": "Password",
+                      "description": "Password for broker authentication."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.password"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "default": "true",
+                "metadata": {
+                  "label": "Kerberos Authentication",
+                  "description": "Kerberos (GSS-KRB) authentication."
+                },
+                "properties": {
+                  "serviceName": {
+                    "key": "serviceName",
+                    "placeholder": "solace",
+                    "default": "\"solace\"",
+                    "metadata": {
+                      "label": "Service Name",
+                      "description": "Kerberos service name."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.serviceName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "jaasLoginContext": {
+                    "key": "jaasLoginContext",
+                    "placeholder": "SolaceGSS",
+                    "default": "\"SolaceGSS\"",
+                    "metadata": {
+                      "label": "JAAS Login Context",
+                      "description": "JAAS login context name."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.jaasLoginContext"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "mutualAuthentication": {
+                    "key": "mutualAuthentication",
+                    "default": "false",
+                    "metadata": {
+                      "label": "Mutual Authentication",
+                      "description": "Enable Kerberos mutual authentication."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.mutualAuthentication"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "jaasConfigFileReloadEnabled": {
+                    "key": "jaasConfigFileReloadEnabled",
+                    "default": "false",
+                    "metadata": {
+                      "label": "JAAS Config Reload",
+                      "description": "Enable automatic reload of the JAAS configuration file."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.jaasConfigFileReloadEnabled"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "default": "true",
+                "metadata": {
+                  "label": "OAuth 2.0 Authentication",
+                  "description": "OAuth 2.0 token-based authentication."
+                },
+                "properties": {
+                  "issuer": {
+                    "key": "issuer",
+                    "placeholder": "https://auth.example.com",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Issuer",
+                      "description": "OAuth 2.0 issuer identifier URI."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "auth.issuer"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "tokenType": {
+                    "key": "tokenType",
+                    "default": "",
+                    "metadata": {
+                      "label": "Token Type",
+                      "description": "Choose which OAuth 2.0 token to authenticate with."
+                    },
+                    "choices": [
+                      {
+                        "default": "true",
+                        "metadata": {
+                          "label": "Access Token",
+                          "description": "Authenticate using an OAuth 2.0 access token."
+                        },
+                        "properties": {
+                          "accessToken": {
+                            "key": "accessToken",
+                            "placeholder": "",
+                            "default": "",
+                            "validations": [
+                              {
+                                "rule": "common.validate.required"
+                              }
+                            ],
+                            "metadata": {
+                              "label": "Access Token",
+                              "description": "OAuth 2.0 access token for authentication."
+                            },
+                            "source": {
+                              "codedata": {
+                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                "path": "auth.accessToken"
+                              }
+                            },
+                            "state": {
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false
+                            }
+                          }
+                        },
+                        "state": {
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false
+                        }
+                      },
+                      {
+                        "default": "true",
+                        "metadata": {
+                          "label": "OIDC Token",
+                          "description": "Authenticate using an OpenID Connect (OIDC) ID token."
+                        },
+                        "properties": {
+                          "oidcToken": {
+                            "key": "oidcToken",
+                            "placeholder": "",
+                            "default": "",
+                            "validations": [
+                              {
+                                "rule": "common.validate.required"
+                              }
+                            ],
+                            "metadata": {
+                              "label": "OIDC Token",
+                              "description": "OpenID Connect (OIDC) ID token for authentication."
+                            },
+                            "source": {
+                              "codedata": {
+                                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                                "path": "auth.oidcToken"
+                              }
+                            },
+                            "state": {
+                              "enabled": true,
+                              "editable": true,
+                              "optional": false,
+                              "advanced": false
+                            }
+                          }
+                        },
+                        "state": {
+                          "enabled": false,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false
+                        }
+                      }
+                    ],
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              }
+            ],
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "advancedConfig": {
+            "key": "advancedConfig",
+            "metadata": {
+              "label": "Advanced Configurations",
+              "description": "Advanced TLS, timeout, and retry settings."
+            },
+            "state": {
+              "advanced": true,
+              "enabled": true,
+              "editable": true,
+              "optional": true
+            },
+            "properties": {
+              "secureSocket": {
+                "key": "secureSocket",
+                "default": "",
+                "metadata": {
+                  "label": "Secure Socket",
+                  "description": "The SSL/TLS configuration for secure connections."
+                },
+                "state": {
+                  "advanced": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "originalName": "secureSocket",
+                    "path": "secureSocket"
+                  }
+                }
+              },
+              "connectTimeout": {
+                "key": "connectTimeout",
+                "placeholder": "30",
+                "default": "",
+                "metadata": {
+                  "label": "Connect Timeout",
+                  "description": "The maximum time in seconds for a connection attempt."
+                },
+                "state": {
+                  "advanced": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "originalName": "connectTimeout",
+                    "path": "connectTimeout"
+                  }
+                }
+              },
+              "readTimeout": {
+                "key": "readTimeout",
+                "placeholder": "10",
+                "default": "",
+                "metadata": {
+                  "label": "Read Timeout",
+                  "description": "The maximum time in seconds for reading connection replies."
+                },
+                "state": {
+                  "advanced": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "originalName": "readTimeout",
+                    "path": "readTimeout"
+                  }
+                }
+              },
+              "retryConfig": {
+                "key": "retryConfig",
+                "default": "",
+                "metadata": {
+                  "label": "Retry Config",
+                  "description": "Retry configuration for connection attempts."
+                },
+                "state": {
+                  "advanced": true,
+                  "enabled": true,
+                  "editable": true,
+                  "optional": true
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                    "originalName": "retryConfig",
+                    "path": "retryConfig"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "Service",
+        "description": "The Solace JMS service type attached to a `jms:Listener` for asynchronous (push-based) consumption.\n\nAn attached service must declare a remote `onMessage` method and may optionally declare an\n`onError` method. The accepted signatures are:\n```ballerina\nremote function onMessage(record {|*jms:Message; T payload;|} message) returns jms:Error?;\nremote function onMessage(record {|*jms:Message; T payload;|} message, jms:Caller caller) returns jms:Error?;\nremote function onMessage(jms:Message message) returns jms:Error?;\nremote function onError(jms:Error err) returns jms:Error?;\n```\nDeclaring a narrowed `payload` type (`T`) causes the message payload to be data-bound into that\ntype; declaring the base `jms:Message` type yields the raw payload as `anydata`.\nThe subscription (queue or topic) and flow options are supplied via the\n`@jms:ServiceConfig` annotation on the service."
+      },
+      "service": {
+        "description": "The Solace JMS service type attached to a `jms:Listener` for asynchronous (push-based) consumption.\n\nAn attached service must declare a remote `onMessage` method and may optionally declare an\n`onError` method. The accepted signatures are:\n```ballerina\nremote function onMessage(record {|*jms:Message; T payload;|} message) returns jms:Error?;\nremote function onMessage(record {|*jms:Message; T payload;|} message, jms:Caller caller) returns jms:Error?;\nremote function onMessage(jms:Message message) returns jms:Error?;\nremote function onError(jms:Error err) returns jms:Error?;\n```\nDeclaring a narrowed `payload` type (`T`) causes the message payload to be data-bound into that\ntype; declaring the base `jms:Message` type yields the raw payload as `anydata`.\nThe subscription (queue or topic) and flow options are supplied via the\n`@jms:ServiceConfig` annotation on the service.",
+        "properties": {}
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessage"
+          },
+          "metadata": {
+            "label": "onMessage",
+            "description": "The `onMessage` remote method is triggered when a message is received from the subscribed Solace queue or topic."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message received from the Solace queue or topic."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "field": {
+                    "key": "type",
+                    "default": "",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "DATA_BINDING", "selected": true }
+                      ]
+                    },
+                    "properties": {
+                      "payload": {
+                        "key": "payload",
+                        "default": "",
+                        "metadata": {
+                          "label": "Message Configuration",
+                          "description": "Define the shape of the Solace message payload."
+                        },
+                        "source": {
+                          "codedata": {
+                            "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
+                            "bindable": true,
+                            "boundType": "",
+                            "typeConstraint": "anydata",
+                            "bindingKind": "USER_SELECTED",
+                            "defaultType": "jms:Message",
+                            "orgName": "ballerinax",
+                            "moduleName": "solace.jms",
+                            "template": "{{type}}",
+                            "modifiers": {
+                              "field": "payload",
+                              "template": "{{type}}"
+                            }
+                          }
+                        },
+                        "state": {
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false
+                        },
+                        "widget": {
+                          "derived": false,
+                          "overrides": [
+                            {
+                              "widgetKind": "PAYLOAD_TYPE",
+                              "selected": true,
+                              "formats": [
+                                { "supported": ["schema", "browse", "json", "xml"], "defaultFormat": "json" }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message received from the Solace queue or topic."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "The Solace caller object used for manual acknowledgement and transaction control."
+              },
+              "state": {
+                "advanced": true,
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Solace caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "jms:Caller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "The Solace caller object used for manual acknowledgement and transaction control."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessage.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessage",
+              "moduleName": "jms"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": false
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onError"
+          },
+          "metadata": {
+            "label": "onError",
+            "description": "The `onError` remote method is triggered when an error occurs during message processing or delivery."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+              "via": "l1",
+              "id": "$service.onError.err"
+              },
+              "metadata": {
+              "label": "Solace Error",
+                "description": "The error that occurred during message processing or delivery."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "err.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "jms:Error",
+                    "default": "jms:Error",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "TYPE", "selected": true }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "err.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "solaceError",
+                    "description": "The error that occurred during message processing or delivery."
+                  },
+                  "field": {
+                    "key": "name",
+                      "placeholder": "solaceError",
+                      "default": "solaceError",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onError.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onError",
+              "moduleName": "jms"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "jms",
+          "originalName": "Service"
+        }
+      }
+    }
+  ]
+}

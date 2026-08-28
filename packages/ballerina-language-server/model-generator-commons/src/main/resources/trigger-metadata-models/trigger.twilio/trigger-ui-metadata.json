@@ -1,0 +1,177 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "Twilio Event Integration",
+    "description": "Create a service to handle call and SMS status webhook events from Twilio",
+    "type": "twilio"
+  },
+  "readOnlyMetadata": [
+    {
+      "key": "serviceType",
+      "displayName": "Event Channel",
+      "extractor": "SERVICE_DESCRIPTION"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "recordField",
+          "owner": "trigger.initProperties",
+          "path": "serviceType"
+        },
+        "metadata": {
+          "label": "Event Channel",
+          "description": "Select the Twilio event channel to listen for events."
+        },
+        "field": {
+          "key": "serviceType",
+          "default": "twilio:CallStatusService",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_TYPE_DESCRIPTOR",
+              "moduleName": "twilio"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_TYPE_DESCRIPTOR",
+            "moduleName": "twilio"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      }
+    ]
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Listener",
+            "description": "Attach the service to a new or existing Twilio webhook listener."
+          },
+          "createNew": {
+            "label": "Create New Listener",
+            "description": "Define a new Twilio webhook listener in the project."
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the Twilio webhook listener."
+          },
+          "useExisting": {
+            "label": "Use Existing Listener",
+            "description": "Attach to a Twilio listener already declared in the project."
+          }
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "twilioListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": true
+            }
+          },
+          "listenOn": {
+            "key": "listenOn",
+            "placeholder": "8090",
+            "default": "8090",
+            "metadata": {
+              "label": "Listen On",
+              "description": "The port to listen on."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "originalName": "listenOn",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$callStatus"
+      },
+      "metadata": {
+        "label": "Call Status",
+        "description": "Triggered when a Twilio voice call's status changes. Available actions: onQueued, onRinging, onInProgress, onCompleted, onBusy, onFailed, onNoAnswer, and onCanceled."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "twilio",
+          "originalName": "CallStatusService"
+        }
+      },
+      "state": {
+        "enabled": true,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$smsStatus"
+      },
+      "metadata": {
+        "label": "SMS Status",
+        "description": "Triggered when a Twilio SMS message's status changes. Available actions: onAccepted, onQueued, onSending, onSent, onFailed, onDelivered, onUndelivered, onReceiving, and onReceived."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "twilio",
+          "originalName": "SmsStatusService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    }
+  ]
+}

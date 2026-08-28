@@ -1,0 +1,1666 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "WhatsApp Business",
+    "description": "Create a service to handle WhatsApp Business Cloud webhook events",
+    "type": "whatsapp"
+  },
+  "importPrefix": "whatsapp",
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Listener",
+            "description": "Attach the service to a new or existing WhatsApp webhook listener."
+          },
+          "createNew": {
+            "label": "Create New Listener",
+            "description": "Define a new WhatsApp webhook listener in the project."
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the WhatsApp webhook listener."
+          },
+          "useExisting": {
+            "label": "Use Existing Listener",
+            "description": "Attach to one or more WhatsApp listeners already declared in the project."
+          },
+          "existingListener": {
+            "label": "Listener(s)",
+            "description": "Select one or more existing WhatsApp listeners to attach to."
+          },
+          "existingListenerWidget": "MULTIPLE_SELECT_LISTENER",
+          "existingListenerBallerinaType": "whatsapp.business:Listener"
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "whatsappListener",
+            "validations": [
+              {
+                "rule": "common.validate.identifier"
+              },
+              {
+                "rule": "ls.validate.unique.listener.name",
+                "message": "A listener with this name already exists in the project"
+              }
+            ],
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "widget": {
+              "overrides": [
+                {
+                  "widgetKind": "IDENTIFIER",
+                  "selected": true,
+                  "ballerinaType": "whatsapp.business:Listener"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "listenTo": {
+            "key": "listenTo",
+            "placeholder": "8090",
+            "default": "8090",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "Port",
+              "description": "A port number to bind a new `http:Listener` to, or an existing `http:Listener`"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "originalName": "listenTo",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "verifyToken": {
+            "key": "verifyToken",
+            "default": "",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "Verify Token",
+              "description": "The verification token configured in the Meta App dashboard."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "originalName": "verifyToken",
+                "path": "verifyToken"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "appSecret": {
+            "key": "appSecret",
+            "default": "",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "App Secret",
+              "description": "The Meta app secret, used to verify inbound webhook notifications."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "originalName": "appSecret",
+                "path": "appSecret"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "WhatsApp Service",
+        "description": "The service type a consumer implements to handle WhatsApp Business Cloud webhook events."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "description": "The service type a consumer implements to handle WhatsApp Business Cloud webhook events."
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessages"
+          },
+          "metadata": {
+            "label": "On Messages",
+            "description": "Inbound messages or status updates; see MessagesNotification for narrowing."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "Inbound messages or status updates; see MessagesNotification for narrowing."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessages.notification"
+              },
+              "metadata": {
+                "label": "Notification",
+                "description": "A `messages` webhook notification: inbound messages or status updates."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "notification.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:MessagesNotification",
+                    "default": "whatsapp:MessagesNotification",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "notification.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "notification",
+                    "description": "A `messages` webhook notification: inbound messages or status updates."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "notification",
+                    "default": "notification",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessages.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessages",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onAccountReviewUpdate"
+          },
+          "metadata": {
+            "label": "On Account Review Update",
+            "description": "A WABA review decision changes."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A WABA review decision changes."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAccountReviewUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A WhatsApp Business Account (WABA) review decision."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:AccountReviewUpdate",
+                    "default": "whatsapp:AccountReviewUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A WhatsApp Business Account (WABA) review decision."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onAccountReviewUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onAccountReviewUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onAccountUpdate"
+          },
+          "metadata": {
+            "label": "On Account Update",
+            "description": "Account-lifecycle or compliance changes."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "Account-lifecycle or compliance changes."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAccountUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A WABA account-lifecycle or compliance change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:AccountUpdate",
+                    "default": "whatsapp:AccountUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A WABA account-lifecycle or compliance change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onAccountUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onAccountUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onBusinessCapabilityUpdate"
+          },
+          "metadata": {
+            "label": "On Business Capability Update",
+            "description": "A WABA's messaging or phone-number capability limits change."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A WABA's messaging or phone-number capability limits change."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onBusinessCapabilityUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A WABA business-capability change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:BusinessCapabilityUpdate",
+                    "default": "whatsapp:BusinessCapabilityUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A WABA business-capability change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onBusinessCapabilityUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onBusinessCapabilityUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessageTemplateQualityUpdate"
+          },
+          "metadata": {
+            "label": "On Message Template Quality Update",
+            "description": "A message template's quality score changes."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A message template's quality score changes."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessageTemplateQualityUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A message template quality-score change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:MessageTemplateQualityUpdate",
+                    "default": "whatsapp:MessageTemplateQualityUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A message template quality-score change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessageTemplateQualityUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessageTemplateQualityUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessageTemplateStatusUpdate"
+          },
+          "metadata": {
+            "label": "On Message Template Status Update",
+            "description": "A message template's status changes."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A message template's status changes."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessageTemplateStatusUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A message template status change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:MessageTemplateStatusUpdate",
+                    "default": "whatsapp:MessageTemplateStatusUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A message template status change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessageTemplateStatusUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessageTemplateStatusUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onPhoneNumberNameUpdate"
+          },
+          "metadata": {
+            "label": "On Phone Number Name Update",
+            "description": "A phone number's display-name review outcome is available."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A phone number's display-name review outcome is available."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onPhoneNumberNameUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A business phone number display-name review outcome."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:PhoneNumberNameUpdate",
+                    "default": "whatsapp:PhoneNumberNameUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A business phone number display-name review outcome."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onPhoneNumberNameUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onPhoneNumberNameUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onPhoneNumberQualityUpdate"
+          },
+          "metadata": {
+            "label": "On Phone Number Quality Update",
+            "description": "A phone number's messaging throughput/quality tier changes."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A phone number's messaging throughput/quality tier changes."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onPhoneNumberQualityUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A business phone number messaging throughput/quality-tier change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:PhoneNumberQualityUpdate",
+                    "default": "whatsapp:PhoneNumberQualityUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A business phone number messaging throughput/quality-tier change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onPhoneNumberQualityUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onPhoneNumberQualityUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onSecurity"
+          },
+          "metadata": {
+            "label": "On Security",
+            "description": "A two-step-verification PIN change or reset request for a phone number."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A two-step-verification PIN change or reset request for a phone number."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onSecurity.security"
+              },
+              "metadata": {
+                "label": "Security",
+                "description": "A two-step-verification PIN change, reset request, or reset success."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "security.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:Security",
+                    "default": "whatsapp:Security",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "security.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "security",
+                    "description": "A two-step-verification PIN change, reset request, or reset success."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "security",
+                    "default": "security",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onSecurity.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onSecurity",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onTemplateCategoryUpdate"
+          },
+          "metadata": {
+            "label": "On Template Category Update",
+            "description": "A message template's category changes, or is about to change."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A message template's category changes, or is about to change."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onTemplateCategoryUpdate.update"
+              },
+              "metadata": {
+                "label": "Update",
+                "description": "A message template category change."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:TemplateCategoryUpdate",
+                    "default": "whatsapp:TemplateCategoryUpdate",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "update.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "update",
+                    "description": "A message template category change."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "update",
+                    "default": "update",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onTemplateCategoryUpdate.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onTemplateCategoryUpdate",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onError"
+          },
+          "metadata": {
+            "label": "On Error",
+            "description": "Any handler above returned an error while being dispatched."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "Any handler above returned an error while being dispatched."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onError.handlerError"
+              },
+              "metadata": {
+                "label": "Handler Error",
+                "description": "Reports an error returned by another `WhatsAppService` handler while it was being invoked."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "handlerError.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "whatsapp:HandlerError",
+                    "default": "whatsapp:HandlerError",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "handlerError.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "handlerError",
+                    "description": "Reports an error returned by another `WhatsAppService` handler while it was being invoked."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "handlerError",
+                    "default": "handlerError",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onError.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onError",
+              "moduleName": "whatsapp"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "whatsapp",
+          "originalName": "WhatsAppService"
+        }
+      }
+    }
+  ]
+}

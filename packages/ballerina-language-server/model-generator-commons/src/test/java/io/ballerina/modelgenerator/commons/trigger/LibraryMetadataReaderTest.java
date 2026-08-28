@@ -20,6 +20,7 @@ package io.ballerina.modelgenerator.commons.trigger;
 
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -30,9 +31,9 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 /**
- * Tests {@link LibraryMetadataReader}'s three public reads: {@link LibraryMetadataReader#getTriggerMetadataModel}
- * and {@link LibraryMetadataReader#getTriggerUISchemaModel} (a connector's own shipped
- * {@code trigger-metadata.json}/{@code trigger-ui-schema.json}, resolved from its {@code .bala}) and
+ * Tests {@link LibraryMetadataReader}'s public L1 and L2 reads: {@link LibraryMetadataReader#getTriggerMetadataModel}
+ * and {@link LibraryMetadataReader#getTriggerUIMetadataModel} (connector-owned metadata resolved from its
+ * {@code .bala}) and
  * {@link LibraryMetadataReader#getPackagedTriggerMetadataModel} (the LS's own bundled classpath
  * resource) -- three independent reads, none silently falling back to another. Most go through
  * {@link ModuleInfo}-keyed calls, mirroring how a caller (e.g. {@code TriggerModelReader}) uses it;
@@ -94,14 +95,14 @@ public class LibraryMetadataReaderTest {
     }
 
     @Test
-    public void testGetTriggerUISchemaModelNullModuleInfo() {
-        Assert.assertTrue(READER.getTriggerUISchemaModel(null).isEmpty());
+    public void testGetTriggerUIMetadataModelNullModuleInfo() {
+        Assert.assertTrue(READER.getTriggerUIMetadataModel(null).isEmpty());
     }
 
     @Test
-    public void testGetTriggerUISchemaModelIncompleteModuleInfo() {
+    public void testGetTriggerUIMetadataModelIncompleteModuleInfo() {
         ModuleInfo moduleInfo = new ModuleInfo(null, "kafka", "kafka", "1.0.0");
-        Assert.assertTrue(READER.getTriggerUISchemaModel(moduleInfo).isEmpty());
+        Assert.assertTrue(READER.getTriggerUIMetadataModel(moduleInfo).isEmpty());
     }
 
     @Test
@@ -115,9 +116,9 @@ public class LibraryMetadataReaderTest {
     }
 
     @Test
-    public void testGetTriggerUISchemaModelUnresolvableModuleGracefullyEmpty() {
+    public void testGetTriggerUIMetadataModelUnresolvableModuleGracefullyEmpty() {
         ModuleInfo moduleInfo = new ModuleInfo("no-such-org", "no-such-module", "no-such-module", null);
-        Assert.assertTrue(READER.getTriggerUISchemaModel(moduleInfo).isEmpty());
+        Assert.assertTrue(READER.getTriggerUIMetadataModel(moduleInfo).isEmpty());
     }
 
     // ---- upstream: local-repository resolvability -----------------------------------------
@@ -207,11 +208,107 @@ public class LibraryMetadataReaderTest {
         Assert.assertTrue(READER.readTriggerMetadataModel(notADirectory).isEmpty());
     }
 
+    // ---- the L2 shipped-document path (readTriggerUIMetadataModel) ------------------------
+
+    @Test
+    public void testUiMissingVersionReadsEmpty() throws IOException {
+        Path root = shippingUi("{ \"trigger\": { \"displayName\": \"No Version\" } }");
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+    }
+
+    @Test
+    public void testUiUnsupportedMajorVersionRefused() throws IOException {
+        Path root = shippingUi("{ \"version\": \"v2.0\", \"trigger\": { \"displayName\": \"V2\" } }");
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+    }
+
+    @Test
+    public void testUiNewerMinorVersionAccepted() throws IOException {
+        Path root = shippingUi("{ \"version\": \"v1.19\", \"trigger\": { \"displayName\": \"V1_19\" } }");
+        TriggerUIMetadataModel model = READER.readTriggerUIMetadataModel(root, null).orElseThrow();
+        Assert.assertEquals(model.trigger().displayName(), "V1_19");
+    }
+
+    @Test
+    public void testUiMalformedDocumentReadsEmpty() throws IOException {
+        Path root = shippingUi("{ \"version\": \"v1.0\", \"trigger\": { ");
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+    }
+
+    @Test
+    public void testUiTopLevelArrayReadsEmpty() throws IOException {
+        // parseTriggerUIMetadata requires a JSON object at the root; a bare array is valid JSON but not
+        // a legal L2 document shape.
+        Path root = shippingUi("[]");
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+    }
+
+    // ---- the packaged L2 `variants` envelope (getPackagedTriggerUIMetadataModel) -----------
+
+    @Test
+    public void testPackagedUiVariantsEmptyArrayFallsThroughToRootAndIsRefused() {
+        // No variant to select and the envelope object itself carries no "version" -> refused, same as
+        // a document with a missing version.
+        ModuleInfo moduleInfo = new ModuleInfo("ballerinax", "ui-variants-empty", "ui-variants-empty", "1.0.0");
+        Assert.assertTrue(READER.getPackagedTriggerUIMetadataModel(moduleInfo).isEmpty());
+    }
+
+    @Test
+    public void testPackagedUiVariantsWithNoModelKeyIsSkipped() {
+        // The one declared variant has a minVersion but no "model" -- it contributes nothing, so
+        // resolution falls back to the (version-less, and therefore refused) envelope root.
+        ModuleInfo moduleInfo = new ModuleInfo("ballerinax", "ui-variants-no-model", "ui-variants-no-model",
+                "5.0.0");
+        Assert.assertTrue(READER.getPackagedTriggerUIMetadataModel(moduleInfo).isEmpty());
+    }
+
+    @Test
+    public void testPackagedUiVariantsSelectByMinVersionBoundary() {
+        String module = "ui-variants-boundary";
+        Assert.assertEquals(displayNameAt(module, "1.2.0"), "Newer", "exactly at minVersion -> the newer variant");
+        Assert.assertEquals(displayNameAt(module, "1.2.1"), "Newer", "above minVersion -> the newer variant");
+        Assert.assertEquals(displayNameAt(module, "1.1.9"), "Older",
+                "below minVersion -> falls through to the unversioned fallback variant");
+        Assert.assertEquals(displayNameAt(module, null), "Newer",
+                "no version to compare against -> the first (newest) variant, not the fallback");
+        Assert.assertEquals(displayNameAt(module, "garbage"), "Newer",
+                "an unparsable version can't be proven older, so it doesn't disqualify the newer variant");
+    }
+
+    private static String displayNameAt(String module, String version) {
+        ModuleInfo moduleInfo = new ModuleInfo("ballerinax", module, module, version);
+        return READER.getPackagedTriggerUIMetadataModel(moduleInfo).orElseThrow().trigger().displayName();
+    }
+
+    @Test
+    public void testPackagedUiVariantCacheDoesNotAliasAcrossVersions() {
+        // getPackagedTriggerUIMetadataModel keys its cache on "moduleName:version" -- mcp's two real
+        // packaged variants (1.2.0 current, 1.0.3 legacy) must not bleed into each other regardless of
+        // lookup order.
+        ModuleInfo current = new ModuleInfo("ballerina", "mcp", "mcp", "1.2.0");
+        ModuleInfo legacy = new ModuleInfo("ballerina", "mcp", "mcp", "1.0.3");
+
+        Assert.assertEquals(READER.getPackagedTriggerUIMetadataModel(current).orElseThrow().listeners().size(), 2);
+        Assert.assertEquals(READER.getPackagedTriggerUIMetadataModel(legacy).orElseThrow().listeners().size(), 1);
+
+        // Reversed lookup order -- same two answers, not the first one memoized for both keys.
+        Assert.assertEquals(READER.getPackagedTriggerUIMetadataModel(legacy).orElseThrow().listeners().size(), 1);
+        Assert.assertEquals(READER.getPackagedTriggerUIMetadataModel(current).orElseThrow().listeners().size(), 2);
+    }
+
     /** A package root shipping the given {@code resources/trigger-metadata.json}. */
     private static Path shipping(String json) throws IOException {
         Path root = Files.createTempDirectory("shipped-metadata");
         Path resources = Files.createDirectories(root.resolve("resources"));
         Files.writeString(resources.resolve("trigger-metadata.json"), json, StandardCharsets.UTF_8);
+        return root;
+    }
+
+    /** A package root shipping the given {@code resources/trigger-ui-metadata.json}. */
+    private static Path shippingUi(String json) throws IOException {
+        Path root = Files.createTempDirectory("shipped-ui-metadata");
+        Path resources = Files.createDirectories(root.resolve("resources"));
+        Files.writeString(resources.resolve("trigger-ui-metadata.json"), json, StandardCharsets.UTF_8);
         return root;
     }
 }

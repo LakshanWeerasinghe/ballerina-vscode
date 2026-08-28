@@ -125,8 +125,8 @@ public final class TriggerSearchUtil {
                 if (known.contains(key(moduleInfo.org(), moduleInfo.packageName()))) {
                     continue;
                 }
-                boolean hasTriggerFiles = reader.getTriggerUISchemaModelFromLocalRepository(moduleInfo).isPresent()
-                        || reader.getTriggerMetadataModelFromLocalRepository(moduleInfo).isPresent();
+                boolean hasTriggerFiles = reader.getTriggerMetadataModelFromLocalRepository(moduleInfo).isPresent()
+                        || reader.getTriggerUIMetadataModelFromLocalRepository(moduleInfo).isPresent();
                 if (!hasTriggerFiles) {
                     continue;
                 }

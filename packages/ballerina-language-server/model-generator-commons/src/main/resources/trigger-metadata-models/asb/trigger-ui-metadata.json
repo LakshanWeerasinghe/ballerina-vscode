@@ -1,0 +1,705 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "Azure Service Bus Event Integration",
+    "description": "Create a service to handle messages from an Azure Service Bus queue or topic subscription",
+    "type": "asb"
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Configure RabbitMQ Listener",
+            "description": "Select an existing Azure Service Bus listener or create a new one"
+          },
+          "createNew": {
+            "label": "Create new",
+            "description": "Create a new RabbitMQ listener"
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the Azure Service Bus listener."
+          },
+          "useExisting": {
+            "label": "Use existing",
+            "description": "Select an existing RabbitMQ listener"
+          },
+          "existingListener": {
+            "label": "Listener(s)",
+            "description": "Select one or more existing listeners to attach the service to (no new(...) is generated)."
+          },
+          "existingListenerWidget": "MULTI_SELECT_LISTENER",
+          "existingListenerItems": ["asbListener"],
+          "existingListenerValue": ["asbListener"]
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "asbListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "connectionString": {
+            "key": "connectionString",
+            "placeholder": "Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>",
+            "default": "\"Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>\"",
+            "metadata": {
+              "label": "Connection String",
+              "description": "The connection string to connect to the Azure Service Bus namespace."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "path": "connectionString"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "entityConfig": {
+            "key": "entityConfig",
+            "default": "QUEUE",
+            "metadata": {
+              "label": "Entity Type",
+              "description": "Whether this listener subscribes to a queue or to a topic subscription."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "CHOICE",
+                  "selected": true,
+                  "options": [
+                    { "label": "Queue", "value": "QUEUE", "helperText": "Receive messages from a Service Bus queue." },
+                    { "label": "Topic Subscription", "value": "TOPIC", "helperText": "Receive messages from a subscription on a Service Bus topic." }
+                  ]
+                }
+              ]
+            },
+            "choices": [
+              {
+                "default": "QUEUE",
+                "metadata": {
+                  "label": "Queue",
+                  "description": "Receive messages from a Service Bus queue."
+                },
+                "properties": {
+                  "queueName": {
+                    "key": "queueName",
+                    "placeholder": "myQueue",
+                    "default": "myQueue",
+                    "metadata": {
+                      "label": "Queue Name",
+                      "description": "Name of the Service Bus queue to subscribe to."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "entityConfig.queueName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                    "path": "entityConfig"
+                  }
+                },
+                "state": {
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "default": "TOPIC",
+                "metadata": {
+                  "label": "Topic Subscription",
+                  "description": "Receive messages from a subscription on a Service Bus topic."
+                },
+                "properties": {
+                  "topicName": {
+                    "key": "topicName",
+                    "placeholder": "myTopic",
+                    "default": "myTopic",
+                    "metadata": {
+                      "label": "Topic Name",
+                      "description": "Name of the Service Bus topic."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "entityConfig.topicName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "subscriptionName": {
+                    "key": "subscriptionName",
+                    "placeholder": "mySubscription",
+                    "default": "mySubscription",
+                    "metadata": {
+                      "label": "Subscription Name",
+                      "description": "Name of the subscription associated with the topic."
+                    },
+                    "source": {
+                      "codedata": {
+                        "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                        "path": "entityConfig.subscriptionName"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                    "path": "entityConfig"
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              }
+            ],
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "path": "entityConfig"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "ASB Consumer",
+        "description": "Consumes messages from the subscribed Azure Service Bus queue or topic subscription."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "description": "Handles messages received from an Azure Service Bus queue or topic subscription."
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessage"
+          },
+          "metadata": {
+            "label": "On Message",
+            "description": "The `onMessage` remote method is triggered when a message is received from the subscribed queue or topic subscription."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message received from the subscribed queue or topic subscription."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "default": "asb:Message",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "TYPE", "selected": true }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message received from the subscribed queue or topic subscription."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Azure Service Bus caller used to complete, abandon, defer or dead-letter the message (required for manual settlement when Auto Complete is off)."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Azure Service Bus caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "asb:Caller",
+                    "default": false,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Azure Service Bus caller used to complete, abandon, defer or dead-letter the message."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessage.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessage",
+              "moduleName": "asb"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": false
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onError"
+          },
+          "metadata": {
+            "label": "On Error",
+            "description": "Triggered when an error occurs while retrieving or dispatching a message."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "semantic",
+                "kind": "concreteParam",
+                "serviceType": "$service",
+                "handler": "onError",
+                "name": "errorContext"
+              },
+              "metadata": {
+                "label": "Error Context",
+                "description": "Context of the message-retrieval error (entity path, source, reason)."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "errorContext.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "asb:ErrorContext",
+                    "default": "asb:ErrorContext",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "TYPE", "selected": true }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "errorContext.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "errorContext",
+                    "description": "Context of the message-retrieval error."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "errorContext",
+                    "default": "errorContext",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "semantic",
+                "kind": "concreteParam",
+                "serviceType": "$service",
+                "handler": "onError",
+                "name": "asbError"
+              },
+              "metadata": {
+                "label": "Error",
+                "description": "The error that occurred while retrieving or processing the message."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "asbError.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "error",
+                    "default": "error",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "TYPE", "selected": true }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "asbError.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "asbError",
+                    "description": "The error that occurred while retrieving or processing the message."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "asbError",
+                    "default": "asbError",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onError.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onError",
+              "moduleName": "asb"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "asb",
+          "originalName": "Service"
+        }
+      }
+    }
+  ]
+}

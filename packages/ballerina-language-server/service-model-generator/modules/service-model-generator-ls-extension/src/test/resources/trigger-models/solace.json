@@ -8,7 +8,7 @@
   "moduleName": "solace",
   "version": "1.0.0",
   "type": "solace",
-  "icon": "icon.png",
+  "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace_1.0.0.png",
   "kind": "event",
   "listenerKind": "MULTIPLE_SELECT_LISTENER",
   "initProperties": {

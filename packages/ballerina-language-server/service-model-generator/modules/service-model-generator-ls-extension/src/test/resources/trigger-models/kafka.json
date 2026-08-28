@@ -59,9 +59,6 @@
           "ballerinaType": "string[]",
           "selected": false,
           "template": {
-            "metadata": {
-              "label": "Server"
-            },
             "enabled": false,
             "editable": true,
             "optional": false,
@@ -113,9 +110,6 @@
           "ballerinaType": "string[]",
           "selected": false,
           "template": {
-            "metadata": {
-              "label": "Topic"
-            },
             "enabled": false,
             "editable": true,
             "optional": false,
@@ -389,7 +383,8 @@
                 "types": [
                   {
                     "fieldType": "TYPE",
-                    "selected": true
+                    "selected": true,
+                    "ballerinaType": "kafka:Error"
                   }
                 ],
                 "enabled": true,

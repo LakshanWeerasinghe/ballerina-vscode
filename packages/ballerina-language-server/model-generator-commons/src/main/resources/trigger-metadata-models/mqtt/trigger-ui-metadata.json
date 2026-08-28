@@ -1,0 +1,426 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "MQTT Event Integration",
+    "description": "Create a service to handle messages received from an MQTT broker",
+    "type": "mqtt"
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Configure MQTT Listener",
+            "description": "Select an existing MQTT listener or create a new one"
+          },
+          "createNew": {
+            "label": "Create new",
+            "description": "Create a new MQTT listener"
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the MQTT listener."
+          },
+          "useExisting": {
+            "label": "Use existing",
+            "description": "Select an existing MQTT listener"
+          },
+          "existingListener": {
+            "label": "Listeners",
+            "description": "Select one or more existing MQTT listeners to attach the service to (no new(...) is generated)."
+          },
+          "existingListenerWidget": "MULTI_SELECT_LISTENER",
+          "existingListenerItems": [
+            "mqttListener"
+          ],
+          "existingListenerValue": [
+            "mqttListener"
+          ]
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "mqttListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "state": {
+              "advanced": true,
+              "enabled": true,
+              "editable": true,
+              "optional": false
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            }
+          },
+          "serverUri": {
+            "key": "serverUri",
+            "placeholder": "tcp://localhost:1883",
+            "default": "\"tcp://localhost:1883\"",
+            "metadata": {
+              "label": "Server URI",
+              "description": "The URI of the remote MQTT broker."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "clientId": {
+            "key": "clientId",
+            "placeholder": "mqtt-listener-1",
+            "default": "\"mqtt-listener-1\"",
+            "metadata": {
+              "label": "Client ID",
+              "description": "A unique identifier to identify by the MQTT broker."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 2
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "subscriptions": {
+            "key": "subscriptions",
+            "placeholder": "mqtt/topic",
+            "default": "\"mqtt/topic\"",
+            "metadata": {
+              "label": "Subscriptions",
+              "description": "Topic(s) to subscribe to on the broker."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                { "widgetKind": "TEXT", "selected": true, "ballerinaType": "string" },
+                {
+                  "widgetKind": "REPEATABLE_LIST",
+                  "selected": false,
+                  "ballerinaType": "string[]",
+                  "template": {
+                    "metadata": { "label": "Topic" },
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false,
+                    "types": [
+                      { "fieldType": "TEXT", "ballerinaType": "string", "selected": true },
+                      { "fieldType": "EXPRESSION", "ballerinaType": "string", "selected": false }
+                    ]
+                  }
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "string|string[]|mqtt:Subscription|mqtt:Subscription[]"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 3
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "MQTT Consumer",
+        "description": "Consumes messages from the subscribed MQTT topic(s)."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "description": "Handles messages received from the subscribed MQTT topic(s)."
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessage"
+          },
+          "metadata": {
+            "label": "On Message",
+            "description": "Triggered when a message is received on a subscribed topic. Required \u2014 every MQTT service must implement this handler."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message received on the subscribed topic."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "mqtt:Message",
+                    "default": "mqtt:Message",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        { "widgetKind": "TYPE", "selected": true }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message received on the subscribed topic."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "MQTT caller used to manually acknowledge/respond to the message (required for manual ack when Manual Acknowledgment is on)."
+              },
+              "state": {
+                "advanced": true,
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the MQTT caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "mqtt:Caller",
+                    "default": false,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "MQTT caller used to manually acknowledge/respond to the message."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessage.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessage",
+              "moduleName": "mqtt"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": false
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onError"
+          },
+          "function": {
+            "included": false
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onComplete"
+          },
+          "function": {
+            "included": false
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "mqtt",
+          "originalName": "Service"
+        }
+      }
+    }
+  ]
+}

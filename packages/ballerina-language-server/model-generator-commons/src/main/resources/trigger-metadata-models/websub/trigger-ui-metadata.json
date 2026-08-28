@@ -1,0 +1,127 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "listener"
+  },
+  "trigger": {
+    "displayName": "WebSub"
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onEventNotification"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onEventNotification.event"
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onEventNotification.returns"
+            }
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onSubscriptionVerification"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onSubscriptionVerification.msg"
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onSubscriptionVerification.returns"
+            }
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onUnsubscriptionVerification"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onUnsubscriptionVerification.msg"
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onUnsubscriptionVerification.returns"
+            }
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onSubscriptionValidationDenied"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onSubscriptionValidationDenied.msg"
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onSubscriptionValidationDenied.returns"
+            }
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onHubError"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onHubError.err"
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onHubError.returns"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

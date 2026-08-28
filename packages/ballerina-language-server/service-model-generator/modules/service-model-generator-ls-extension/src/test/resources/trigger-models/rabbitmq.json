@@ -174,7 +174,7 @@
             "existingListener": {
               "metadata": {
                 "label": "Listener",
-                "description": "Select an existing listener to attach the service to (no new(...) is generated)."
+                "description": "The existing listener to attach to"
               },
               "types": [
                 {
@@ -183,10 +183,6 @@
                   "ballerinaType": "rabbitmq:Listener"
                 }
               ],
-              "items": [
-                "rabbitmqListener"
-              ],
-              "value": "rabbitmqListener",
               "enabled": true,
               "editable": true,
               "optional": false,
@@ -483,7 +479,7 @@
               "label": "Return Type",
               "description": "The return type of the function."
             },
-            "type": "rabbitmq:Error?",
+            "type": "error?",
             "typeEditable": false,
             "enabled": true,
             "editable": false,
@@ -726,7 +722,8 @@
                 "types": [
                   {
                     "fieldType": "TYPE",
-                    "selected": true
+                    "selected": true,
+                    "ballerinaType": "rabbitmq:AnydataMessage"
                   }
                 ],
                 "enabled": true,

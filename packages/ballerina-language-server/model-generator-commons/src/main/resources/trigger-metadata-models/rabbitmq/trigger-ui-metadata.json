@@ -1,0 +1,1131 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "RabbitMQ Event Integration",
+    "description": "Create a service to handle messages from a RabbitMQ queue",
+    "type": "rabbitmq"
+  },
+  "readOnlyMetadata": [
+    {
+      "key": "queueName",
+      "displayName": "Queue Name",
+      "path": "ServiceConfig.queueName",
+      "extractor": "SERVICE_ANNOTATION"
+    },
+    {
+      "key": "queueName",
+      "displayName": "Queue Name",
+      "extractor": "STRING_LITERAL"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "serviceAnnotationField",
+          "serviceType": "$service",
+          "annotation": "$serviceConfig",
+          "path": "queueName"
+        },
+        "metadata": {
+          "label": "Queue Name",
+          "description": "The name of the queue to listen to"
+        },
+        "field": {
+          "key": "queueName",
+          "placeholder": "myQueue",
+          "default": "\"myQueue\"",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "path": "queueName",
+              "moduleName": "rabbitmq",
+              "originalName": "ServiceConfig"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_ANNOTATION",
+            "path": "queueName",
+            "moduleName": "rabbitmq",
+            "originalName": "ServiceConfig"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      }
+    ]
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Configure RabbitMQ Listener",
+            "description": "Select an existing RabbitMQ listener or create a new one"
+          },
+          "createNew": {
+            "label": "Create new",
+            "description": "Create a new RabbitMQ listener"
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the RabbitMQ listener"
+          },
+          "useExisting": {
+            "label": "Use existing",
+            "description": "Select an existing RabbitMQ listener"
+          }
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "rabbitmqListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created"
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "host": {
+            "key": "host",
+            "placeholder": "localhost",
+            "default": "\"localhost\"",
+            "metadata": {
+              "label": "Host",
+              "description": "The host used for establishing the connection"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "port": {
+            "key": "port",
+            "placeholder": "5672",
+            "default": "5672",
+            "metadata": {
+              "label": "Port",
+              "description": "The port used for establishing the connection"
+            },
+            "widget": {
+              "overrides": [
+                {
+                  "widgetKind": "NUMBER",
+                  "selected": true,
+                  "ballerinaType": "int",
+                  "validations": [
+                    {
+                      "rule": "common.validate.port",
+                      "args": {
+                        "min": 1,
+                        "max": 65535
+                      },
+                      "message": "Port must be between {min} and {max}",
+                      "severity": "WARNING"
+                    }
+                  ]
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "int"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 2
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "RabbitMQ Consumer",
+        "description": "Consumes messages from the subscribed RabbitMQ queue."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "description": "Handles messages received from a RabbitMQ queue.",
+        "properties": {
+          "serviceConfig": {
+            "key": "serviceConfig",
+            "default": "",
+            "source": {
+              "codedata": {
+                "type": "SERVICE_ANNOTATION",
+                "originalName": "ServiceConfig",
+                "moduleName": "rabbitmq"
+              }
+            },
+            "metadata": {
+              "label": "Service Configuration",
+              "description": "Queue name and other advance configurations for the RabbitMQ service."
+            },
+            "state": {
+              "optional": false,
+              "enabled": true,
+              "editable": true,
+              "advanced": false
+            }
+          },
+          "stringLiteral": {
+            "key": "stringLiteral",
+            "placeholder": "\"QueueName\"",
+            "default": "",
+            "metadata": {
+              "label": "Queue Name",
+              "description": "The name of the queue"
+            },
+            "state": {
+              "optional": true,
+              "enabled": true,
+              "editable": true,
+              "advanced": false
+            },
+            "widget": {
+              "overrides": [
+                {
+                  "widgetKind": "SERVICE_PATH",
+                  "selected": true
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "type": "STRING_LITERAL"
+              }
+            }
+          }
+        }
+      },
+      "fields": [
+        {
+          "target": {
+            "via": "semantic",
+            "kind": "recordField",
+            "owner": "Service.properties",
+            "path": "serviceConfig"
+          },
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "originalName": "ServiceConfig",
+              "moduleName": "rabbitmq"
+            }
+          },
+          "metadata": {
+            "label": "Service Configuration",
+            "description": "Queue name and other advance configurations for the RabbitMQ service."
+          },
+          "field": {
+            "key": "serviceConfig",
+            "default": "",
+            "source": {
+              "codedata": {
+                "type": "SERVICE_ANNOTATION",
+                "originalName": "ServiceConfig",
+                "moduleName": "rabbitmq"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        {
+          "target": {
+            "via": "semantic",
+            "kind": "recordField",
+            "owner": "Service.properties",
+            "path": "stringLiteral"
+          },
+          "metadata": {
+            "label": "Queue Name",
+            "description": "The name of the queue"
+          },
+          "field": {
+            "key": "stringLiteral",
+            "placeholder": "\"QueueName\"",
+            "default": "",
+            "source": {
+              "codedata": {
+                "type": "STRING_LITERAL"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "STRING_LITERAL"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": true,
+            "advanced": false
+          }
+        }
+      ],
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessage"
+          },
+          "metadata": {
+            "label": "On Message",
+            "description": "Triggered when a message is received from the subscribed queue (fire-and-forget consumption)."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "ONE_OF_GROUP",
+            "canAddParameters": false,
+            "variantLabel": "On Message",
+            "group": "consume"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message received from the subscribed queue."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "field": {
+                    "key": "type",
+                    "default": "",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "DATA_BINDING",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "properties": {
+                      "payload": {
+                        "key": "payload",
+                        "default": "",
+                        "metadata": {
+                          "label": "Message Configuration",
+                          "description": "Define the shape of the RabbitMQ message content"
+                        },
+                        "source": {
+                          "codedata": {
+                            "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
+                            "bindable": true,
+                            "nameEditable": false,
+                            "boundType": "",
+                            "typeConstraint": "anydata",
+                            "bindingKind": "USER_SELECTED",
+                            "defaultType": "rabbitmq:AnydataMessage",
+                            "template": "{{type}}",
+                            "modifiers": {
+                              "type": "ballerinax:rabbitmq:3.6.0:AnydataMessage",
+                              "field": "content",
+                              "typeIdentifier": "RabbitmqAnydataMessage",
+                              "template": "T"
+                            }
+                          }
+                        },
+                        "widget": {
+                          "derived": false,
+                          "overrides": [
+                            {
+                              "widgetKind": "PAYLOAD_TYPE",
+                              "selected": true,
+                              "formats": [
+                                {
+                                  "supported": [
+                                    "schema",
+                                    "browse",
+                                    "json",
+                                    "xml"
+                                  ],
+                                  "defaultFormat": "json"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "state": {
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false
+                        }
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message received from the subscribed queue."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "RabbitMQ caller used to manually acknowledge/reject messages (required for manual ack when Auto Acknowledge is off)."
+              },
+              "state": {
+                "advanced": true,
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the RabbitMQ caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "rabbitmq:Caller",
+                    "default": false,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "RabbitMQ caller used to manually acknowledge/reject messages."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessage.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessage",
+              "moduleName": "rabbitmq",
+              "group": "consume"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onRequest"
+          },
+          "metadata": {
+            "label": "On Request",
+            "description": "Triggered for request-reply style consumption; the returned value is published back to the message's replyTo queue. Mutually exclusive with On Message."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "ONE_OF_GROUP",
+            "canAddParameters": false,
+            "variantLabel": "On Request",
+            "group": "consume"
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onRequest.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message received from the subscribed queue."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "field": {
+                    "key": "type",
+                    "default": "",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "DATA_BINDING",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "properties": {
+                      "payload": {
+                        "key": "payload",
+                        "default": "",
+                        "metadata": {
+                          "label": "Message Configuration",
+                          "description": "Define the shape of the RabbitMQ message content"
+                        },
+                        "source": {
+                          "codedata": {
+                            "type": "PAYLOAD_TYPE_INCLUDED_RECORD",
+                            "bindable": true,
+                            "nameEditable": false,
+                            "boundType": "",
+                            "typeConstraint": "anydata",
+                            "bindingKind": "USER_SELECTED",
+                            "defaultType": "rabbitmq:AnydataMessage",
+                            "template": "{{type}}",
+                            "modifiers": {
+                              "type": "ballerinax:rabbitmq:3.6.0:AnydataMessage",
+                              "field": "content",
+                              "typeIdentifier": "RabbitmqAnydataMessage",
+                              "template": "T"
+                            }
+                          }
+                        },
+                        "widget": {
+                          "derived": false,
+                          "overrides": [
+                            {
+                              "widgetKind": "PAYLOAD_TYPE",
+                              "selected": true,
+                              "formats": [
+                                {
+                                  "supported": [
+                                    "schema",
+                                    "browse",
+                                    "json",
+                                    "xml"
+                                  ],
+                                  "defaultFormat": "json"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "state": {
+                          "enabled": true,
+                          "editable": true,
+                          "optional": false,
+                          "advanced": false
+                        }
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message received from the subscribed queue."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": false,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": false,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onRequest.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "RabbitMQ caller used to manually acknowledge/reject messages (required for manual ack when Auto Acknowledge is off)."
+              },
+              "state": {
+                "advanced": true,
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the RabbitMQ caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "rabbitmq:Caller",
+                    "default": false,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "RabbitMQ caller used to manually acknowledge/reject messages."
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onRequest.returns"
+            },
+            "metadata": {
+              "label": "Reply Value",
+              "description": "The value published back to the message's replyTo queue, or a rabbitmq:Error."
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "typeEditable": true,
+              "optional": true
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onRequest",
+              "moduleName": "rabbitmq",
+              "group": "consume"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onError"
+          },
+          "metadata": {
+            "label": "On Error",
+            "description": "Triggered when an error occurs while dispatching a message to On Message / On Request."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onError.message"
+              },
+              "metadata": {
+                "label": "Message",
+                "description": "The message that was being processed when the error occurred."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "rabbitmq:AnydataMessage",
+                    "default": "rabbitmq:AnydataMessage",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "message.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "message",
+                    "description": "The message that was being processed when the error occurred."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "message",
+                    "default": "message",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+            "target": {
+              "via": "l1",
+              "id": "$service.onError.err"
+            },
+            "metadata": {
+              "label": "RabbitMQ Error",
+              "description": "The error that occurred while processing the message."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                  "owner": "err.parameter",
+                  "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                  "placeholder": "rabbitmq:Error",
+                  "default": "rabbitmq:Error",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                  "owner": "err.parameter",
+                  "path": "name"
+                  },
+                  "metadata": {
+                "label": "rabbitmqError",
+                "description": "The error that occurred while processing the message."
+                  },
+                  "field": {
+                    "key": "name",
+                "placeholder": "rabbitmqError",
+                "default": "rabbitmqError",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onError.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onError",
+              "moduleName": "rabbitmq"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "rabbitmq",
+          "originalName": "Service"
+        }
+      }
+    }
+  ]
+}

@@ -21,17 +21,22 @@ package io.ballerina.modelgenerator.commons.trigger;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
-import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.utils.TriggerMetadataGson;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageDescriptor;
 import io.ballerina.projects.PackageName;
 import io.ballerina.projects.PackageOrg;
 import io.ballerina.projects.PackageVersion;
+import io.ballerina.projects.SemanticVersion;
 import io.ballerina.projects.environment.PackageRepository;
 import io.ballerina.projects.environment.ResolutionOptions;
 import io.ballerina.projects.environment.ResolutionRequest;
@@ -59,9 +64,10 @@ public final class LibraryMetadataReader {
     private static final Logger LOGGER = Logger.getLogger(LibraryMetadataReader.class.getName());
 
     private static final String TRIGGER_METADATA_RESOURCE_PATH = "resources/trigger-metadata.json";
-    private static final String TRIGGER_UI_SCHEMA_RESOURCE_PATH = "resources/trigger-ui-schema.json";
+    private static final String TRIGGER_UI_METADATA_RESOURCE_PATH = "resources/trigger-ui-metadata.json";
     private static final String PACKAGED_TRIGGER_METADATA_ROOT = "trigger-metadata-models";
     private static final String PACKAGED_TRIGGER_METADATA_FILE = "trigger-metadata.json";
+    private static final String PACKAGED_TRIGGER_UI_METADATA_FILE = "trigger-ui-metadata.json";
     /** Sized for the designer, which resolves one connector at a time. */
     private static final int MAX_CACHE_SIZE = 2;
 
@@ -80,6 +86,8 @@ public final class LibraryMetadataReader {
             Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).expireAfterWrite(PACKAGE_ROOT_CACHE_TTL).build();
     private final Cache<String, Optional<TriggerMetadataModel>> packagedMetadataCache =
             Caffeine.newBuilder().maximumSize(PACKAGED_METADATA_CACHE_SIZE).build();
+    private final Cache<String, Optional<TriggerUIMetadataModel>> packagedUIMetadataCache =
+            Caffeine.newBuilder().maximumSize(PACKAGED_METADATA_CACHE_SIZE).build();
 
     private final Gson plainGson = new Gson();
 
@@ -95,9 +103,10 @@ public final class LibraryMetadataReader {
         return packageRoot(moduleInfo).flatMap(this::readTriggerMetadataModel);
     }
 
-    /** The connector's own {@code resources/trigger-ui-schema.json}, resolved from its {@code .bala}. */
-    public Optional<TriggerUISchemaModel> getTriggerUISchemaModel(ModuleInfo moduleInfo) {
-        return packageRoot(moduleInfo).flatMap(this::readTriggerUISchemaModel);
+    /** The connector's sparse {@code resources/trigger-ui-metadata.json}, resolved from its {@code .bala}. */
+    public Optional<TriggerUIMetadataModel> getTriggerUIMetadataModel(ModuleInfo moduleInfo) {
+        return packageRoot(moduleInfo)
+                .flatMap(root -> readTriggerUIMetadataModel(root, moduleInfo == null ? null : moduleInfo.version()));
     }
 
     /** Whether the connector's {@code .bala} is present in the local repository. */
@@ -117,6 +126,19 @@ public final class LibraryMetadataReader {
     }
 
     /**
+     * The LS's bundled {@code trigger-metadata-models/<moduleName>/trigger-ui-metadata.json} L2 overlay,
+     * selecting the matching version variant when the resource contains a {@code variants} bundle.
+     */
+    public Optional<TriggerUIMetadataModel> getPackagedTriggerUIMetadataModel(ModuleInfo moduleInfo) {
+        if (moduleInfo == null || moduleInfo.moduleName() == null) {
+            return Optional.empty();
+        }
+        String key = moduleInfo.moduleName() + ":" + String.valueOf(moduleInfo.version());
+        return packagedUIMetadataCache.get(key,
+                ignored -> readPackagedUIMetadata(moduleInfo.moduleName(), moduleInfo.version()));
+    }
+
+    /**
      * The connector's own {@code resources/trigger-metadata.json}, resolved from the Ballerina
      * <b>local</b> repository rather than Central.
      */
@@ -124,9 +146,10 @@ public final class LibraryMetadataReader {
         return localPackageRoot(moduleInfo).flatMap(this::readTriggerMetadataModel);
     }
 
-    /** The connector's own {@code resources/trigger-ui-schema.json}, resolved from the local repository. */
-    public Optional<TriggerUISchemaModel> getTriggerUISchemaModelFromLocalRepository(ModuleInfo moduleInfo) {
-        return localPackageRoot(moduleInfo).flatMap(this::readTriggerUISchemaModel);
+    /** The connector's sparse UI metadata, resolved from the Ballerina local repository. */
+    public Optional<TriggerUIMetadataModel> getTriggerUIMetadataModelFromLocalRepository(ModuleInfo moduleInfo) {
+        return localPackageRoot(moduleInfo)
+                .flatMap(root -> readTriggerUIMetadataModel(root, moduleInfo == null ? null : moduleInfo.version()));
     }
 
     /** Every {@code org/name/version} present in the Ballerina local repository, as {@link ModuleInfo}. */
@@ -205,6 +228,21 @@ public final class LibraryMetadataReader {
         }
     }
 
+    private Optional<TriggerUIMetadataModel> readPackagedUIMetadata(String moduleName, String version) {
+        String resourcePath = PACKAGED_TRIGGER_METADATA_ROOT + "/" + moduleName + "/"
+                + PACKAGED_TRIGGER_UI_METADATA_FILE;
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                return Optional.empty();
+            }
+            String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            return parseTriggerUIMetadata(json, version, resourcePath);
+        } catch (IOException | JsonParseException e) {
+            LOGGER.warning("Ignoring bundled " + resourcePath + ": " + e);
+            return Optional.empty();
+        }
+    }
+
     // Package-private rather than private: both public reads funnel through here, so the tests
     // exercise the shared tail directly instead of once per entry point.
     Optional<TriggerMetadataModel> readTriggerMetadataModel(Path packageRoot) {
@@ -218,6 +256,86 @@ public final class LibraryMetadataReader {
         });
     }
 
+    Optional<TriggerUIMetadataModel> readTriggerUIMetadataModel(Path packageRoot, String version) {
+        return readResourceFile(packageRoot, TRIGGER_UI_METADATA_RESOURCE_PATH)
+                .flatMap(json -> parseTriggerUIMetadata(json, version,
+                        packageRoot.resolve(TRIGGER_UI_METADATA_RESOURCE_PATH).toString()));
+    }
+
+    private Optional<TriggerUIMetadataModel> parseTriggerUIMetadata(String json, String version, String source) {
+        try {
+            JsonElement parsed = JsonParser.parseString(json);
+            if (!parsed.isJsonObject()) {
+                return Optional.empty();
+            }
+            JsonObject document = selectUIMetadataVariant(parsed.getAsJsonObject(), version);
+            TriggerUIMetadataModel model = plainGson.fromJson(document, TriggerUIMetadataModel.class);
+            if (model != null && model.version() != null && SUPPORTED_VERSION.matcher(model.version()).matches()) {
+                return Optional.of(model);
+            }
+            LOGGER.log(Level.WARNING, "Unsupported trigger-ui-metadata.json version \""
+                    + (model == null ? null : model.version()) + "\" in " + source + "; expected v1.x");
+            return Optional.empty();
+        } catch (JsonParseException | IllegalStateException e) {
+            LOGGER.log(Level.WARNING, "Ignoring invalid trigger-ui-metadata.json in " + source, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Selects the first matching variant; resources are ordered newest to oldest.
+     *
+     * <p>The {@code variants} envelope is an LS packaging convention layered on top of the L2 spec, not
+     * part of it: {@code spec.json}'s root has no {@code variants} property, because a single L2
+     * document describes the version a connector <em>is</em>, not a version-selection policy -- that
+     * policy only exists here, where the LS bundles several package-version surfaces of one connector
+     * (today, only {@code mcp}) side by side. A packaged {@code trigger-ui-metadata.json} is therefore
+     * either (a) a spec-valid L2 document on its own, or (b) {@code {"variants": [{"minVersion"?:
+     * <semver>, "model": <spec-valid L2 document>}, ...]}}, ordered newest to oldest, where an omitted
+     * {@code minVersion} means "matches anything" and must be the last entry. Each {@code model} payload
+     * is independently spec-valid; only the wrapper itself is not an L2 document, so it is unmodeled by
+     * {@link io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel} and is resolved
+     * to a plain {@link JsonObject} at this layer, before Gson binds the selected variant.
+     *
+     * <p>A {@code null}/blank {@code version} -- no package version to compare against -- resolves to
+     * the <em>first</em> (newest) variant rather than the fallback, matching {@code
+     * getModulePackageOffline}'s own "no version means newest" convention elsewhere in this reader.
+     */
+    private JsonObject selectUIMetadataVariant(JsonObject root, String version) {
+        JsonElement variantsElement = root.get("variants");
+        if (variantsElement == null || !variantsElement.isJsonArray()) {
+            return root;
+        }
+        JsonArray variants = variantsElement.getAsJsonArray();
+        JsonObject fallback = null;
+        for (JsonElement element : variants) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject variant = element.getAsJsonObject();
+            JsonElement model = variant.get("model");
+            if (model == null || !model.isJsonObject()) {
+                continue;
+            }
+            fallback = model.getAsJsonObject();
+            JsonElement minVersion = variant.get("minVersion");
+            if (minVersion == null || minVersion.isJsonNull()
+                    || version == null || version.isBlank()
+                    || versionAtLeast(version, minVersion.getAsString())) {
+                return model.getAsJsonObject();
+            }
+        }
+        return fallback == null ? root : fallback;
+    }
+
+    private static boolean versionAtLeast(String version, String minimum) {
+        try {
+            return SemanticVersion.from(version).greaterThanOrEqualTo(SemanticVersion.from(minimum));
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
     /** Refuses a {@code null}/absent/unsupported-major version, logging why. */
     private Optional<TriggerMetadataModel> requireSupportedVersion(TriggerMetadataModel model, String source) {
         if (model != null && model.version() != null && SUPPORTED_VERSION.matcher(model.version()).matches()) {
@@ -226,16 +344,6 @@ public final class LibraryMetadataReader {
         LOGGER.log(Level.WARNING, "Unsupported trigger-metadata.json version \""
                 + (model == null ? null : model.version()) + "\" in " + source + "; expected v1.x");
         return Optional.empty();
-    }
-
-    private Optional<TriggerUISchemaModel> readTriggerUISchemaModel(Path packageRoot) {
-        return readResourceFile(packageRoot, TRIGGER_UI_SCHEMA_RESOURCE_PATH).flatMap(json -> {
-            try {
-                return Optional.ofNullable(plainGson.fromJson(json, TriggerUISchemaModel.class));
-            } catch (JsonParseException e) {
-                return Optional.empty();
-            }
-        });
     }
 
     /** The local {@code .bala} root of {@code moduleInfo}. Only a hit is memoized. */

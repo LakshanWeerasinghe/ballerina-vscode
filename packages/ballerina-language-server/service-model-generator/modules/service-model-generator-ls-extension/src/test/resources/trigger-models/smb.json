@@ -3453,7 +3453,9 @@
           "nameEditable": false,
           "kind": "REMOTE",
           "accessor": "",
-          "qualifiers": [],
+          "qualifiers": [
+            "remote"
+          ],
           "enabled": false,
           "editable": true,
           "optional": true,

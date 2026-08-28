@@ -1,0 +1,2173 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "Google Chat",
+    "description": "Receives Google Chat interaction events via direct HTTP delivery from Google Chat.",
+    "type": "chat"
+  },
+  "initForm": {
+    "fields": []
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Listener",
+            "description": "Attach the service to a new or existing Google Chat listener."
+          },
+          "createNew": {
+            "label": "Create New Listener",
+            "description": "Define a new Google Chat listener in the project."
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the Google Chat trigger listener."
+          },
+          "useExisting": {
+            "label": "Use Existing Listener",
+            "description": "Attach to one or more Google Chat listeners already declared in the project."
+          },
+          "existingListener": {
+            "label": "Listener(s)",
+            "description": "Select one or more existing Google Chat listeners to attach to."
+          },
+          "existingListenerWidget": "MULTIPLE_SELECT_LISTENER",
+          "existingListenerBallerinaType": "googleapis.chat:Listener"
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "chatListener",
+            "validations": [
+              {
+                "rule": "common.validate.identifier"
+              },
+              {
+                "rule": "ls.validate.unique.listener.name",
+                "message": "A listener with this name already exists in the project"
+              }
+            ],
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created."
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "IDENTIFIER",
+                  "selected": true,
+                  "ballerinaType": "googleapis.chat:Listener"
+                }
+              ]
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "listenOn": {
+            "key": "listenOn",
+            "placeholder": "8000",
+            "default": "8000",
+            "metadata": {
+              "label": "Port",
+              "description": "The port or HTTP listener to listen on. Defaults to port 8000."
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "originalName": "listenOn",
+                "position": 1
+              }
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "NUMBER",
+                  "selected": true,
+                  "ballerinaType": "int|http:Listener"
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "int|http:Listener"
+                }
+              ]
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "auth": {
+            "key": "auth",
+            "default": "",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "Auth Config",
+              "description": "Authentication for the Chat API client (service account, OAuth2, or bearer token)"
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "RECORD_MAP_EXPRESSION",
+                  "selected": true,
+                  "ballerinaType": "chat:ServiceAccountAuthConfig|chat:OAuth2Config|http:BearerTokenConfig",
+                  "typeMembers": [
+                    { "type": "ServiceAccountFileConfig", "packageInfo": "ballerinax:googleapis.chat:0.1.0", "packageName": "googleapis.chat", "kind": "RECORD_TYPE", "selected": true },
+                    { "type": "ServiceAccountCredentials", "packageInfo": "ballerinax:googleapis.chat:0.1.0", "packageName": "googleapis.chat", "kind": "RECORD_TYPE", "selected": false },
+                    { "type": "OAuth2Config", "packageInfo": "ballerinax:googleapis.chat:0.1.0", "packageName": "googleapis.chat", "kind": "RECORD_TYPE", "selected": false },
+                    { "type": "BearerTokenConfig", "packageInfo": "ballerina:http:2.15.7", "packageName": "http", "kind": "RECORD_TYPE", "selected": false }
+                  ]
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "chat:ServiceAccountAuthConfig|chat:OAuth2Config|http:BearerTokenConfig"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "originalName": "auth",
+                "path": "auth"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "httpListenerConfig": {
+            "key": "httpListenerConfig",
+            "default": "",
+            "metadata": {
+              "label": "HTTP Listener Config",
+              "description": "Optional inbound HTTP listener settings"
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "RECORD_MAP_EXPRESSION",
+                  "selected": true,
+                  "ballerinaType": "http:ListenerConfiguration",
+                  "typeMembers": [
+                    { "type": "ListenerConfiguration", "packageInfo": "ballerina:http:2.15.7", "packageName": "http", "kind": "RECORD_TYPE", "selected": true }
+                  ]
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "http:ListenerConfiguration"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                "originalName": "httpListenerConfig",
+                "path": "httpListenerConfig"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$service"
+      },
+      "metadata": {
+        "label": "Chat Service",
+        "description": "Triggers when a Google Chat interaction event is received."
+      },
+      "state": {
+        "editable": false,
+        "enabled": true
+      },
+      "service": {
+        "description": "Triggers when a Google Chat interaction event is received.",
+        "properties": {
+          "serviceConfig": {
+            "key": "serviceConfig",
+            "default": "endpointUrl",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "metadata": {
+              "label": "Service Config",
+              "description": "Service-level configuration for the Google Chat trigger."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "CHOICE",
+                  "selected": true,
+                  "ballerinaType": "chat:ServiceConfiguration"
+                }
+              ]
+            },
+            "choices": [
+              {
+                "default": "endpointUrl",
+                "metadata": {
+                  "label": "HTTP Endpoint URL Config",
+                  "description": "Verifies bearer tokens using the HTTP endpoint URL as the audience."
+                },
+                "properties": {
+                  "endpointUrl": {
+                    "key": "endpointUrl",
+                    "placeholder": "https://my-app.example.com",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Endpoint URL",
+                      "description": "The public HTTPS URL of this listener."
+                    },
+                    "source": {
+                      "codedata": {
+                        "type": "MAPPING_FIELD",
+                        "field": "endpointUrl"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "type": "MAPPING_CONSTRUCTOR"
+                  }
+                },
+                "state": {
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "default": "projectNumber",
+                "metadata": {
+                  "label": "Project Number",
+                  "description": "Verifies bearer tokens using the GCP project number as the audience."
+                },
+                "properties": {
+                  "projectNumber": {
+                    "key": "projectNumber",
+                    "placeholder": "1234567890",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Project Number",
+                      "description": "The GCP project number used to build the Chat app."
+                    },
+                    "source": {
+                      "codedata": {
+                        "type": "MAPPING_FIELD",
+                        "field": "projectNumber"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "type": "MAPPING_CONSTRUCTOR"
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              }
+            ],
+            "source": {
+              "codedata": {
+                "type": "SERVICE_ANNOTATION",
+                "originalName": "ServiceConfig",
+                "moduleName": "chat",
+                "path": ""
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      },
+      "fields": [
+        {
+          "target": {
+            "via": "semantic",
+            "kind": "recordField",
+            "owner": "ChatService.properties",
+            "path": "serviceConfig"
+          },
+          "metadata": {
+            "label": "Service Config",
+            "description": "Service-level configuration for the Google Chat trigger."
+          },
+          "field": {
+            "key": "serviceConfig",
+            "default": "endpointUrl",
+            "validations": [
+              {
+                "rule": "common.validate.required"
+              }
+            ],
+            "choices": [
+              {
+                "default": "endpointUrl",
+                "metadata": {
+                  "label": "HTTP Endpoint URL Config",
+                  "description": "Verifies bearer tokens using the HTTP endpoint URL as the audience."
+                },
+                "properties": {
+                  "endpointUrl": {
+                    "key": "endpointUrl",
+                    "placeholder": "https://my-app.example.com",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Endpoint URL",
+                      "description": "The public HTTPS URL of this listener."
+                    },
+                    "source": {
+                      "codedata": {
+                        "type": "MAPPING_FIELD",
+                        "field": "endpointUrl"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "type": "MAPPING_CONSTRUCTOR"
+                  }
+                },
+                "state": {
+                  "enabled": true,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              },
+              {
+                "default": "projectNumber",
+                "metadata": {
+                  "label": "Project Number",
+                  "description": "Verifies bearer tokens using the GCP project number as the audience."
+                },
+                "properties": {
+                  "projectNumber": {
+                    "key": "projectNumber",
+                    "placeholder": "1234567890",
+                    "default": "",
+                    "validations": [
+                      {
+                        "rule": "common.validate.required"
+                      }
+                    ],
+                    "metadata": {
+                      "label": "Project Number",
+                      "description": "The GCP project number used to build the Chat app."
+                    },
+                    "source": {
+                      "codedata": {
+                        "type": "MAPPING_FIELD",
+                        "field": "projectNumber"
+                      }
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                },
+                "source": {
+                  "codedata": {
+                    "type": "MAPPING_CONSTRUCTOR"
+                  }
+                },
+                "state": {
+                  "enabled": false,
+                  "editable": true,
+                  "optional": false,
+                  "advanced": false
+                }
+              }
+            ],
+            "source": {
+              "codedata": {
+                "type": "SERVICE_ANNOTATION",
+                "originalName": "ServiceConfig",
+                "moduleName": "chat",
+                "path": ""
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "SERVICE_ANNOTATION",
+              "originalName": "ServiceConfig",
+              "moduleName": "chat",
+              "path": ""
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        }
+      ],
+      "handlers": [
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onMessage"
+          },
+          "metadata": {
+            "label": "On Message",
+            "description": "A user sends a message."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user sends a message."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat message interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:MessageEvent",
+                    "default": "chat:MessageEvent",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "TYPE",
+                          "selected": true,
+                          "ballerinaType": "chat:MessageEvent"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat message interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:MessageCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onMessage.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onMessage",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onAddedToSpace"
+          },
+          "metadata": {
+            "label": "On Added To Space",
+            "description": "The app is added to a space."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "The app is added to a space."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAddedToSpace.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAddedToSpace.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:MessageCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onAddedToSpace.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onAddedToSpace",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onRemovedFromSpace"
+          },
+          "metadata": {
+            "label": "On Removed From Space",
+            "description": "The app is removed from a space (no caller)."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "The app is removed from a space (no caller)."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onRemovedFromSpace.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onRemovedFromSpace.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onRemovedFromSpace",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onCardClicked"
+          },
+          "metadata": {
+            "label": "On Card Clicked",
+            "description": "A user clicks a button/card element."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user clicks a button/card element."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onCardClicked.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onCardClicked.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:CardClickedCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onCardClicked.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onCardClicked",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onWidgetUpdated"
+          },
+          "metadata": {
+            "label": "On Widget Updated",
+            "description": "A user updates a widget."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user updates a widget."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onWidgetUpdated.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onWidgetUpdated.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:WidgetUpdatedCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onWidgetUpdated.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onWidgetUpdated",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onAppCommand"
+          },
+          "metadata": {
+            "label": "On App Command",
+            "description": "A user invokes a command."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user invokes a command."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAppCommand.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAppCommand.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:MessageCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onAppCommand.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onAppCommand",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onAppHome"
+          },
+          "metadata": {
+            "label": "On App Home",
+            "description": "A user navigates to the app home."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user navigates to the app home."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAppHome.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onAppHome.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:AppHomeCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onAppHome.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onAppHome",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        },
+        {
+          "target": {
+            "via": "l1",
+            "id": "$service.onSubmitForm"
+          },
+          "metadata": {
+            "label": "On Submit Form",
+            "description": "A user submits a form from app home."
+          },
+          "function": {
+            "nameEditable": false,
+            "repeatable": "FALSE",
+            "canAddParameters": false,
+            "documentation": {
+              "default": "A user submits a form from app home."
+            }
+          },
+          "parameters": [
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onSubmitForm.event"
+              },
+              "metadata": {
+                "label": "Event",
+                "description": "A Google Chat app interaction event."
+              },
+              "state": {
+                "editable": false,
+                "enabled": true,
+                "optional": false,
+                "advanced": false,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Parameter Type",
+                    "description": "The type of the parameter"
+                  },
+                  "state": {
+                    "editable": false,
+                    "enabled": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:ChatEvent",
+                    "default": "chat:ChatEvent",
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "event.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "event",
+                    "description": "A Google Chat app interaction event."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "event",
+                    "default": "event",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onSubmitForm.caller"
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "An event-specific Caller for responding."
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the caller parameter in the handler signature."
+                  },
+                  "field": {
+                    "key": "type",
+                    "placeholder": "chat:SubmitFormCaller",
+                    "default": true,
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "An event-specific Caller for responding."
+                  },
+                  "field": {
+                    "key": "name",
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": false,
+                    "advanced": false
+                  }
+                }
+              ],
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "state": {
+                "enabled": true,
+                "editable": true,
+                "optional": true,
+                "advanced": false,
+                "hidden": false
+              }
+            }
+          ],
+          "returnType": {
+            "target": {
+              "via": "l1",
+              "id": "$service.onSubmitForm.returns"
+            },
+            "metadata": {
+              "label": "Return Type",
+              "description": "The return type of the function; `error?` to signal a processing error."
+            },
+            "state": {
+              "editable": false,
+              "enabled": true,
+              "optional": true
+            },
+            "source": {
+              "codedata": {
+                "type": "FUNCTION_RETURN"
+              }
+            }
+          },
+          "source": {
+            "codedata": {
+              "type": "FUNCTION",
+              "originalName": "onSubmitForm",
+              "moduleName": "chat"
+            }
+          },
+          "state": {
+            "enabled": false,
+            "editable": true,
+            "optional": true
+          }
+        }
+      ],
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "chat",
+          "originalName": "ChatService"
+        }
+      }
+    }
+  ]
+}

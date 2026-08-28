@@ -1,0 +1,368 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "GitHub Event Integration",
+    "description": "Create a service to handle webhook events from GitHub",
+    "type": "github"
+  },
+  "readOnlyMetadata": [
+    {
+      "key": "serviceType",
+      "displayName": "Event Channel",
+      "extractor": "SERVICE_DESCRIPTION"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "recordField",
+          "owner": "trigger.initProperties",
+          "path": "serviceType"
+        },
+        "metadata": {
+          "label": "Event Channel",
+          "description": "The type of GitHub event to listen for"
+        },
+        "field": {
+          "key": "serviceType",
+          "default": "github:IssuesService",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_TYPE_DESCRIPTOR",
+              "moduleName": "github"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_TYPE_DESCRIPTOR",
+            "moduleName": "github"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      }
+    ]
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Listener",
+            "description": "Attach the service to a new or existing GitHub webhook listener."
+          },
+          "createNew": {
+            "label": "Create New Listener",
+            "description": "Define a new GitHub webhook listener in the project."
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the GitHub webhook listener."
+          },
+          "useExisting": {
+            "label": "Use Existing Listener",
+            "description": "Attach to a GitHub listener already declared in the project."
+          }
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "githubListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created"
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "listenOn": {
+            "key": "listenOn",
+            "placeholder": "8090",
+            "default": "8090",
+            "metadata": {
+              "label": "Webhook Listener Port",
+              "description": "The port on which the webhook listener accepts incoming HTTP requests"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 2,
+                "originalName": "listenOn"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "webhookSecret": {
+            "key": "webhookSecret",
+            "placeholder": "",
+            "default": "",
+            "metadata": {
+              "label": "Webhook Secret",
+              "description": "Secret used to validate incoming GitHub webhook requests"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                "originalName": "webhookSecret",
+                "position": 1,
+                "path": "webhookSecret"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$issues"
+      },
+      "metadata": {
+        "label": "Issues",
+        "description": "Triggered when an event related to a GitHub issue is received. Available actions: onOpened, onClosed, onReopened, onAssigned, onUnassigned, onLabeled, and onUnlabeled."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "IssuesService"
+        }
+      },
+      "state": {
+        "enabled": true,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$issueComment"
+      },
+      "metadata": {
+        "label": "Issue Comment",
+        "description": "Triggered when a comment is added, edited, or removed on a pull request or a GitHub issue. Available actions: onCreated, onEdited, and onDeleted."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "IssueCommentService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$pullRequest"
+      },
+      "metadata": {
+        "label": "Pull Request",
+        "description": "Triggered when an event related to a GitHub pull request is received. Available actions: onOpened, onClosed, onReopened, onAssigned, onUnassigned, onReviewRequested, onReviewRequestRemoved, onLabeled, onUnlabeled, and onEdited."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "PullRequestService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$pullRequestReview"
+      },
+      "metadata": {
+        "label": "Pull Request Review",
+        "description": "Triggered when an event related to a pull request review is received. Available actions: onSubmitted, onEdited, and onDismissed."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "PullRequestReviewService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$pullRequestReviewComment"
+      },
+      "metadata": {
+        "label": "Pull Request Review Comment",
+        "description": "Triggered when a comment is added to a pull request review's unified diff view. Available actions: onCreated, onEdited, and onDeleted."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "PullRequestReviewCommentService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$release"
+      },
+      "metadata": {
+        "label": "Release",
+        "description": "Triggered when an event related to a GitHub release is received. Available actions: onPublished, onUnpublished, onCreated, onEdited, onDeleted, onPreReleased, and onReleased."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "ReleaseService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$label"
+      },
+      "metadata": {
+        "label": "Label",
+        "description": "Triggered when an event related to a repository label is received. Available actions: onCreated, onEdited, and onDeleted."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "LabelService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$milestone"
+      },
+      "metadata": {
+        "label": "Milestone",
+        "description": "Triggered when an event related to a GitHub milestone is received. Available actions: onCreated, onEdited, onDeleted, onClosed, and onOpened."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "MilestoneService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$push"
+      },
+      "metadata": {
+        "label": "Push",
+        "description": "Triggered when a push event is received. Available action: onPush."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "PushService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$projectCard"
+      },
+      "metadata": {
+        "label": "Project Card",
+        "description": "Triggered when an event related to a project card is received. Available actions: onCreated, onEdited, onMoved, onConverted, and onDeleted."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "github",
+          "originalName": "ProjectCardService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    }
+  ]
+}

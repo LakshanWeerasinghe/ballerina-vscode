@@ -1,0 +1,25 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "trigger"
+  },
+  "trigger": {
+    "displayName": "Google Calendar"
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$calendarService"
+      }
+    }
+  ]
+}

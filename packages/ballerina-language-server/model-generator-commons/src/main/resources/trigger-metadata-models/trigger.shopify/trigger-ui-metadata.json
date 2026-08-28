@@ -1,0 +1,261 @@
+{
+  "version": "v1.0",
+  "metadata": {
+    "kind": "event"
+  },
+  "trigger": {
+    "displayName": "Shopify",
+    "description": "Create a service to handle webhook events from Shopify",
+    "type": "shopify"
+  },
+  "readOnlyMetadata": [
+    {
+      "key": "serviceType",
+      "displayName": "Event Type",
+      "extractor": "SERVICE_DESCRIPTION"
+    }
+  ],
+  "initForm": {
+    "fields": [
+      {
+        "target": {
+          "via": "semantic",
+          "kind": "recordField",
+          "owner": "trigger.initProperties",
+          "path": "serviceType"
+        },
+        "metadata": {
+          "label": "Event Type",
+          "description": "Select the type of Shopify events to handle"
+        },
+        "field": {
+          "key": "serviceType",
+          "default": "shopify:OrdersService",
+          "source": {
+            "codedata": {
+              "type": "SERVICE_TYPE_DESCRIPTOR",
+              "moduleName": "shopify"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": false
+          }
+        },
+        "source": {
+          "codedata": {
+            "type": "SERVICE_TYPE_DESCRIPTOR",
+            "moduleName": "shopify"
+          }
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": false
+        }
+      }
+    ]
+  },
+  "listeners": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$listener"
+      },
+      "listener": {
+        "form": {
+          "section": {
+            "label": "Configure Shopify Listener",
+            "description": "Select an existing Shopify listener or create a new one"
+          },
+          "createNew": {
+            "label": "Create new",
+            "description": "Create a new Shopify listener"
+          },
+          "listenerConfig": {
+            "label": "Listener Configurations",
+            "description": "Configure the Shopify listener"
+          },
+          "useExisting": {
+            "label": "Use existing",
+            "description": "Select an existing Shopify listener"
+          },
+          "existingListener": {
+            "label": "Listeners",
+            "description": "Select the existing listener(s) to attach the service to."
+          },
+          "existingListenerWidget": "MULTI_SELECT_LISTENER",
+          "existingListenerItems": [
+            "shopifyListener"
+          ],
+          "existingListenerValue": [
+            "shopifyListener"
+          ]
+        },
+        "formFields": {
+          "listenerVarName": {
+            "key": "listenerVarName",
+            "default": "shopifyListener",
+            "metadata": {
+              "label": "Listener Name",
+              "description": "Provide a name for the listener being created"
+            },
+            "widget": {
+              "overrides": [
+                {
+                  "widgetKind": "IDENTIFIER",
+                  "selected": true,
+                  "ballerinaType": "shopify:Listener"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "type": "LISTENER_VAR_NAME"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "apiSecretKey": {
+            "key": "apiSecretKey",
+            "default": "",
+            "metadata": {
+              "label": "API Secret Key",
+              "description": "The Shopify API secret key used to validate incoming webhook requests"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_CONFIG_FIELD",
+                "path": "apiSecretKey",
+                "originalName": "apiSecretKey",
+                "position": 1
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          },
+          "listenOn": {
+            "key": "listenOn",
+            "placeholder": "8090",
+            "default": "8090",
+            "metadata": {
+              "label": "Port",
+              "description": "The port on which the webhook listener accepts incoming HTTP requests"
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_REQUIRED",
+                "position": 2,
+                "originalName": "listenOn"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "serviceTypes": [
+    {
+      "target": {
+        "via": "l1",
+        "id": "$orders"
+      },
+      "metadata": {
+        "label": "Orders",
+        "description": "Triggers when a new event related to Shopify orders is received. Available actions: onOrdersCreate, onOrdersCancelled, onOrdersFulfilled, onOrdersPaid, onOrdersPartiallyFulfilled, and onOrdersUpdated."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "shopify",
+          "originalName": "OrdersService"
+        }
+      },
+      "state": {
+        "enabled": true,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$customers"
+      },
+      "metadata": {
+        "label": "Customers",
+        "description": "Triggers when a new event related to Shopify customers is received. Available actions: onCustomersCreate, onCustomersDisable, onCustomersEnable, onCustomersUpdate, and onCustomersMarketingConsentUpdate."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "shopify",
+          "originalName": "CustomersService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$products"
+      },
+      "metadata": {
+        "label": "Products",
+        "description": "Triggers when a new event related to Shopify products is received. Available actions: onProductsCreate and onProductsUpdate."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "shopify",
+          "originalName": "ProductsService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    },
+    {
+      "target": {
+        "via": "l1",
+        "id": "$fulfillments"
+      },
+      "metadata": {
+        "label": "Fulfillments",
+        "description": "Triggers when a new event related to Shopify fulfillments is received. Available actions: onFulfillmentsCreate and onFulfillmentsUpdate."
+      },
+      "source": {
+        "codedata": {
+          "type": "SERVICE_TYPE_DESCRIPTOR",
+          "moduleName": "shopify",
+          "originalName": "FulfillmentsService"
+        }
+      },
+      "state": {
+        "enabled": false,
+        "editable": true
+      }
+    }
+  ]
+}
