@@ -144,7 +144,7 @@
       "event"
     ],
     "triggerName": "CDC for Microsoft SQL Server",
-    "version": "1.18.1",
+    "version": "1.19.0",
     "kind": "event"
   },
   "12": {
@@ -341,8 +341,8 @@
       "event"
     ],
     "triggerName": "Azure Files",
-    "version": "0.9.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_0.9.0.png",
+    "version": "1.0.1",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.1.png",
     "kind": "file"
   }
 }
