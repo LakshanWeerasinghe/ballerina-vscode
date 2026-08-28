@@ -93,145 +93,117 @@
               "advanced": false
             }
           },
-          "authentication": {
-            "key": "authentication",
+          "accessToken": {
+            "key": "accessToken",
             "default": "",
             "metadata": {
-              "label": "Authentication",
-              "description": "Provide exactly one of `secretToken` or `token`."
+              "label": "Access Token",
+              "description": "The bot access token issued by @BotFather."
             },
-            "choices": [
-              {
-                "default": "true",
-                "metadata": {
-                  "label": "Bot Token",
-                  "description": "The bot token to derive the secret token from."
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "TEXT",
+                  "selected": true,
+                  "ballerinaType": "string"
                 },
-                "properties": {
-                  "token": {
-                    "key": "token",
-                    "default": "",
-                    "validations": [
-                      {
-                        "rule": "common.validate.required"
-                      }
-                    ],
-                    "metadata": {
-                      "label": "Bot Token",
-                      "description": "The bot token to derive the secret token from."
-                    },
-                    "source": {
-                      "codedata": {
-                        "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
-                        "originalName": "token",
-                        "path": "token"
-                      }
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": false,
-                      "advanced": false
-                    }
-                  },
-                  "publicUrl": {
-                    "key": "publicUrl",
-                    "default": "",
-                    "metadata": {
-                      "label": "Public URL",
-                      "description": "This listener's public HTTPS URL, used to auto-register the webhook."
-                    },
-                    "source": {
-                      "codedata": {
-                        "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
-                        "originalName": "publicUrl",
-                        "path": "publicUrl"
-                      }
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true,
-                      "advanced": false
-                    }
-                  },
-                  "serviceUrl": {
-                    "key": "serviceUrl",
-                    "placeholder": "https://api.telegram.org",
-                    "default": "\"https://api.telegram.org\"",
-                    "metadata": {
-                      "label": "Service URL",
-                      "description": "The Telegram Bot API base URL."
-                    },
-                    "state": {
-                      "advanced": true,
-                      "enabled": true,
-                      "editable": true,
-                      "optional": true
-                    },
-                    "source": {
-                      "codedata": {
-                        "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
-                        "originalName": "serviceUrl",
-                        "path": "serviceUrl"
-                      }
-                    }
-                  }
-                },
-                "state": {
-                  "enabled": true,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "string"
                 }
-              },
+              ]
+            },
+            "validations": [
               {
-                "default": "true",
-                "metadata": {
-                  "label": "Secret Token",
-                  "description": "The secret token to authenticate inbound updates against."
-                },
-                "properties": {
-                  "secretToken": {
-                    "key": "secretToken",
-                    "default": "",
-                    "validations": [
-                      {
-                        "rule": "common.validate.required"
-                      }
-                    ],
-                    "metadata": {
-                      "label": "Secret Token",
-                      "description": "The secret token to authenticate inbound updates against."
-                    },
-                    "source": {
-                      "codedata": {
-                        "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
-                        "originalName": "secretToken",
-                        "path": "secretToken"
-                      }
-                    },
-                    "state": {
-                      "enabled": true,
-                      "editable": true,
-                      "optional": false,
-                      "advanced": false
-                    }
-                  }
-                },
-                "state": {
-                  "enabled": false,
-                  "editable": true,
-                  "optional": false,
-                  "advanced": false
-                }
+                "rule": "common.validate.required"
               }
             ],
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_FIELD",
+                "path": "accessToken"
+              }
+            },
             "state": {
               "enabled": true,
               "editable": true,
               "optional": false,
               "advanced": false
+            }
+          },
+          "callbackUrl": {
+            "key": "callbackUrl",
+            "default": "",
+            "metadata": {
+              "label": "Callback URL",
+              "description": "This listener's public HTTPS URL, used to auto-register the webhook when set."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "TEXT",
+                  "selected": true,
+                  "ballerinaType": "string"
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "string"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                "originalName": "callbackUrl",
+                "path": "callbackUrl"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": false
+            }
+          },
+          "serviceUrl": {
+            "key": "serviceUrl",
+            "placeholder": "https://api.telegram.org",
+            "default": "\"https://api.telegram.org\"",
+            "metadata": {
+              "label": "Service URL",
+              "description": "The Telegram Bot API base URL."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "TEXT",
+                  "selected": true,
+                  "ballerinaType": "string"
+                },
+                {
+                  "widgetKind": "EXPRESSION",
+                  "selected": false,
+                  "ballerinaType": "string"
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "argType": "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD",
+                "originalName": "serviceUrl",
+                "path": "serviceUrl"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": true,
+              "advanced": true
             }
           }
         }
@@ -253,7 +225,48 @@
         "enabled": true
       },
       "service": {
-        "description": "The service object a consumer implements to handle Telegram webhook updates."
+        "description": "The service object a consumer implements to handle Telegram webhook updates.",
+        "properties": {
+          "serviceConfig": {
+            "key": "serviceConfig",
+            "metadata": {
+              "label": "Service Configuration",
+              "description": "Configuration for a TelegramService's acknowledgement behavior."
+            },
+            "widget": {
+              "derived": false,
+              "overrides": [
+                {
+                  "widgetKind": "RECORD_MAP_EXPRESSION",
+                  "selected": true,
+                  "ballerinaType": "telegram:TelegramServiceConfig",
+                  "typeMembers": [
+                    {
+                      "type": "TelegramServiceConfig",
+                      "packageInfo": "ballerinax:telegram:0.9.3",
+                      "packageName": "telegram",
+                      "kind": "RECORD_TYPE",
+                      "selected": true
+                    }
+                  ]
+                }
+              ]
+            },
+            "source": {
+              "codedata": {
+                "type": "SERVICE_ANNOTATION",
+                "originalName": "ServiceConfig",
+                "moduleName": "telegram"
+              }
+            },
+            "state": {
+              "enabled": true,
+              "editable": true,
+              "optional": false,
+              "advanced": false
+            }
+          }
+        }
       },
       "handlers": [
         {
@@ -355,6 +368,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onMessage.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -489,6 +611,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onEditedMessage.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -623,6 +854,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onChannelPost.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -757,6 +1097,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onEditedChannelPost.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -891,6 +1340,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onCallbackQuery.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -1025,6 +1583,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onInlineQuery.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -1159,6 +1826,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onPoll.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -1293,6 +2069,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onPreCheckoutQuery.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -1427,6 +2312,115 @@
                   "type": "FUNCTION_PARAM"
                 }
               }
+            },
+            {
+              "target": {
+                "via": "l1",
+                "id": "$service.onShippingQuery.caller"
+              },
+              "source": {
+                "codedata": {
+                  "type": "FUNCTION_PARAM"
+                }
+              },
+              "metadata": {
+                "label": "Caller",
+                "description": "Telegram caller used to manually acknowledge updates (required for manual ack when Auto Ack is off)."
+              },
+              "state": {
+                "enabled": false,
+                "editable": true,
+                "optional": true,
+                "advanced": true,
+                "hidden": false
+              },
+              "fields": [
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "type"
+                  },
+                  "metadata": {
+                    "label": "Include Caller",
+                    "description": "Tick to include the Telegram caller parameter in the handler signature."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": true,
+                    "optional": true,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "type",
+                    "metadata": {
+                      "label": "Include Caller",
+                      "description": "Tick to include the Telegram caller parameter in the handler signature."
+                    },
+                    "placeholder": "telegram:Caller",
+                    "default": false,
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "FLAG",
+                          "selected": true,
+                          "ballerinaType": "telegram:Caller"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": true,
+                      "optional": true,
+                      "advanced": false
+                    }
+                  }
+                },
+                {
+                  "target": {
+                    "via": "semantic",
+                    "kind": "recordField",
+                    "owner": "caller.parameter",
+                    "path": "name"
+                  },
+                  "metadata": {
+                    "label": "caller",
+                    "description": "Telegram caller used to manually acknowledge updates."
+                  },
+                  "state": {
+                    "enabled": true,
+                    "editable": false,
+                    "optional": false,
+                    "advanced": false
+                  },
+                  "field": {
+                    "key": "name",
+                    "metadata": {
+                      "label": "caller",
+                      "description": "Telegram caller used to manually acknowledge updates."
+                    },
+                    "placeholder": "caller",
+                    "default": "caller",
+                    "widget": {
+                      "derived": false,
+                      "overrides": [
+                        {
+                          "widgetKind": "IDENTIFIER",
+                          "selected": true
+                        }
+                      ]
+                    },
+                    "state": {
+                      "enabled": true,
+                      "editable": false,
+                      "optional": false,
+                      "advanced": false
+                    }
+                  }
+                }
+              ]
             }
           ],
           "returnType": {
@@ -1471,5 +2465,8 @@
         }
       }
     }
-  ]
+  ],
+  "initForm": {
+    "fields": []
+  }
 }
