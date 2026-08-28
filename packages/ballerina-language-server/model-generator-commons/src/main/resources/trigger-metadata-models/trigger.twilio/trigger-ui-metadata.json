@@ -19,6 +19,89 @@
     "fields": [
       {
         "target": {
+          "via": "l1",
+          "id": "$listener"
+        },
+        "metadata": {
+          "label": "Listener Name",
+          "description": "Provide a name for the listener being created."
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": false,
+          "advanced": true
+        },
+        "field": {
+          "key": "listenerVarName",
+          "default": "twilioListener",
+          "metadata": {
+            "label": "Listener Name",
+            "description": "Provide a name for the listener being created."
+          },
+          "widget": {
+            "derived": false,
+            "overrides": [
+              {
+                "widgetKind": "IDENTIFIER",
+                "selected": true,
+                "ballerinaType": "trigger.twilio:Listener"
+              }
+            ]
+          },
+          "source": {
+            "codedata": {
+              "type": "LISTENER_VAR_NAME"
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": false,
+            "advanced": true
+          }
+        }
+      },
+      {
+        "target": {
+          "via": "l1",
+          "id": "$listener"
+        },
+        "metadata": {
+          "label": "Listen On",
+          "description": "The port to listen on."
+        },
+        "state": {
+          "enabled": true,
+          "editable": true,
+          "optional": true,
+          "advanced": false
+        },
+        "field": {
+          "key": "listenOn",
+          "placeholder": "8090",
+          "default": "8090",
+          "metadata": {
+            "label": "Listen On",
+            "description": "The port to listen on."
+          },
+          "source": {
+            "codedata": {
+              "argType": "LISTENER_PARAM_REQUIRED",
+              "originalName": "listenOn",
+              "position": 1
+            }
+          },
+          "state": {
+            "enabled": true,
+            "editable": true,
+            "optional": true,
+            "advanced": false
+          }
+        }
+      },
+      {
+        "target": {
           "via": "semantic",
           "kind": "recordField",
           "owner": "trigger.initProperties",
@@ -59,77 +142,6 @@
       }
     ]
   },
-  "listeners": [
-    {
-      "target": {
-        "via": "l1",
-        "id": "$listener"
-      },
-      "listener": {
-        "form": {
-          "section": {
-            "label": "Listener",
-            "description": "Attach the service to a new or existing Twilio webhook listener."
-          },
-          "createNew": {
-            "label": "Create New Listener",
-            "description": "Define a new Twilio webhook listener in the project."
-          },
-          "listenerConfig": {
-            "label": "Listener Configurations",
-            "description": "Configure the Twilio webhook listener."
-          },
-          "useExisting": {
-            "label": "Use Existing Listener",
-            "description": "Attach to a Twilio listener already declared in the project."
-          }
-        },
-        "formFields": {
-          "listenerVarName": {
-            "key": "listenerVarName",
-            "default": "twilioListener",
-            "metadata": {
-              "label": "Listener Name",
-              "description": "Provide a name for the listener being created."
-            },
-            "source": {
-              "codedata": {
-                "type": "LISTENER_VAR_NAME"
-              }
-            },
-            "state": {
-              "enabled": true,
-              "editable": true,
-              "optional": false,
-              "advanced": true
-            }
-          },
-          "listenOn": {
-            "key": "listenOn",
-            "placeholder": "8090",
-            "default": "8090",
-            "metadata": {
-              "label": "Listen On",
-              "description": "The port to listen on."
-            },
-            "source": {
-              "codedata": {
-                "argType": "LISTENER_PARAM_REQUIRED",
-                "originalName": "listenOn",
-                "position": 1
-              }
-            },
-            "state": {
-              "enabled": true,
-              "editable": true,
-              "optional": true,
-              "advanced": false
-            }
-          }
-        }
-      }
-    }
-  ],
   "serviceTypes": [
     {
       "target": {

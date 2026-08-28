@@ -82,7 +82,15 @@
           "useExisting": {
             "label": "Use Existing Listener",
             "description": "Attach to a GitHub listener already declared in the project."
-          }
+          },
+          "existingListener": {
+            "label": "Listener",
+            "description": "Select an existing listener to attach the service to."
+          },
+          "existingListenerItems": [
+            "githubListener"
+          ],
+          "existingListenerValue": "githubListener"
         },
         "formFields": {
           "listenerVarName": {
