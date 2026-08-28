@@ -151,7 +151,7 @@ export default function createTests() {
             console.log('✓ Clicked Next button to proceed to project configuration');
 
             // Wait for the project configuration form to appear
-            const configureTitle = webview.locator('h2', { hasText: 'Configure Your Integration' });
+            const configureTitle = webview.locator('h2', { hasText: 'Configure Your Integration Project' });
             await configureTitle.waitFor({ timeout: 10000 });
             console.log('✓ Project configuration form loaded');
 
