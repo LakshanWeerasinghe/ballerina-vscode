@@ -172,39 +172,6 @@ final class TriggerUIMetadataCompiler {
         root.remove("listenerForm");
     }
 
-    private static boolean hasListenerForm(TriggerUIMetadataModel l2) {
-        if (l2 == null || l2.listeners() == null) {
-            return false;
-        }
-        return l2.listeners().stream().anyMatch(node -> node.listener() != null && node.listener().form() != null);
-    }
-
-    /** Flattens a single listener choice when L2 did not author a listener form or runtime listener list. */
-    private static void flattenDerivedListenerChoice(JsonObject root) {
-        if (!root.has("initProperties") || !root.getAsJsonObject("initProperties").has(PROP_KEY_LISTENER)) {
-            return;
-        }
-        JsonObject choice = root.getAsJsonObject("initProperties").getAsJsonObject(PROP_KEY_LISTENER);
-        if (!choice.has("choices") || choice.getAsJsonArray("choices").isEmpty()) {
-            return;
-        }
-        JsonObject selected = choice.getAsJsonArray("choices").get(0).getAsJsonObject();
-        JsonObject config = selected.has("properties") ? selected.getAsJsonObject("properties") : null;
-        if (config == null || !config.has("listenerConfig")) {
-            return;
-        }
-        JsonObject direct = new JsonObject();
-        JsonObject listenerConfig = config.getAsJsonObject("listenerConfig");
-        if (listenerConfig.has("properties")) {
-            listenerConfig.getAsJsonObject("properties").entrySet()
-                    .forEach(entry -> direct.add(entry.getKey(), entry.getValue()));
-        }
-        root.getAsJsonObject("initProperties").entrySet().stream()
-                .filter(entry -> !PROP_KEY_LISTENER.equals(entry.getKey()))
-                .forEach(entry -> direct.add(entry.getKey(), entry.getValue()));
-        root.add("initProperties", direct);
-    }
-
     private static void applyTrigger(JsonObject root, TriggerUIMetadataModel l2) {
         if (l2.trigger() != null) {
             put(root, "displayName", l2.trigger().displayName());

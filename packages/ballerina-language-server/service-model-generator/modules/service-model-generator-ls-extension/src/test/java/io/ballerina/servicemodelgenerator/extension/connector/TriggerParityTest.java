@@ -192,6 +192,7 @@ public class TriggerParityTest {
      *
      * @param path the JSONPath-ish location of the gap
      * @param kind {@code MISSING}/{@code UNEXPECTED}/{@code VALUE}/{@code ARRAY_SIZE}/{@code ORDER}
+     * @param detail a human-readable description of the divergence
      */
     private record GapKey(String path, String kind, String detail) {
         static GapKey of(TriggerParityDiff.Gap gap) {

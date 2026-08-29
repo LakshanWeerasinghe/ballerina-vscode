@@ -67,6 +67,13 @@ public record TriggerUIMetadataModel(
     }
 
     /**
+     * @param displayName      overrides the synthesized root {@code displayName}; absent leaves it
+     *                         untouched
+     * @param shortDisplayName overrides the synthesized root {@code shortDisplayName}; absent leaves it
+     *                         untouched
+     * @param description      overrides the synthesized root {@code description}; absent leaves it
+     *                         untouched
+     * @param type             overrides the synthesized root {@code type}; absent leaves it untouched
      * @param listenerKind overrides the synthesized root {@code listenerKind}; an empty string removes
      *                      the key entirely (e.g. a connector whose real UI has nothing to select among,
      *                      so the synthesizer's always-populated default doesn't belong in its schema),
@@ -217,6 +224,18 @@ public record TriggerUIMetadataModel(
     }
 
     /**
+     * @param key         the overlaid field's key within its parent's {@code properties}/{@code choices}
+     * @param metadata    display metadata overlay for this field
+     * @param placeholder placeholder text overlay shown when the field is empty
+     * @param defaultValue the field's default value override
+     * @param widget      the widget policy overlay applied to this field's rendering candidates
+     * @param items       fixed item values overlay, when applicable
+     * @param choices     the selectable sub-field overlays, for a choice field
+     * @param properties  the nested sub-field overlays, for a container field
+     * @param validations the validation rule overlays applied to this field
+     * @param binding     the data-binding overlay applied to this field
+     * @param state       the enabled/editable/optional/advanced/hidden state overlay for this field
+     * @param source      the codedata source overlay for this field
      * @param literal when true, this field compiles to its bare {@code default} value (e.g. a plain
      *                marker string like an {@code httpParamType} discriminator) instead of the usual
      *                Property-object shape built from the other properties here, which are ignored
