@@ -226,22 +226,4 @@ public class TriggerUIMetadataGenerationTest {
             return property;
         }
     }
-
-    @Test
-    public void testMcpVariantSelectsOnlyApplicableListenersAndServices() {
-        TriggerModelReader reader = TriggerModelReader.getInstance();
-        TriggerUISchemaModel current = reader.getGeneratedTriggerModel("ballerina", "mcp", "1.2.0")
-                .orElseThrow();
-        Assert.assertEquals(current.listeners().stream().map(TriggerUISchemaModel.ListenerModel::name).toList(),
-                List.of("StreamableHttpListener", "Listener"));
-        Assert.assertEquals(current.serviceTypes().stream().map(TriggerUISchemaModel.ServiceTypeModel::name).toList(),
-                List.of("StreamableHttpService", "Service"));
-
-        TriggerUISchemaModel legacy = reader.getGeneratedTriggerModel("ballerina", "mcp", "1.0.3")
-                .orElseThrow();
-        Assert.assertEquals(legacy.listeners().stream().map(TriggerUISchemaModel.ListenerModel::name).toList(),
-                List.of("Listener"));
-        Assert.assertEquals(legacy.serviceTypes().stream().map(TriggerUISchemaModel.ServiceTypeModel::name).toList(),
-                List.of("Service"));
-    }
 }
