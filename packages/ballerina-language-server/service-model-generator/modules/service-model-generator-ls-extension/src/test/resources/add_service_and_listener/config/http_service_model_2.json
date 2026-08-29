@@ -17,95 +17,112 @@
           "label": "Contract",
           "description": "Service Contract"
         },
-        "placeholder": "",
+        "enabled": true,
+        "editable": true,
         "value": "",
+        "valueType": "CHOICE",
+        "isType": false,
+        "placeholder": "",
+        "optional": false,
+        "advanced": false,
         "choices": [
           {
             "metadata": {
               "label": "Design From Scratch",
               "description": "Design the service from scratch"
             },
-            "placeholder": "true",
+            "enabled": true,
+            "editable": true,
             "value": "true",
+            "valueType": "FORM",
+            "isType": false,
+            "placeholder": "true",
+            "optional": false,
+            "advanced": false,
             "properties": {
               "basePath": {
                 "metadata": {
                   "label": "Service Base Path",
                   "description": ""
                 },
-                "codedata": {
-                  "type": "SERVICE_BASEPATH"
-                },
-                "placeholder": "",
-                "value": "/api",
                 "enabled": true,
                 "editable": true,
+                "value": "/api",
+                "valueType": "SERVICE_PATH",
+                "valueTypeConstraint": "string",
+                "isType": false,
+                "placeholder": "",
                 "optional": false,
-                "advanced": false
+                "advanced": false,
+                "codedata": {
+                  "type": "SERVICE_BASEPATH"
+                }
               }
-            },
-            "enabled": true,
-            "editable": true,
-            "optional": false,
-            "advanced": false
+            }
           },
           {
             "metadata": {
               "label": "Import From OpenAPI Specification",
               "description": "Implement the service from an OpenAPI specification"
             },
-            "placeholder": "true",
+            "enabled": false,
+            "editable": true,
             "value": "true",
+            "valueType": "FORM",
+            "isType": false,
+            "placeholder": "true",
+            "optional": false,
+            "advanced": false,
             "properties": {
               "spec": {
                 "metadata": {
                   "label": "OpenAPI Specification",
                   "description": "Provide an OpenAPI specification to generate the resources"
                 },
-                "codedata": {
-                  "type": "OPENAPI"
-                },
-                "placeholder": "",
-                "value": "",
                 "enabled": true,
                 "editable": true,
+                "value": "",
+                "valueType": "FILE_SELECT",
+                "valueTypeConstraint": "string",
+                "isType": false,
+                "placeholder": "",
                 "optional": true,
-                "advanced": false
+                "advanced": false,
+                "codedata": {
+                  "type": "OPENAPI"
+                }
               },
               "serviceTypeName": {
                 "metadata": {
                   "label": "Service Type Name",
                   "description": "The name of the service contract type generated from the OpenAPI specification"
                 },
-                "codedata": {
-                  "type": "SERVICE_BASEPATH"
-                },
-                "placeholder": "",
-                "value": "",
                 "enabled": true,
                 "editable": true,
+                "value": "",
+                "valueType": "IDENTIFIER",
+                "valueTypeConstraint": "string",
+                "isType": false,
+                "placeholder": "",
                 "optional": false,
-                "advanced": false
+                "advanced": false,
+                "codedata": {
+                  "type": "SERVICE_BASEPATH"
+                }
               }
-            },
-            "enabled": false,
-            "editable": true,
-            "optional": false,
-            "advanced": false
+            }
           }
-        ],
-        "enabled": true,
-        "editable": true,
-        "optional": false,
-        "advanced": false
+        ]
       },
       "configureListener": {
         "metadata": {
           "label": "Listener Configuration",
           "description": "Configure the HTTP listener for the service"
         },
-        "placeholder": "",
         "value": "",
+        "valueType": "CHOICE",
+        "isType": false,
+        "placeholder": "",
         "items": [],
         "choices": [
           {
@@ -113,21 +130,29 @@
               "label": "Use Default Listener on Port 8080",
               "description": "Use the default HTTP listener on port 8080"
             },
-            "placeholder": "true",
-            "value": "true",
-            "properties": {},
             "enabled": false,
             "editable": true,
+            "value": "true",
+            "valueType": "FORM",
+            "isType": false,
+            "placeholder": "true",
             "optional": false,
-            "advanced": false
+            "advanced": false,
+            "properties": {}
           },
           {
             "metadata": {
               "label": "Configure Listener with Custom Port",
               "description": "Configure a custom HTTP listener with a specific port"
             },
-            "placeholder": "true",
+            "enabled": true,
+            "editable": true,
             "value": "true",
+            "valueType": "FORM",
+            "isType": false,
+            "placeholder": "true",
+            "optional": false,
+            "advanced": false,
             "properties": {
               "port": {
                 "metadata": {
@@ -138,8 +163,11 @@
                   "argType": "LISTENER_PARAM_REQUIRED"
                 },
                 "placeholder": "8080",
+                "valueType": "EXPRESSION",
+                "valueTypeConstraint": "int",
                 "value": "9090",
                 "items": [],
+                "typeMembers": [],
                 "enabled": true,
                 "editable": true,
                 "optional": false,
@@ -154,21 +182,21 @@
                   "type": "LISTENER_VAR_NAME"
                 },
                 "placeholder": "httpListener",
+                "valueType": "IDENTIFIER",
+                "valueTypeConstraint": "string",
                 "value": "customHttpListener",
                 "items": [],
+                "typeMembers": [],
                 "enabled": true,
                 "editable": true,
                 "optional": false,
                 "advanced": false
               }
-            },
-            "enabled": true,
-            "editable": true,
-            "optional": false,
-            "advanced": false
+            }
           }
         ],
         "properties": {},
+        "typeMembers": [],
         "enabled": true,
         "editable": true,
         "optional": false,
@@ -189,7 +217,7 @@
             "character": 3
           }
         },
-        "newText": "\nservice http:Service on  {\n\n}\n"
+        "newText": "\nlistener http:Listener customHttpListener = new (9090);\nservice /api on customHttpListener {\n}\n"
       }
     ]
   }
