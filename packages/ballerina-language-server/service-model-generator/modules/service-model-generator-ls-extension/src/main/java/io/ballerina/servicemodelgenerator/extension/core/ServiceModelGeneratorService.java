@@ -35,8 +35,6 @@ import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
-import io.ballerina.modelgenerator.commons.trigger.LibraryMetadataReader;
-import io.ballerina.modelgenerator.commons.trigger.models.ArtifactIcon;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
@@ -1304,11 +1302,9 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     TriggerBasicInfo toTriggerBasicInfo(TriggerUISchemaModel model) {
         String protocol = getProtocol(model.moduleName());
         String label = model.displayName();
-        String fallbackIcon = (model.icon() == null || model.icon().isBlank())
+        String icon = (model.icon() == null || model.icon().isBlank())
                 ? CommonUtils.generateIcon(model.orgName(), model.packageName(), model.version())
                 : model.icon();
-        Object icon = resolveArtifactIcon(new ModuleInfo(model.orgName(), model.packageName(), model.moduleName(),
-                model.version()), fallbackIcon, effectiveTriggerKind(model.triggerKind(), model.kind()));
         // TriggerUISchemaModel.id is a String catalog id and is inconsistently populated across real models
         // (null / numeric / a slug), so it can't be reused as TriggerBasicInfo's int id. Nothing
         // downstream looks a trigger up by this id (the frontend only uses it as a list key, and
@@ -1374,11 +1370,8 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         String label = triggerProperty.triggerName() != null ? triggerProperty.triggerName() : triggerProperty.name();
         String protocol = getProtocol(triggerProperty.name());
         int id = triggerProperty.name().hashCode();
-        String fallbackIcon = CommonUtils.generateIcon(triggerProperty.orgName(), triggerProperty.packageName(),
+        String icon = CommonUtils.generateIcon(triggerProperty.orgName(), triggerProperty.packageName(),
                 triggerProperty.version());
-        Object icon = resolveArtifactIcon(new ModuleInfo(triggerProperty.orgName(), triggerProperty.packageName(),
-                triggerProperty.name(), triggerProperty.version()), fallbackIcon,
-                effectiveTriggerKind(triggerProperty.triggerKind(), triggerProperty.kind()));
         return new TriggerBasicInfo(id, label, triggerProperty.orgName(), triggerProperty.packageName(),
                 triggerProperty.name(), triggerProperty.version(), triggerProperty.kind(), label, "",
                 protocol, icon, effectiveTriggerKind(triggerProperty.triggerKind(), triggerProperty.kind()));
@@ -1390,13 +1383,5 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
             case "event", "mcp", "graphql", "http", "file", "ai" -> value;
             default -> null;
         };
-    }
-
-    private Object resolveArtifactIcon(ModuleInfo moduleInfo, String fallbackUrl, String kind) {
-        LibraryMetadataReader reader = LibraryMetadataReader.getInstance();
-        return reader.getPackagedArtifactInfo(moduleInfo)
-                .or(() -> reader.getArtifactInfo(moduleInfo))
-                .<Object>map(info -> ArtifactIcon.from(fallbackUrl, kind, info))
-                .orElse(fallbackUrl);
     }
 }
