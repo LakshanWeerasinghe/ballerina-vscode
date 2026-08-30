@@ -662,7 +662,8 @@
             "state": {
               "enabled": true,
               "editable": true,
-              "optional": false
+              "optional": false,
+              "typeEditable": true
             }
           },
           "source": {
@@ -865,7 +866,8 @@
             "state": {
               "enabled": true,
               "editable": true,
-              "optional": false
+              "optional": false,
+              "typeEditable": true
             }
           },
           "source": {

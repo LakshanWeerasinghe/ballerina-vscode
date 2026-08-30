@@ -112,6 +112,11 @@ final class TriggerParityDiff {
         root.remove("listenerForm");
         root.remove("id");
         root.remove("$comment");
+        // triggerKind is the canonical spelling of the legacy kind. Legacy bundled models predate
+        // the compatibility field, so an equal pair is not a semantic parity gap.
+        if (root.has("triggerKind") && root.has("kind") && root.get("triggerKind").equals(root.get("kind"))) {
+            root.remove("triggerKind");
+        }
         String moduleName = model.moduleName() == null ? "" : model.moduleName();
         if (root.has("importPrefix") && root.get("importPrefix").isJsonPrimitive()
                 && root.get("importPrefix").getAsString().equals(ModuleAliasResolver.selfPrefix(moduleName))) {
