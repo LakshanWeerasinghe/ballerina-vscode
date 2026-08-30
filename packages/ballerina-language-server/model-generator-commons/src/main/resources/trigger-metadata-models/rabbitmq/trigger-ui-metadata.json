@@ -656,6 +656,7 @@
                 "kind": "FUNCTION_RETURN"
               }
             },
+            "default": "anydata|error",
             "state": {
               "enabled": true,
               "editable": true,
