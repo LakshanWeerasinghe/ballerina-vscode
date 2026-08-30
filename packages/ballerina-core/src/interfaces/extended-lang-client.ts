@@ -1444,6 +1444,46 @@ export interface TriggerModelsResponse {
     localRepositoryResults?: ServiceModel[];
 }
 
+export interface ModelResolutionIssue {
+    code: "UNSUPPORTED_CONNECTOR_VERSION" | "NO_SUPPORTED_VERSION_AVAILABLE";
+    orgName: string;
+    moduleName: string;
+    currentVersion?: string;
+    requiredVersion?: string;
+}
+
+export interface ConnectorUpgradeAdviceRequest {
+    filePath: string;
+}
+
+export interface ConnectorUpgradeAdvice {
+    orgName: string;
+    moduleName: string;
+    packageName: string;
+    currentVersion: string;
+    minSupportedVersion: string;
+    breaking: boolean;
+    explicitlyPinned: boolean;
+    usedInFile?: string;
+}
+
+export interface ConnectorUpgradeAdviceResponse {
+    advice: ConnectorUpgradeAdvice[];
+    errorMsg?: string;
+    stacktrace?: string;
+}
+
+export interface PullConnectorUpgradeRequest {
+    orgName: string;
+    moduleName: string;
+    packageName: string;
+    targetVersion: string;
+}
+
+export interface PullConnectorUpgradeResult {
+    success: boolean;
+}
+
 // <-------- Trigger Related ------->
 
 // <-------- Service Designer Related ------->
@@ -1472,6 +1512,7 @@ export interface ListenerModelRequest {
 }
 export interface ListenerModelResponse {
     listener: ListenerModel;
+    issue?: ModelResolutionIssue;
 }
 
 export interface ListenerSourceCodeRequest {
@@ -1496,6 +1537,7 @@ export interface ServiceModelRequest {
 }
 export interface ServiceModelResponse {
     service: ServiceModel;
+    issue?: ModelResolutionIssue;
 }
 export interface ServiceSourceCodeRequest {
     filePath: string;
@@ -1621,6 +1663,7 @@ export interface ServiceModelInitResponse {
     serviceInitModel?: ServiceInitModel;
     errorMsg?: string;
     stacktrace?: string;
+    issue?: ModelResolutionIssue;
 }
 
 export interface ServiceInitSourceRequest {
@@ -2323,6 +2366,7 @@ export interface BIInterface extends BaseLangClientInterface {
     addFunctionSourceCode: (params: FunctionSourceCodeRequest) => Promise<ResourceSourceCodeResponse>;
     getResourceReturnTypes: (params: ResourceReturnTypesRequest) => Promise<VisibleTypesResponse>;
     getServiceInitModel: (params: ServiceModelRequest) => Promise<ServiceModelInitResponse>;
+    getConnectorUpgradeAdvice: (params: ConnectorUpgradeAdviceRequest) => Promise<ConnectorUpgradeAdviceResponse>;
     createServiceAndListener: (params: ServiceInitSourceRequest) => Promise<SourceEditResponse>;
     validateProperty: (params: ValidatePropertyRequest) => Promise<ValidatePropertyResponse>;
 
