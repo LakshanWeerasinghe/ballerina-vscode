@@ -18,6 +18,7 @@
 package io.ballerina.modelgenerator.commons.trigger.utils;
 
 import com.google.gson.JsonElement;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,14 +29,19 @@ public final class TriggerUIExtensionRegistry {
     private static final Map<String, Entry> ENTRIES = new ConcurrentHashMap<>();
     private TriggerUIExtensionRegistry() { }
     public static void register(String id, Validator validator, Compiler compiler) {
-        if (id == null || !id.matches("[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+"))
+        if (id == null || !id.matches("[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+")) {
             throw new IllegalArgumentException("Extension identifiers must be namespaced: " + id);
+        }
         ENTRIES.put(id, new Entry(validator, compiler));
     }
     public static void validate(String id, JsonElement payload) {
         Entry entry = ENTRIES.get(id);
-        if (entry == null) throw new IllegalArgumentException("Unsupported trigger UI extension: " + id);
-        if (entry.validator != null) entry.validator.validate(payload);
+        if (entry == null) {
+            throw new IllegalArgumentException("Unsupported trigger UI extension: " + id);
+        }
+        if (entry.validator != null) {
+            entry.validator.validate(payload);
+        }
     }
     public static JsonElement compile(String id, JsonElement payload) {
         validate(id, payload);

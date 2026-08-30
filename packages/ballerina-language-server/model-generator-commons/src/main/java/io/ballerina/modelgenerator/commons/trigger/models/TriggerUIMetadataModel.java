@@ -174,24 +174,60 @@ public record TriggerUIMetadataModel(
 
     public record Source(Codedata codedata, Construct construct, Argument argument, Module module,
                          Value value, Payload payload, Map<String, Object> extensions) {
-        public Source(Codedata codedata) { this(codedata, null, null, null, null, null, null); }
+        public Source(Codedata codedata) {
+            this(codedata, null, null, null, null, null, null);
+        }
         public Source(Construct construct, Argument argument, Module module, Value value, Payload payload,
                       Map<String, Object> extensions) {
             this(null, construct, argument, module, value, payload, extensions);
         }
     }
 
-    /** The kind of Ballerina construct to which source metadata belongs. */
-    public record Construct(String kind) { }
-    /** Argument location and role within the construct. */
-    public record Argument(String kind, Integer position, String originalName, String targetParam) { }
-    /** Module/package identity used when rendering a source reference. */
-    public record Module(String name, String org, String packageName) { }
-    /** Literal/value representation controls. */
-    public record Value(String kind, Object literal, String qualifier, Boolean preserve) { }
-    /** Payload binding and transformation controls. */
+    /**
+     * The kind of Ballerina construct to which source metadata belongs.
+     * @param kind construct kind
+     */
+    public record Construct(String kind) {
+    }
+    /**
+     * Argument location and role within the construct.
+     * @param kind argument kind
+     * @param position argument position
+     * @param originalName original argument name
+     * @param targetParam target parameter name
+     */
+    public record Argument(String kind, Integer position, String originalName, String targetParam) {
+    }
+    /**
+     * Module/package identity used when rendering a source reference.
+     * @param name module name
+     * @param org organization name
+     * @param packageName package name
+     */
+    public record Module(String name, String org, String packageName) {
+    }
+    /**
+     * Literal/value representation controls.
+     * @param kind value kind
+     * @param literal literal value
+     * @param qualifier value qualifier
+     * @param preserve whether the value should be preserved
+     */
+    public record Value(String kind, Object literal, String qualifier, Boolean preserve) {
+    }
+    /**
+     * Payload binding and transformation controls.
+     * @param defaultType default payload type
+     * @param boundType bound payload type
+     * @param template payload template
+     * @param typeConstraint payload type constraint
+     * @param modifier payload modifier
+     * @param supersedes modifiers superseded by this modifier
+     * @param modifiers additional modifier data
+     */
     public record Payload(String defaultType, String boundType, String template, String typeConstraint,
-                          String modifier, List<String> supersedes, Object modifiers) { }
+                          String modifier, List<String> supersedes, Object modifiers) {
+    }
 
     /**
      * Open codedata override. Unknown fields are intentionally ignored by Gson for forward compatibility.
@@ -225,6 +261,9 @@ public record TriggerUIMetadataModel(
      * @param nameEditable    whether the construct's name may be renamed
      * @param bindingGroup    the data-binding group this node participates in
      * @param driverDependency Maven coordinates for a native driver dependency this field selects
+     * @param valueKind value kind override
+     * @param castType type cast override
+     * @param preserveValue whether to preserve the value override
      */
     public record Codedata(
             String type,
@@ -295,6 +334,7 @@ public record TriggerUIMetadataModel(
      * @param literal when true, this field compiles to its bare {@code default} value (e.g. a plain
      *                marker string like an {@code httpParamType} discriminator) instead of the usual
      *                Property-object shape built from the other properties here, which are ignored
+     * @param extensions additional connector-specific field metadata
      */
     public record Field(
             String key,
