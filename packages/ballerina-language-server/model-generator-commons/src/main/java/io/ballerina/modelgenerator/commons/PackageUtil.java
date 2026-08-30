@@ -507,6 +507,37 @@ public class PackageUtil {
                 .findFirst();
         if (pkgMetadata.isEmpty()
                 || pkgMetadata.get().resolutionStatus() == ResolutionResponse.ResolutionStatus.UNRESOLVED) {
+    public static Optional<Package> getModulePackageOffline(BuildProject buildProject, String org, String name) {
+        return getModulePackageOffline(buildProject, org, name, null);
+    }
+
+    /**
+     * Version-pinned counterpart of {@link #getModulePackageOffline(BuildProject, String, String)}.
+     * Without a version the resolver returns whatever the local cache holds as newest, so a caller that
+     * must reason about a specific release -- the trigger parity harness comparing against a model
+     * authored for one pinned version, or a connector resolved at the version its source declares --
+     * has to say which one it means.
+     *
+     * @param buildProject the project whose environment resolves the package
+     * @param org          the package's organization
+     * @param name         the package name
+     * @param version      the exact version to resolve; {@code null} or blank resolves the newest local
+     * @return the resolved package, or {@code Optional.empty()} when it isn't available offline
+     */
+    public static Optional<Package> getModulePackageOffline(BuildProject buildProject, String org, String name,
+                                                            String version) {
+        PackageDescriptor descriptor = version == null || version.isBlank()
+                ? PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name))
+                : PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name),
+                        PackageVersion.from(version));
+        ResolutionRequest resolutionRequest = ResolutionRequest.from(descriptor);
+        PackageResolver packageResolver = buildProject.projectEnvironmentContext().getService(PackageResolver.class);
+        Collection<PackageMetadataResponse> packageMetadataResponses = packageResolver.resolvePackageMetadata(
+                Collections.singletonList(resolutionRequest),
+                ResolutionOptions.builder().setOffline(true).build());
+        Optional<PackageMetadataResponse> pkgMetadata = packageMetadataResponses.stream().findFirst();
+        if (pkgMetadata.isEmpty() ||
+                pkgMetadata.get().resolutionStatus() == ResolutionResponse.ResolutionStatus.UNRESOLVED) {
             return Optional.empty();
         }
 
