@@ -68,7 +68,7 @@ interface MachineContext extends VisualizerLocation {
     isBISupported: boolean;
     errorCode: string | null;
     dependenciesResolved?: boolean;
-    connectorUpgradesChecked?: boolean;
+    connectorUpgradesCheckedPaths?: string[];
     isInDevant: boolean;
     isViewUpdateTransition?: boolean;
 }
@@ -94,7 +94,7 @@ const stateMachine = createMachine<MachineContext>(
             isBISupported: false,
             view: MACHINE_VIEW.PackageOverview,
             dependenciesResolved: false,
-            connectorUpgradesChecked: false,
+            connectorUpgradesCheckedPaths: [],
             isInDevant: isInDevant()
         },
         on: {
@@ -389,7 +389,7 @@ const stateMachine = createMachine<MachineContext>(
                                 },
                                 {
                                     target: "checkConnectorUpgrades",
-                                    cond: (context) => !context.connectorUpgradesChecked
+                                    cond: (context) => !context.connectorUpgradesCheckedPaths?.includes(context.projectPath)
                                 },
                                 {
                                     target: "webViewLoading"
@@ -414,7 +414,9 @@ const stateMachine = createMachine<MachineContext>(
                             onDone: {
                                 target: "webViewLoading",
                                 actions: assign({
-                                    connectorUpgradesChecked: true
+                                    connectorUpgradesCheckedPaths: (context) => context.projectPath
+                                        ? [...(context.connectorUpgradesCheckedPaths ?? []), context.projectPath]
+                                        : context.connectorUpgradesCheckedPaths
                                 })
                             }
                         }
