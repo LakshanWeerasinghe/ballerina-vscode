@@ -205,10 +205,6 @@ public final class TriggerSearchUtil {
     static TriggerBasicInfo toTriggerBasicInfo(PackageResponse.Package pkg) {
         String protocol = ServiceModelUtils.getProtocol(pkg.name());
         String icon = pkg.icon() == null ? "" : pkg.icon();
-        ModuleInfo moduleInfo = new ModuleInfo(pkg.organization(), pkg.name(), pkg.name(), pkg.version());
-        ArtifactMetadata metadata = LibraryMetadataReader.getInstance()
-                .getPackagedArtifactMetadata(moduleInfo).orElse(null);
-        String triggerKind = metadata == null || metadata.triggerKind() == null ? EVENT_TYPE : metadata.triggerKind();
         return new TriggerBasicInfo(
                 pkg.id(),
                 pkg.name(),
@@ -221,7 +217,7 @@ public final class TriggerSearchUtil {
                 pkg.summary() == null ? "" : pkg.summary(),
                 protocol,
                 icon,
-                triggerKind);
+                EVENT_TYPE);
     }
 
     private static String key(String org, String name) {
