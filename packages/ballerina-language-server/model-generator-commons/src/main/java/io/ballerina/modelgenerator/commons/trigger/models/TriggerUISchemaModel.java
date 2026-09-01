@@ -45,6 +45,10 @@ import java.util.Map;
  *                     {@code SINGLE_SELECT_LISTENER} / {@code MULTIPLE_SELECT_LISTENER}); defaults to
  *                     {@code SINGLE_SELECT_LISTENER} when a model omits it
  * @param initProperties   the init/listener form fields, keyed by property name
+ * @param listenerForm presentation text for the derived listener field; absent → generic defaults
+ * @param listeners    the listener(s) a service may attach to, each with its own configuration set. The
+ *                     init form's listener field is derived from this rather than authored. Absent → the
+ *                     connector authored that field directly under {@code initProperties}
  * @param serviceTypes     the service type(s) this trigger offers
  * @param readOnlyMetadata read-only summary chips shown on the service card
  * @param importStatements extra import statements required by generated code
@@ -68,10 +72,57 @@ public record TriggerUISchemaModel(
         String kind,
         String listenerKind,
         Map<String, Property> initProperties,
+        ListenerFormModel listenerForm,
+        List<ListenerModel> listeners,
         List<ServiceTypeModel> serviceTypes,
         List<ReadOnlyMetadata> readOnlyMetadata,
         List<String> importStatements,
         String importPrefix) {
+
+    /**
+     * Presentation text for the derived listener field, so a connector can name the section and the switch
+     * in its own terms. Both optional, falling back to generic wording.
+     *
+     * @param section      the group a listener's constructor fields sit in; defaults to
+     *                     "Listener Configuration"
+     * @param typeSelector the switch between listener kinds. Its {@code description} is what the form
+     *                     renders above the options; defaults to "Listener Type"
+     */
+    public record ListenerFormModel(
+            Metadata section,
+            Metadata typeSelector) {
+    }
+
+    /**
+     * One listener a service may attach to, and the configuration set that listener alone takes. A connector
+     * may declare more than one — {@code ballerina/mcp} offers a Streamable HTTP listener plus an older one
+     * deprecated in favour of it — and the two need not take the same parameters.
+     *
+     * @param metadata         display metadata; {@code deprecated}/{@code notice} carry a deprecation
+     *                         reason through to the form's badge
+     * @param name             the listener type's simple name, e.g. {@code StreamableHttpListener}
+     * @param ballerinaType    the module-qualified type, e.g. {@code mcp:StreamableHttpListener}. This is
+     *                         what source generation emits and what identifies this listener among its
+     *                         siblings, so it must be distinct across a connector's listeners
+     * @param enabled          whether this is the listener offered by default; absent -> the first
+     *                         non-deprecated entry
+     * @param initProperties    what constructs this listener: its variable name and constructor arguments
+     * @param serviceProperties service-level fields this listener alone gives meaning to, such as a base
+     *                          path an HTTP transport has and one without a URL space does not. Offered,
+     *                          emitted and validated only while this listener is selected. A field every
+     *                          listener shares belongs in the model's {@code initProperties} instead
+     * @param serviceTypes      names of the {@link ServiceTypeModel}s this listener can host; absent or
+     *                          empty means all of them. Carried but not yet acted on
+     */
+    public record ListenerModel(
+            Metadata metadata,
+            String name,
+            String ballerinaType,
+            Boolean enabled,
+            Map<String, Property> initProperties,
+            Map<String, Property> serviceProperties,
+            List<String> serviceTypes) {
+    }
 
     /**
      * A service-object type and its handler functions. {@code functions} are present/locked handlers;
