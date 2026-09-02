@@ -201,6 +201,11 @@ public final class TriggerSourceMerger {
             template.getReturnType().setValue(source.getReturnType().getValue());
             template.getReturnType().setEnabled(true);
         }
+        if (template.hasDocumentation() && source.hasDocumentation()
+                && source.getDocumentation().getValue() != null && !source.getDocumentation().getValue().isBlank()) {
+            template.getDocumentation().setValue(source.getDocumentation().getValue());
+            template.getDocumentation().setEnabled(true);
+        }
         reconcileParameters(template, source);
         applyAnnotationsFromSource(template, source);
     }
