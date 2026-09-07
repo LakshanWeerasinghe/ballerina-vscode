@@ -670,7 +670,7 @@ public class WorkflowUtil {
                             && "name".equals(entry.fieldName().toSourceCode().trim())) {
                         String raw = entry.valueExpr().get().toSourceCode().trim();
                         if (raw.length() >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
-                            raw = raw.substring(1, raw.length() - 1);
+                            raw = unescapeLiteralBody(raw.substring(1, raw.length() - 1));
                         }
                         if (!raw.isEmpty()) {
                             names.add(raw);
@@ -679,6 +679,36 @@ public class WorkflowUtil {
                 }
             }
         }
+    }
+
+    /**
+     * Decodes the escaped quote and backslash of a string literal's body, so the channel name is
+     * the text the declaration means rather than its source spelling.
+     *
+     * <p>Deliberately decodes only {@code \\"} and {@code \\\\} — exactly the pair the call site's
+     * re-quoting escapes again. Without this, a channel declared {@code name: "say\\"hi"} reached the
+     * generator as {@code say\\"hi} and came back out as {@code "say\\\\\\"hi"}, a different channel.
+     * Decoding any escape the re-quoting cannot reproduce ({@code \\n}, {@code \\u{...}}) would put a
+     * character in the value that closes the literal early, so those stay as written.
+     */
+    private static String unescapeLiteralBody(String body) {
+        if (body.indexOf('\\') < 0) {
+            return body;
+        }
+        StringBuilder decoded = new StringBuilder(body.length());
+        for (int i = 0; i < body.length(); i++) {
+            char current = body.charAt(i);
+            if (current == '\\' && i + 1 < body.length()) {
+                char next = body.charAt(i + 1);
+                if (next == '\\' || next == '"') {
+                    decoded.append(next);
+                    i++;
+                    continue;
+                }
+            }
+            decoded.append(current);
+        }
+        return decoded.toString();
     }
 
     /**

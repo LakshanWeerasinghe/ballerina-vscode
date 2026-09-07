@@ -18,6 +18,9 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node;
 
+import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.api.symbols.VariableSymbol;
 import io.ballerina.compiler.syntax.tree.CaptureBindingPatternNode;
 import io.ballerina.compiler.syntax.tree.ExpressionNode;
 import io.ballerina.compiler.syntax.tree.ModuleMemberDeclarationNode;
@@ -282,21 +285,18 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
             if (module == null) {
                 return null;
             }
+            SemanticModel semanticModel = module.getCompilation().getSemanticModel();
             for (DocumentId documentId : module.documentIds()) {
                 ModulePartNode root = module.document(documentId).syntaxTree().rootNode();
                 for (ModuleMemberDeclarationNode member : root.members()) {
                     if (!(member instanceof ModuleVariableDeclarationNode varDecl)
-                            || varDecl.initializer().isEmpty()) {
-                        continue;
-                    }
-                    String typeText = varDecl.typedBindingPattern().typeDescriptor().toSourceCode().trim();
-                    if (!typeText.equals(WSO2_MODEL_PROVIDER_NAME)
-                            && !typeText.endsWith(":" + WSO2_MODEL_PROVIDER_NAME)) {
+                            || varDecl.initializer().isEmpty()
+                            || !(varDecl.typedBindingPattern().bindingPattern()
+                                    instanceof CaptureBindingPatternNode capture)) {
                         continue;
                     }
                     if (!isDefaultModelProviderInitializer(varDecl.initializer().get())
-                            || !(varDecl.typedBindingPattern().bindingPattern()
-                                    instanceof CaptureBindingPatternNode capture)) {
+                            || !isWso2ModelProvider(semanticModel, capture)) {
                         continue;
                     }
                     return capture.variableName().text();
@@ -308,9 +308,35 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
         return null;
     }
 
+    /**
+     * Whether the variable's type is {@code ballerina/ai}'s {@code Wso2ModelProvider}.
+     *
+     * <p>Resolved through the semantic model, not the prefix written in the source: the qualifier is
+     * only an import alias, so matching {@code *:Wso2ModelProvider} as text would also accept a
+     * same-named type from a module of the user's own. The symbol carries the module it came from,
+     * which is the question actually being asked.
+     */
+    private static boolean isWso2ModelProvider(SemanticModel semanticModel, CaptureBindingPatternNode capture) {
+        return semanticModel.symbol(capture)
+                .filter(VariableSymbol.class::isInstance)
+                .map(symbol -> isWso2ModelProviderType(((VariableSymbol) symbol).typeDescriptor()))
+                .orElse(false);
+    }
+
+    private static boolean isWso2ModelProviderType(TypeSymbol typeSymbol) {
+        if (typeSymbol == null) {
+            return false;
+        }
+        Optional<String> typeName = typeSymbol.getName();
+        return typeName.isPresent() && WSO2_MODEL_PROVIDER_NAME.equals(typeName.get())
+                && typeSymbol.getModule().map(module -> AI_PACKAGE.equals(module.id().moduleName())).orElse(false);
+    }
+
     // `[check|checkpanic] <prefix>:getDefaultModelProvider()` — the initializer
     // defaultModelProviderDeclaration() writes, under whatever prefix the file imports
-    // `ballerina/ai` as. An initializer with arguments is a hand-configured endpoint, not the default.
+    // `ballerina/ai` as. Only the call shape is read here; the variable's type is what pins the
+    // module, so a same-named call on another module cannot reach this on its own. An initializer
+    // with arguments is a hand-configured endpoint, not the default.
     private static boolean isDefaultModelProviderInitializer(ExpressionNode initializer) {
         String source = initializer.toSourceCode().replaceAll("\\s+", "");
         if (source.startsWith("checkpanic")) {
