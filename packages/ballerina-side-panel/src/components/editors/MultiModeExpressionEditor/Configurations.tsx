@@ -74,6 +74,11 @@ function isSingleStringLiteral(value: string): boolean {
     }
     for (let i = 1; i < value.length - 1; i++) {
         if (value[i] === "\\") {
+            if (i + 1 >= value.length - 1) {
+                // The escape consumes the closing quote, so the literal never terminates:
+                // `"abc\"` would otherwise skip past its own last character and pass.
+                return false;
+            }
             i++;
             continue;
         }

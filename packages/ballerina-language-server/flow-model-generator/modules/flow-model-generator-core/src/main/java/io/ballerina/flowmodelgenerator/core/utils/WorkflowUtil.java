@@ -575,7 +575,7 @@ public class WorkflowUtil {
     }
 
     /**
-     * Lists the data-event channel names declared across the default module's durable agent
+     * Lists the data-event channel names declared across every module's durable agent
      * declarations ({@code events: [{name: "...", ...}]}). Data-event channels are declared on
      * the agent — the call-site forms offer them as a fixed dropdown rather than free text.
      * The listing is restricted to one agent when {@code targetAgent} names a module-level
@@ -589,73 +589,37 @@ public class WorkflowUtil {
     public static List<Option> declaredAgentEventOptions(
             org.ballerinalang.langserver.commons.workspace.WorkspaceManager workspaceManager, Path filePath,
             String targetAgent) {
-        return declaredAgentEvents(workspaceManager, filePath, targetAgent).keySet().stream()
+        return declaredAgentEventNames(workspaceManager, filePath, targetAgent).stream()
                 .map(name -> new Option(name, name))
                 .toList();
     }
 
     /**
-     * The declared {@code response} type of one event channel, as written in the declaration.
+     * Every event channel name declared on the matching agent(s). Source order, deduplicated.
      *
-     * <p>Empty when the channel is one-way — it declares no {@code response}, or declares {@code ()},
-     * which is the field's own default — and also when the channel or the project cannot be read. A
-     * caller generating the send statement uses this to decide whether there is anything to bind.
-     *
-     * @param workspaceManager the workspace manager to resolve the project from
-     * @param filePath         the file the statement is generated into
-     * @param targetAgent      the agent variable name to scope to, or {@code null} for all agents
-     * @param eventName        the channel name, unquoted
-     * @return the response type as written, or empty for a one-way or unknown channel
+     * <p>Only the name is read. A channel's declared {@code response} type is deliberately not
+     * surfaced here: {@code sendData} answers {@code string|error} whatever the channel declares —
+     * the response is what {@code getDataResult}/{@code waitForDataResult} hands back later — so
+     * the send statement has nothing to do with it. Reading it would also mean handing out a type
+     * name as raw source text from whichever module declared the agent, with no {@code imports}
+     * to travel with it into the file the statement is generated into.
      */
-    public static Optional<String> declaredAgentEventResponseType(
-            org.ballerinalang.langserver.commons.workspace.WorkspaceManager workspaceManager, Path filePath,
-            String targetAgent, String eventName) {
-        java.util.LinkedHashMap<String, String> events =
-                declaredAgentEvents(workspaceManager, filePath, targetAgent);
-        if (!events.containsKey(eventName)) {
-            // Unknown channel: the declaration could not be read, the agent did not match, or the
-            // name was hand-typed. Answering "one-way" here would drop a declared response and emit
-            // a call that does not compile, so fall back to the turn token the send always returns.
-            return Optional.of(UNRESOLVED_RESPONSE_TYPE);
-        }
-        String response = events.get(eventName);
-        if (response == null || response.isBlank() || NIL_RESPONSE_TYPE.equals(response)) {
-            return Optional.empty();
-        }
-        return Optional.of(response);
-    }
-
-    /**
-     * What a send binds when the channel cannot be resolved. Only a channel read as declaring no
-     * {@code response} is treated as one-way; everything else keeps the previous {@code string}
-     * binding, which is wrong only in the harmless direction — naming a value that does arrive.
-     */
-    private static final String UNRESOLVED_RESPONSE_TYPE = "string";
-
-    /** The `response` value that means "this channel answers nothing"; also the field's default. */
-    private static final String NIL_RESPONSE_TYPE = "()";
-
-    /**
-     * Every event channel declared on the matching agent(s): channel name to its declared
-     * {@code response} type as written, or an empty string where the channel declares none. Source
-     * order, deduplicated by name.
-     */
-    private static java.util.LinkedHashMap<String, String> declaredAgentEvents(
+    private static java.util.LinkedHashSet<String> declaredAgentEventNames(
             org.ballerinalang.langserver.commons.workspace.WorkspaceManager workspaceManager, Path filePath,
             String targetAgent) {
-        java.util.LinkedHashMap<String, String> events = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
         Project project;
         try {
             project = workspaceManager.loadProject(filePath);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Skipping declared agent events: failed to load the project of "
                     + filePath, e);
-            return events;
+            return names;
         }
         // Every module, matching the set durableAgentOptions offers agents from: scoping this
         // narrower than the Agent dropdown means picking an agent the dropdown offered can leave the
-        // Data Event dropdown empty, and eventName then fails requireValue on save. Only channel
-        // metadata is read here, never a bare name that would have to resolve from somewhere.
+        // Data Event dropdown empty, and eventName then fails requireValue on save. Only the channel
+        // name is read here, never a type that would have to resolve from somewhere.
         for (Module module : project.currentPackage().modules()) {
             for (DocumentId documentId : module.documentIds()) {
                 Document document = module.document(documentId);
@@ -676,17 +640,17 @@ public class WorkflowUtil {
                                 || !targetAgent.equals(capture.variableName().text()))) {
                         continue;
                     }
-                    agentConfigLiteral(varDecl).ifPresent(config -> collectDeclaredEvents(config, events));
+                    agentConfigLiteral(varDecl).ifPresent(config -> collectDeclaredEventNames(config, names));
                 }
             }
         }
-        return events;
+        return names;
     }
 
-    // Collects the `name` and `response` fields of each mapping entry in the config's `events` list.
-    private static void collectDeclaredEvents(
+    // Collects the `name` field of each mapping entry in the config's `events` list.
+    private static void collectDeclaredEventNames(
             MappingConstructorExpressionNode config,
-            Map<String, String> events) {
+            java.util.Set<String> names) {
         for (MappingFieldNode field : config.fields()) {
             if (!(field instanceof SpecificFieldNode specificField)
                     || specificField.valueExpr().isEmpty()
@@ -699,29 +663,19 @@ public class WorkflowUtil {
                 if (item.kind() != SyntaxKind.MAPPING_CONSTRUCTOR) {
                     continue;
                 }
-                String name = "";
-                String response = "";
                 for (MappingFieldNode entryField
                         : ((MappingConstructorExpressionNode) item).fields()) {
-                    if (!(entryField instanceof SpecificFieldNode entry) || entry.valueExpr().isEmpty()) {
-                        continue;
-                    }
-                    String fieldName = entry.fieldName().toSourceCode().trim();
-                    String raw = entry.valueExpr().get().toSourceCode().trim();
-                    if ("name".equals(fieldName)) {
+                    if (entryField instanceof SpecificFieldNode entry
+                            && entry.valueExpr().isPresent()
+                            && "name".equals(entry.fieldName().toSourceCode().trim())) {
+                        String raw = entry.valueExpr().get().toSourceCode().trim();
                         if (raw.length() >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
                             raw = raw.substring(1, raw.length() - 1);
                         }
-                        name = raw;
-                    } else if ("response".equals(fieldName)) {
-                        response = raw;
+                        if (!raw.isEmpty()) {
+                            names.add(raw);
+                        }
                     }
-                }
-                if (!name.isEmpty()) {
-                    // First-wins, matching the LinkedHashSet this replaced: targetAgent is null at
-                    // template time, so two agents declaring the same channel name must not collapse
-                    // onto the later one's response type.
-                    events.putIfAbsent(name, response);
                 }
             }
         }

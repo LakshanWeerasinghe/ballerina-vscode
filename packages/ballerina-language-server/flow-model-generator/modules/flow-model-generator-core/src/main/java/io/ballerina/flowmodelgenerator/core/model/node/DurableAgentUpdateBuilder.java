@@ -34,7 +34,6 @@ import org.eclipse.lsp4j.TextEdit;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.AGENT_SEND_DATA_DESCRIPTION;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.AGENT_SEND_DATA_LABEL;
@@ -66,6 +65,7 @@ public class DurableAgentUpdateBuilder extends FunctionCall {
     public static final String DATA_LABEL = "Data";
     public static final String DATA_DOC = "The data payload sent on the channel; must match its request type";
 
+    private static final String STRING_TYPE = "string";
     private static final String DEFAULT_TOKEN_VAR = "eventToken";
 
     @Override
@@ -165,8 +165,8 @@ public class DurableAgentUpdateBuilder extends FunctionCall {
         String agent = requireValue(sourceBuilder, AGENT_KEY, "A durable agent function must be selected");
         String agentId = requireValue(sourceBuilder, AGENT_ID_KEY, "The agent ID is required");
         // The event dropdown submits the bare channel name; sendData takes it as a string.
-        String eventChannel = requireValue(sourceBuilder, EVENT_NAME_KEY, "The event name is required");
-        String eventName = toStringLiteral(eventChannel);
+        String eventName = toStringLiteral(
+                requireValue(sourceBuilder, EVENT_NAME_KEY, "The event name is required"));
         String data = requireValue(sourceBuilder, DATA_KEY, "The request payload is required");
 
         boolean checkError = FlowNodeUtil.hasCheckKeyFlagSet(sourceBuilder.flowNode);
@@ -178,42 +178,17 @@ public class DurableAgentUpdateBuilder extends FunctionCall {
         String expression = agent + "." + AGENT_SEND_DATA_METHOD_NAME
                 + "(" + String.join(", ", List.of(agentId, eventName, data)) + ")";
 
-        // What the send answers with is the channel's own business: a channel that declares a
-        // `response` hands that type back, and one that declares none answers nothing (the field's
-        // default is `()`). So the binding is read off the declaration rather than assumed — binding
-        // a value a one-way channel never produces does not compile.
-        Optional<String> responseType = WorkflowUtil.declaredAgentEventResponseType(
-                sourceBuilder.workspaceManager, sourceBuilder.filePath, targetAgent(sourceBuilder, agent),
-                unquote(eventChannel));
-
-        if (responseType.isEmpty()) {
-            // Nothing to name. Checked, the send is a statement; unchecked, the error is the only
-            // result there is — the same two shapes an activity that returns nothing takes.
-            if (checkError) {
-                sourceBuilder.token()
-                        .name(ActivityCallBuilder.WILDCARD_RESULT_VARIABLE)
-                        .whiteSpace()
-                        .keyword(SyntaxKind.EQUAL_TOKEN)
-                        .keyword(SyntaxKind.CHECK_KEYWORD);
-            } else {
-                sourceBuilder.token()
-                        .name(ActivityCallBuilder.NIL_UNCHECKED_RESULT_TYPE)
-                        .whiteSpace()
-                        .name(variableName)
-                        .whiteSpace()
-                        .keyword(SyntaxKind.EQUAL_TOKEN);
-            }
-        } else {
-            String resultType = responseType.get();
-            sourceBuilder.token()
-                    .name(checkError ? resultType : resultType + "|error")
-                    .whiteSpace()
-                    .name(variableName)
-                    .whiteSpace()
-                    .keyword(SyntaxKind.EQUAL_TOKEN);
-            if (checkError) {
-                sourceBuilder.token().keyword(SyntaxKind.CHECK_KEYWORD);
-            }
+        // sendData answers `string|error` on every channel: that value is the turn's correlation
+        // token, never the channel's declared `response`. The response is read back later through
+        // Get Agent Data Result, so whether a channel declares one changes nothing here.
+        sourceBuilder.token()
+                .name(checkError ? STRING_TYPE : STRING_TYPE + "|error")
+                .whiteSpace()
+                .name(variableName)
+                .whiteSpace()
+                .keyword(SyntaxKind.EQUAL_TOKEN);
+        if (checkError) {
+            sourceBuilder.token().keyword(SyntaxKind.CHECK_KEYWORD);
         }
         sourceBuilder.token()
                 .name(expression)
@@ -223,29 +198,6 @@ public class DurableAgentUpdateBuilder extends FunctionCall {
                 .textEdit()
                 .acceptImport(WORKFLOW_ORG, WORKFLOW_MODULE)
                 .build();
-    }
-
-    /**
-     * The agent variable whose declaration holds the channel. The form scopes its event dropdown by
-     * the node's parent symbol, so the lookup that reads the same declaration is scoped the same way;
-     * a plain identifier in the agent field serves when there is no parent symbol, and {@code null}
-     * widens the search to every declared agent.
-     */
-    private static String targetAgent(SourceBuilder sourceBuilder, String agent) {
-        String parentSymbol = sourceBuilder.flowNode.codedata() == null
-                ? null : sourceBuilder.flowNode.codedata().parentSymbol();
-        if (parentSymbol != null && !parentSymbol.isBlank()) {
-            return parentSymbol;
-        }
-        return agent != null && agent.matches("[A-Za-z_][A-Za-z0-9_]*") ? agent : null;
-    }
-
-    // The declaration stores channel names unquoted, while the form may submit either shape.
-    private static String unquote(String value) {
-        String trimmed = value == null ? "" : value.trim();
-        return trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")
-                ? trimmed.substring(1, trimmed.length() - 1)
-                : trimmed;
     }
 
     // The channel name correlates with an event declared on the agent, so it is always emitted

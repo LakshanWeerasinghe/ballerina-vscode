@@ -18,10 +18,11 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node;
 
-import io.ballerina.compiler.api.symbols.Symbol;
-import io.ballerina.compiler.api.symbols.SymbolKind;
-import io.ballerina.compiler.api.symbols.TypeSymbol;
-import io.ballerina.compiler.api.symbols.VariableSymbol;
+import io.ballerina.compiler.syntax.tree.CaptureBindingPatternNode;
+import io.ballerina.compiler.syntax.tree.ExpressionNode;
+import io.ballerina.compiler.syntax.tree.ModuleMemberDeclarationNode;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.compiler.syntax.tree.ModuleVariableDeclarationNode;
 import io.ballerina.flowmodelgenerator.core.AiUtils;
 import io.ballerina.flowmodelgenerator.core.UserFacingException;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
@@ -31,6 +32,7 @@ import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ParameterData;
+import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Package;
 import org.eclipse.lsp4j.TextEdit;
@@ -258,28 +260,66 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
         return null;
     }
 
-    // Narrower than resolveExistingModelProvider: only an `ai:Wso2ModelProvider` variable answers
-    // for an explicit "Default WSO2 Model Provider" pick. Binding that choice to, say, an existing
-    // OpenAI provider variable would silently run the agent on a model the user did not choose.
+    /**
+     * An existing variable that IS the WSO2 default provider, for an explicit "Default WSO2 Model
+     * Provider" pick.
+     *
+     * <p>Narrower than {@link #resolveExistingModelProvider} in two ways. It takes only
+     * {@code ai:Wso2ModelProvider}, so the choice is never bound to, say, an OpenAI provider
+     * variable — that would silently run the agent on a model the user did not choose. And it takes
+     * only one initialized from {@code ai:getDefaultModelProvider()}: the type alone would also
+     * accept a provider the user built against their own endpoint
+     * ({@code check new ("http://localhost:9099", "token")}), which is a model they did not choose
+     * either. Declarations are walked in source order, so the pick is deterministic when a module
+     * holds more than one.
+     *
+     * @param sourceBuilder the source builder holding the target file
+     * @return the variable name, or null when the module declares no such provider
+     */
     private static String resolveWso2ModelProvider(SourceBuilder sourceBuilder) {
         try {
             Module module = declaringModule(sourceBuilder);
             if (module == null) {
                 return null;
             }
-            for (Symbol symbol : module.getCompilation().getSemanticModel().moduleSymbols()) {
-                if (symbol.kind() != SymbolKind.VARIABLE) {
-                    continue;
-                }
-                VariableSymbol variable = (VariableSymbol) symbol;
-                if (isWso2ModelProviderType(variable.typeDescriptor()) && variable.getName().isPresent()) {
-                    return variable.getName().get();
+            for (DocumentId documentId : module.documentIds()) {
+                ModulePartNode root = module.document(documentId).syntaxTree().rootNode();
+                for (ModuleMemberDeclarationNode member : root.members()) {
+                    if (!(member instanceof ModuleVariableDeclarationNode varDecl)
+                            || varDecl.initializer().isEmpty()) {
+                        continue;
+                    }
+                    String typeText = varDecl.typedBindingPattern().typeDescriptor().toSourceCode().trim();
+                    if (!typeText.equals(WSO2_MODEL_PROVIDER_NAME)
+                            && !typeText.endsWith(":" + WSO2_MODEL_PROVIDER_NAME)) {
+                        continue;
+                    }
+                    if (!isDefaultModelProviderInitializer(varDecl.initializer().get())
+                            || !(varDecl.typedBindingPattern().bindingPattern()
+                                    instanceof CaptureBindingPatternNode capture)) {
+                        continue;
+                    }
+                    return capture.variableName().text();
                 }
             }
         } catch (RuntimeException e) {
             // Project resolution can fail before the module is pulled; declare the provider instead.
         }
         return null;
+    }
+
+    // `[check|checkpanic] <prefix>:getDefaultModelProvider()` — the initializer
+    // defaultModelProviderDeclaration() writes, under whatever prefix the file imports
+    // `ballerina/ai` as. An initializer with arguments is a hand-configured endpoint, not the default.
+    private static boolean isDefaultModelProviderInitializer(ExpressionNode initializer) {
+        String source = initializer.toSourceCode().replaceAll("\\s+", "");
+        if (source.startsWith("checkpanic")) {
+            source = source.substring("checkpanic".length());
+        } else if (source.startsWith("check")) {
+            source = source.substring("check".length());
+        }
+        String call = GET_DEFAULT_MODEL_PROVIDER_METHOD + "()";
+        return source.equals(call) || source.endsWith(":" + call);
     }
 
     /**
@@ -299,14 +339,5 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
                 .loadProject(sourceBuilder.workspaceManager, sourceBuilder.filePath).currentPackage();
         PackageUtil.getCompilation(currentPackage);
         return sourceBuilder.workspaceManager.module(sourceBuilder.filePath).orElse(null);
-    }
-
-    private static boolean isWso2ModelProviderType(TypeSymbol typeSymbol) {
-        if (typeSymbol == null) {
-            return false;
-        }
-        Optional<String> typeName = typeSymbol.getName();
-        return typeName.isPresent() && WSO2_MODEL_PROVIDER_NAME.equals(typeName.get())
-                && typeSymbol.getModule().map(module -> AI_PACKAGE.equals(module.id().moduleName())).orElse(false);
     }
 }

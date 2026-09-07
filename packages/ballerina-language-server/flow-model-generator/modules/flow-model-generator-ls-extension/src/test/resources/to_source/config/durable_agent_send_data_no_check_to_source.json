@@ -1,6 +1,6 @@
 {
   "source": "durable_agent_module.bal",
-  "description": "Send Agent Data Event on a one-way channel without check binds only the error",
+  "description": "Send Agent Data Event without check binds the token as string|error",
   "diagram": {
     "id": "1",
     "metadata": {
@@ -108,7 +108,7 @@
             "character": 0
           }
         },
-        "newText": "\nerror? eventToken = supportAgent.sendData(instanceId, \"billSubmitted\", {amount: 10});"
+        "newText": "\nstring|error eventToken = supportAgent.sendData(instanceId, \"billSubmitted\", {amount: 10});"
       }
     ]
   }

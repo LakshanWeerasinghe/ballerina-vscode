@@ -371,26 +371,6 @@ export function FunctionForm(props: FunctionFormProps) {
         console.log("Existing Function Node: ", flowNode);
     }
 
-    // Whether the project already declares a model provider. For a durable agent this MUST be
-    // probed BEFORE the agent is generated: the agent's own source generation declares the
-    // shared WSO2 default provider when the project has none, so probing afterwards always
-    // finds one — the Config.toml write was then skipped and running the agent failed with
-    // "ballerina.ai.wso2ProviderConfig is not configured correctly".
-    const projectHasModelProvider = async (): Promise<boolean> => {
-        try {
-            const existingModelProviders = await rpcClient.getBIDiagramRpcClient().searchNodes({
-                filePath: projectPath,
-                query: { kind: "MODEL_PROVIDER" as NodeKind }
-            });
-            return (existingModelProviders?.output?.length ?? 0) > 0;
-        } catch (error) {
-            // Same failure mode as before the probe existed: skip the config write rather
-            // than prompting for sign-in on an unknown project state.
-            console.error("Failed to probe for model providers:", error);
-            return true;
-        }
-    };
-
     // Writes the WSO2 default provider's Config.toml entry (service URL + token) after an
     // agent creation that declared the provider. Failures are non-fatal: the agent is already
     // created and the provider can be configured from the agent's model circle.
@@ -507,9 +487,6 @@ export function FunctionForm(props: FunctionFormProps) {
         }
 
         console.log("Updated function node: ", functionNodeCopy);
-        // Probed before generation on purpose — the durable agent's source generation declares
-        // the default provider itself, so an after-the-fact probe always finds one.
-        const hadModelProviderBeforeSave = isDurableAgent ? await projectHasModelProvider() : true;
         const sourceCode = await rpcClient
             .getBIDiagramRpcClient()
             .getSourceCode({ filePath, flowNode: functionNodeCopy, isFunctionNodeUpdate: true });
@@ -520,7 +497,12 @@ export function FunctionForm(props: FunctionFormProps) {
         } else {
             const newArtifact = sourceCode.artifacts.find(res => res.isNew);
             if (newArtifact) {
-                if (isDurableAgent && !hadModelProviderBeforeSave) {
+                // The LS reports whether it declared the shared WSO2 default provider; that
+                // provider reads its URL and token from Config.toml, so those entries are written
+                // exactly when it was declared. Asking the project beforehand instead answered a
+                // different question — "any model provider at all" — and skipped the write for a
+                // package whose only provider was, say, an OpenAI one.
+                if (sourceCode.declaredDefaultModelProvider) {
                     await configureWso2ModelProvider();
                 }
                 if (isPopup) {
