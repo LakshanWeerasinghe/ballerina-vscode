@@ -18,6 +18,12 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node;
 
+import io.ballerina.compiler.syntax.tree.FunctionArgumentNode;
+import io.ballerina.compiler.syntax.tree.MappingConstructorExpressionNode;
+import io.ballerina.compiler.syntax.tree.MappingFieldNode;
+import io.ballerina.compiler.syntax.tree.PositionalArgumentNode;
+import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
+import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
@@ -268,7 +274,7 @@ public class HumanTaskBuilder extends CallBuilder {
                 // definition record: a task with nothing to show says so with `{}` rather than
                 // by omission. The form defaults to `{}` for the same reason — leaving the
                 // field blank would emit a call that does not compile.
-                .value(values.getOrDefault(TASK_INPUT_KEY, EMPTY_TASK_INPUT))
+                .value(values.get(TASK_INPUT_KEY) == null ? EMPTY_TASK_INPUT : values.get(TASK_INPUT_KEY))
                 .editable(true)
                 .optional(false)
                 .stepOut()
@@ -332,10 +338,15 @@ public class HumanTaskBuilder extends CallBuilder {
         // `stepId` identifies this step in the workflow's graph. It is optional and the compiler
         // generates one when a call omits it, so nothing needs it in the form — and offering it here
         // would put an identity among the task's business fields, with no advanced group to hold it.
-        // Drop it until this form gains one; Call Activity already shows it under its advanced
-        // configurations. Both render paths (the node template and CodeAnalyzer's source re-read) go
-        // through here, so removing it once keeps the two forms identical.
-        properties.remove(STEP_ID_KEY);
+        // Hide it until this form gains one; Call Activity already shows it under its advanced
+        // configurations. Hidden, not removed: a call that names its step keeps that name through
+        // an edit, because toSource writes every property that holds a value. Both render paths
+        // (the node template and CodeAnalyzer's source re-read) go through here, so doing it once
+        // keeps the two forms identical.
+        Property stepId = properties.get(STEP_ID_KEY);
+        if (stepId != null) {
+            properties.put(STEP_ID_KEY, Property.Builder.copyFrom(stepId).hidden(true).editable(false).build());
+        }
 
         relabel(properties, TASK_NAME_KEY, TASK_NAME_LABEL, TASK_NAME_DOC);
         relabel(properties, USER_ROLES_KEY, USER_ROLES_LABEL, USER_ROLES_DOC);
@@ -353,6 +364,57 @@ public class HumanTaskBuilder extends CallBuilder {
         // "Databinding Type" set by CallBuilder.normalizeDatabindingTypeProperty. Must run after
         // normalization so the DATABINDING_TYPE_KEY property exists.
         relabel(properties, DATABINDING_TYPE_KEY, COMPLETION_TYPE_LABEL, COMPLETION_TYPE_DESCRIPTION);
+    }
+
+    /**
+     * Folds a positional {@code HumanTaskOptions} record literal back into the form's option
+     * properties, for a call written as {@code awaitHumanTask(taskName, taskInput, {title: ...})}.
+     *
+     * <p>Only the options argument is read. The required arguments come first, positionally, and the
+     * task input among them is itself a record whose business fields may be named like an option —
+     * a payload with a {@code title} is not the task's title. So every positional argument up to the
+     * number of required parameters is skipped, and only properties that are fields of the options
+     * record ({@link ParameterData.Kind#INCLUDED_FIELD}) take a value. A signature without an
+     * options record has no such fields, and nothing is overlaid.
+     *
+     * @param properties the live property map, as built from the resolved signature
+     * @param arguments  the call's arguments
+     */
+    public static void overlayOptionsLiteral(Map<String, Property> properties,
+                                             SeparatedNodeList<FunctionArgumentNode> arguments) {
+        long requiredCount = properties.values().stream()
+                .filter(p -> p.codedata() != null
+                        && ParameterData.Kind.REQUIRED.name().equals(p.codedata().kind()))
+                .count();
+        int position = 0;
+        for (FunctionArgumentNode arg : arguments) {
+            if (!(arg instanceof PositionalArgumentNode positional)) {
+                continue;
+            }
+            int index = position++;
+            if (index < requiredCount
+                    || !(positional.expression() instanceof MappingConstructorExpressionNode mapping)) {
+                continue;
+            }
+            for (MappingFieldNode field : mapping.fields()) {
+                if (!(field instanceof SpecificFieldNode specificField) || specificField.valueExpr().isEmpty()) {
+                    continue;
+                }
+                String name = specificField.fieldName().toSourceCode().strip();
+                if (name.length() >= 2 && name.startsWith("\"") && name.endsWith("\"")) {
+                    name = name.substring(1, name.length() - 1);
+                }
+                Property existing = properties.get(name);
+                if (existing == null || existing.codedata() == null
+                        || !ParameterData.Kind.INCLUDED_FIELD.name().equals(existing.codedata().kind())
+                        || (existing.value() != null && !existing.value().toString().isEmpty())) {
+                    continue;
+                }
+                properties.put(name, Property.Builder.copyFrom(existing)
+                        .value(specificField.valueExpr().get().toSourceCode().strip())
+                        .build());
+            }
+        }
     }
 
     private static void relabel(Map<String, Property> properties, String key, String label, String description) {
@@ -396,6 +458,17 @@ public class HumanTaskBuilder extends CallBuilder {
                 .orElseThrow(() -> new IllegalStateException(
                         "At least one user role is required for the human task. Provide a value for '"
                                 + USER_ROLES_LABEL + "'."));
+        // The task input is required where the module declares it so (the form marks that field
+        // REQUIRED) and the generic emitter below skips empty values — so a cleared field would
+        // silently drop a required argument. A defaultable input, as older releases declare, may
+        // be left out and is not checked here.
+        sourceBuilder.getProperty(TASK_INPUT_KEY)
+                .filter(p -> p.codedata() != null && ParameterData.Kind.REQUIRED.name().equals(p.codedata().kind()))
+                .filter(p -> p.value() == null || p.value().toString().isBlank())
+                .ifPresent(p -> {
+                    throw new IllegalStateException("A task input is required for the human task. Provide a "
+                            + "value for '" + TASK_INPUT_LABEL + "' — use {} for a task with nothing to show.");
+                });
 
         String ctxParamName = ActivityCallBuilder.resolveContextParamName(sourceBuilder);
 

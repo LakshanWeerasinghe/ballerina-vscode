@@ -870,7 +870,7 @@ public class ActivityCallBuilder extends CallBuilder {
      * review's name and wording from the activity, and emitting {@code title: ""} would
      * replace that derivation with nothing.
      */
-    private static String humanReviewRecordLiteral(Map<String, Property> properties) {
+    static String humanReviewRecordLiteral(Map<String, Property> properties) {
         List<String> fields = new ArrayList<>();
         String roles = trimmedValue(properties, RETRY_USER_ROLES_KEY);
         // userRoles is required by the record, so the literal always carries it. An empty
@@ -894,7 +894,7 @@ public class ActivityCallBuilder extends CallBuilder {
             return;
         }
         boolean quoted = value.startsWith("\"") || value.startsWith("string `");
-        fields.add(name + ": " + (quoted ? value : "\"" + value.replace("\"", "\\\"") + "\""));
+        fields.add(name + ": " + (quoted ? value : WorkflowUtil.stringLiteral(value)));
     }
 
     private static String trimmedValue(Map<String, Property> properties, String key) {

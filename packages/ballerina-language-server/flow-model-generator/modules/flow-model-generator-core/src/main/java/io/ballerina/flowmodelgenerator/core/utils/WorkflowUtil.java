@@ -74,6 +74,7 @@ import io.ballerina.tools.text.TextRange;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -735,7 +736,130 @@ public class WorkflowUtil {
                 || trimmed.startsWith("string `") || trimmed.startsWith("[")) {
             return trimmed;
         }
-        return "\"" + trimmed.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        return stringLiteral(trimmed);
+    }
+
+    /**
+     * The Ballerina string literal for a plain text value: quoted, with every character the
+     * literal syntax would otherwise interpret escaped — the backslash and quote, and the line
+     * break, tab and carriage return, which a bare {@code "..."} literal cannot carry.
+     *
+     * @param text the value as the form holds it
+     * @return the literal source, quotes included
+     */
+    public static String stringLiteral(String text) {
+        StringBuilder out = new StringBuilder(text.length() + 2).append('"');
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            switch (c) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                case '\n' -> out.append("\\n");
+                case '\t' -> out.append("\\t");
+                case '\r' -> out.append("\\r");
+                default -> out.append(c);
+            }
+        }
+        return out.append('"').toString();
+    }
+
+    /**
+     * Splits a record literal {@code {key: value, ...}} into its top-level fields, each value kept
+     * as source. Only commas and colons at the literal's own level separate anything: a comma
+     * inside a nested list or record ({@code userRoles: ["finance", "manager"]},
+     * {@code timeout: {hours: 4, minutes: 30}}), a string literal ({@code title: "Approve, please"})
+     * or a template ({@code string `...`}) belongs to the value it sits in, and an escaped quote
+     * does not end the string it is in.
+     *
+     * <p>Keys are returned unquoted. Anything that is not {@code key: value} at the top level is
+     * skipped rather than guessed at.
+     *
+     * @param recordLiteral the record literal source, braces optional
+     * @return the fields in source order
+     */
+    public static Map<String, String> parseRecordLiteral(String recordLiteral) {
+        Map<String, String> result = new LinkedHashMap<>();
+        String inner = recordLiteral.trim();
+        if (inner.startsWith("{") && inner.endsWith("}")) {
+            inner = inner.substring(1, inner.length() - 1);
+        }
+        for (String part : splitTopLevel(inner)) {
+            int colon = topLevelIndexOf(part, ':');
+            if (colon <= 0) {
+                continue;
+            }
+            String key = part.substring(0, colon).trim();
+            if (key.length() >= 2 && key.startsWith("\"") && key.endsWith("\"")) {
+                key = key.substring(1, key.length() - 1);
+            }
+            if (!key.isEmpty()) {
+                result.put(key, part.substring(colon + 1).trim());
+            }
+        }
+        return result;
+    }
+
+    // The comma-separated pieces of a literal's interior, splitting only where a comma is not
+    // inside brackets, braces, parentheses, a string or a template.
+    private static List<String> splitTopLevel(String text) {
+        List<String> parts = new ArrayList<>();
+        int start = 0;
+        int depth = 0;
+        char quote = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote != 0) {
+                if (c == '\\' && quote == '"') {
+                    i++;
+                } else if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            switch (c) {
+                case '"', '`' -> quote = c;
+                case '[', '{', '(' -> depth++;
+                case ']', '}', ')' -> depth--;
+                case ',' -> {
+                    if (depth == 0) {
+                        parts.add(text.substring(start, i));
+                        start = i + 1;
+                    }
+                }
+                default -> { }
+            }
+        }
+        if (start < text.length() || !parts.isEmpty()) {
+            parts.add(text.substring(start));
+        }
+        return parts;
+    }
+
+    // The first occurrence of the character outside any nesting, string or template, or -1.
+    private static int topLevelIndexOf(String text, char target) {
+        int depth = 0;
+        char quote = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote != 0) {
+                if (c == '\\' && quote == '"') {
+                    i++;
+                } else if (c == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (c == '"' || c == '`') {
+                quote = c;
+            } else if (c == '[' || c == '{' || c == '(') {
+                depth++;
+            } else if (c == ']' || c == '}' || c == ')') {
+                depth--;
+            } else if (c == target && depth == 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // Characters that cannot occur in a bare role name but do occur in references and calls.

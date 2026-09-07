@@ -1881,39 +1881,17 @@ public class CodeAnalyzer extends NodeVisitor {
         }
     }
 
+    // The form's own rule for which argument the options come from — see HumanTaskBuilder.
+    private void overlayHumanTaskOptionsLiteral(RemoteMethodCallActionNode callNode) {
+        HumanTaskBuilder.overlayOptionsLiteral(nodeBuilder.properties().build(), callNode.arguments());
+    }
+
     /**
      * Fallback path used when the {@code awaitHumanTask} symbol cannot be resolved (e.g., the installed
      * workflow library predates it). Reads positional/named args directly and builds a stable, static form
      * matching {@link HumanTaskBuilder}'s fallback shape. The result type uses the inferred {@code T} key so
      * {@code toSource} round-trips consistently with the resolved path.
      */
-    private void overlayHumanTaskOptionsLiteral(RemoteMethodCallActionNode callNode) {
-        Map<String, Property> props = nodeBuilder.properties().build();
-        for (FunctionArgumentNode arg : callNode.arguments()) {
-            if (!(arg instanceof PositionalArgumentNode positional)
-                    || !(positional.expression() instanceof MappingConstructorExpressionNode mapping)) {
-                continue;
-            }
-            for (MappingFieldNode field : mapping.fields()) {
-                if (!(field instanceof SpecificFieldNode specificField)
-                        || specificField.valueExpr().isEmpty()) {
-                    continue;
-                }
-                String name = specificField.fieldName().toSourceCode().strip();
-                if (name.length() >= 2 && name.startsWith("\"") && name.endsWith("\"")) {
-                    name = name.substring(1, name.length() - 1);
-                }
-                Property existing = props.get(name);
-                if (existing != null
-                        && (existing.value() == null || existing.value().toString().isEmpty())) {
-                    props.put(name, Property.Builder.copyFrom(existing)
-                            .value(specificField.valueExpr().get().toSourceCode().strip())
-                            .build());
-                }
-            }
-        }
-    }
-
     private void populateFallbackHumanTaskProperties(RemoteMethodCallActionNode callNode,
                                                      Map<String, Property> currentProps) {
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
@@ -2186,7 +2164,7 @@ public class CodeAnalyzer extends NodeVisitor {
             if (trimmed.startsWith("{")) {
                 // Both policies are records; `userRoles` is what only a review has — the same
                 // rule the compiler plugin and the runtime apply.
-                Map<String, String> fields = parseSimpleRecord(rawValue);
+                Map<String, String> fields = WorkflowUtil.parseRecordLiteral(rawValue);
                 if (fields.containsKey(USER_ROLES_FIELD)) {
                     dropdownValue = ActivityCallBuilder.MANUAL_RETRY_VALUE;
                     review = new ActivityCallBuilder.ReviewFormValues(
@@ -2227,22 +2205,6 @@ public class CodeAnalyzer extends NodeVisitor {
         String value = literal.trim();
         return value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
                 ? value.substring(1, value.length() - 1) : value;
-    }
-
-    /** Parses a simple Ballerina record literal {@code {key: value, ...}} into a string map. */
-    private static Map<String, String> parseSimpleRecord(String recordLiteral) {
-        Map<String, String> result = new LinkedHashMap<>();
-        String inner = recordLiteral.trim();
-        if (inner.startsWith("{") && inner.endsWith("}")) {
-            inner = inner.substring(1, inner.length() - 1).trim();
-        }
-        for (String part : inner.split(",")) {
-            int colon = part.indexOf(':');
-            if (colon > 0) {
-                result.put(part.substring(0, colon).trim(), part.substring(colon + 1).trim());
-            }
-        }
-        return result;
     }
 
     /** Rebuilds REST-specific form properties from source values, preserving template shapes. */
