@@ -147,36 +147,14 @@ public class DurableAgentPeerBuilder extends CallBuilder {
                         + "delegation does not wait",
                 "hotelResults", false);
 
-        // PeerDecl gating, mirroring the tool/activity capability forms: a gated delegation is
-        // held on a review activity before the peer runs.
-        properties().custom()
-                .metadata()
-                    .label("Requires Approval")
-                    .description("Gate this delegation: before the agent delegates to the peer, a review "
-                            + "activity is created and the agent suspends durably until a reviewer "
-                            + "proceeds or rejects.")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.FLAG).ballerinaType("boolean").selected(true).stepOut()
-                .value("false")
-                .editable(true)
-                .optional(true)
-                .advanced(true)
-                .stepOut()
-                .addProperty(REQUIRES_APPROVAL_KEY);
-        properties().custom()
-                .metadata()
-                    .label("Reviewer Roles")
-                    .description("Role(s) permitted to decide the approval review of this delegation, "
-                            + "e.g. \"support-lead\" or [\"finance\", \"manager\"].")
-                    .stepOut()
-                .type().fieldType(Property.ValueType.EXPRESSION)
-                    .ballerinaType("string|string[]").selected(true).stepOut()
-                .placeholder("")
-                .editable(true)
-                .optional(true)
-                .advanced(true)
-                .stepOut()
-                .addProperty(USER_ROLES_KEY);
+        // PeerDecl gating, the same pair the tool and activity capability forms carry: a gated
+        // delegation is held on a review activity before the peer runs.
+        WorkflowUtil.addApprovalGateProperties(this, REQUIRES_APPROVAL_KEY,
+                "Gate this delegation: before the agent delegates to the peer, a review activity is created "
+                        + "and the agent suspends durably until a reviewer proceeds or rejects.",
+                USER_ROLES_KEY,
+                "Role(s) permitted to decide the approval review of this delegation, "
+                        + "e.g. \"support-lead\" or [\"finance\", \"manager\"].");
     }
 
     private void addStringProperty(String key, String label, String doc, String placeholder, boolean required) {

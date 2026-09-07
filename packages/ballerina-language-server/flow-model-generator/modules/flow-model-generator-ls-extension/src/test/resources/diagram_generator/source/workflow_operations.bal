@@ -48,3 +48,9 @@ public function main() returns error? {
     // Send data - should be SEND_DATA
     check workflow:sendData(orderWorkflow, "4422", {approved: true, approverName: "Admin"}, "approve");
 }
+
+// Named-argument form of workflow:run — the target function arrives as `processFunction = ...`.
+public function runByName() returns error? {
+    string workflowId = check workflow:run(processFunction = orderWorkflow, input = {orderId: "456", customerName: "Jane"});
+    io:println("Workflow started with ID: " + workflowId);
+}

@@ -325,10 +325,7 @@ public class HumanTaskBuilder extends CallBuilder {
     }
 
     private static void relabel(Map<String, Property> properties, String key, String label, String description) {
-        // Same reserved-key escaping as resolveParameterProperty: `description` lands under
-        // `$description` on the signature-derived path, so relabelling only the plain key left
-        // that field showing the compiler-derived doc instead of the form's own.
-        String actualKey = properties.containsKey(key) ? key : FlowNodeUtil.getPropertyKey(key);
+        String actualKey = presentKey(properties, key);
         Property existing = properties.get(actualKey);
         if (existing == null) {
             return;
@@ -336,6 +333,20 @@ public class HumanTaskBuilder extends CallBuilder {
         properties.put(actualKey, Property.Builder.copyFrom(existing)
                 .metadata().label(label).description(description).stepOut()
                 .build());
+    }
+
+    /**
+     * The key a parameter's property actually sits under. The signature-derived path escapes a
+     * reserved name — {@code description} lands under {@code $description} — while the fallback form
+     * uses the plain name, so every lookup by parameter name tries the plain key first and the
+     * escaped one second. One rule, used by the relabel pass and by source generation alike.
+     *
+     * @param properties the node's properties
+     * @param key        the parameter name as {@code awaitHumanTask} declares it
+     * @return the plain key when present, else its reserved-escaped form
+     */
+    static String presentKey(Map<String, Property> properties, String key) {
+        return properties.containsKey(key) ? key : FlowNodeUtil.getPropertyKey(key);
     }
 
     @Override
@@ -436,8 +447,7 @@ public class HumanTaskBuilder extends CallBuilder {
      * @return the property under the plain key, else under the reserved-escaped key
      */
     private static Optional<Property> resolveParameterProperty(SourceBuilder sourceBuilder, String key) {
-        Optional<Property> property = sourceBuilder.getProperty(key);
-        return property.isPresent() ? property : sourceBuilder.getProperty(FlowNodeUtil.getPropertyKey(key));
+        return sourceBuilder.getProperty(presentKey(sourceBuilder.flowNode.properties(), key));
     }
 
     /**
