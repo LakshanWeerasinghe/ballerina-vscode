@@ -429,6 +429,39 @@ public class TriggerUIMetadataCompilerTest {
     }
 
     @Test
+    public void testTextSetWidgetCarriesMinItemsAndDefaultItems() {
+        TriggerUIMetadataModel.Widget textSet = new TriggerUIMetadataModel.Widget(
+                "TEXT_SET", Boolean.TRUE, "string", null, null, null, null, null, null, null, 1, 2);
+        TriggerUIMetadataModel.Field typeField = new TriggerUIMetadataModel.Field(
+                null, null, null, null, new TriggerUIMetadataModel.WidgetPolicy(Boolean.FALSE, List.of(textSet)),
+                null, null, null, null, null, null, null, null);
+        TriggerUIMetadataModel.TargetedNode typeOverlay = new TriggerUIMetadataModel.TargetedNode(
+                new TriggerUIMetadataModel.Target("semantic", null, "recordField", "type", null, null, null,
+                        null, null, null, "payload"),
+                null, null, null, typeField, null, null, null, null, null, null, null, null);
+        TriggerUIMetadataModel.TargetedNode parameterOverlay = new TriggerUIMetadataModel.TargetedNode(
+                handlerTarget("payload"), null, null,
+                new TriggerUIMetadataModel.State(null, null, Boolean.TRUE, null, null, null),
+                null, null, null, null, List.of(typeOverlay), null, null, null, null);
+        TriggerUIMetadataModel.TargetedNode handlerOverlay = new TriggerUIMetadataModel.TargetedNode(
+                handlerTarget("onMessage"), null, null, null, null, null, null, null, null, null,
+                List.of(parameterOverlay), null, null);
+        TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
+                l1Target("$service"), null, null, null, null, null, null, null, null,
+                List.of(handlerOverlay), null, null, null);
+        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+                "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
+
+        TriggerUISchemaModel.Parameter payload = function(apply(derived(true), true, l2),
+                "triggerfixture:Service", "onMessage").parameters().getFirst();
+
+        TriggerUISchemaModel.PropertyType type = payload.type().types().getFirst();
+        Assert.assertEquals(type.fieldType(), "TEXT_SET");
+        Assert.assertEquals(type.minItems(), Integer.valueOf(1), "authored minItems must survive compilation");
+        Assert.assertEquals(type.defaultItems(), Integer.valueOf(2), "authored defaultItems must survive compilation");
+    }
+
+    @Test
     public void testParameterKindNormalizationInvariant() {
         Assert.assertEquals(TriggerUIMetadataCompiler.normalizeParameterKind("REQUIRED", Boolean.TRUE, false),
                 "OPTIONAL", "optional non-data-binding parameters become optional flags");

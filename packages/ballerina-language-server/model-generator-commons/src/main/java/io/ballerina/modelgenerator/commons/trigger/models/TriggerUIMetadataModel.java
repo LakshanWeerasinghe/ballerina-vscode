@@ -364,6 +364,21 @@ public record TriggerUIMetadataModel(
             List<Widget> overrides) {
     }
 
+    /**
+     * @param widgetKind    the widget kind this override renders as
+     * @param selected      whether this override is the active widget
+     * @param ballerinaType the Ballerina type this override binds to
+     * @param options       the inline selectable options, when applicable
+     * @param typeMembers   the selectable record/union members, when applicable
+     * @param template      the composition template applied to the bound element
+     * @param itemLabel     the label shown for a repeatable item, when applicable
+     * @param formats       the data-binding formats offered, when applicable
+     * @param validations   the validation rules applied to this override
+     * @param extensions    the file extensions offered by a FILE_SELECT/PROJECT_FILE_SELECT override
+     *                      without a leading dot (e.g. {@code ["jar"]})
+     * @param minItems      the minimum number of items a TEXT_SET/EXPRESSION_SET widget requires
+     * @param defaultItems  the number of items a TEXT_SET/EXPRESSION_SET widget opens with by default
+     */
     public record Widget(
             String widgetKind,
             Boolean selected,
@@ -374,12 +389,15 @@ public record TriggerUIMetadataModel(
             String itemLabel,
             List<PayloadFormat> formats,
             List<Validation> validations,
-            Map<String, Object> extensions) {
+            Map<String, Object> extensions,
+            Integer minItems,
+            Integer defaultItems) {
+        /** Compatibility constructor for call sites predating {@code minItems}/{@code defaultItems}. */
         public Widget(String widgetKind, Boolean selected, String ballerinaType, List<Option> options,
                       List<TypeMember> typeMembers, Object template, String itemLabel, List<PayloadFormat> formats,
                       List<Validation> validations) {
             this(widgetKind, selected, ballerinaType, options, typeMembers, template, itemLabel, formats,
-                    validations, null);
+                    validations, null, null, null);
         }
     }
 

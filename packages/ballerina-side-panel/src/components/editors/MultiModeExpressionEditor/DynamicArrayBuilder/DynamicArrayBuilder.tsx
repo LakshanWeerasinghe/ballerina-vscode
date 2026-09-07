@@ -45,8 +45,7 @@ export const DynamicArrayBuilder = (props: DynamicArrayBuilderProps) => {
     // Extract configuration from EXPRESSION_SET or TEXT_SET type definition
     const expressionSetType = expressionFieldProps.field.types.find(t => t.fieldType === "EXPRESSION_SET" || t.fieldType === "TEXT_SET");
     const minItems = expressionSetType?.minItems ?? 1;
-    const defaultItems = expressionSetType?.fieldType === "TEXT_SET" ? Math.max(expressionSetType?.defaultItems ?? 1, 1)
-        : (expressionSetType?.defaultItems ?? 1);
+    const defaultItems = expressionSetType?.defaultItems ?? 1;
 
     const [isInitialized, setIsInitialized] = useState(false);
     const currentValuesRef = useRef<string[]>([]);

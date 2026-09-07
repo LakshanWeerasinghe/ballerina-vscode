@@ -254,6 +254,8 @@ public record TriggerUISchemaModel(
      * @param extensions    the file extensions offered by a FILE_SELECT/PROJECT_FILE_SELECT candidate
      *                      without a leading dot (e.g. {@code ["jar"]}), matching the
      *                      {@code showOpenDialog} filter format they are passed to, when applicable
+     * @param minItems      the minimum number of items a TEXT_SET/EXPRESSION_SET candidate requires
+     * @param defaultItems  the number of items a TEXT_SET/EXPRESSION_SET candidate opens with by default
      */
     public record PropertyType(
             String fieldType,
@@ -264,13 +266,16 @@ public record TriggerUISchemaModel(
             Object template,
             List<PayloadFormat> formats,
             List<ValidationRule> validations,
-            List<String> extensions) {
+            List<String> extensions,
+            Integer minItems,
+            Integer defaultItems) {
 
         /** Compatibility constructor for existing call sites predating {@code extensions}. */
         public PropertyType(String fieldType, boolean selected, String ballerinaType, List<Option> options,
                              List<TypeMember> typeMembers, Object template, List<PayloadFormat> formats,
                              List<ValidationRule> validations) {
-            this(fieldType, selected, ballerinaType, options, typeMembers, template, formats, validations, null);
+            this(fieldType, selected, ballerinaType, options, typeMembers, template, formats, validations, null,
+                    null, null);
         }
     }
 
