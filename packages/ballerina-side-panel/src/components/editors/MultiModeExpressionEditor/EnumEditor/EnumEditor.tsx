@@ -45,23 +45,20 @@ export const EnumEditor = (props: EnumEditorProps) => {
     const isSetToAnOption = props.value !== undefined && props.value !== null && props.value !== ""
         && options.some(item => item.value === props.value);
 
-    const itemsList = useMemo(() => {
-        // Leaving the field empty applies the default of the parameter, so the member it applies stands for
-        // the empty selection and gets no entry of its own: an entry repeating a member of the list reads as
-        // a second way of selecting it. One is offered when there is no default to apply, and when the field
-        // holds something that none of the members stands for, which needs a selection to fall back to.
-        if (defaultOption && (isSetToAnOption || !props.value)) {
-            return options;
-        }
-        return [
+    // The empty selection is always offered, whether or not the parameter declares a default: leaving the
+    // field empty is a valid state of every enum, and the list has to be able to express it. It is also the
+    // selection a value that none of the members stands for falls back to.
+    const itemsList = useMemo(
+        () => [
             ...options,
             {
                 id: "default-option",
                 content: "No Selection",
                 value: DEFAULT_NONE_SELECTED_VALUE
             }
-        ];
-    }, [options, defaultOption, isSetToAnOption, props.value]);
+        ],
+        [options]
+    );
 
     const selectedValue = useMemo(() => {
         if (isSetToAnOption) {
