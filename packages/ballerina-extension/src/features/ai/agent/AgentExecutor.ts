@@ -109,12 +109,10 @@ function supportsCompaction(loginMethod: LoginMethod): boolean {
  * Server-side compaction trigger, in input tokens.
  *
  * Unlike MI, BI re-sends the entire project source in every turn's user message, so its
- * per-turn baseline is much larger — MI's 200K trigger would fire almost immediately and
- * leave too little working headroom. Production target: 350_000.
- *
- * NOTE: set to 100_000 for testing / initial rollout so compaction is easy to exercise.
+ * per-turn baseline is much larger — MI's 200K trigger would fire too eagerly. 500K leaves
+ * ample working headroom while staying well within the 1M context window (Claude Sonnet).
  */
-const COMPACT_TRIGGER_TOKENS = 100_000;
+const COMPACT_TRIGGER_TOKENS = 500_000;
 
 /**
  * Builds providerOptions.anthropic.contextManagement, mirroring MI's approach: compaction
@@ -484,6 +482,18 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             let isCompactionBlock = false;
             let compactionContent = '';
             let cleanedCompactionSummary: string | undefined;
+            // Counts compactions in this turn so each renders as its own card (upsertComponent
+            // keys by id). Mirrors MI: a notice + the extracted summary, rendered in-stream —
+            // never emitted as a raw <compaction> text block (which would render as literal text).
+            let compactionCount = 0;
+            const emitCompactionNotice = (summary?: string) => {
+                this.config.eventHandler({
+                    type: 'chat_component',
+                    componentType: 'compaction',
+                    id: `compaction-${this.config.generationId}-${compactionCount++}`,
+                    data: { summary: summary ?? '' },
+                });
+            };
 
             // Send start event to frontend
             this.config.eventHandler({ type: "start" });

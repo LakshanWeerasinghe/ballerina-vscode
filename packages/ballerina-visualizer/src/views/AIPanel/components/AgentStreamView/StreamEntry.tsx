@@ -57,16 +57,62 @@ import {
 
 // ── Item renderer — order-preserving, used by both floating and named entries ─
 
+/**
+ * Renders a text stream item, rendering any embedded `<compaction>…</compaction>`
+ * notice as a compaction row rather than raw markdown. New runs emit compaction as a
+ * `chat_component`, but a notice can still be folded into a text item by older
+ * transcripts (persisted before that change) or a stray raw emission — this keeps
+ * those rendering cleanly instead of leaking the literal tag.
+ */
+function renderTextItem(text: string, idx: number): React.ReactNode {
+    if (!text.includes("<compaction>")) {
+        return (
+            <ItemMarkdownWrapper key={idx}>
+                <MarkdownRenderer markdownContent={text} />
+            </ItemMarkdownWrapper>
+        );
+    }
+    const re = /<compaction>([\s\S]*?)<\/compaction>/g;
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    let k = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+        const before = text.slice(last, m.index).trim();
+        if (before) {
+            parts.push(
+                <ItemMarkdownWrapper key={`${idx}-b${k}`}>
+                    <MarkdownRenderer markdownContent={before} />
+                </ItemMarkdownWrapper>
+            );
+        }
+        const notice = m[1].trim();
+        parts.push(
+            <ItemRow key={`${idx}-c${k}`}>
+                <span className="codicon codicon-fold" aria-hidden="true" />
+                <ItemLabel loading={false}>{notice}</ItemLabel>
+            </ItemRow>
+        );
+        last = m.index + m[0].length;
+        k++;
+    }
+    const after = text.slice(last).trim();
+    if (after) {
+        parts.push(
+            <ItemMarkdownWrapper key={`${idx}-a`}>
+                <MarkdownRenderer markdownContent={after} />
+            </ItemMarkdownWrapper>
+        );
+    }
+    return <React.Fragment key={idx}>{parts}</React.Fragment>;
+}
+
 function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcClient?: any): React.ReactNode {
     switch (item.kind) {
         case "text": {
             const trimmed = item.text.trim();
             if (!trimmed) return null;
-            return (
-                <ItemMarkdownWrapper key={idx}>
-                    <MarkdownRenderer markdownContent={trimmed} />
-                </ItemMarkdownWrapper>
-            );
+            return renderTextItem(trimmed, idx);
         }
         case "tool_call": {
             if (item.toolName === "hurlRunnerTool") {
@@ -145,6 +191,27 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
                         </SonarWrapper>
                         <ItemLabel loading={isSpinning}>{item.data.text}</ItemLabel>
                     </ItemRow>
+                );
+            }
+            if (item.componentType === "compaction") {
+                const summary = typeof item.data?.summary === "string" ? item.data.summary.trim() : "";
+                return (
+                    <React.Fragment key={idx}>
+                        <ItemRow>
+                            <span className="codicon codicon-fold" aria-hidden="true" />
+                            <ItemLabel loading={false}>Context compacted — conversation continues below</ItemLabel>
+                        </ItemRow>
+                        {summary && (
+                            <ItemDetail>
+                                <details>
+                                    <summary style={{ cursor: "pointer" }}>View summary</summary>
+                                    <ItemMarkdownWrapper>
+                                        <MarkdownRenderer markdownContent={summary} />
+                                    </ItemMarkdownWrapper>
+                                </details>
+                            </ItemDetail>
+                        )}
+                    </React.Fragment>
                 );
             }
             return null;
