@@ -83,6 +83,29 @@ public class WorkflowUtilLiteralTest {
         Assert.assertEquals(WorkflowUtil.parseRecordLiteral("a: 1, b: [1, 2]"), Map.of("a", "1", "b", "[1, 2]"));
     }
 
+    @Test(description = "A line comment above a field, or trailing one, is prose: its commas and colons do not "
+            + "split anything and it never becomes part of a key")
+    public void testParseRecordLiteralIgnoresLineComments() {
+        Map<String, String> fields = WorkflowUtil.parseRecordLiteral("{\n"
+                + "    // roles: finance, manager - see the policy\n"
+                + "    userRoles: \"manager\", // was: [\"finance\", \"manager\"]\n"
+                + "    timeout: {hours: 4} // a: b\n"
+                + "}");
+        Assert.assertEquals(List.copyOf(fields.keySet()), List.of("userRoles", "timeout"));
+        Assert.assertEquals(fields.get("userRoles"), "\"manager\"");
+        Assert.assertEquals(fields.get("timeout"), "{hours: 4}");
+    }
+
+    @Test(description = "A // inside a string or a template is content, and a comment on the last line with no "
+            + "line break after it is still dropped")
+    public void testStripLineCommentsKeepsStringsAndTemplates() {
+        Assert.assertEquals(WorkflowUtil.stripLineComments("{title: \"http://x/a, b\", d: string `//t`} // c"),
+                "{title: \"http://x/a, b\", d: string `//t`} ");
+        Assert.assertEquals(WorkflowUtil.stripLineComments("a: \"say \\\"//\\\"\" // x\nb: 2"),
+                "a: \"say \\\"//\\\"\" \nb: 2");
+        Assert.assertEquals(WorkflowUtil.stripLineComments("no comment"), "no comment");
+    }
+
     @Test(description = "Every character the literal syntax interprets is escaped, nothing else is touched")
     public void testStringLiteralEscapes() {
         Assert.assertEquals(WorkflowUtil.stringLiteral("plain"), "\"plain\"");

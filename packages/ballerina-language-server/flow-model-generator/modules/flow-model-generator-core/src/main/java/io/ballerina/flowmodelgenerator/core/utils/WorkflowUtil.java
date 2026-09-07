@@ -773,14 +773,16 @@ public class WorkflowUtil {
      * does not end the string it is in.
      *
      * <p>Keys are returned unquoted. Anything that is not {@code key: value} at the top level is
-     * skipped rather than guessed at.
+     * skipped rather than guessed at. Line comments are dropped first: a comma or colon in a
+     * {@code // note} is prose, not syntax, and a comment written above a field must not become
+     * part of its key.
      *
      * @param recordLiteral the record literal source, braces optional
      * @return the fields in source order
      */
     public static Map<String, String> parseRecordLiteral(String recordLiteral) {
         Map<String, String> result = new LinkedHashMap<>();
-        String inner = recordLiteral.trim();
+        String inner = stripLineComments(recordLiteral).trim();
         if (inner.startsWith("{") && inner.endsWith("}")) {
             inner = inner.substring(1, inner.length() - 1);
         }
@@ -798,6 +800,40 @@ public class WorkflowUtil {
             }
         }
         return result;
+    }
+
+    // The text without its `//` line comments. A `//` inside a string literal or a template is
+    // content and stays; the line break that ends a comment stays too, so the fields on either
+    // side of it keep their separation.
+    static String stripLineComments(String text) {
+        StringBuilder out = new StringBuilder(text.length());
+        char quote = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote != 0) {
+                if (c == '\\' && quote == '"' && i + 1 < text.length()) {
+                    out.append(c).append(text.charAt(++i));
+                    continue;
+                }
+                if (c == quote) {
+                    quote = 0;
+                }
+                out.append(c);
+                continue;
+            }
+            if (c == '"' || c == '`') {
+                quote = c;
+            } else if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+                int lineEnd = text.indexOf('\n', i);
+                if (lineEnd < 0) {
+                    break;
+                }
+                i = lineEnd - 1;
+                continue;
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 
     // The comma-separated pieces of a literal's interior, splitting only where a comma is not

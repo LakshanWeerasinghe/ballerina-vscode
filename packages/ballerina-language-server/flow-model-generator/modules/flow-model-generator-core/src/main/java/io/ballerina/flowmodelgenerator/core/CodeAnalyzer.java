@@ -2037,9 +2037,55 @@ public class CodeAnalyzer extends NodeVisitor {
      */
     private void populateFallbackHumanTaskProperties(RemoteMethodCallActionNode callNode,
                                                      Map<String, Property> currentProps) {
-        SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
         currentProps.clear();
 
+        // Build the human task parameter form via the single shared definition in HumanTaskBuilder,
+        // injecting the values parsed from source (empty required values map to no preset value).
+        HumanTaskBuilder.addFallbackHumanTaskParameters(nodeBuilder,
+                fallbackHumanTaskArgumentValues(callNode.arguments()));
+
+        // Inferred databinding/result type and result variable (from typedBindingPatternNode)
+        if (typedBindingPatternNode != null) {
+            String typeText = typedBindingPatternNode.typeDescriptor().toSourceCode().strip();
+            nodeBuilder.properties().custom()
+                    .metadata().label(HumanTaskBuilder.COMPLETION_TYPE_LABEL)
+                        .description(HumanTaskBuilder.COMPLETION_TYPE_DESCRIPTION).stepOut()
+                    .value(typeText)
+                    .type().fieldType(Property.ValueType.TYPE).ballerinaType(typeText).selected(true).stepOut()
+                    .codedata().kind(ParameterData.Kind.PARAM_FOR_TYPE_INFER.name())
+                        .originalName(CallBuilder.DATABINDING_TYPE_KEY).stepOut()
+                    .editable(true).stepOut().addProperty(CallBuilder.DATABINDING_TYPE_KEY);
+            String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
+            nodeBuilder.properties().custom()
+                    .metadata().label(Property.RESULT_NAME).description(Property.RESULT_DOC).stepOut()
+                    .value(varText).type().fieldType(Property.ValueType.IDENTIFIER).selected(true).stepOut()
+                    .editable(true).stepOut().addProperty(Property.VARIABLE_KEY);
+        }
+    }
+
+    /**
+     * Reads the form values of an {@code awaitHumanTask} call from its arguments alone, for the path
+     * taken when the workflow module does not resolve. Each value is keyed by the form's property
+     * name; a parameter the call leaves out maps to {@code null}, which the fallback form renders as
+     * an empty field.
+     *
+     * <p>The arguments after the task name have two layouts across module releases, and both are
+     * read:
+     * <ul>
+     *   <li>before 0.9.0: {@code awaitHumanTask(taskName, userRoles, payload = ..., title = ...)} —
+     *       the roles are positional argument 1 and the input positional argument 2;</li>
+     *   <li>0.9.0: {@code awaitHumanTask(taskName, taskInput, userRoles = ..., title = ...)} — the
+     *       input is positional argument 1 and the roles a definition field.</li>
+     * </ul>
+     * A stated name settles which. With neither stated, positional argument 1 tells them apart by
+     * shape: the input is a {@code map<json>} and so a record literal, where roles are a string or a
+     * list of strings. Whichever name the call used for the input, the value lands in the one task
+     * input field; the form writes the module's current name for it.
+     *
+     * @param args the call's arguments
+     * @return the form values keyed by property name
+     */
+    static Map<String, String> fallbackHumanTaskArgumentValues(SeparatedNodeList<FunctionArgumentNode> args) {
         // Collect all named args first for use as fallback for required params
         Map<String, String> namedArgs = new LinkedHashMap<>();
         for (FunctionArgumentNode arg : args) {
@@ -2057,17 +2103,6 @@ public class CodeAnalyzer extends NodeVisitor {
         } else if (namedArgs.containsKey(HumanTaskBuilder.TASK_NAME_KEY)) {
             taskNameValue = namedArgs.get(HumanTaskBuilder.TASK_NAME_KEY);
         }
-        // The remaining arguments have two layouts across module releases, and both are read:
-        //
-        //   before 0.9.0: awaitHumanTask(taskName, userRoles, payload = ..., title = ...)
-        //                 — userRoles is positional arg 1, the input positional arg 2.
-        //   0.9.0:        awaitHumanTask(taskName, taskInput, userRoles = ..., title = ...)
-        //                 — the input is positional arg 1 and userRoles a definition field.
-        //
-        // A stated name settles which. With neither stated, positional arg 1 tells them apart by
-        // shape: the input is a `map<json>` and so a record literal, where roles are a string or
-        // a list of strings. Whichever name the call used, the value is the task input and lands
-        // in that one form field; the form writes the module's current name for it.
         String taskInputValue = namedArgs.containsKey(HumanTaskBuilder.TASK_INPUT_KEY)
                 ? namedArgs.get(HumanTaskBuilder.TASK_INPUT_KEY) : namedArgs.get(HumanTaskBuilder.PAYLOAD_KEY);
         String userRolesValue = namedArgs.getOrDefault(HumanTaskBuilder.USER_ROLES_KEY, "");
@@ -2089,8 +2124,7 @@ public class CodeAnalyzer extends NodeVisitor {
         String descValue = namedArgs.get(HumanTaskBuilder.DESCRIPTION_KEY);
         String timeoutValue = namedArgs.get(HumanTaskBuilder.TIMEOUT_KEY);
 
-        // Build the human task parameter form via the single shared definition in HumanTaskBuilder,
-        // injecting the values parsed from source (empty required values map to no preset value).
+        // Empty required values map to no preset value.
         Map<String, String> paramValues = new LinkedHashMap<>();
         paramValues.put(HumanTaskBuilder.TASK_NAME_KEY, taskNameValue.isEmpty() ? null : taskNameValue);
         paramValues.put(HumanTaskBuilder.USER_ROLES_KEY, userRolesValue.isEmpty() ? null : userRolesValue);
@@ -2098,25 +2132,7 @@ public class CodeAnalyzer extends NodeVisitor {
         paramValues.put(HumanTaskBuilder.TITLE_KEY, titleValue);
         paramValues.put(HumanTaskBuilder.DESCRIPTION_KEY, descValue);
         paramValues.put(HumanTaskBuilder.TIMEOUT_KEY, timeoutValue);
-        HumanTaskBuilder.addFallbackHumanTaskParameters(nodeBuilder, paramValues);
-
-        // Inferred databinding/result type and result variable (from typedBindingPatternNode)
-        if (typedBindingPatternNode != null) {
-            String typeText = typedBindingPatternNode.typeDescriptor().toSourceCode().strip();
-            nodeBuilder.properties().custom()
-                    .metadata().label(HumanTaskBuilder.COMPLETION_TYPE_LABEL)
-                        .description(HumanTaskBuilder.COMPLETION_TYPE_DESCRIPTION).stepOut()
-                    .value(typeText)
-                    .type().fieldType(Property.ValueType.TYPE).ballerinaType(typeText).selected(true).stepOut()
-                    .codedata().kind(ParameterData.Kind.PARAM_FOR_TYPE_INFER.name())
-                        .originalName(CallBuilder.DATABINDING_TYPE_KEY).stepOut()
-                    .editable(true).stepOut().addProperty(CallBuilder.DATABINDING_TYPE_KEY);
-            String varText = typedBindingPatternNode.bindingPattern().toSourceCode().strip();
-            nodeBuilder.properties().custom()
-                    .metadata().label(Property.RESULT_NAME).description(Property.RESULT_DOC).stepOut()
-                    .value(varText).type().fieldType(Property.ValueType.IDENTIFIER).selected(true).stepOut()
-                    .editable(true).stepOut().addProperty(Property.VARIABLE_KEY);
-        }
+        return paramValues;
     }
 
     /**
