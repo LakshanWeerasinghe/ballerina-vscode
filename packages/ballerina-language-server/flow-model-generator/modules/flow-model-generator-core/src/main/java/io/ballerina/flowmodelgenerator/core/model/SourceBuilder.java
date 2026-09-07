@@ -449,7 +449,34 @@ public class SourceBuilder {
      * @return the type text to write
      */
     public String requalifiedType(Property type) {
-        return prefixes().requalifyAuthored(type.toSourceCode(), type.imports());
+        Map<String, String> imports = type.imports();
+        if (imports == null || imports.isEmpty()) {
+            imports = nodeModuleImports();
+        }
+        return prefixes().requalifyAuthored(type.toSourceCode(), imports);
+    }
+
+    /**
+     * The node's own module as an imports map, for a type property that carries none.
+     *
+     * <p>
+     * A connector's own types arrive unannotated -- {@code github:Root} with no map -- since the index counts them
+     * as the current module's. Resolution keys on module identity, so with no map the qualifier stays as rendered,
+     * and another module may already hold it here. Codedata is the missing identity, and it is what
+     * {@link #acceptImport()} writes the import from, so the two agree. A type from a different module brings its
+     * own map and never reaches this.
+     * </p>
+     *
+     * @return the module's natural prefix mapped to it, or an empty map when the node names no module
+     */
+    private Map<String, String> nodeModuleImports() {
+        Codedata codedata = flowNode.codedata();
+        if (codedata == null || codedata.org() == null || codedata.org().isEmpty()
+                || codedata.module() == null || codedata.module().isEmpty()) {
+            return Map.of();
+        }
+        return Map.of(ModuleAliasResolver.selfPrefix(codedata.module()),
+                codedata.org() + "/" + codedata.module());
     }
 
     /**
