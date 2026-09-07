@@ -152,6 +152,16 @@ export function resolveSingleIntegrationOverride(
         : undefined;
 }
 
+const DISRUPTIVE_TRANSITION_EVENTS = new Set(["VIEW_UPDATE", "UPDATE_PROJECT_STRUCTURE"]);
+
+// The agent's live edits replay VIEW_UPDATE on every write; navigation the user asked for is never withheld.
+export function shouldSuppressDisruptiveTransition(
+    event: { type: string; userInitiated?: boolean },
+    generationActive: boolean
+): boolean {
+    return generationActive && DISRUPTIVE_TRANSITION_EVENTS.has(event.type) && !event.userInitiated;
+}
+
 export async function getView(documentUri: string, position: NodePosition, projectPath: string): Promise<HistoryEntry> {
     const haveTreeData = !!StateMachine.context().projectStructure;
     const classMemberArtifactType = await getClassMemberArtifactType(documentUri, position, projectPath);

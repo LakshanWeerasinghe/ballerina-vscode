@@ -38,7 +38,8 @@ import {
     getView,
     releaseCreateLanding,
     resolveCreateLandingOverride,
-    resolveSingleIntegrationOverride
+    resolveSingleIntegrationOverride,
+    shouldSuppressDisruptiveTransition
 } from './utils/state-machine-utils';
 import * as path from 'path';
 import { extension } from './BalExtensionContext';
@@ -1069,7 +1070,7 @@ export function openView(
     stateService.send({ type: type, viewLocation: location });
 }
 
-export function updateView(refreshTreeView?: boolean, updatedIdentifier?: string) {
+export function updateView(refreshTreeView?: boolean, updatedIdentifier?: string, options?: { userInitiated?: boolean }) {
     if (StateMachinePopup.isActive()) {
         return;
     }
@@ -1154,10 +1155,10 @@ export function updateView(refreshTreeView?: boolean, updatedIdentifier?: string
     }
 
 
-    // Skip the disruptive remount while a Copilot generation is active; notifyCurrentWebview()
-    // below still fires so the diagram's own content refresh keeps flowing.
-    if (!chatStateStorage.hasAnyActiveExecution()) {
-        stateService.send({ type: "VIEW_UPDATE", viewLocation: lastView ? newLocation : { view: "Overview" } });
+    // Only navigation the user asked for may remount mid-generation; the agent's edits replay this on every write.
+    const viewUpdate = { type: "VIEW_UPDATE", viewLocation: lastView ? newLocation : { view: "Overview" }, userInitiated: options?.userInitiated };
+    if (!shouldSuppressDisruptiveTransition(viewUpdate, chatStateStorage.hasAnyActiveExecution())) {
+        stateService.send(viewUpdate);
     }
     if (refreshTreeView) {
         buildProjectsStructure(StateMachine.context().projectInfo, StateMachine.langClient(), true);
