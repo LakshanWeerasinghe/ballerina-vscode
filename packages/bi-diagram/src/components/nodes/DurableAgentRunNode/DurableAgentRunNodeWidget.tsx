@@ -1208,11 +1208,17 @@ export function DurableAgentRunNodeWidget(props: DurableAgentRunNodeWidgetProps)
                                 here, since the remove button owns the top-right. Keyed on the
                                 declared `requiresApproval` rather than the capability kind, because a
                                 registered tool carries it too and used to render as ungated. The
-                                click mirrors the circle underneath, which a tool does not have. */}
+                                click mirrors the circle underneath, which a tool does not have --
+                                and neither does a read-only canvas, where the handler would be a
+                                no-op the badge still advertised with a pointer cursor. */}
                             {isApprovalGated(item) && (
                                 <ApprovalBadge
                                     background={NODE_BG_COLOR}
-                                    onClick={item.kind === "tool" ? undefined : () => onCapabilityClick(item)}
+                                    onClick={
+                                        readOnly || item.kind === "tool"
+                                            ? undefined
+                                            : () => onCapabilityClick(item)
+                                    }
                                 />
                             )}
 

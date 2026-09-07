@@ -19,10 +19,15 @@
 package io.ballerina.flowmodelgenerator.core.model.node;
 
 import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.FunctionSymbol;
+import io.ballerina.compiler.api.symbols.ModuleSymbol;
+import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.VariableSymbol;
 import io.ballerina.compiler.syntax.tree.CaptureBindingPatternNode;
+import io.ballerina.compiler.syntax.tree.CheckExpressionNode;
 import io.ballerina.compiler.syntax.tree.ExpressionNode;
+import io.ballerina.compiler.syntax.tree.FunctionCallExpressionNode;
 import io.ballerina.compiler.syntax.tree.ModuleMemberDeclarationNode;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.ModuleVariableDeclarationNode;
@@ -295,7 +300,7 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
                                     instanceof CaptureBindingPatternNode capture)) {
                         continue;
                     }
-                    if (!isDefaultModelProviderInitializer(varDecl.initializer().get())
+                    if (!isDefaultModelProviderInitializer(semanticModel, varDecl.initializer().get())
                             || !isWso2ModelProvider(semanticModel, capture)) {
                         continue;
                     }
@@ -329,23 +334,39 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
         }
         Optional<String> typeName = typeSymbol.getName();
         return typeName.isPresent() && WSO2_MODEL_PROVIDER_NAME.equals(typeName.get())
-                && typeSymbol.getModule().map(module -> AI_PACKAGE.equals(module.id().moduleName())).orElse(false);
+                && typeSymbol.getModule().map(DurableAgentBuilder::isBallerinaAiModule).orElse(false);
     }
 
-    // `[check|checkpanic] <prefix>:getDefaultModelProvider()` — the initializer
-    // defaultModelProviderDeclaration() writes, under whatever prefix the file imports
-    // `ballerina/ai` as. Only the call shape is read here; the variable's type is what pins the
-    // module, so a same-named call on another module cannot reach this on its own. An initializer
-    // with arguments is a hand-configured endpoint, not the default.
-    private static boolean isDefaultModelProviderInitializer(ExpressionNode initializer) {
-        String source = initializer.toSourceCode().replaceAll("\\s+", "");
-        if (source.startsWith("checkpanic")) {
-            source = source.substring("checkpanic".length());
-        } else if (source.startsWith("check")) {
-            source = source.substring("check".length());
+    // `ai` alone would also accept a module of that name from another organization, so both halves
+    // of the module id are checked.
+    private static boolean isBallerinaAiModule(ModuleSymbol module) {
+        return BALLERINA_ORG.equals(module.id().orgName()) && AI_PACKAGE.equals(module.id().moduleName());
+    }
+
+    /**
+     * Whether the initializer is a call to {@code ballerina/ai}'s {@code getDefaultModelProvider()}.
+     *
+     * <p>The callee is resolved through the semantic model rather than matched on its spelling: a
+     * factory of the user's own named {@code getDefaultModelProvider()} can return an
+     * {@code ai:Wso2ModelProvider} it built against a private endpoint, and that is not the shared
+     * default. A call carrying arguments is a hand-configured provider either way.
+     */
+    private static boolean isDefaultModelProviderInitializer(SemanticModel semanticModel,
+                                                             ExpressionNode initializer) {
+        ExpressionNode expression = initializer;
+        while (expression instanceof CheckExpressionNode check) {
+            expression = check.expression();
         }
-        String call = GET_DEFAULT_MODEL_PROVIDER_METHOD + "()";
-        return source.equals(call) || source.endsWith(":" + call);
+        if (!(expression instanceof FunctionCallExpressionNode call) || !call.arguments().isEmpty()) {
+            return false;
+        }
+        return semanticModel.symbol(call.functionName())
+                .filter(FunctionSymbol.class::isInstance)
+                .filter(symbol -> symbol.getName()
+                        .map(GET_DEFAULT_MODEL_PROVIDER_METHOD::equals).orElse(false))
+                .flatMap(Symbol::getModule)
+                .map(DurableAgentBuilder::isBallerinaAiModule)
+                .orElse(false);
     }
 
     /**

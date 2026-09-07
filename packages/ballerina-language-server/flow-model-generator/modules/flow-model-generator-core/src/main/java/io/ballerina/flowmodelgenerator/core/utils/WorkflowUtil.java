@@ -691,7 +691,7 @@ public class WorkflowUtil {
      * Decoding any escape the re-quoting cannot reproduce ({@code \\n}, {@code \\u{...}}) would put a
      * character in the value that closes the literal early, so those stay as written.
      */
-    private static String unescapeLiteralBody(String body) {
+    static String unescapeLiteralBody(String body) {
         if (body.indexOf('\\') < 0) {
             return body;
         }
