@@ -4469,10 +4469,14 @@ public class CodeAnalyzer extends NodeVisitor {
         Map<String, Property> currentProps = nodeBuilder.properties().build();
         currentProps.remove(RUN_PROCESS_FUNCTION_PARAM);
 
-        if (args.isEmpty() || !(args.get(0) instanceof PositionalArgumentNode firstArg)) {
+        // The anchor may arrive positionally or as `processFunction = ...`; a positional-only read
+        // left the named form typed from the library signature (anydata) instead of the target
+        // workflow's declared input type.
+        Optional<ExpressionNode> processFunctionExpr = argumentExpression(args, 0, RUN_PROCESS_FUNCTION_PARAM);
+        if (processFunctionExpr.isEmpty()) {
             return;
         }
-        Optional<Symbol> resolvedSymbol = semanticModel.symbol(firstArg.expression());
+        Optional<Symbol> resolvedSymbol = semanticModel.symbol(processFunctionExpr.get());
         if (resolvedSymbol.isEmpty() || !(resolvedSymbol.get() instanceof FunctionSymbol workflowFuncSymbol)) {
             return;
         }

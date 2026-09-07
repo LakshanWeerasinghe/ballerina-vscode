@@ -73,26 +73,35 @@
           "input": {
             "metadata": {
               "label": "Input",
-              "description": "Optional input data for the workflow. Must match the workflow\nfunction's declared input parameter type (any `anydata` subtype)"
+              "description": "Input data for the workflow"
             },
             "types": [
               {
+                "fieldType": "RECORD_MAP_EXPRESSION",
+                "ballerinaType": "OrderInput",
+                "typeMembers": [
+                  {
+                    "type": "OrderInput",
+                    "packageInfo": "$anon:.:0.0.0",
+                    "packageName": ".",
+                    "kind": "RECORD_TYPE",
+                    "selected": false
+                  }
+                ],
+                "selected": false
+              },
+              {
                 "fieldType": "EXPRESSION",
-                "ballerinaType": "anydata",
+                "ballerinaType": "OrderInput",
                 "selected": false
               }
             ],
             "value": "{orderId: \"456\", customerName: \"Jane\"}",
-            "placeholder": "{}",
-            "optional": true,
+            "placeholder": "",
+            "optional": false,
             "editable": true,
-            "advanced": true,
-            "hidden": false,
-            "codedata": {
-              "kind": "DEFAULTABLE",
-              "originalName": "input"
-            },
-            "defaultValue": "{}"
+            "advanced": false,
+            "hidden": false
           },
           "checkError": {
             "metadata": {
