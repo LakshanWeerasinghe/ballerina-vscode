@@ -79,4 +79,14 @@ describe("filterConnectionMarketplaceItems", () => {
 
         expect(names(result)).toEqual(["other"]);
     });
+
+    it("keeps componentless services in internal-services mode when no component is selected", () => {
+        // Regression: with selectedComponentId undefined, `componentId !== undefined` used to drop
+        // every componentless item. With no component to exclude, all non-KB items should be kept.
+        const items = [svc("no-comp-1"), svc("has-comp", [], "comp-2"), svc("no-comp-2")];
+
+        const result = filterConnectionMarketplaceItems(items, "internal-services", undefined, PAGE_SIZE);
+
+        expect(names(result)).toEqual(["no-comp-1", "has-comp", "no-comp-2"]);
+    });
 });

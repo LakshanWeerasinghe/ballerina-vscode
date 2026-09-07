@@ -32,6 +32,9 @@ export const KB_SERVICE_TAG = "knowledge-base-as-service";
 export const INTERNAL_SERVICES = "internal-services";
 export const isKnowledgeBaseService = (item: MarketplaceItem) => item.tags?.includes(KB_SERVICE_TAG) ?? false;
 
+// The filter tabs on the WSO2 Cloud connections list.
+export type ConnectionFilterType = "all" | "internal-services" | "third-party-services" | "databases";
+
 /**
  * Filters marketplace items for the connections list: drops knowledge base services (they belong
  * under "Add Knowledge Base"), applies the internal-services component filter, and trims to the
@@ -41,7 +44,7 @@ export const isKnowledgeBaseService = (item: MarketplaceItem) => item.tags?.incl
  */
 export function filterConnectionMarketplaceItems(
     items: MarketplaceItem[],
-    filterType: string,
+    filterType: ConnectionFilterType,
     selectedComponentId: string | undefined,
     pageSize: number,
 ): MarketplaceItem[] {
@@ -50,7 +53,7 @@ export function filterConnectionMarketplaceItems(
             if (isKnowledgeBaseService(item)) {
                 return false;
             }
-            if (filterType === INTERNAL_SERVICES) {
+            if (filterType === INTERNAL_SERVICES && selectedComponentId) {
                 return item.component?.componentId !== selectedComponentId;
             }
             return true;
