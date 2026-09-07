@@ -413,6 +413,11 @@ function getViewByArtifacts(documentUri: string, position: NodePosition, project
     if (currentProjectArtifacts) {
         // Iterate through each category in the directory map
         const project = currentProjectArtifacts.projects.find(project => isSamePath(project.projectPath, projectPath));
+        if (!project) {
+            // The project structure can be mid-rebuild (e.g. a live Copilot generation editing
+            // files) when this runs; fall back to the overview rather than dereference undefined.
+            return { location: { view: MACHINE_VIEW.PackageOverview, documentUri: documentUri } };
+        }
         for (const [key, directory] of Object.entries(project.directoryMap)) {
             // Check each artifact in the category
             for (const dir of directory) {
