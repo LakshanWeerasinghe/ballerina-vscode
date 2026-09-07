@@ -114,7 +114,7 @@ public class LibraryMetadataReaderTest {
      * Reading a connector-shipped document, over the root every metadata read funnels through.
      *
      * <p>These go in through the {@link java.nio.file.Path} seam because no package published to Central
-     * ships a {@code resources/trigger-metadata.json} yet, so a name-keyed test would have nothing to
+     * ships a {@code metadata/trigger-metadata.json} yet, so a name-keyed test would have nothing to
      * read. It is nonetheless the path a future connector takes, and the one
      * {@link LibraryMetadataReader#getTriggerMetadataModel(ModuleInfo)} ends in.
      */
@@ -161,7 +161,7 @@ public class LibraryMetadataReaderTest {
 
     @Test
     public void testAPackageRootThatCannotBeInspectedReadsEmpty() throws IOException {
-        // A FILE where a package root must be a directory, so resolving `resources/trigger-metadata.json`
+        // A FILE where a package root must be a directory, so resolving `metadata/trigger-metadata.json`
         // under it cannot describe a document either way. Must not throw.
         Path notADirectory = Files.createTempFile("not-a-package", ".txt");
         Assert.assertTrue(READER.readTriggerMetadataModel(notADirectory).isEmpty());
@@ -239,7 +239,7 @@ public class LibraryMetadataReaderTest {
                   }
                 }
                 """);
-        Path icons = Files.createDirectories(root.resolve("resources/icons"));
+        Path icons = Files.createDirectories(root.resolve("metadata/icons"));
         Files.writeString(icons.resolve("light.svg"), "<svg><path fill=\"currentColor\"/></svg>");
         Files.writeString(icons.resolve("dark.svg"), "<svg><path fill=\"currentColor\"/></svg>");
 
@@ -281,19 +281,19 @@ public class LibraryMetadataReaderTest {
         Assert.assertTrue(READER.readArtifactInfo(root, null).isEmpty());
     }
 
-    /** A package root shipping the given {@code resources/trigger-metadata.json}. */
+    /** A package root shipping the given {@code metadata/trigger-metadata.json}. */
     private static Path shipping(String json) throws IOException {
         Path root = Files.createTempDirectory("shipped-metadata");
-        Path resources = Files.createDirectories(root.resolve("resources"));
-        Files.writeString(resources.resolve("trigger-metadata.json"), json, StandardCharsets.UTF_8);
+        Path metadata = Files.createDirectories(root.resolve("metadata"));
+        Files.writeString(metadata.resolve("trigger-metadata.json"), json, StandardCharsets.UTF_8);
         return root;
     }
 
-    /** A package root shipping the given {@code resources/trigger-ui-metadata.json}. */
+    /** A package root shipping the given {@code metadata/trigger-ui-metadata.json}. */
     private static Path shippingUi(String json) throws IOException {
         Path root = Files.createTempDirectory("shipped-ui-metadata");
-        Path resources = Files.createDirectories(root.resolve("resources"));
-        Files.writeString(resources.resolve("trigger-ui-metadata.json"), json, StandardCharsets.UTF_8);
+        Path metadata = Files.createDirectories(root.resolve("metadata"));
+        Files.writeString(metadata.resolve("trigger-ui-metadata.json"), json, StandardCharsets.UTF_8);
         return root;
     }
 }

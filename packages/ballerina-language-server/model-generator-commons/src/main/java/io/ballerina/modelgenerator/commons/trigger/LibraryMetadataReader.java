@@ -70,8 +70,8 @@ public final class LibraryMetadataReader {
 
     private static final Logger LOGGER = Logger.getLogger(LibraryMetadataReader.class.getName());
 
-    private static final String TRIGGER_METADATA_RESOURCE_PATH = "resources/trigger-metadata.json";
-    private static final String TRIGGER_UI_METADATA_RESOURCE_PATH = "resources/trigger-ui-metadata.json";
+    private static final String TRIGGER_METADATA_RESOURCE_PATH = "metadata/trigger-metadata.json";
+    private static final String TRIGGER_UI_METADATA_RESOURCE_PATH = "metadata/trigger-ui-metadata.json";
     /** Sized for the designer, which resolves one connector at a time. */
     private static final int MAX_CACHE_SIZE = 2;
     private static final Pattern SUPPORTED_VERSION = Pattern.compile("^v1\\.\\d+$");
@@ -93,12 +93,12 @@ public final class LibraryMetadataReader {
         return INSTANCE;
     }
 
-    /** The connector's own {@code resources/trigger-metadata.json}, resolved from its {@code .bala}. */
+    /** The connector's own {@code metadata/trigger-metadata.json}, resolved from its {@code .bala}. */
     public Optional<TriggerMetadataModel> getTriggerMetadataModel(ModuleInfo moduleInfo) {
         return packageRoot(moduleInfo).flatMap(this::readTriggerMetadataModel);
     }
 
-    /** The connector's sparse {@code resources/trigger-ui-metadata.json}, resolved from its {@code .bala}. */
+    /** The connector's sparse {@code metadata/trigger-ui-metadata.json}, resolved from its {@code .bala}. */
     public Optional<TriggerUIMetadataModel> getTriggerUIMetadataModel(ModuleInfo moduleInfo) {
         return packageRoot(moduleInfo)
                 .flatMap(root -> readTriggerUIMetadataModel(root, moduleInfo == null ? null : moduleInfo.version()));
@@ -121,7 +121,7 @@ public final class LibraryMetadataReader {
     }
 
     /**
-     * The connector's own {@code resources/trigger-metadata.json}, resolved from the Ballerina
+     * The connector's own {@code metadata/trigger-metadata.json}, resolved from the Ballerina
      * <b>local</b> repository rather than Central.
      */
     public Optional<TriggerMetadataModel> getTriggerMetadataModelFromLocalRepository(ModuleInfo moduleInfo) {

@@ -81,7 +81,7 @@ public class FunctionBuilderRouter {
     /**
      * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar,
      * or -- on a miss, when {@code orgName} is known -- synthesizable from the connector's own shipped
-     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
+     * {@code metadata/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
      * (see {@link TriggerModelReader#getSchemaDrivenTriggerModel}). Mirrors
      * {@code ServiceBuilderRouter} (the hardcoded builder still wins whenever neither source has a
      * model). {@code orgName == null} degrades to the bundled-only check -- {@link #getModelTemplate}

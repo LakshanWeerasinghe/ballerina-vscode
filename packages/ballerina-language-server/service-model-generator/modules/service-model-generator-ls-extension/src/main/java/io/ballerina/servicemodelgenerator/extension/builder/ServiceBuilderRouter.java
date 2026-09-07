@@ -83,7 +83,7 @@ public class ServiceBuilderRouter {
     /**
      * Returns {@code true} when the connector's schema is bundled as a classpath resource in this jar,
      * or -- on a miss, when {@code orgName} is known -- synthesizable from the connector's own shipped
-     * {@code resources/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
+     * {@code metadata/trigger-authoring.json} plus semantic-API introspection of its {@code .bala}
      * (see {@link TriggerModelReader#getSchemaDrivenTriggerModel}). The hardcoded builder still wins
      * whenever neither source has a model, so an unrecognized connector's behavior is unchanged.
      * {@link #NEVER_SCHEMA_DRIVEN} short-circuits this to {@code false} unconditionally.

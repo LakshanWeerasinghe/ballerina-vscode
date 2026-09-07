@@ -58,7 +58,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_R
 
 /**
  * Synthesizes a {@link TriggerUISchemaModel} at request time from a connector's own
- * {@link TriggerMetadataModel} ({@code resources/trigger-metadata.json}), {@link TriggerLibraryFacts}
+ * {@link TriggerMetadataModel} ({@code metadata/trigger-metadata.json}), {@link TriggerLibraryFacts}
  * introspected from its compiled {@code SemanticModel}, and a listener init-form template resolved by
  * {@code ListenerUtil#getListenerModelByName}.
  *

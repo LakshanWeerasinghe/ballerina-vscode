@@ -40,7 +40,7 @@ import java.util.List;
  * @param kind        the schema-driven trigger's legacy kind, if any
  * @param triggerKind the canonical integration kind in newer metadata, if any
  * @param minSupportedVersion the lowest published version of this connector that ships its own
- *                            {@code resources/trigger-metadata.json}/{@code trigger-ui-metadata.json}
+ *                            {@code metadata/trigger-metadata.json}/{@code trigger-ui-metadata.json}
  *                            (schema-driven trigger data moved from the LS jar into the connector
  *                            package itself). {@code null} for a trigger that either never needed this
  *                            (still hardcoded, e.g. http/graphql/tcp/ai) or has no published fix yet.

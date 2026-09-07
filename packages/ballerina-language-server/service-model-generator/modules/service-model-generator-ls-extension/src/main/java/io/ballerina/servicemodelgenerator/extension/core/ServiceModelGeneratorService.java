@@ -520,7 +520,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
 
     /**
      * The connectors this project uses as a {@code service ... on <module>:Listener} whose resolved
-     * version predates schema-driven trigger support (its {@code resources/trigger-metadata.json}/
+     * version predates schema-driven trigger support (its {@code metadata/trigger-metadata.json}/
      * {@code trigger-ui-metadata.json} were only ever bundled with the language server, not shipped in
      * the connector's own {@code .bala}). Empty when nothing is affected.
      *
@@ -1350,7 +1350,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
     /**
      * Resolves a trigger's basic info, preferring a schema-driven {@code TriggerUISchemaModel} -- bundled in
      * this jar, or (on a miss) synthesized from the connector's own shipped
-     * {@code resources/trigger-metadata.json} plus semantic-API introspection of its {@code .bala} --
+     * {@code metadata/trigger-metadata.json} plus semantic-API introspection of its {@code .bala} --
      * over the legacy sqlite index derived from {@code service_artifacts.json}. This lets a
      * schema-driven trigger appear in the picker with no {@code service_artifacts.json} entry or index
      * rebuild; a trigger with neither source (e.g. HTTP, AI, TCP, GraphQL) falls through to the
