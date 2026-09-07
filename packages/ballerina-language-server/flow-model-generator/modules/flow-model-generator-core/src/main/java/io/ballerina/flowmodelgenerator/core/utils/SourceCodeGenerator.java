@@ -79,6 +79,29 @@ public class SourceCodeGenerator {
     }
 
     /**
+     * A member's default value, resolved against the same prefixes as the type descriptor beside it.
+     *
+     * <p>
+     * The value is an expression, not a type descriptor, so it goes through the parsing variant: a default of
+     * {@code "http://host"} or {@code {drive: 1}} has a colon in a position that only looks like a qualifier.
+     * The member's own imports are merged in explicitly rather than read off the scope stack, because
+     * {@link #generateMember} emits the default after {@link #generateTypeFromMember} has already popped them.
+     * </p>
+     */
+    private String defaultValueSource(Member member, boolean withDefaultValue) {
+        String defaultValue = member.defaultValue();
+        if (!withDefaultValue || defaultValue == null || defaultValue.isEmpty()) {
+            return "";
+        }
+        Map<String, String> scope = importScopes.peek();
+        if (member.imports() != null && !member.imports().isEmpty()) {
+            scope = new LinkedHashMap<>(scope);
+            scope.putAll(member.imports());
+        }
+        return " = " + prefixes.requalifyAuthoredValue(defaultValue, scope);
+    }
+
+    /**
      * Enters a member's import scope. The caller must {@link #popScope()} in a finally block, so a throw from
      * an unsupported type descriptor cannot leave the stack skewed.
      */
@@ -522,9 +545,7 @@ public class SourceCodeGenerator {
             }
 
             // Default value
-            String defaultValue =
-                    (withDefaultValue && member.defaultValue() != null && !member.defaultValue().isEmpty())
-                            ? " = " + member.defaultValue() : "";
+            String defaultValue = defaultValueSource(member, withDefaultValue);
 
             String template = "%s %s%s"; // <type descriptor> <identifier>[ = <default value>]
             return template.formatted(annotatedTypeDesc, paramName, defaultValue);
@@ -580,13 +601,7 @@ public class SourceCodeGenerator {
             fieldName = fieldName + "?";
         }
 
-        return template.formatted(
-                typeDescriptor,
-                fieldName,
-                (withDefaultValue && member.defaultValue() != null && !member.defaultValue().isEmpty())
-                        ? " = " + member.defaultValue()
-                        : ""
-        );
+        return template.formatted(typeDescriptor, fieldName, defaultValueSource(member, withDefaultValue));
     }
 
     private String generateResourceFunction(Function function) {
