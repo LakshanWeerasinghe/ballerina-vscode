@@ -25,15 +25,15 @@ interface ApprovalBadgeProps {
 }
 
 /**
- * A shield badge on the tool's top-right corner shown when the tool's
+ * A shield badge on the tool's bottom-right corner shown when the tool's
  * @ai:AgentTool annotation gates it for human-in-the-loop approval.
  */
 export function ApprovalBadge({ background }: ApprovalBadgeProps) {
     return (
-        // Positioned on the 45° point of the tool circle (cx=80 cy=24 r=22, shared by
-        // AgentNodeWidget and AgentCallNodeWidget). If that circle's geometry changes in
-        // either widget, these coordinates need to move with it.
-        <foreignObject x="88.5" y="-0.5" width="17" height="17" style={{ overflow: "visible" }}>
+        // Positioned on the 135° point of the tool circle (cx=80 cy=24 r=22, shared by
+        // AgentNodeWidget and AgentCallNodeWidget), to match the workflow feature's HITL badge.
+        // If that circle's geometry changes in either widget, these coordinates need to move with it.
+        <foreignObject x="88.5" y="31.5" width="17" height="17" style={{ overflow: "visible" }}>
             <Tooltip content="Requires Approval" containerSx={{ display: "flex" }}>
                 <div
                     css={css`
