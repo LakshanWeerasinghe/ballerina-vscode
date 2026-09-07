@@ -53,12 +53,12 @@ import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
 import * as path from 'path';
 import { approvalViewManager } from '../state/ApprovalViewManager';
 import {
-    buildContextManagementOptions,
     detectAppliedCompaction,
     estimateFloorTokens,
     extractCompactionSummary,
     stripAnalysisFromCompactionBlocks,
     COMPACTION_BLOCK_PREFIX,
+    SUMMARIZATION_PROMPT,
 } from '@wso2/copilot-utilities/context-management';
 import { sanitizeMessages } from './resilience';
 import { getLoginMethod } from '../../../utils/ai/auth';
@@ -105,10 +105,41 @@ function supportsCompaction(loginMethod: LoginMethod): boolean {
         || loginMethod === LoginMethod.ANTHROPIC_AWS;
 }
 
+/**
+ * Server-side compaction trigger, in input tokens.
+ *
+ * Unlike MI, BI re-sends the entire project source in every turn's user message, so its
+ * per-turn baseline is much larger — MI's 200K trigger would fire almost immediately and
+ * leave too little working headroom. Production target: 350_000.
+ *
+ * NOTE: set to 100_000 for testing / initial rollout so compaction is easy to exercise.
+ */
+const COMPACT_TRIGGER_TOKENS = 100_000;
+
+/**
+ * Builds providerOptions.anthropic.contextManagement, mirroring MI's approach: compaction
+ * only, no `clear_tool_uses`. `clear_tool_uses` *deletes* older tool results with no summary
+ * to replace them, degrading the agent mid-task; `compact_20260112` *summarizes* instead,
+ * preserving the context the agent needs to keep working.
+ */
 function buildCompactionProviderOptions(loginMethod: LoginMethod, floorTokens: number) {
     if (!supportsCompaction(loginMethod)) { return undefined; }
-    const options = buildContextManagementOptions({ estimatedFloorTokens: floorTokens });
-    return options ?? undefined;
+    // Disable when the fixed per-turn floor (system prompt + whole-codebase dump) already
+    // exceeds the trigger — compaction would otherwise fire every turn against empty history.
+    if (floorTokens >= COMPACT_TRIGGER_TOKENS) { return undefined; }
+    return {
+        anthropic: {
+            contextManagement: {
+                edits: [
+                    {
+                        type: 'compact_20260112' as const,
+                        trigger: { type: 'input_tokens' as const, value: COMPACT_TRIGGER_TOKENS },
+                        instructions: SUMMARIZATION_PROMPT,
+                    },
+                ],
+            },
+        },
+    };
 }
 
 function warnCompactionDisabledOnce(projectRootPath: string, eventHandler: (e: any) => void): void {
