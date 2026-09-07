@@ -18,8 +18,6 @@
 
 package io.ballerina.flowmodelgenerator.extension;
 
-import io.ballerina.compiler.api.SemanticModel;
-import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.syntax.tree.IdentifierToken;
 import io.ballerina.compiler.syntax.tree.ImportDeclarationNode;
 import io.ballerina.compiler.syntax.tree.ImportOrgNameNode;
@@ -27,7 +25,6 @@ import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.NodeList;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
-import io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil;
 import io.ballerina.flowmodelgenerator.extension.request.CreateFilesRequest;
 import io.ballerina.flowmodelgenerator.extension.response.CommonSourceResponse;
 import io.ballerina.flowmodelgenerator.extension.response.ICPEnabledResponse;
@@ -35,7 +32,6 @@ import io.ballerina.projects.Document;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Package;
-import io.ballerina.projects.PackageCompilation;
 import io.ballerina.projects.Project;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
@@ -60,10 +56,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * Service for enabling workflow management for an integration. Enabling adds the
- * {@code import ballerina/workflow.management as _;} import to the default module so the
- * workflow management runtime is engaged. Mirrors {@link ICPEnablerService} but is import-only
- * (no Ballerina.toml build options).
+ * Service for enabling the workflow management REST API of an integration. Enabling adds
+ * {@code import ballerina/workflow.management.rest as _;} to {@code main.bal} — the module whose
+ * import brings the API's listener into the program; its port, TLS and CORS settings are
+ * {@code Config.toml} entries the configuration editor owns, so nothing else is written here.
+ *
+ * <p>Before 0.9.0 the API lived in {@code ballerina/workflow.management}, and this checkbox added
+ * that import. That module is now the management library, so an import of it no longer means the
+ * API is on: it does not count as enabled, and the unused form the old checkbox wrote
+ * ({@code as _}) is cleaned up when the API is disabled. An import of it that a program uses is
+ * left alone.
  *
  * @since 1.0.0
  */
@@ -72,9 +74,11 @@ import java.util.stream.Collectors;
 public class WorkflowManagementService implements ExtendedLanguageServerService {
 
     private static final String BALLERINA = "ballerina";
-    private static final String MODULE_NAME = "workflow.management";
-    private static final String IMPORT_STMT = "import ballerina/workflow.management as _;%n";
-    private static final String FUNCTIONS_BAL = "functions.bal";
+    private static final String MODULE_NAME = "workflow.management.rest";
+    /** Where the API lived before 0.9.0; see the class comment for how such an import is treated. */
+    private static final String LEGACY_MODULE_NAME = "workflow.management";
+    private static final String UNUSED_PREFIX = "_";
+    private static final String IMPORT_STMT = "import ballerina/workflow.management.rest as _;%n";
     private static final String MAIN_BAL = "main.bal";
 
     private WorkspaceManager workspaceManager;
@@ -98,35 +102,6 @@ public class WorkflowManagementService implements ExtendedLanguageServerService 
         });
     }
 
-    /**
-     * Determines whether workflow management should be enabled automatically (e.g. when ICP is
-     * being enabled). Returns {@code true} only when management is not already enabled, ICP is
-     * enabled, and the integration contains at least one {@code @workflow:Workflow} function. This
-     * keys off the presence of workflow functions, not workflow imports, so it stays {@code false}
-     * for integrations that merely import the workflow module without defining a workflow.
-     */
-    @JsonRequest
-    public CompletableFuture<ICPEnabledResponse> shouldEnableWorkflowManagementByDefault(CreateFilesRequest request) {
-        return CompletableFuture.supplyAsync(() -> {
-            ICPEnabledResponse response = new ICPEnabledResponse();
-            try {
-                Project project = this.workspaceManager.loadProject(Path.of(request.projectPath()));
-                Package pkg = project.currentPackage();
-                // Use the control-plane import (not the full isIcpEnabled) as the ICP signal: this
-                // runs during ICP enablement, right after the import is added via a text edit but
-                // before the Ballerina.toml remoteManagement write is reflected in the loaded
-                // project, so an isIcpEnabled() toml check would spuriously fail here.
-                boolean shouldEnable = !hasManagementImport(pkg)
-                        && ICPEnablerService.hasControlPlaneImport(pkg)
-                        && hasWorkflowFunction(pkg);
-                response.setEnabled(shouldEnable);
-            } catch (Throwable e) {
-                response.setError(e);
-            }
-            return response;
-        });
-    }
-
     @JsonRequest
     public CompletableFuture<CommonSourceResponse> addWorkflowManagement(CreateFilesRequest request) {
         return CompletableFuture.supplyAsync(() -> {
@@ -138,29 +113,12 @@ public class WorkflowManagementService implements ExtendedLanguageServerService 
                 if (hasManagementImport(project.currentPackage())) {
                     return response;
                 }
-                // Prefer functions.bal, fall back to main.bal, otherwise create functions.bal.
-                // Note: workspaceManager.document() throws for a non-existent path (it cannot
-                // resolve the package root), so existence is checked with Files.exists() first.
-                Path sourceRoot = project.sourceRoot();
-                Path functionsPath = sourceRoot.resolve(FUNCTIONS_BAL);
-                Path mainPath = sourceRoot.resolve(MAIN_BAL);
-
-                Path targetPath;
-                String targetFileName;
-                boolean targetExists;
-                if (Files.exists(functionsPath)) {
-                    targetPath = functionsPath;
-                    targetFileName = FUNCTIONS_BAL;
-                    targetExists = true;
-                } else if (Files.exists(mainPath)) {
-                    targetPath = mainPath;
-                    targetFileName = MAIN_BAL;
-                    targetExists = true;
-                } else {
-                    targetPath = functionsPath;
-                    targetFileName = FUNCTIONS_BAL;
-                    targetExists = false;
-                }
+                // The import goes into main.bal, created when the project has none. Note that
+                // workspaceManager.document() throws for a non-existent path (it cannot resolve
+                // the package root), so existence is checked with Files.exists() first.
+                Path targetPath = project.sourceRoot().resolve(MAIN_BAL);
+                String targetFileName = MAIN_BAL;
+                boolean targetExists = Files.exists(targetPath);
 
                 Optional<Document> targetDoc = targetExists ? workspaceManager.document(targetPath) : Optional.empty();
                 TextEdit edit;
@@ -193,7 +151,7 @@ public class WorkflowManagementService implements ExtendedLanguageServerService 
                     Document document = defaultModule.document(documentId);
                     ModulePartNode root = document.syntaxTree().rootNode();
                     for (ImportDeclarationNode importNode : root.imports()) {
-                        if (validOrg(importNode) && validModuleName(importNode)) {
+                        if (validOrg(importNode) && (validModuleName(importNode) || unusedLegacyImport(importNode))) {
                             Path path = project.sourceRoot().resolve(importNode.lineRange().fileName());
                             textEdits.computeIfAbsent(path.toString(), key -> new ArrayList<>()).add(new TextEdit(
                                     PositionUtil.toRange(importNode.location().lineRange()), ""));
@@ -223,33 +181,30 @@ public class WorkflowManagementService implements ExtendedLanguageServerService 
         return false;
     }
 
-    private static boolean hasWorkflowFunction(Package pkg) {
-        PackageCompilation compilation = pkg.getCompilation();
-        for (Module module : pkg.modules()) {
-            SemanticModel semanticModel = compilation.getSemanticModel(module.moduleId());
-            for (Symbol symbol : semanticModel.moduleSymbols()) {
-                if (WorkflowUtil.isWorkflowFunction(symbol)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     private static boolean validOrg(ImportDeclarationNode importNode) {
         Optional<ImportOrgNameNode> importOrgNameNode = importNode.orgName();
         return importOrgNameNode.isPresent() && importOrgNameNode.get().orgName().text().trim().equals(BALLERINA);
     }
 
+    // The REST import counts whether or not it uses the `_` prefix: importing the module is what
+    // brings the listener in, and a program may well refer to its configurables by name.
     private static boolean validModuleName(ImportDeclarationNode importNode) {
-        SeparatedNodeList<IdentifierToken> identifierTokens = importNode.moduleName();
-        return identifierTokens.stream().map(Node::toSourceCode).map(String::trim)
-                .collect(Collectors.joining(".")).equals(MODULE_NAME);
+        return moduleName(importNode).equals(MODULE_NAME);
     }
 
-    // Note: the management import is accepted whether or not it uses the `_` prefix
-    // (`import ballerina/workflow.management;` or `... as _;`), so the prefix is intentionally
-    // not validated when detecting or removing the import.
+    // The import the checkbox wrote before 0.9.0, in the form it wrote it — unused, so removing it
+    // on disable cannot break anything. The same module imported for use stays.
+    private static boolean unusedLegacyImport(ImportDeclarationNode importNode) {
+        return moduleName(importNode).equals(LEGACY_MODULE_NAME)
+                && importNode.prefix().isPresent()
+                && importNode.prefix().get().prefix().text().trim().equals(UNUSED_PREFIX);
+    }
+
+    private static String moduleName(ImportDeclarationNode importNode) {
+        SeparatedNodeList<IdentifierToken> identifierTokens = importNode.moduleName();
+        return identifierTokens.stream().map(Node::toSourceCode).map(String::trim)
+                .collect(Collectors.joining("."));
+    }
 
     @Override
     public Class<?> getRemoteInterface() {
