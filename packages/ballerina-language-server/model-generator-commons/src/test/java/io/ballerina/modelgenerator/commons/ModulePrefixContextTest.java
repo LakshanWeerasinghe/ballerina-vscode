@@ -250,6 +250,22 @@ public class ModulePrefixContextTest {
     }
 
     @Test
+    public void testAnOrgLessSiblingModuleIsAliasedWhenItsNaturalPrefixIsTaken() {
+        // A module of the current package is imported without an organization, but it is still a module whose
+        // prefix can be taken: `test_pack.jsondata` and `ballerina/data.jsondata` both derive `jsondata`, and the
+        // file already binds it. SourceBuilder writes this signature straight into an import statement, so the
+        // prefix it resolves to here is the one the reference beside it has to use.
+        ModulePrefixContext context = ModulePrefixContext.from(rootOf("import ballerina/data.jsondata;\n"), CURRENT);
+
+        String prefix = context.prefixFor("", "test_pack.jsondata");
+
+        Assert.assertNotEquals(prefix, "jsondata", "the file already binds jsondata to another module");
+        Assert.assertEquals(context.pendingImportStatements(),
+                List.of("test_pack.jsondata as " + prefix),
+                "the statement has to bind the very prefix the reference was resolved to");
+    }
+
+    @Test
     public void testOwnModuleEntryIsNotMappedOntoAnEmptyQualifier() {
         ModulePrefixContext context = ModulePrefixContext.from(rootOf(""), CURRENT);
 

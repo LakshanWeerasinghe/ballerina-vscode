@@ -365,7 +365,12 @@ public class SourceBuilder {
     private void acceptImportSignature(String importSignature) {
         String[] parts = importSignature.split("/", 2);
         if (parts.length < 2) {
-            imports.putIfAbsent(importSignature, null);
+            // A signature with no organization names a module of the current package, which is how such a module
+            // has to be imported. It still needs resolving: `nested_editing.mod` binds `mod`, which another
+            // module the file imports may already have taken, and the type text is resolved against the same
+            // ledger. Leaving the prefix unrecorded here wrote the import plain while the type carried the
+            // allocated alias, and nothing bound that alias.
+            imports.put(importSignature, prefixes().prefixFor("", parts[0]));
             return;
         }
         imports.put(importSignature, prefixes().prefixFor(parts[0], parts[1]));
