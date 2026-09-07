@@ -109,12 +109,13 @@ public final class AiSourceUtils {
      */
     public static String agentDecisionResourceSource(String agentVarName, String operator) {
         return String.format(
-                "    resource function post decision(@http:Payload ai:DecisionMessage request) " +
-                        "returns ai:ChatRespMessage|error {%s" +
+                "    resource function %s %s(@http:Payload %s request) " +
+                        "returns %s {%s" +
                         "        string result = check %s%srun({decisions: request.decisions}, " +
                         "request.sessionId);%s" +
                         "        return {message: result};%s" +
                         "    }",
+                POST_ACCESSOR, DECISION_RESOURCE_NAME, DECISION_MESSAGE_TYPE, CHAT_RESPONSE_TYPE,
                 NEW_LINE, agentVarName, operator, NEW_LINE, NEW_LINE
         );
     }

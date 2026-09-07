@@ -153,19 +153,8 @@ export function AIServiceWidget({ model, engine }: BaseNodeWidgetProps) {
     const { onServiceSelect, onDeleteComponent, readonly } = useDiagramContext();
     const isMenuOpen = Boolean(menuAnchorEl);
 
-    const serviceFunctions = [];
-    if ((model.node as CDService).remoteFunctions?.length > 0) {
-        serviceFunctions.push(...(model.node as CDService).remoteFunctions);
-    }
-    if ((model.node as CDService).resourceFunctions?.length > 0) {
-        serviceFunctions.push(...(model.node as CDService).resourceFunctions);
-    }
-
     const resourceFunctions = (model.node as CDService).resourceFunctions ?? [];
-    // Resolve by path rather than array position — `serviceFunctions[0]` only happened to be
-    // `chat` because of incidental ordering upstream; matching the generated name is correct
-    // regardless of how many resources the service ends up with.
-    const chatFunction = resourceFunctions.find(fn => fn.path === AI_CHAT_RESOURCE_NAME) ?? serviceFunctions[0];
+    const chatFunction = resourceFunctions.find(fn => fn.path === AI_CHAT_RESOURCE_NAME);
     const decisionFunction = resourceFunctions.find(fn => fn.path === AI_DECISION_RESOURCE_NAME);
 
     // The outer box always opens the service's resource listing, exactly as a REST service node
