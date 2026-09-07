@@ -20,7 +20,7 @@ function lookupBooking(http:Client api, string bookingId) returns json|error {
 final workflow:DurableAgent travelAgent = check new ({
     systemPrompt: {role: "Travel assistant", instructions: "Plan trips end to end."},
     model: deskModel,
-    inputType: map<json>,
+    inputType: TripInput,
     activities: [
         {activity: lookupBooking, requiresApproval: true, retryPolicy: {maxRetries: 2, retryDelay: 1.5}, bindings: {api: deskApi}}
     ],
@@ -59,3 +59,8 @@ function reconcileFlow(workflow:Context ctx, string billId) returns error? {
     json receipt = check ctx->callActivity(lookupBooking, {api: deskApi, bookingId: billId}, retryPolicy = opsNoRetryReviewers);
     string childId = check ctx->runChildWorkflow(childWorkflow = childFlow, input = billId);
 }
+
+// The agent's input type, named: a type descriptor such as `map<json>` is not an expression, and the
+// parser takes `map<json>, activities: [` as the start of a query, swallowing every field after it.
+// Declared last so the line ranges the goldens above point at do not move.
+type TripInput map<json>;

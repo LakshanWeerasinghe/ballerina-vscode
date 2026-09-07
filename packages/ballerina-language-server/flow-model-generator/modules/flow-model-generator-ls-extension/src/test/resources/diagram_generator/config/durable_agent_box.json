@@ -39,9 +39,6 @@
           "sourceCode": "function driveTravelAgent() returns error? {\n    string instanceId = check travelAgent.run(query = \"Plan a 3-day trip\", input = {city: \"Kandy\"});\n    string token = check travelAgent.sendData(instanceId = instanceId, eventName = \"hotelResults\", data = {ok: true});\n    string answer = check travelAgent.waitForDataResult(instanceId = instanceId, token = token);\n}"
         },
         "returning": false,
-        "diagnostics": {
-          "hasDiagnostics": true
-        },
         "flags": 0
       },
       {
@@ -62,11 +59,102 @@
               "path": "https://bcentral-packageicons.azureedge.net/images/ballerina_ai_1.13.0.png",
               "type": "Wso2ModelProvider"
             },
-            "activities": [],
-            "humanTasks": [],
+            "activities": [
+              {
+                "name": "lookupBooking",
+                "type": "activity",
+                "lineRange": {
+                  "fileName": "durable_agent_box.bal",
+                  "startLine": {
+                    "line": 24,
+                    "offset": 8
+                  },
+                  "endLine": {
+                    "line": 24,
+                    "offset": 130
+                  }
+                },
+                "values": {
+                  "activity": "lookupBooking",
+                  "requiresApproval": "true",
+                  "retryPolicy": "AutoRetry",
+                  "maxRetries": "2",
+                  "retryDelay": "1.5",
+                  "bindings.api": "deskApi"
+                }
+              }
+            ],
+            "humanTasks": [
+              {
+                "name": "approveItinerary",
+                "type": "humanTask",
+                "lineRange": {
+                  "fileName": "durable_agent_box.bal",
+                  "startLine": {
+                    "line": 30,
+                    "offset": 8
+                  },
+                  "endLine": {
+                    "line": 30,
+                    "offset": 88
+                  }
+                },
+                "values": {
+                  "taskName": "approveItinerary",
+                  "userRoles": "travel-lead",
+                  "title": "Approve the itinerary"
+                }
+              }
+            ],
             "tools": [],
-            "events": [],
-            "peers": [],
+            "events": [
+              {
+                "name": "hotelResults",
+                "type": "event",
+                "lineRange": {
+                  "fileName": "durable_agent_box.bal",
+                  "startLine": {
+                    "line": 27,
+                    "offset": 8
+                  },
+                  "endLine": {
+                    "line": 27,
+                    "offset": 63
+                  }
+                },
+                "values": {
+                  "name": "hotelResults",
+                  "requestType": "json",
+                  "responseType": "string"
+                }
+              }
+            ],
+            "peers": [
+              {
+                "name": "askHotelDesk",
+                "type": "peer",
+                "lineRange": {
+                  "fileName": "durable_agent_box.bal",
+                  "startLine": {
+                    "line": 33,
+                    "offset": 8
+                  },
+                  "endLine": {
+                    "line": 33,
+                    "offset": 177
+                  }
+                },
+                "values": {
+                  "agent": "hotelAgent",
+                  "name": "askHotelDesk",
+                  "description": "Hotel research",
+                  "wait": "false",
+                  "callbackChannel": "hotelResults",
+                  "requiresApproval": "true",
+                  "userRoles": "\"travel-lead\""
+                }
+              }
+            ],
             "declaration": {
               "fileName": "durable_agent_box.bal",
               "startLine": {
@@ -444,15 +532,6 @@
             "hidden": false,
             "codedata": {}
           }
-        },
-        "diagnostics": {
-          "hasDiagnostics": true,
-          "diagnostics": [
-            {
-              "severity": "ERROR",
-              "message": "Durable agent travelAgent declares no data-event channel named hotelResults"
-            }
-          ]
         },
         "flags": 1
       },
