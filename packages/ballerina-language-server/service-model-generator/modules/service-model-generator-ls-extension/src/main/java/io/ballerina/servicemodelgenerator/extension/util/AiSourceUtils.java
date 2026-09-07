@@ -63,6 +63,8 @@ public final class AiSourceUtils {
     private static final String REQUEST_PARAM = "request";
     private static final String DECISION_MESSAGE_TYPE = "ai:DecisionMessage";
     private static final String CHAT_RESPONSE_TYPE = "ai:ChatRespMessage|error";
+    private static final String RESUME_TYPE = "ai:Resume";
+    private static final String RESUME_VAR = "resume";
 
     private AiSourceUtils() {
     }
@@ -111,12 +113,12 @@ public final class AiSourceUtils {
         return String.format(
                 "    resource function %s %s(@http:Payload %s request) " +
                         "returns %s {%s" +
-                        "        string result = check %s%srun({decisions: request.decisions}, " +
-                        "request.sessionId);%s" +
+                        "        %s %s = {decisions: request.decisions};%s" +
+                        "        string result = check %s%srun(%s, request.sessionId);%s" +
                         "        return {message: result};%s" +
                         "    }",
                 POST_ACCESSOR, DECISION_RESOURCE_NAME, DECISION_MESSAGE_TYPE, CHAT_RESPONSE_TYPE,
-                NEW_LINE, agentVarName, operator, NEW_LINE, NEW_LINE
+                NEW_LINE, RESUME_TYPE, RESUME_VAR, NEW_LINE, agentVarName, operator, RESUME_VAR, NEW_LINE, NEW_LINE
         );
     }
 

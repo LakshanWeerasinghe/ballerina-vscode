@@ -1115,7 +1115,7 @@ export function ServiceDesigner(props: ServiceDesignerProps) {
                                                         disabled={isSaving}
                                                     >
                                                         <Codicon name="add" sx={{ marginRight: 8 }} />
-                                                        <ButtonText>Human-in-the-Loop</ButtonText>
+                                                        <ButtonText>Decision</ButtonText>
                                                     </Button>
                                                 )}
                                                 {!isAiService && !haveServiceTypeName && resourcesCount > 0 && (
