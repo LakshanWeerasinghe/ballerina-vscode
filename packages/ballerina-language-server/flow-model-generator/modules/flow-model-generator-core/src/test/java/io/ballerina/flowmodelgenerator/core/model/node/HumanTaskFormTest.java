@@ -29,8 +29,10 @@ import io.ballerina.modelgenerator.commons.ParameterData;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -154,12 +156,65 @@ public class HumanTaskFormTest {
                 "named arguments are read by the signature path, not the overlay");
     }
 
+    @Test(description = "The record's two type fields are hidden, and the form keeps its pre-record order: "
+            + "name, roles, input, details, completion type")
+    public void testRecordFormIsFlatAndOrderedAsBefore() {
+        Map<String, Property> properties = new LinkedHashMap<>();
+        // Signature order at 0.9.0: positional parameters, inferred type, then the record's fields.
+        properties.put(HumanTaskBuilder.TASK_NAME_KEY, property("\"approve\"", ParameterData.Kind.REQUIRED));
+        properties.put(HumanTaskBuilder.TASK_INPUT_KEY, property("{}", ParameterData.Kind.REQUIRED));
+        properties.put(HumanTaskBuilder.STEP_ID_KEY, property("", ParameterData.Kind.DEFAULTABLE));
+        properties.put(HumanTaskBuilder.USER_ROLES_KEY,
+                property("\"manager\"", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put(HumanTaskBuilder.TITLE_KEY, property("", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put("$description", property("", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put(HumanTaskBuilder.TIMEOUT_KEY, property("", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put(HumanTaskBuilder.TASK_INPUT_TYPE_KEY, property("", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put(HumanTaskBuilder.RESULT_TYPE_KEY, property("Decision", ParameterData.Kind.INCLUDED_FIELD));
+        properties.put(HumanTaskBuilder.DATABINDING_TYPE_KEY,
+                property("Decision", ParameterData.Kind.PARAM_FOR_TYPE_INFER));
+        properties.put(Property.VARIABLE_KEY, property("result", null));
+
+        HumanTaskBuilder.relabelHumanTaskFormProperties(properties);
+
+        Assert.assertEquals(new ArrayList<>(properties.keySet()), List.of(
+                HumanTaskBuilder.TASK_NAME_KEY, HumanTaskBuilder.USER_ROLES_KEY, HumanTaskBuilder.TASK_INPUT_KEY,
+                HumanTaskBuilder.TITLE_KEY, "$description", HumanTaskBuilder.TIMEOUT_KEY,
+                HumanTaskBuilder.DATABINDING_TYPE_KEY,
+                HumanTaskBuilder.STEP_ID_KEY, HumanTaskBuilder.TASK_INPUT_TYPE_KEY, HumanTaskBuilder.RESULT_TYPE_KEY,
+                Property.VARIABLE_KEY));
+        for (String hidden : List.of(HumanTaskBuilder.RESULT_TYPE_KEY, HumanTaskBuilder.TASK_INPUT_TYPE_KEY)) {
+            Assert.assertTrue(properties.get(hidden).hidden(), hidden + " is not offered in the form");
+            Assert.assertFalse(properties.get(hidden).editable(), hidden + " is not edited in the form");
+        }
+        Assert.assertEquals(properties.get(HumanTaskBuilder.RESULT_TYPE_KEY).value(), "Decision",
+                "a stated resultType is kept, so a save writes it back");
+        Assert.assertFalse(properties.get(HumanTaskBuilder.USER_ROLES_KEY).hidden());
+    }
+
+    @Test(description = "A pre-0.9 form — payload, no record fields — keeps its own order untouched")
+    public void testPreRecordFormOrderIsStable() {
+        Map<String, Property> properties = new LinkedHashMap<>();
+        properties.put(HumanTaskBuilder.TASK_NAME_KEY, property("\"approve\"", ParameterData.Kind.REQUIRED));
+        properties.put(HumanTaskBuilder.USER_ROLES_KEY, property("\"manager\"", ParameterData.Kind.REQUIRED));
+        properties.put(HumanTaskBuilder.PAYLOAD_KEY, property("", ParameterData.Kind.DEFAULTABLE));
+        properties.put(HumanTaskBuilder.TITLE_KEY, property("", ParameterData.Kind.DEFAULTABLE));
+        properties.put(HumanTaskBuilder.DATABINDING_TYPE_KEY,
+                property("anydata", ParameterData.Kind.PARAM_FOR_TYPE_INFER));
+
+        HumanTaskBuilder.relabelHumanTaskFormProperties(properties);
+
+        Assert.assertEquals(new ArrayList<>(properties.keySet()), List.of(
+                HumanTaskBuilder.TASK_NAME_KEY, HumanTaskBuilder.USER_ROLES_KEY, HumanTaskBuilder.PAYLOAD_KEY,
+                HumanTaskBuilder.TITLE_KEY, HumanTaskBuilder.DATABINDING_TYPE_KEY));
+    }
+
     private static Property property(String value, ParameterData.Kind kind) {
-        return new Property.Builder<Void>(null)
-                .codedata().kind(kind.name()).stepOut()
-                .value(value)
-                .editable(true)
-                .build();
+        Property.Builder<Void> builder = new Property.Builder<>(null);
+        if (kind != null) {
+            builder.codedata().kind(kind.name()).stepOut();
+        }
+        return builder.value(value).editable(true).build();
     }
 
     // The arguments of a remote call, parsed from source the way CodeAnalyzer sees them.

@@ -39,6 +39,7 @@ import org.eclipse.lsp4j.TextEdit;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -99,6 +100,15 @@ public class HumanTaskBuilder extends CallBuilder {
      * {@link #relabelHumanTaskFormProperties(Map)}.
      */
     public static final String STEP_ID_KEY = "stepId";
+    /**
+     * Two more {@code HumanTaskDefinition} fields the form does not offer. {@code resultType} is
+     * the completion type, which the form already edits through the inferred {@code T} selector;
+     * {@code taskInputType} constrains the input the decider sees, a shape the runtime derives
+     * from the input itself. Hidden, not removed: a program that states either keeps it — see
+     * {@link #relabelHumanTaskFormProperties(Map)}.
+     */
+    public static final String RESULT_TYPE_KEY = "resultType";
+    public static final String TASK_INPUT_TYPE_KEY = "taskInputType";
 
     // Form field labels.
     private static final String TASK_NAME_LABEL = "Task Name";
@@ -347,10 +357,19 @@ public class HumanTaskBuilder extends CallBuilder {
         // an edit, because toSource writes every property that holds a value. Both render paths
         // (the node template and CodeAnalyzer's source re-read) go through here, so doing it once
         // keeps the two forms identical.
-        Property stepId = properties.get(STEP_ID_KEY);
-        if (stepId != null) {
-            properties.put(STEP_ID_KEY, Property.Builder.copyFrom(stepId).hidden(true).editable(false).build());
-        }
+        hide(properties, STEP_ID_KEY);
+        // 0.9.0 declares the task through an included record, and two of its fields have no place
+        // in this form: resultType is what the Completion Type selector already edits, and
+        // taskInputType is derived from the input. Both are hidden the same way as stepId, so a
+        // program that states them keeps them through an edit.
+        hide(properties, RESULT_TYPE_KEY);
+        hide(properties, TASK_INPUT_TYPE_KEY);
+        // The record's fields arrive after the positional parameters and the inferred type, which
+        // puts the required roles below the type selector. The form is what it was before the
+        // record: name, roles, input, then the optional details, then the completion type. Keys
+        // the module does not declare are simply absent; anything else keeps its place after.
+        reorder(properties, TASK_NAME_KEY, USER_ROLES_KEY, TASK_INPUT_KEY, PAYLOAD_KEY,
+                TITLE_KEY, DESCRIPTION_KEY, "$description", TIMEOUT_KEY, DATABINDING_TYPE_KEY);
 
         relabel(properties, TASK_NAME_KEY, TASK_NAME_LABEL, TASK_NAME_DOC);
         relabel(properties, USER_ROLES_KEY, USER_ROLES_LABEL, USER_ROLES_DOC);
@@ -419,6 +438,32 @@ public class HumanTaskBuilder extends CallBuilder {
                         .build());
             }
         }
+    }
+
+    // Keeps the property but takes it out of the form: not offered, not editable, still emitted
+    // by toSource when it holds a value.
+    private static void hide(Map<String, Property> properties, String key) {
+        Property existing = properties.get(key);
+        if (existing != null) {
+            properties.put(key, Property.Builder.copyFrom(existing).hidden(true).editable(false).build());
+        }
+    }
+
+    // Moves the named keys, those present, to the front in the given order; the rest follow in
+    // their existing order. The map is rebuilt in place because callers hold the same instance.
+    private static void reorder(Map<String, Property> properties, String... keysInOrder) {
+        Map<String, Property> ordered = new LinkedHashMap<>();
+        for (String key : keysInOrder) {
+            Property property = properties.get(key);
+            if (property != null) {
+                ordered.put(key, property);
+            }
+        }
+        for (Map.Entry<String, Property> entry : properties.entrySet()) {
+            ordered.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        properties.clear();
+        properties.putAll(ordered);
     }
 
     private static void relabel(Map<String, Property> properties, String key, String label, String description) {
