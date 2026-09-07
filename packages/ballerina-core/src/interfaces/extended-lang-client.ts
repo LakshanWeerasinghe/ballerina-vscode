@@ -854,6 +854,8 @@ export interface ProjectDiagnosticsRequest {
 
 export interface ProjectDiagnosticsResponse {
     errorDiagnosticMap?: Map<string, Diagnostic[]>;
+    /** Why diagnostics could not be produced (e.g. the package failed to compile). */
+    errorMsg?: string;
 }
 
 export interface MainFunctionParamsRequest {
@@ -979,6 +981,7 @@ export type SearchQueryParams = {
     /** ACTIVITY_CALL search: node kind stamped on result items (e.g. DURABLE_AGENT_ADD_ACTIVITY). */
     nodeKind?: string;
     source?: string;
+    connectorSet?: "GROUPED";
 }
 
 export type SearchKind =
@@ -1782,6 +1785,8 @@ export interface VerifyTypeDeleteResponse {
 
 export interface GetTypesResponse {
     types: Type[];
+    errorMsg?: string;
+    stacktrace?: string;
 }
 
 export interface GetTypeResponse {

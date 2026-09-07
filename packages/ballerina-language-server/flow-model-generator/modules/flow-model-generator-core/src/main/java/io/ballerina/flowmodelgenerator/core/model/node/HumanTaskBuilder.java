@@ -84,8 +84,12 @@ public class HumanTaskBuilder extends CallBuilder {
     public static final String USER_ROLES_KEY = "userRoles";
     public static final String ADDITIONAL_VALUES_KEY = "additionalValues";
     public static final String TASK_INPUT_KEY = "taskInput";
-    /** The parameter's name before the module renamed it; resolved forms carry it until the pin moves. */
-    private static final String LEGACY_PAYLOAD_KEY = "payload";
+    /**
+     * The task input's name before 0.9.0 renamed it {@code taskInput}. Read, so a program written
+     * against an older release opens in the form, and relabelled when a resolved signature of such a
+     * release carries it; never written — the form emits the module's current name.
+     */
+    public static final String PAYLOAD_KEY = "payload";
     public static final String TITLE_KEY = "title";
     public static final String DESCRIPTION_KEY = "description";
     public static final String TIMEOUT_KEY = "timeout";
@@ -354,7 +358,7 @@ public class HumanTaskBuilder extends CallBuilder {
         // The pinned workflow bala still names this parameter `payload`; a resolved-signature
         // form therefore carries that key, and the emitted argument keeps the module's own
         // name, so the label must not pretend otherwise. Dies with the pre-rename pin.
-        relabel(properties, LEGACY_PAYLOAD_KEY, "Payload",
+        relabel(properties, PAYLOAD_KEY, "Payload",
                 "Read-only JSON object shown alongside the form. Required — a task with nothing "
                         + "to show says so with {}, and the runtime checks this against the task's payloadType");
         relabel(properties, TITLE_KEY, TITLE_LABEL, TITLE_DOC);

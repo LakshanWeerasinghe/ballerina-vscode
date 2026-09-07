@@ -150,6 +150,7 @@ import io.ballerina.flowmodelgenerator.core.model.node.ChunkerBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.ClassInitBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.DataLoaderBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.DataMapperBuilder;
+import io.ballerina.flowmodelgenerator.core.model.node.DurableAgentAddActivityBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.DurableAgentDataResultBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.DurableAgentResultBuilder;
 import io.ballerina.flowmodelgenerator.core.model.node.DurableAgentRunBuilder;
@@ -186,11 +187,11 @@ import io.ballerina.flowmodelgenerator.core.model.node.builtin.EmailActivityStra
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.RestActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.model.node.builtin.SoapActivityStrategy;
 import io.ballerina.flowmodelgenerator.core.utils.ConnectorUtil;
-import io.ballerina.flowmodelgenerator.core.utils.FileSystemUtils;
 import io.ballerina.flowmodelgenerator.core.utils.FlowNodeUtil;
 import io.ballerina.flowmodelgenerator.core.utils.ParamUtils;
 import io.ballerina.flowmodelgenerator.core.utils.WorkflowUtil;
 import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.FileSystemUtils;
 import io.ballerina.modelgenerator.commons.FunctionData;
 import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
@@ -554,6 +555,12 @@ public class CodeAnalyzer extends NodeVisitor {
             } else {
                 overrideSymbolFromFirstArg(remoteMethodCallActionNode.arguments());
                 populateActivityCallProperties(remoteMethodCallActionNode);
+                // `callActivity` returns `T|error` with `T` an inferred typedesc, so processing its symbol
+                // marks the node as having an inferred return type - and the form hides the result type
+                // field for such nodes. For a user-defined activity the result type is the activity
+                // function's own, which the creation form does present, so clear the flag or the field
+                // would vanish on edit.
+                nodeBuilder.codedata().inferredReturnType(null);
             }
             // The node title is the activity being called, not the generic callActivity method name
             // (the node icon already marks it as an activity call).
@@ -783,7 +790,7 @@ public class CodeAnalyzer extends NodeVisitor {
                     }
                     String toolName = fieldName.name().text();
                     if (isMcpToolKitExpression(fieldAccess)) {
-                        toolsData.add(new ToolData(toolName, ICON_PATH, "", MCP_SERVER));
+                        toolsData.add(new ToolData(toolName, ICON_PATH, "", MCP_SERVER, false));
                         continue;
                     }
                     MethodSymbol method = resolveToolMethod(fieldAccess, toolName).orElse(null);
@@ -792,16 +799,21 @@ public class CodeAnalyzer extends NodeVisitor {
                     String description = method == null ? "" : method.documentation()
                             .flatMap(Documentation::description)
                             .orElse("");
-                    toolsData.add(new ToolData(toolName, icon, description, type));
+                    boolean requiresApproval = method != null
+                            && AiUtils.readRequiresApproval(method, project);
+                    toolsData.add(new ToolData(toolName, icon, description, type, requiresApproval));
                 } else if (element instanceof SimpleNameReferenceNode nameRef) {
                     String toolName = nameRef.name().text();
                     Symbol symbol = semanticModel.symbol(element).orElse(null);
                     if (AiUtils.isMcpToolKitSymbol(symbol) || isMcpToolKitExpression(nameRef)) {
-                        toolsData.add(new ToolData(toolName, ICON_PATH, getToolDescription(""), MCP_SERVER));
+                        toolsData.add(new ToolData(toolName, ICON_PATH, getToolDescription(""), MCP_SERVER, false));
                     } else {
                         String type = symbol instanceof FunctionSymbol function && isAgentDelegationTool(function)
                                 ? AGENT_TOOL_TYPE : null;
-                        toolsData.add(new ToolData(toolName, getIcon(toolName), getToolDescription(toolName), type));
+                        boolean requiresApproval = symbol != null
+                                && AiUtils.readRequiresApproval(symbol, project);
+                        toolsData.add(new ToolData(toolName, getIcon(toolName), getToolDescription(toolName), type,
+                                requiresApproval));
                     }
                 }
             }
@@ -867,7 +879,7 @@ public class CodeAnalyzer extends NodeVisitor {
                 .build();
 
         Path agentFilePath =
-                FileSystemUtils.resolveFilePathFromCodedata(codedata, project.sourceRoot());
+                FileSystemUtils.resolveFilePathFromLineRange(codedata.lineRange(), project.sourceRoot());
 
         NodeBuilder.TemplateContext context =
                 new NodeBuilder.TemplateContext(workspaceManager, agentFilePath,
@@ -1520,6 +1532,15 @@ public class CodeAnalyzer extends NodeVisitor {
     private void collectDeclaredCapabilities(ExpressionNode listExpr, String capabilityType, String refField,
                                              Map<String, String> fieldToPropertyKey,
                                              List<AgentCapabilityData> out) {
+        // `events` and `humanTasks` are declared either as a mapping keyed by capability name —
+        // `events: {chat: {request: string}}`, what the module now documents — or as the list of
+        // records that carry their own `name` field, which it still accepts. Both are read: a
+        // capability the designer cannot see is one it silently drops on the next save.
+        if (listExpr.kind() == SyntaxKind.MAPPING_CONSTRUCTOR) {
+            collectKeyedCapabilities((MappingConstructorExpressionNode) listExpr, capabilityType, refField,
+                    fieldToPropertyKey, out);
+            return;
+        }
         if (listExpr.kind() != SyntaxKind.LIST_CONSTRUCTOR) {
             return;
         }
@@ -1541,6 +1562,35 @@ public class CodeAnalyzer extends NodeVisitor {
                     }
                     String fieldName = specificField.fieldName().toSourceCode().trim();
                     String rawValue = specificField.valueExpr().get().toSourceCode().trim();
+                    // Activity entries carry two composite fields the generic key mapping cannot
+                    // express, and both must hydrate or an edit-save regenerates the entry
+                    // without them. retryPolicy decomposes into the retry form's dropdown value
+                    // plus sub-fields; bindings explodes into the form's per-parameter selectors.
+                    if ("activity".equals(capabilityType) && "retryPolicy".equals(fieldName)) {
+                        RetryPolicyForm retryForm = normalizeRetryPolicy(rawValue);
+                        values.put(ActivityCallBuilder.RETRY_POLICY_PARAM, retryForm.dropdownValue());
+                        putIfNotBlank(values, ActivityCallBuilder.MAX_RETRIES_KEY, retryForm.maxRetries());
+                        putIfNotBlank(values, ActivityCallBuilder.RETRY_DELAY_KEY, retryForm.retryDelay());
+                        putIfNotBlank(values, ActivityCallBuilder.RETRY_BACKOFF_KEY, retryForm.retryBackoff());
+                        putIfNotBlank(values, ActivityCallBuilder.MAX_RETRY_DELAY_KEY,
+                                retryForm.maxRetryDelay());
+                        putIfNotBlank(values, ActivityCallBuilder.RETRY_USER_ROLES_KEY,
+                                retryForm.review().userRoles());
+                        continue;
+                    }
+                    if ("activity".equals(capabilityType) && "bindings".equals(fieldName)
+                            && specificField.valueExpr().get().kind() == SyntaxKind.MAPPING_CONSTRUCTOR) {
+                        for (MappingFieldNode bindingField
+                                : ((MappingConstructorExpressionNode) specificField.valueExpr().get()).fields()) {
+                            if (bindingField instanceof SpecificFieldNode bindingSpecific
+                                    && bindingSpecific.valueExpr().isPresent()) {
+                                values.put(DurableAgentAddActivityBuilder.BINDING_KEY_PREFIX
+                                                + bindingSpecific.fieldName().toSourceCode().trim(),
+                                        bindingSpecific.valueExpr().get().toSourceCode().trim());
+                            }
+                        }
+                        continue;
+                    }
                     String propertyKey = fieldToPropertyKey.get(fieldName);
                     if (propertyKey != null) {
                         // The cardinality enum may be module-qualified in source (workflow:SINGLE_EVENT);
@@ -1549,7 +1599,7 @@ public class CodeAnalyzer extends NodeVisitor {
                         // form shows the text, not its source syntax.
                         String value;
                         if ("cardinality".equals(fieldName)) {
-                            value = stripModulePrefix(rawValue);
+                            value = WorkflowUtil.stripModulePrefix(rawValue);
                         } else if (TEXT_MODE_CAPABILITY_FIELDS.contains(fieldName)) {
                             value = stripQuotes(rawValue);
                         } else {
@@ -1571,13 +1621,67 @@ public class CodeAnalyzer extends NodeVisitor {
         }
     }
 
+    // Reads the mapping form of a capability declaration, where each field is one capability and
+    // its key is the name — `{chat: {request: string, response: string}}`. The key takes the place
+    // of the list form's `name` field, so the config records have no `name` of their own. The
+    // whole `key: {...}` field is the entry's range, which is what an edit-save rewrites.
+    private void collectKeyedCapabilities(MappingConstructorExpressionNode mapping, String capabilityType,
+                                          String refField, Map<String, String> fieldToPropertyKey,
+                                          List<AgentCapabilityData> out) {
+        for (MappingFieldNode entry : mapping.fields()) {
+            if (!(entry instanceof SpecificFieldNode specificEntry) || specificEntry.valueExpr().isEmpty()) {
+                continue;
+            }
+            String name = stripQuotes(specificEntry.fieldName().toSourceCode().trim());
+            if (name.isBlank()) {
+                continue;
+            }
+            Map<String, String> values = new LinkedHashMap<>();
+            values.put(fieldToPropertyKey.getOrDefault("name", "name"), name);
+            if (specificEntry.valueExpr().get() instanceof MappingConstructorExpressionNode config) {
+                collectCapabilityFields(config, capabilityType, refField, fieldToPropertyKey, values);
+            }
+            out.add(new AgentCapabilityData(name, capabilityType, entry.lineRange(), values));
+        }
+    }
+
+    // Hydrates the form values a capability's config record carries, by the same rules the list
+    // form's entries follow. Fields the form has no key for are skipped, as are `name` and the
+    // reference field: the keyed form states the name once, as the key.
+    private void collectCapabilityFields(MappingConstructorExpressionNode config, String capabilityType,
+                                         String refField, Map<String, String> fieldToPropertyKey,
+                                         Map<String, String> values) {
+        for (MappingFieldNode field : config.fields()) {
+            if (!(field instanceof SpecificFieldNode specificField) || specificField.valueExpr().isEmpty()) {
+                continue;
+            }
+            String fieldName = specificField.fieldName().toSourceCode().trim();
+            if ("name".equals(fieldName) || fieldName.equals(refField)) {
+                continue;
+            }
+            String propertyKey = fieldToPropertyKey.get(fieldName);
+            if (propertyKey == null) {
+                continue;
+            }
+            String rawValue = specificField.valueExpr().get().toSourceCode().trim();
+            if ("cardinality".equals(fieldName)) {
+                values.put(propertyKey, WorkflowUtil.stripModulePrefix(rawValue));
+            } else if (TEXT_MODE_CAPABILITY_FIELDS.contains(fieldName)) {
+                values.put(propertyKey, stripQuotes(rawValue));
+            } else {
+                values.put(propertyKey, rawValue);
+            }
+        }
+    }
+
     // Capability declaration fields whose values render in text-mode form fields.
     private static final Set<String> TEXT_MODE_CAPABILITY_FIELDS =
             Set.of("name", "title", "description", "roles");
 
-    private static String stripModulePrefix(String value) {
-        int colon = value.lastIndexOf(':');
-        return colon >= 0 ? value.substring(colon + 1) : value;
+    private static void putIfNotBlank(Map<String, String> values, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            values.put(key, value);
+        }
     }
 
     private static String stripQuotes(String value) {
@@ -1726,6 +1830,7 @@ public class CodeAnalyzer extends NodeVisitor {
         }
 
         if (activityParamSymbols.isEmpty()) {
+            ActivityCallBuilder.addCheckErrorProperty(nodeBuilder, isCheckedCall(remoteMethodCallActionNode));
             addNormalizedRetryPolicyProperties(rawRetryPolicyValue);
             return;
         }
@@ -1805,8 +1910,47 @@ public class CodeAnalyzer extends NodeVisitor {
                     customPropBuilder, diagnosticHandler);
             nodeBuilderFormBuilder.addProperty(FlowNodeUtil.getPropertyKey(paramName), valueNode);
         }
+        // The flag mirrors the template so an existing statement round-trips: a call written without
+        // `check` comes back with the box cleared instead of being silently rewritten with it.
+        ActivityCallBuilder.addCheckErrorProperty(nodeBuilder, isCheckedCall(remoteMethodCallActionNode));
         // After activity input params, add retryPolicy at root level (outside ADVANCE_PARAM_LIST).
         addNormalizedRetryPolicyProperties(rawRetryPolicyValue);
+    }
+
+    /**
+     * Whether the given call is wrapped in a {@code check} expression/action in the source.
+     */
+    private static boolean isCheckedCall(NonTerminalNode callNode) {
+        SyntaxKind parentKind = callNode.parent().kind();
+        return parentKind == SyntaxKind.CHECK_ACTION || parentKind == SyntaxKind.CHECK_EXPRESSION;
+    }
+
+    private boolean bindsWildcard() {
+        return this.typedBindingPatternNode != null
+                && this.typedBindingPatternNode.bindingPattern().kind() == SyntaxKind.WILDCARD_BINDING_PATTERN;
+    }
+
+    /**
+     * Whether the statement discards a result that carries no value of its own — the shape
+     * {@code () _ = check ctx->callActivity(...)} takes when an activity only reports failure.
+     *
+     * <p>A wildcard alone is not enough: {@code int _ = check ctx->callActivity(...)} discards a value
+     * that still has a declared type, and reading it as a nil result would drop that type from the
+     * form and rewrite the statement without it on save.
+     */
+    private boolean bindsNilWildcard() {
+        return bindsWildcard()
+                && ActivityCallBuilder.isNilResultType(this.typedBindingPatternNode.typeDescriptor());
+    }
+
+    /**
+     * Whether the statement names a result whose type carries no value of its own — the shape
+     * {@code error? r = ctx->callActivity(...)} takes when an activity only reports failure and its
+     * errors are not checked.
+     */
+    private boolean bindsNilResult() {
+        return this.typedBindingPatternNode != null && !bindsWildcard()
+                && ActivityCallBuilder.isNilResultType(this.typedBindingPatternNode.typeDescriptor());
     }
 
     /**
@@ -1814,12 +1958,11 @@ public class CodeAnalyzer extends NodeVisitor {
      * Reads individual positional and named arguments and maps each to the corresponding form property
      * defined by {@link io.ballerina.flowmodelgenerator.core.model.node.HumanTaskBuilder}.
      *
-     * <p>Argument layout: {@code awaitHumanTask(taskName, taskInput[, userRoles = ..., title = ...,
-     * description = ..., timeout = ...])} — the task input is the second required argument, and
-     * the definition's fields (userRoles, title, description, timeout) are included-record
-     * fields, stated by name.
-     *
-     * @param callNode the {@code ctx->awaitHumanTask(...)} call node
+     * <p>Two argument layouts are read. Before 0.9.0 it was
+     * {@code awaitHumanTask(taskName, userRoles[, payload = ..., title = ..., description = ...,
+     * timeout = ...])}. 0.9.0 moves the definition into a record, giving
+     * {@code awaitHumanTask(taskName, taskInput[, userRoles = ..., ...])} where the task input is
+     * the second required argument and the rest are included-record fields, stated by name.
      */
     private void populateHumanTaskProperties(RemoteMethodCallActionNode callNode) {
         Map<String, Property> currentProps = nodeBuilder.properties().build();
@@ -1914,13 +2057,34 @@ public class CodeAnalyzer extends NodeVisitor {
         } else if (namedArgs.containsKey(HumanTaskBuilder.TASK_NAME_KEY)) {
             taskNameValue = namedArgs.get(HumanTaskBuilder.TASK_NAME_KEY);
         }
-        // taskInput: the second required argument — positional arg 1, or stated by name
-        String taskInputValue = namedArgs.get(HumanTaskBuilder.TASK_INPUT_KEY);
-        if (taskInputValue == null && args.size() > 1 && args.get(1) instanceof PositionalArgumentNode posArg1) {
-            taskInputValue = posArg1.expression().toSourceCode().strip();
-        }
-        // The definition's fields are included-record fields: named args only.
+        // The remaining arguments have two layouts across module releases, and both are read:
+        //
+        //   before 0.9.0: awaitHumanTask(taskName, userRoles, payload = ..., title = ...)
+        //                 — userRoles is positional arg 1, the input positional arg 2.
+        //   0.9.0:        awaitHumanTask(taskName, taskInput, userRoles = ..., title = ...)
+        //                 — the input is positional arg 1 and userRoles a definition field.
+        //
+        // A stated name settles which. With neither stated, positional arg 1 tells them apart by
+        // shape: the input is a `map<json>` and so a record literal, where roles are a string or
+        // a list of strings. Whichever name the call used, the value is the task input and lands
+        // in that one form field; the form writes the module's current name for it.
+        String taskInputValue = namedArgs.containsKey(HumanTaskBuilder.TASK_INPUT_KEY)
+                ? namedArgs.get(HumanTaskBuilder.TASK_INPUT_KEY) : namedArgs.get(HumanTaskBuilder.PAYLOAD_KEY);
         String userRolesValue = namedArgs.getOrDefault(HumanTaskBuilder.USER_ROLES_KEY, "");
+        String firstArg = args.size() > 1 && args.get(1) instanceof PositionalArgumentNode posArg1
+                ? posArg1.expression().toSourceCode().strip() : null;
+        if (firstArg != null) {
+            if (firstArg.startsWith("{")) {
+                // A record literal in the roles' position: 0.9.0's task input.
+                taskInputValue = firstArg;
+            } else if (userRolesValue.isEmpty()) {
+                userRolesValue = firstArg;
+            }
+        }
+        // The older layout also takes the input positionally, after the roles.
+        if (taskInputValue == null && args.size() > 2 && args.get(2) instanceof PositionalArgumentNode posArg2) {
+            taskInputValue = posArg2.expression().toSourceCode().strip();
+        }
         String titleValue = namedArgs.get(HumanTaskBuilder.TITLE_KEY);
         String descValue = namedArgs.get(HumanTaskBuilder.DESCRIPTION_KEY);
         String timeoutValue = namedArgs.get(HumanTaskBuilder.TIMEOUT_KEY);
@@ -2009,10 +2173,6 @@ public class CodeAnalyzer extends NodeVisitor {
         // the clear below discards them.  Without this, builtin activities lose their advanced options
         // on every reload/regeneration, causing toSourceBuiltin() to omit them.
         Map<String, Property> currentProps = nodeBuilder.properties().build();
-        Property savedCheckError = currentProps.get(Property.CHECK_ERROR_KEY);
-        boolean uncheckedBuiltinInDoClause = callNode.parent().kind() != SyntaxKind.CHECK_ACTION
-                && callNode.parent().kind() != SyntaxKind.CHECK_EXPRESSION
-                && CommonUtils.withinDoClause(callNode);
         Property savedInferredType = currentProps.values().stream()
                 .filter(property -> property.codedata() != null && property.codedata().kind() != null
                         && property.codedata().kind().equals(ParameterData.Kind.PARAM_FOR_TYPE_INFER.name()))
@@ -2123,16 +2283,8 @@ public class CodeAnalyzer extends NodeVisitor {
                             .advanced(false)
                             .build());
         }
-        // Restore checkError. If the original call was unchecked inside a do-clause and no explicit
-        // checkError property was captured, persist false explicitly so toSourceBuiltin() doesn't
-        // fall back to its default true.
-        if (savedCheckError != null) {
-            boolean checkError = savedCheckError.value() != null
-                    && Boolean.parseBoolean(savedCheckError.value().toString());
-            nodeBuilder.properties().checkError(checkError);
-        } else if (uncheckedBuiltinInDoClause) {
-            nodeBuilder.properties().checkError(false);
-        }
+
+        ActivityCallBuilder.addCheckErrorProperty(nodeBuilder, isCheckedCall(callNode));
 
         // Restore advanced callActivity params (retryOnError, timeout, etc.) as ADVANCED_PARAM_KEY
         // so toSourceBuiltin() / populateAdvancedArgs() can emit them as named arguments.
@@ -2155,6 +2307,20 @@ public class CodeAnalyzer extends NodeVisitor {
      * then adds them as root-level properties on the current nodeBuilder.
      */
     private void addNormalizedRetryPolicyProperties(String rawValue) {
+        RetryPolicyForm form = normalizeRetryPolicy(rawValue);
+        ActivityCallBuilder.addRetryPolicyFormProperties(nodeBuilder, form.dropdownValue(),
+                form.maxRetries(), form.retryDelay(), form.retryBackoff(), form.maxRetryDelay(),
+                form.review());
+    }
+
+    // The retry-policy form's decomposition of a raw retryPolicy source value: the dropdown
+    // selection plus its sub-field values.
+    private record RetryPolicyForm(String dropdownValue, String maxRetries, String retryDelay,
+                                   String retryBackoff, String maxRetryDelay,
+                                   ActivityCallBuilder.ReviewFormValues review) {
+    }
+
+    private static RetryPolicyForm normalizeRetryPolicy(String rawValue) {
         String dropdownValue = ActivityCallBuilder.NO_RETRY_VALUE;
         String maxRetries = "", retryDelay = "", retryBackoff = "", maxRetryDelay = "";
         ActivityCallBuilder.ReviewFormValues review = ActivityCallBuilder.ReviewFormValues.empty();
@@ -2182,6 +2348,17 @@ public class CodeAnalyzer extends NodeVisitor {
             } else if (trimmed.equals("()") || trimmed.contains("NoRetry")
                     || trimmed.contains("NoAutomaticRetry")) {
                 dropdownValue = ActivityCallBuilder.NO_RETRY_VALUE;
+            } else if (trimmed.contains("ManualRetry") || trimmed.contains("HumanReview")
+                    || trimmed.equals("[]")) {
+                // The sentinel forms of Human Review with no roles attached: any role may decide.
+                dropdownValue = ActivityCallBuilder.MANUAL_RETRY_VALUE;
+            } else if (isRoleLiteral(trimmed)) {
+                // Releases before the review record declared `HumanReview` as `string|string[]`,
+                // so a review scoped to reviewer role(s) reads as a bare string or list of
+                // strings. Still read, so a program written against them opens in the form; the
+                // form itself writes the record.
+                dropdownValue = ActivityCallBuilder.MANUAL_RETRY_VALUE;
+                review = ActivityCallBuilder.ReviewFormValues.ofRoles(trimmed);
             } else {
                 // Any other expression — a const, variable or call producing the policy — is not a
                 // shape the form can edit. Carry it as the dropdown value so it round-trips
@@ -2189,12 +2366,18 @@ public class CodeAnalyzer extends NodeVisitor {
                 dropdownValue = trimmed;
             }
         }
-
-        ActivityCallBuilder.addRetryPolicyFormProperties(nodeBuilder, dropdownValue,
-                maxRetries, retryDelay, retryBackoff, maxRetryDelay, review);
+        return new RetryPolicyForm(dropdownValue, maxRetries, retryDelay, retryBackoff,
+                maxRetryDelay, review);
     }
 
-    /** The field that tells a ReviewTaskDefinition from an AutoRetry. */
+    // Whether the retryPolicy source is a literal reviewer role (a string) or role list, the two
+    // shapes a `string|string[]` HumanReview takes.
+    private static boolean isRoleLiteral(String expression) {
+        return (expression.startsWith("\"") && expression.endsWith("\""))
+                || (expression.startsWith("[") && expression.endsWith("]"));
+    }
+
+    /** The field that tells a record-shaped review from an AutoRetry. */
     private static final String USER_ROLES_FIELD = "userRoles";
 
     /** A string literal as the form shows it — the quotes belong to the source, not the value. */
@@ -3842,6 +4025,21 @@ public class CodeAnalyzer extends NodeVisitor {
                             Property.VARIABLE_DOC, true, new HashSet<>(), true);
         } else if (nodeBuilder instanceof WaitDataBuilder) {
             // Variable/type info is embedded in the dataWaits property — skip generic handling
+        } else if (nodeBuilder instanceof ActivityCallBuilder && (bindsNilWildcard() || bindsNilResult())) {
+            // An activity producing no value: `() _ = check ctx->callActivity(...)` while its errors are
+            // checked, `error? r = ctx->callActivity(...)` while they are not. Either way the form gets the
+            // template's shape - the Result field inside the cleared Check Error branch, its value in a
+            // root property the branch's field reads from - so clearing the box on a checked statement
+            // still asks for a name. A plain result variable here would be shadowed by the branch's own
+            // (empty) field, leaving the form blank.
+            // The wildcard names nothing, so the name starts empty and the branch's field (required)
+            // collects it; an unchecked statement carries the name it already bound.
+            Property capturedFlag = nodeBuilder.properties().build().get(Property.CHECK_ERROR_KEY);
+            boolean checkedInSource = capturedFlag == null || capturedFlag.value() == null
+                    || Boolean.parseBoolean(capturedFlag.value().toString());
+            String boundName = bindsWildcard() ? ""
+                    : this.typedBindingPatternNode.bindingPattern().toSourceCode().strip();
+            ActivityCallBuilder.addNilResultProperties(nodeBuilder, checkedInSource, boundName);
         } else if (nodeBuilder.properties().build().containsKey(Property.VARIABLE_KEY)
                 && !(nodeBuilder instanceof AgentCallBuilder)) {
             // VARIABLE_KEY already set (e.g. by populateBuiltinActivityProperties) — skip.
@@ -5468,7 +5666,8 @@ public class CodeAnalyzer extends NodeVisitor {
 
     }
 
-    private record ToolData(String name, String path, String description, String type) {
+    private record ToolData(String name, String path, String description, String type,
+                            boolean requiresApproval) {
 
     }
 

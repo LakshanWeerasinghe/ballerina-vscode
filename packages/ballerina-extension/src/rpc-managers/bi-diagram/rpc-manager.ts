@@ -834,8 +834,8 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         const workspacePath = projectInfo?.projectPath;
         await deleteProjectFromWorkspace(workspacePath, projectPath);
 
-        // Refresh project info to update UI with newly added project
-        StateMachine.refreshProjectInfo();
+        // Refresh project info to update the package list in place.
+        StateMachine.refreshProjectInfo({ silent: true });
     }
 
     async addProjectToWorkspace(params: AddProjectToWorkspaceRequest): Promise<AddProjectToWorkspaceResponse> {
@@ -1950,6 +1950,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
             StateMachine.langClient()
                 .getTypes({ filePath })
                 .then(async (types) => {
+                    if (types?.errorMsg) {
+                        console.log(">>> error fetching types from ls", types.errorMsg, types.stacktrace);
+                    }
                     if (types?.types && !(await isAiSourceParseable([filePath]))) {
                         resolve(undefined);
                         return;
@@ -2772,9 +2775,9 @@ export class BiDiagramRpcManager implements BIDiagramAPI {
         setTomlSectionField(path.join(params.projectPath, 'Ballerina.toml'), 'workspace', 'title', params.title);
         const currentProjectInfo = StateMachine.context().projectInfo;
         if (isSamePath(currentProjectInfo.projectPath, params.projectPath)) {
-            StateMachine.updateProjectInfo({ ...currentProjectInfo, title: params.title });
+            StateMachine.updateProjectInfo({ ...currentProjectInfo, title: params.title }, { silent: true });
         } else {
-            StateMachine.refreshProjectInfo();
+            StateMachine.refreshProjectInfo({ silent: true });
         }
     }
 
