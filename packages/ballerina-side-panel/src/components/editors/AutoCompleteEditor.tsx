@@ -71,7 +71,7 @@ export function AutoCompleteEditor(props: AutoCompleteEditorProps) {
                 errorMsg={errorMsg || undefined}
                 {...register(field.key, {
                     required: buildRequiredRule({ isRequired: !field.optional, label: field.label }),
-                    value: getValueForDropdown(field),
+                    value: field.optional ? (field.value ?? "") : getValueForDropdown(field),
                     validate: buildValidate(field)
                 })}
                 label={capitalize(field.label)}
@@ -89,7 +89,7 @@ export function AutoCompleteEditor(props: AutoCompleteEditorProps) {
                         : field.optional
                             ? ""
                             : currentValue ?? "";
-                    setValue(field.key, newVal);
+                    setValue(field.key, newVal, { shouldDirty: true });
                     field.onValueChange?.(newVal);
                     liveDiagnostics.onValueChange(newVal);
                 }}
