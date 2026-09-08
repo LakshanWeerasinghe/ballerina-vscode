@@ -180,10 +180,7 @@ public class TriggerUIMetadataGenerationTest {
 
     private static TriggerUISchemaModel cdcModel(String module, String version) {
         TriggerModelReader reader = TriggerModelReader.getInstance();
-        // Some developer homes contain the exact bala without a repository index entry, so fall back to
-        // the bundled model rather than requiring offline resolution here.
-        return reader.getGeneratedTriggerModel("ballerinax", module, version)
-                .or(() -> reader.getBundledTriggerModel(module, version)).orElseThrow();
+        return reader.getGeneratedTriggerModel("ballerinax", module, version).orElseThrow();
     }
 
     private static MapView listenerFields(TriggerUISchemaModel model) {

@@ -18,18 +18,11 @@
 
 package io.ballerina.servicemodelgenerator.extension.connector;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.reflect.TypeToken;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,24 +47,12 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYP
  */
 public class TriggerListenerChoiceTest {
 
-    private static final String BUNDLED_REGISTRY_RESOURCE = "bundled_trigger_models.json";
-    private static final Type REGISTRY_TYPE = new TypeToken<Map<String, JsonElement>>() { }.getType();
-
-    /** Every bundled module key, read off the registry. Fails hard on an empty registry. */
+    /** Every corpus module key. Fails hard on an empty corpus. */
     @DataProvider(name = "bundledModules")
     public Object[][] bundledModules() {
-        Map<String, JsonElement> registry;
-        try (InputStream stream = TriggerModelReader.class.getClassLoader()
-                .getResourceAsStream(BUNDLED_REGISTRY_RESOURCE)) {
-            Assert.assertNotNull(stream, "bundled trigger model registry not found on the classpath");
-            registry = new Gson().fromJson(
-                    new InputStreamReader(stream, StandardCharsets.UTF_8), REGISTRY_TYPE);
-        } catch (Exception e) {
-            throw new AssertionError("could not read " + BUNDLED_REGISTRY_RESOURCE, e);
-        }
-        Assert.assertNotNull(registry, "bundled trigger model registry did not parse");
-        Assert.assertFalse(registry.isEmpty(), "bundled trigger model registry is empty");
-        return registry.keySet().stream().map(key -> new Object[]{key}).toArray(Object[][]::new);
+        List<GeneratedTriggerCorpus.Entry> entries = GeneratedTriggerCorpus.all();
+        Assert.assertFalse(entries.isEmpty(), "generated trigger corpus is empty");
+        return entries.stream().map(entry -> new Object[]{entry.key()}).toArray(Object[][]::new);
     }
 
     @Test(dataProvider = "bundledModules")
@@ -171,10 +152,12 @@ public class TriggerListenerChoiceTest {
         });
     }
 
-    private Map<String, TriggerUISchemaModel.Property> initProperties(String moduleName) {
-        TriggerUISchemaModel model = TriggerModelReader.getInstance().getBundledTriggerModel(moduleName)
-                .orElseThrow(() -> new AssertionError(moduleName + ": bundled model failed to load"));
-        Assert.assertNotNull(model.initProperties(), moduleName + ": a bundled model states an init form");
+    private Map<String, TriggerUISchemaModel.Property> initProperties(String key) {
+        GeneratedTriggerCorpus.Entry entry = GeneratedTriggerCorpus.get(key);
+        TriggerUISchemaModel model = TriggerModelReader.getInstance()
+                .getGeneratedTriggerModel(entry.org(), entry.module(), entry.version())
+                .orElseThrow(() -> new AssertionError(key + ": generated model failed to load"));
+        Assert.assertNotNull(model.initProperties(), key + ": a generated model states an init form");
         return model.initProperties();
     }
 
