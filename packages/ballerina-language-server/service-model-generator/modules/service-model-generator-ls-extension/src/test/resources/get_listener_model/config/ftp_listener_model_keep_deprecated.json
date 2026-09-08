@@ -189,7 +189,7 @@
             "type": "LISTENER_INIT_PARAM",
             "originalName": "protocol"
           },
-          "placeholder": "\"sftp\"",
+          "placeholder": "\"ftp\"",
           "value": "",
           "types": [
             {
@@ -537,7 +537,7 @@
             "type": "LISTENER_INIT_PARAM",
             "originalName": "fileTransferMode"
           },
-          "placeholder": "\"ASCII\"",
+          "placeholder": "\"BINARY\"",
           "value": "",
           "types": [
             {

@@ -426,6 +426,10 @@ public class Value {
             return this;
         }
 
+        public String getPlaceholder() {
+            return placeholder;
+        }
+
         public ValueBuilder optional(boolean optional) {
             this.optional = optional;
             return this;

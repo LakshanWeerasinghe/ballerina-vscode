@@ -110,6 +110,12 @@ public class PropertyType {
 
     public static void typeWithExpression(Value.ValueBuilder valueBuilder, TypeSymbol typeSymbol,
                                           ModuleInfo moduleInfo, Node value, SemanticModel semanticModel) {
+        typeWithExpression(valueBuilder, typeSymbol, moduleInfo, value, semanticModel, null);
+    }
+
+    public static void typeWithExpression(Value.ValueBuilder valueBuilder, TypeSymbol typeSymbol,
+                                          ModuleInfo moduleInfo, Node value, SemanticModel semanticModel,
+                                          String defaultValue) {
         if (typeSymbol == null) {
             valueBuilder.types(List.of());
             return;
@@ -154,12 +160,16 @@ public class PropertyType {
             // The singleton members (e.g. the members of an enum) become single-select options, even when the
             // union holds other member types as well.
             if (!options.isEmpty()) {
+                // Reorder options so that the default value appears first
+                List<Option> orderedOptions = defaultValue == null || defaultValue.isEmpty() ? options
+                        : reorderOptionsByDefaultValue(options, defaultValue);
                 PropertyType propType = new Builder()
                         .fieldType(Value.FieldType.SINGLE_SELECT)
-                        .options(options)
+                        .options(orderedOptions)
                         .ballerinaType(ballerinaType)
                         .build();
                 propertyTypes.add(propType);
+                alignPlaceholderWithDefault(valueBuilder, orderedOptions, defaultValue);
             }
 
             if (!otherTypes.isEmpty()) {
@@ -260,6 +270,83 @@ public class PropertyType {
             }
         }
         valueBuilder.types(propertyTypes);
+    }
+
+    /**
+     * Returns the option the given default value stands for, if any. The default may be written as the name of an
+     * enum member (e.g. {@code MEDIUM}, optionally module qualified) or as the value it holds (e.g. {@code "5"}),
+     * hence both forms are matched.
+     *
+     * @param options      the options of the single select
+     * @param defaultValue the declared default of the parameter
+     * @return the matching option, or empty when none of them stands for the default
+     */
+    private static Optional<Option> findMatchingOption(List<Option> options, String defaultValue) {
+        if (options == null || options.isEmpty() || defaultValue == null || defaultValue.isEmpty()) {
+            return Optional.empty();
+        }
+        String value = CommonUtils.removeQuotes(defaultValue);
+        String memberName = removeModulePrefix(value);
+        return options.stream()
+                .filter(option -> value.equals(CommonUtils.removeQuotes(option.value()))
+                        || memberName.equals(option.label()))
+                .findFirst();
+    }
+
+    /**
+     * Reorders the options so that the one standing for the default appears first, which presents the default at
+     * the top of the dropdown. Returns a new list without modifying the given one.
+     *
+     * @param options      the options of the single select
+     * @param defaultValue the declared default of the parameter
+     * @return a new list with the default option first, or a copy of the given list when none matches
+     */
+    private static List<Option> reorderOptionsByDefaultValue(List<Option> options, String defaultValue) {
+        List<Option> reorderedOptions = new ArrayList<>(options != null ? options : List.of());
+        findMatchingOption(reorderedOptions, defaultValue).ifPresent(defaultOption -> {
+            reorderedOptions.remove(defaultOption);
+            reorderedOptions.addFirst(defaultOption);
+        });
+        return reorderedOptions;
+    }
+
+    /**
+     * Aligns the placeholder of the property with the declared default of the parameter, when the placeholder
+     * holds one of the options.
+     *
+     * <p>The placeholder is derived from the type of the parameter, which for a union yields an arbitrary member
+     * of it rather than the default. That member is then presented as the default of the field, and the generated
+     * source omits an argument matching it, so selecting it produces no code at all. The declared default replaces
+     * it here, and the placeholder is dropped when the default does not resolve to an option (or the parameter
+     * declares none), which leaves no option presented as the default.
+     *
+     * @param valueBuilder the builder of the property being built
+     * @param options      the options of the single select
+     * @param defaultValue the declared default of the parameter
+     */
+    private static void alignPlaceholderWithDefault(Value.ValueBuilder valueBuilder, List<Option> options,
+                                                    String defaultValue) {
+        String placeholder = valueBuilder.getPlaceholder();
+        boolean placeholderIsAnOption = options.stream()
+                .anyMatch(option -> option.value().equals(placeholder));
+        if (!placeholderIsAnOption) {
+            return;
+        }
+        if (defaultValue == null || defaultValue.isEmpty()) {
+            // The parameter declares no default, hence none of the options is the default of the field
+            valueBuilder.setPlaceholder(null);
+            return;
+        }
+        // A default that does not resolve to an option is dropped rather than guessed at, as the union may refer
+        // to constants instead of enum members (e.g. `http:Compression` is COMPRESSION_AUTO|COMPRESSION_ALWAYS|...).
+        // Keeping the member derived from the type would present an arbitrary one as the default, and an argument
+        // matching it is omitted from the generated source, so selecting that member would generate nothing.
+        valueBuilder.setPlaceholder(findMatchingOption(options, defaultValue).map(Option::value).orElse(null));
+    }
+
+    private static String removeModulePrefix(String value) {
+        int prefixEndIndex = value.lastIndexOf(':');
+        return prefixEndIndex == -1 ? value : value.substring(prefixEndIndex + 1);
     }
 
     /**
