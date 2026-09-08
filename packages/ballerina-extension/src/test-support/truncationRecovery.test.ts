@@ -26,8 +26,12 @@ import {
 
 describe('dropDanglingToolCalls', () => {
     const assistant = (...content: any[]): ModelMessage => ({ role: 'assistant', content } as ModelMessage);
-    const toolResult = (toolCallId: string): ModelMessage =>
-        ({ role: 'tool', content: [{ type: 'tool-result', toolCallId, toolName: 't', output: 'ok' }] } as ModelMessage);
+    // `output` is a structured part, not a bare string — matching what the SDK actually
+    // puts on a tool message, so this fixture stays assignable without an unknown cast.
+    const toolResult = (toolCallId: string): ModelMessage => ({
+        role: 'tool',
+        content: [{ type: 'tool-result', toolCallId, toolName: 't', output: { type: 'text', value: 'ok' } }],
+    });
     const call = (toolCallId: string) => ({ type: 'tool-call', toolCallId, toolName: 't', input: {} });
 
     it('drops a tool call that never produced a result', () => {
