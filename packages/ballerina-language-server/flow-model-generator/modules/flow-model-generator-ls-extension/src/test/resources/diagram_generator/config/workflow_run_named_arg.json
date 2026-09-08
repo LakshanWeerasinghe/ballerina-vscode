@@ -1,10 +1,10 @@
 {
   "start": {
-    "line": 51,
+    "line": 64,
     "offset": 0
   },
   "end": {
-    "line": 54,
+    "line": 67,
     "offset": 1
   },
   "source": "workflow_operations.bal",
@@ -13,7 +13,7 @@
     "fileName": "workflow_operations.bal",
     "nodes": [
       {
-        "id": "84755",
+        "id": "97651",
         "metadata": {
           "label": "Start",
           "data": {
@@ -28,11 +28,11 @@
           "lineRange": {
             "fileName": "workflow_operations.bal",
             "startLine": {
-              "line": 52,
+              "line": 65,
               "offset": 43
             },
             "endLine": {
-              "line": 55,
+              "line": 68,
               "offset": 1
             }
           },
@@ -42,7 +42,7 @@
         "flags": 0
       },
       {
-        "id": "84568",
+        "id": "97464",
         "metadata": {
           "label": "Run Workflow",
           "description": "Run a workflow instance",
@@ -58,11 +58,11 @@
           "lineRange": {
             "fileName": "workflow_operations.bal",
             "startLine": {
-              "line": 53,
+              "line": 66,
               "offset": 4
             },
             "endLine": {
-              "line": 53,
+              "line": 66,
               "offset": 124
             }
           },
@@ -140,11 +140,11 @@
               "lineRange": {
                 "fileName": "workflow_operations.bal",
                 "startLine": {
-                  "line": 53,
+                  "line": 66,
                   "offset": 11
                 },
                 "endLine": {
-                  "line": 53,
+                  "line": 66,
                   "offset": 21
                 }
               }
@@ -173,7 +173,7 @@
         "flags": 1
       },
       {
-        "id": "85494",
+        "id": "98390",
         "metadata": {
           "label": "println",
           "description": "Prints `any`, `error` or string templates value(s) to the standard output stream and terminates the line.\n```ballerina\nio:println(\"Start processing the CSV file from \", srcFileName);\n```\n",
@@ -189,11 +189,11 @@
           "lineRange": {
             "fileName": "workflow_operations.bal",
             "startLine": {
-              "line": 54,
+              "line": 67,
               "offset": 4
             },
             "endLine": {
-              "line": 54,
+              "line": 67,
               "offset": 58
             }
           },

@@ -297,7 +297,7 @@ public class DurableAgentAddActivityBuilder extends CallBuilder {
         String activityDescription = sourceBuilder.getProperty(ACTIVITY_DESCRIPTION_KEY)
                 .map(p -> p.value() == null ? "" : p.value().toString().trim()).orElse("");
         String userRoles = sourceBuilder.getProperty(USER_ROLES_KEY)
-                .map(p -> p.value() == null ? "" : p.value().toString().trim()).orElse("");
+                .map(WorkflowUtil::roleSource).orElse("");
         boolean requiresApproval = isRequiresApproval(sourceBuilder);
         String retryPolicyValue = ActivityCallBuilder.retryPolicyEntryValue(
                 sourceBuilder.flowNode.properties());
@@ -326,7 +326,7 @@ public class DurableAgentAddActivityBuilder extends CallBuilder {
                 mapping.append(", requiresApproval: true");
             }
             if (!userRoles.isBlank()) {
-                mapping.append(", userRoles: ").append(WorkflowUtil.quoteIfBareRole(userRoles));
+                mapping.append(", userRoles: ").append(userRoles);
             }
             if (retryPolicyValue != null) {
                 mapping.append(", retryPolicy: ").append(retryPolicyValue);

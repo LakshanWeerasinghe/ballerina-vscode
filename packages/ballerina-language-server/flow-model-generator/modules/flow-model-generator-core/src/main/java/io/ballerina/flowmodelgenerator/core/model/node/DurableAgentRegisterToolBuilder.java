@@ -128,7 +128,7 @@ public class DurableAgentRegisterToolBuilder extends CallBuilder {
 
     private static String userRolesSource(SourceBuilder sourceBuilder) {
         return sourceBuilder.getProperty(USER_ROLES_KEY)
-                .map(p -> p.value() == null ? "" : p.value().toString().trim())
+                .map(WorkflowUtil::roleSource)
                 .orElse("");
     }
 
@@ -155,7 +155,7 @@ public class DurableAgentRegisterToolBuilder extends CallBuilder {
                 mapping.append(", requiresApproval: true");
             }
             if (!userRoles.isBlank()) {
-                mapping.append(", userRoles: ").append(WorkflowUtil.quoteIfBareRole(userRoles));
+                mapping.append(", userRoles: ").append(userRoles);
             }
             entry = mapping.append("}").toString();
         }
