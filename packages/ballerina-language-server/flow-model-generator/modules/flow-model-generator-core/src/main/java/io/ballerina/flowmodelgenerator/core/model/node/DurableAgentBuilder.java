@@ -18,10 +18,19 @@
 
 package io.ballerina.flowmodelgenerator.core.model.node;
 
+import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.symbols.FunctionSymbol;
+import io.ballerina.compiler.api.symbols.ModuleSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
-import io.ballerina.compiler.api.symbols.SymbolKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.VariableSymbol;
+import io.ballerina.compiler.syntax.tree.CaptureBindingPatternNode;
+import io.ballerina.compiler.syntax.tree.CheckExpressionNode;
+import io.ballerina.compiler.syntax.tree.ExpressionNode;
+import io.ballerina.compiler.syntax.tree.FunctionCallExpressionNode;
+import io.ballerina.compiler.syntax.tree.ModuleMemberDeclarationNode;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.compiler.syntax.tree.ModuleVariableDeclarationNode;
 import io.ballerina.flowmodelgenerator.core.AiUtils;
 import io.ballerina.flowmodelgenerator.core.UserFacingException;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
@@ -31,6 +40,7 @@ import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ParameterData;
+import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Package;
 import org.eclipse.lsp4j.TextEdit;
@@ -245,39 +255,56 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
     // none, which makes the caller fall back to the WSO2 default.
     private static String resolveExistingModelProvider(SourceBuilder sourceBuilder) {
         try {
-            Package currentPackage = PackageUtil
-                    .loadProject(sourceBuilder.workspaceManager, sourceBuilder.filePath).currentPackage();
-            PackageUtil.getCompilation(currentPackage);
-            for (Module module : currentPackage.modules()) {
-                List<Option> options = DurableAgentRunBuilder.modelProviderOptions(
-                        module.getCompilation().getSemanticModel());
-                if (!options.isEmpty()) {
-                    return options.get(0).value();
-                }
+            Module module = declaringModule(sourceBuilder);
+            if (module == null) {
+                return null;
             }
+            List<Option> options = DurableAgentRunBuilder.modelProviderOptions(
+                    module.getCompilation().getSemanticModel());
+            return options.isEmpty() ? null : options.get(0).value();
         } catch (RuntimeException e) {
             // Project resolution can fail before the module is pulled; omit the model.
         }
         return null;
     }
 
-    // Narrower than resolveExistingModelProvider: only an `ai:Wso2ModelProvider` variable answers
-    // for an explicit "Default WSO2 Model Provider" pick. Binding that choice to, say, an existing
-    // OpenAI provider variable would silently run the agent on a model the user did not choose.
+    /**
+     * An existing variable that IS the WSO2 default provider, for an explicit "Default WSO2 Model
+     * Provider" pick.
+     *
+     * <p>Narrower than {@link #resolveExistingModelProvider} in two ways. It takes only
+     * {@code ai:Wso2ModelProvider}, so the choice is never bound to, say, an OpenAI provider
+     * variable — that would silently run the agent on a model the user did not choose. And it takes
+     * only one initialized from {@code ai:getDefaultModelProvider()}: the type alone would also
+     * accept a provider the user built against their own endpoint
+     * ({@code check new ("http://localhost:9099", "token")}), which is a model they did not choose
+     * either. Declarations are walked in source order, so the pick is deterministic when a module
+     * holds more than one.
+     *
+     * @param sourceBuilder the source builder holding the target file
+     * @return the variable name, or null when the module declares no such provider
+     */
     private static String resolveWso2ModelProvider(SourceBuilder sourceBuilder) {
         try {
-            Package currentPackage = PackageUtil
-                    .loadProject(sourceBuilder.workspaceManager, sourceBuilder.filePath).currentPackage();
-            PackageUtil.getCompilation(currentPackage);
-            for (Module module : currentPackage.modules()) {
-                for (Symbol symbol : module.getCompilation().getSemanticModel().moduleSymbols()) {
-                    if (symbol.kind() != SymbolKind.VARIABLE) {
+            Module module = declaringModule(sourceBuilder);
+            if (module == null) {
+                return null;
+            }
+            SemanticModel semanticModel = module.getCompilation().getSemanticModel();
+            for (DocumentId documentId : module.documentIds()) {
+                ModulePartNode root = module.document(documentId).syntaxTree().rootNode();
+                for (ModuleMemberDeclarationNode member : root.members()) {
+                    if (!(member instanceof ModuleVariableDeclarationNode varDecl)
+                            || varDecl.initializer().isEmpty()
+                            || !(varDecl.typedBindingPattern().bindingPattern()
+                                    instanceof CaptureBindingPatternNode capture)) {
                         continue;
                     }
-                    VariableSymbol variable = (VariableSymbol) symbol;
-                    if (isWso2ModelProviderType(variable.typeDescriptor()) && variable.getName().isPresent()) {
-                        return variable.getName().get();
+                    if (!isDefaultModelProviderInitializer(semanticModel, varDecl.initializer().get())
+                            || !isWso2ModelProvider(semanticModel, capture)) {
+                        continue;
                     }
+                    return capture.variableName().text();
                 }
             }
         } catch (RuntimeException e) {
@@ -286,12 +313,78 @@ public class DurableAgentBuilder extends FunctionDefinitionBuilder {
         return null;
     }
 
+    /**
+     * Whether the variable's type is {@code ballerina/ai}'s {@code Wso2ModelProvider}.
+     *
+     * <p>Resolved through the semantic model, not the prefix written in the source: the qualifier is
+     * only an import alias, so matching {@code *:Wso2ModelProvider} as text would also accept a
+     * same-named type from a module of the user's own. The symbol carries the module it came from,
+     * which is the question actually being asked.
+     */
+    private static boolean isWso2ModelProvider(SemanticModel semanticModel, CaptureBindingPatternNode capture) {
+        return semanticModel.symbol(capture)
+                .filter(VariableSymbol.class::isInstance)
+                .map(symbol -> isWso2ModelProviderType(((VariableSymbol) symbol).typeDescriptor()))
+                .orElse(false);
+    }
+
     private static boolean isWso2ModelProviderType(TypeSymbol typeSymbol) {
         if (typeSymbol == null) {
             return false;
         }
         Optional<String> typeName = typeSymbol.getName();
         return typeName.isPresent() && WSO2_MODEL_PROVIDER_NAME.equals(typeName.get())
-                && typeSymbol.getModule().map(module -> AI_PACKAGE.equals(module.id().moduleName())).orElse(false);
+                && typeSymbol.getModule().map(DurableAgentBuilder::isBallerinaAiModule).orElse(false);
+    }
+
+    // `ai` alone would also accept a module of that name from another organization, so both halves
+    // of the module id are checked.
+    private static boolean isBallerinaAiModule(ModuleSymbol module) {
+        return BALLERINA_ORG.equals(module.id().orgName()) && AI_PACKAGE.equals(module.id().moduleName());
+    }
+
+    /**
+     * Whether the initializer is a call to {@code ballerina/ai}'s {@code getDefaultModelProvider()}.
+     *
+     * <p>The callee is resolved through the semantic model rather than matched on its spelling: a
+     * factory of the user's own named {@code getDefaultModelProvider()} can return an
+     * {@code ai:Wso2ModelProvider} it built against a private endpoint, and that is not the shared
+     * default. A call carrying arguments is a hand-configured provider either way.
+     */
+    private static boolean isDefaultModelProviderInitializer(SemanticModel semanticModel,
+                                                             ExpressionNode initializer) {
+        ExpressionNode expression = initializer;
+        while (expression instanceof CheckExpressionNode check) {
+            expression = check.expression();
+        }
+        if (!(expression instanceof FunctionCallExpressionNode call) || !call.arguments().isEmpty()) {
+            return false;
+        }
+        return semanticModel.symbol(call.functionName())
+                .filter(FunctionSymbol.class::isInstance)
+                .filter(symbol -> symbol.getName()
+                        .map(GET_DEFAULT_MODEL_PROVIDER_METHOD::equals).orElse(false))
+                .flatMap(Symbol::getModule)
+                .map(DurableAgentBuilder::isBallerinaAiModule)
+                .orElse(false);
+    }
+
+    /**
+     * The module the agent declaration is generated into.
+     *
+     * <p>Both provider lookups are scoped to it because they answer with a bare variable name, and a
+     * bare name only resolves within its own module: a provider picked out of a sibling module would
+     * be written into the declaration as an identifier that does not compile there (and need not even
+     * be public). A package whose provider lives elsewhere therefore reads as having none, and the
+     * WSO2 default is declared alongside the agent instead.
+     *
+     * @param sourceBuilder the source builder holding the target file
+     * @return the module owning the target file, or null when it cannot be resolved
+     */
+    private static Module declaringModule(SourceBuilder sourceBuilder) {
+        Package currentPackage = PackageUtil
+                .loadProject(sourceBuilder.workspaceManager, sourceBuilder.filePath).currentPackage();
+        PackageUtil.getCompilation(currentPackage);
+        return sourceBuilder.workspaceManager.module(sourceBuilder.filePath).orElse(null);
     }
 }

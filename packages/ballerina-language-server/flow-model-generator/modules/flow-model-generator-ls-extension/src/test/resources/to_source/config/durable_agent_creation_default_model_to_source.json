@@ -1,6 +1,6 @@
 {
   "source": "workflow_function/functions.bal",
-  "description": "Create a durable agent on the WSO2 default model provider: the package already declares one, so it is reused instead of declaring a second",
+  "description": "Create a durable agent on the WSO2 default model provider: the package already declares one, so it is reused instead of declaring a second. The hand-configured ai:Wso2ModelProvider declared before it is skipped -- it is not the default.",
   "diagram": {
     "metadata": {
       "label": "Durable Agentic Workflow",
@@ -192,7 +192,7 @@
             "character": 0
           }
         },
-        "newText": "final workflow:DurableAgent expenseAgent = check new ({\n    systemPrompt: {\n        role: string `Expense claim assistant`,\n        instructions: string `Process expense claims end to end.`\n    },\n    model: claimModel\n});"
+        "newText": "final workflow:DurableAgent expenseAgent = check new ({\n    systemPrompt: {\n        role: string `Expense claim assistant`,\n        instructions: string `Process expense claims end to end.`\n    },\n    model: defaultClaimModel\n});"
       }
     ]
   }

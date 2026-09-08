@@ -86,11 +86,11 @@ import { useFooterLogic } from "./Footer/useFooterLogic";
 import { SettingsPanel } from "../../SettingsPanel";
 import { McpManagerPanel } from "../../McpManagerPanel";
 
-/** Full-page panels reachable from the chat. The chat itself is the empty stack. */
-export type PanelRoute = "settings" | "mcp" | "skills";
+export type { PanelRoute } from "./utils/panelNav";
 import WelcomeMessage from "./Welcome";
 import { getOnboardingOpens, incrementOnboardingOpens, convertToUIMessages, isContainsSyntaxError } from "./utils/utils";
 import { applyGenerationStatus, deriveReviewBarState, PanelMessage } from "./utils/reviewBarState";
+import { backTooltipFor, PanelRoute } from "./utils/panelNav";
 import {
     serializeStream, parseStream, appendToLastEntry, upsertComponent, upsertRequestCard,
     buildRequestCardData, buildPlanItem, applyPlanApprovalResolution, appendAbortMarker, applyTaskWriteResult,
@@ -111,7 +111,7 @@ const NO_DRIFT_FOUND = "No drift identified between the code and the documentati
 const DRIFT_CHECK_ERROR = "Failed to check drift between the code and the documentation. Please try again.";
 
 const USAGE_EXCEEDED_THRESHOLD_PERCENT = 3;
-const QUOTA_CONTACT_EMAIL = "support@wso2.com";
+const DISCORD_INVITE_URL = "https://discord.com/invite/wso2";
 
 //TODO: Add better error handling from backend. stream error type and non 200 status codes
 
@@ -335,6 +335,8 @@ const AIChat: React.FC = () => {
     // staleness has to be judged against a ref, not the captured isLoading value.
     const isLoadingRef = useRef(false);
     isLoadingRef.current = isLoading;
+    // Set by the "abort" notification, which always arrives before the RPC error (whose name is lost in transit).
+    const abortHandledRef = useRef(false);
     const [followupSuggestions, setFollowupSuggestions] = useState<FollowupSuggestion[]>([]);
     const [isCompacting, setIsCompacting] = useState(false);
     // Tools currently in flight, oldest first, for the composer's loading
@@ -364,6 +366,7 @@ const AIChat: React.FC = () => {
     const activePanel = panelStack[panelStack.length - 1];
     const pushPanel = (route: PanelRoute) => setPanelStack(s => [...s, route]);
     const popPanel = () => setPanelStack(s => s.slice(0, -1));
+    const backTooltip = backTooltipFor(panelStack);
     const [isAutoApproveEnabled, setIsAutoApproveEnabled] = useState(false);
     const [isWebToolsEnabled, setIsWebToolsEnabled] = useState(false);
     const userWebSearchPreferenceRef = useRef(false);
@@ -396,7 +399,7 @@ const AIChat: React.FC = () => {
 
     const [migrationSession, setMigrationSession] = useState<ActiveMigrationSession | null>(null);
     const [isMigrationEnhancementRunning, setIsMigrationEnhancementRunning] = useState(false);
-    const [usage, setUsage] = useState<{ remainingUsagePercentage: number; resetsIn: number; orgId?: string; alreadyRequested?: boolean } | null>(null);
+    const [usage, setUsage] = useState<{ remainingUsagePercentage: number; resetsIn: number; resetsAtMs?: number; orgId?: string; alreadyRequested?: boolean } | null>(null);
     const [isUsageExceeded, setIsUsageExceeded] = useState(false);
     const [showQuotaDialog, setShowQuotaDialog] = useState(false);
     const [quotaRequestSubmitting, setQuotaRequestSubmitting] = useState(false);
@@ -536,9 +539,15 @@ const AIChat: React.FC = () => {
                                     }
                                     activeScaffoldKeyRef.current = key;
                                 }
+                                // A prompt handed off from another surface (e.g. the overview) can ask
+                                // for a fresh thread; clear first, then re-apply its mode (clear resets it).
+                                if (defaultPrompt.newThread) {
+                                    await handleClearChat().catch((): void => { /* best-effort: still submit */ });
+                                    setAgentMode(defaultPrompt.planMode ? AgentMode.Plan : AgentMode.Edit);
+                                }
                                 void handleSend({
                                     input: [{ content: defaultPrompt.text }],
-                                    attachments: [],
+                                    attachments: defaultPrompt.attachments ?? [],
                                 });
                                 return;
                             }
@@ -569,13 +578,8 @@ const AIChat: React.FC = () => {
     }, []);
 
 
-    const formatResetsIn = (seconds: number): string => {
-        const days = Math.floor(seconds / 86400);
-        if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
-        const hours = Math.floor(seconds / 3600);
-        if (hours >= 1) return `${hours} hour${hours > 1 ? 's' : ''}`;
-        const mins = Math.floor(seconds / 60);
-        return `${mins} min${mins > 1 ? 's' : ''}`;
+    const formatResetsAt = (resetsAtMs: number): string => {
+        return new Date(resetsAtMs).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     };
 
     const formatResetsInExact = (seconds: number): string => {
@@ -593,7 +597,10 @@ const AIChat: React.FC = () => {
         try {
             const result = await rpcClient.getAiPanelRpcClient().getUsage();
             if (result) {
-                setUsage(result);
+                setUsage({
+                    ...result,
+                    resetsAtMs: result.resetsIn > 0 ? Date.now() + result.resetsIn * 1000 : undefined,
+                });
                 setIsUsageExceeded(result.resetsIn !== -1 && result.remainingUsagePercentage < USAGE_EXCEEDED_THRESHOLD_PERCENT);
             } else {
                 setUsage(null);
@@ -630,11 +637,11 @@ const AIChat: React.FC = () => {
                 setShowQuotaDialog(false);
                 await fetchUsage();
             } else {
-                setQuotaRequestError(`Something went wrong. Please try again or email ${QUOTA_CONTACT_EMAIL}.`);
+                setQuotaRequestError("Something went wrong. Please try again.");
             }
         } catch (e) {
             console.error("Failed to submit quota request:", e);
-            setQuotaRequestError(`Something went wrong. Please try again or email ${QUOTA_CONTACT_EMAIL}.`);
+            setQuotaRequestError("Something went wrong. Please try again.");
         } finally {
             setQuotaRequestSubmitting(false);
         }
@@ -1511,6 +1518,7 @@ const AIChat: React.FC = () => {
             console.log("Received stop signal");
             setIsWebToolsEnabled(userWebSearchPreferenceRef.current);
             setWebToolApprovalRequest(null);
+            setApprovalRequest(null);
             setIsCompacting(false);
             setIsCodeLoading(false);
             setIsLoading(false);
@@ -1525,9 +1533,11 @@ const AIChat: React.FC = () => {
 
         } else if (type === "abort") {
             console.log("Received abort signal");
+            abortHandledRef.current = true;
             activeScaffoldKeyRef.current = null;
             setIsWebToolsEnabled(userWebSearchPreferenceRef.current);
             setWebToolApprovalRequest(null);
+            setApprovalRequest(null);
             setMessages(prevMessages => {
                 const msgs = [...prevMessages];
                 const targetIndex = ensureAssistantMessage(msgs);
@@ -1540,6 +1550,7 @@ const AIChat: React.FC = () => {
             setIsCodeLoading(false);
             setIsLoading(false);
             setBackendRequestTriggered(false);
+            setAgentMode(AgentMode.Edit);
             if (isMigrationEnhancementRunning) {
                 setIsMigrationEnhancementRunning(false);
                 // Re-fetch session so the Resume card appears
@@ -1761,10 +1772,9 @@ const AIChat: React.FC = () => {
             setIsCompacting(false);
             setIsLoading(false);
             setIsCodeLoading(false);
-            if (error.name === "AbortError") {
-                updateLastMessage((lastContent) =>
-                    lastContent + `\n\n<error data-system="true" data-auth="${SYSTEM_ERROR_SECRET}">Generation stopped by the user</error>`
-                );
+            if (abortHandledRef.current || error.name === "AbortError") {
+                abortHandledRef.current = false;
+                // The "abort" notification already appended the interruption marker.
             } else if (error?.name === "UsageLimitError" || error?.statusCode === 429) {
                 setIsUsageExceeded(true);
                 fetchUsage();
@@ -2190,6 +2200,7 @@ const AIChat: React.FC = () => {
         setApprovalRequest(null);
         setContextUsage(null);
         setFollowupSuggestions([]);
+        setAgentMode(AgentMode.Edit);
         await rpcClient.getAiPanelRpcClient().clearChat();
         loadThreads();
     }
@@ -2884,10 +2895,10 @@ const AIChat: React.FC = () => {
                         <UsageLimitNoticeContainer>
                             <span className="codicon codicon-warning" role="img" aria-hidden="true" />
                             <span>
-                                You've reached your Integrator Copilot usage limit
-                                {usage && usage.resetsIn !== -1 ? `, which resets in ${formatResetsIn(usage.resetsIn)}` : ""}.
+                                You've reached your usage limit.
+                                {usage?.resetsAtMs != null ? ` Resets ${formatResetsAt(usage.resetsAtMs)}.` : ""}
                                 {usage?.alreadyRequested
-                                    ? <>{" "}Your request for additional quota has been submitted. Reach us at <a href={`mailto:${QUOTA_CONTACT_EMAIL}`}>{QUOTA_CONTACT_EMAIL}</a>.</>
+                                    ? <>{" "}Your request for additional quota has been submitted. Need help in the meantime? Reach out to us on <a href={DISCORD_INVITE_URL} target="_blank" rel="noreferrer">Discord</a>.</>
                                     : <>{" "}<a href="#" onClick={(e) => { e.preventDefault(); setShowQuotaDialog(true); }}>Request additional quota</a>.</>
                                 }
                             </span>
@@ -2909,54 +2920,54 @@ const AIChat: React.FC = () => {
                             (item: StreamItem) => item.kind === "ask" && (item as any).data?.stage === "asking"
                         ) as { kind: "ask"; data: { requestId: string; questions: any[] } } | undefined;
 
-                        if (activeClarifyItem) {
-                            return (
-                                <ClarifyFooter
-                                    questions={activeClarifyItem.data.questions}
-                                    requestId={activeClarifyItem.data.requestId}
-                                    rpcClient={rpcClient}
-                                />
-                            );
-                        }
-
                         const activeSkillEnableItem = lastStreamItems.find(
                             (item: StreamItem) => item.kind === "skill_enable" && (item as any).data?.stage === "prompting"
                         ) as { kind: "skill_enable"; data: { requestId: string; skillName: string; skillId: string } } | undefined;
 
-                        if (activeSkillEnableItem) {
-                            const { requestId, skillName, skillId } = activeSkillEnableItem.data;
-                            return (
-                                <CommonApprovalFooter
-                                    type="skill_enable"
-                                    skillName={skillName}
-                                    onEnable={() => rpcClient.getAiPanelRpcClient().enableSkillFromChat({ requestId, skillId })}
-                                    onSkip={() => rpcClient.getAiPanelRpcClient().cancelSkillEnable({ requestId })}
-                                />
-                            );
-                        }
+                        const approvalFooter = activeClarifyItem ? (
+                            <ClarifyFooter
+                                questions={activeClarifyItem.data.questions}
+                                requestId={activeClarifyItem.data.requestId}
+                                rpcClient={rpcClient}
+                                onStop={handleStop}
+                            />
+                        ) : activeSkillEnableItem ? (
+                            <CommonApprovalFooter
+                                type="skill_enable"
+                                skillName={activeSkillEnableItem.data.skillName}
+                                onEnable={() => rpcClient.getAiPanelRpcClient().enableSkillFromChat({
+                                    requestId: activeSkillEnableItem.data.requestId,
+                                    skillId: activeSkillEnableItem.data.skillId,
+                                })}
+                                onSkip={() => rpcClient.getAiPanelRpcClient().cancelSkillEnable({
+                                    requestId: activeSkillEnableItem.data.requestId,
+                                })}
+                                onStop={handleStop}
+                            />
+                        ) : webToolApprovalRequest ? (
+                            <CommonApprovalFooter
+                                type="web_tool"
+                                toolName={webToolApprovalRequest.toolName}
+                                content={webToolApprovalRequest.content}
+                                onAllow={handleWebToolAllow}
+                                onDeny={handleWebToolDeny}
+                                onStop={handleStop}
+                            />
+                        ) : approvalRequest ? (
+                            <CommonApprovalFooter
+                                type={approvalRequest.approvalType}
+                                onApprove={handleApprovalApprove}
+                                onReject={handleApprovalReject}
+                                onStop={handleStop}
+                            />
+                        ) : null;
 
-                        if (webToolApprovalRequest) {
-                            return (
-                                <CommonApprovalFooter
-                                    type="web_tool"
-                                    toolName={webToolApprovalRequest.toolName}
-                                    content={webToolApprovalRequest.content}
-                                    onAllow={handleWebToolAllow}
-                                    onDeny={handleWebToolDeny}
-                                />
-                            );
-                        }
-                        if (approvalRequest) {
-                            return (
-                                <CommonApprovalFooter
-                                    type={approvalRequest.approvalType}
-                                    onApprove={handleApprovalApprove}
-                                    onReject={handleApprovalReject}
-                                />
-                            );
-                        }
+                        // Kept mounted behind the approval footer so the draft and attachments survive.
                         return (
+                        <>
+                            {approvalFooter}
                             <Footer
+                            hidden={!!approvalFooter}
                             aiChatInputRef={aiChatInputRef}
                             tagOptions={{
                                 placeholderTags: placeholderTags,
@@ -3001,15 +3012,16 @@ const AIChat: React.FC = () => {
                             }}
                             skills={skills}
                         />
+                        </>
                         );
                     })()}
                 </AIChatView>
             )}
             {activePanel === "settings" && (
-                <SettingsPanel onClose={popPanel} onNavigate={pushPanel} mcpToolsEnabled={mcpToolsEnabled} />
+                <SettingsPanel onClose={popPanel} backTooltip={backTooltip} onNavigate={pushPanel} mcpToolsEnabled={mcpToolsEnabled} />
             )}
-            {activePanel === "mcp" && <McpManagerPanel onClose={popPanel} />}
-            {activePanel === "skills" && <SkillsManager onClose={popPanel} onSkillsChange={refreshSkills} />}
+            {activePanel === "mcp" && <McpManagerPanel onClose={popPanel} backTooltip={backTooltip} />}
+            {activePanel === "skills" && <SkillsManager onClose={popPanel} backTooltip={backTooltip} onSkillsChange={refreshSkills} />}
         </>
     );
 };
