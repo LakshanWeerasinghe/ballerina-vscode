@@ -98,13 +98,21 @@ export async function LibraryGetTool(
     } catch (error) {
         console.error(`[LibraryGetTool] Error fetching libraries: ${error}`);
 
-        // Emit error result with same ID so the UI closes this tool call's spinner
-        eventHandler({
-            type: "tool_result",
-            toolName: LIBRARY_GET_TOOL,
-            toolOutput: [],
-            toolCallId
-        });
+        // On a cancelled run the rethrow below reaches the SDK as a `tool-error`, and AgentExecutor's
+        // handler for that part emits the failed `tool_result` for this toolCallId. Emitting one here as
+        // well would give the UI two results for one call.
+        if (!abortSignal?.aborted) {
+            // Emit a FAILED result with the same ID so the UI closes this tool call's spinner and shows the
+            // same thing the model is told below: a fetch that failed, not a lookup that matched nothing.
+            // An unflagged `toolOutput: []` is byte-for-byte the event the success path emits for zero matches.
+            eventHandler({
+                type: "tool_result",
+                toolName: LIBRARY_GET_TOOL,
+                toolOutput: [],
+                toolCallId,
+                failed: true
+            });
+        }
 
         // Rethrow rather than return []: an empty result is a legitimate outcome of selection, and the
         // caller must be able to tell "nothing matched" from "the fetch failed" to report each honestly.
@@ -148,8 +156,12 @@ name, description, type definitions (records, objects, enums, type aliases), cli
             const toolCallId = context?.toolCallId || `fallback-${Date.now()}`;
 
             // The model occasionally repeats a name; a duplicate would be fetched, selected over
-            // and rendered twice.
-            const libraryNames = [...new Set(input.libraryNames.map((name) => name.trim()).filter(Boolean))];
+            // and rendered twice. Lower-cased as well as trimmed: Ballerina org and package names are
+            // lower-case, so `Ballerina/http` is the same library mis-cased, and left as-is it would go
+            // to the LS as a name it cannot resolve.
+            const libraryNames = [...new Set(
+                input.libraryNames.map((name) => name.trim().toLowerCase()).filter(Boolean)
+            )];
 
             console.log(
                 `[LibraryGetTool] Called with ${libraryNames.length} libraries: ${libraryNames.join(

@@ -74,8 +74,9 @@ const TYPE_CONSTRUCTOR = 'Constructor';
  * issues, PRs, releases and webhooks") could exceed it, and the failure was the worst shape available: the
  * JSON is truncated mid-token, `generateObject` rejects it against the schema, the throw unwinds to
  * `LibraryGetTool`'s catch, and the agent was handed `[]` — indistinguishable from a library that matched
- * nothing, with no API documentation and a system prompt forbidding it to invent any. The tool now reports
- * a fetch failure explicitly, but the fetch still fails — the cap is what keeps it from failing at all.
+ * nothing, with no API documentation and a system prompt forbidding it to invent any. The tool reports a
+ * fetch failure to the model, but a reported failure is still a failure — the cap is what keeps it from
+ * failing at all.
  *
  * Raised rather than removed, and to 16384 rather than to the model's own ceiling, because these are
  * NON-streaming `generateObject` calls: a cap high enough to permit a multi-minute generation trades a

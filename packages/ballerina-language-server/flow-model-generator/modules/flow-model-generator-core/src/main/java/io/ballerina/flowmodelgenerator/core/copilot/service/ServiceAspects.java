@@ -31,11 +31,10 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.utils.TypeRefResolver;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * The service tier: everything stated once per service entry. Constraints are {@link ConstraintAspect}, the
@@ -273,8 +272,9 @@ final class ServiceAspects {
         }
         String primary = TypeRefResolver.moduleAlias(scope.packageName()) + ":"
                 + scope.listenerClass().getName().orElse(DEFAULT_LISTENER_NAME);
-        List<AlternativeListener> alternatives = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
+        // Keyed by rendered name, in document order: two document entries can resolve to one class, and the
+        // merge below has to find the entry already made for it.
+        Map<String, AlternativeListener> alternatives = new LinkedHashMap<>();
         for (TriggerMetadataModel.Listener alternative : ListenerPairingResolver.alternativeHosts(
                 scope.document().listeners(), scope.serviceType(), scope.listener())) {
             String declared = alternative.type() == null ? null : alternative.type().name();
@@ -284,19 +284,22 @@ final class ServiceAspects {
                 continue;
             }
             String name = TypeRefResolver.moduleAlias(scope.packageName()) + ":" + className;
-            // Two document entries can resolve to one class — `resolveListenerClass` falls back to the
-            // canonical `Listener` for an unnamed one — and an alternative identical to the primary is not
-            // an alternative at all.
-            if (name.equals(primary) || !seen.add(name)) {
+            // An alternative identical to the primary is not an alternative at all.
+            if (name.equals(primary)) {
                 continue;
             }
-            AlternativeListener entry = new AlternativeListener(name);
-            if (alternative.deprecated() != null && !alternative.deprecated().isBlank()) {
-                entry.setDeprecationNote(alternative.deprecated());
+            // Two document entries can resolve to one class — `resolveListenerClass` falls back to the
+            // canonical `Listener` for an unnamed one. One entry per name, but the deprecation note is
+            // merged rather than taken from whichever entry came first: a note on the later duplicate is
+            // still the reason this listener is retired, and dropping it would present the listener as
+            // an equal choice.
+            AlternativeListener entry = alternatives.computeIfAbsent(name, AlternativeListener::new);
+            String deprecated = alternative.deprecated();
+            if (entry.getDeprecationNote() == null && deprecated != null && !deprecated.isBlank()) {
+                entry.setDeprecationNote(deprecated);
             }
-            alternatives.add(entry);
         }
-        return alternatives;
+        return new ArrayList<>(alternatives.values());
     }
 
     private static Listener buildListener(TriggerScope scope) {
