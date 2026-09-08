@@ -264,8 +264,7 @@ namespace S {
         display: flex;
         flex-direction: column;
         width: 100%;
-        margin-top: 8px;
-        ${({ isLast }) => isLast && "padding-bottom: 12px;"}
+        ${({ isLast }) => isLast && "padding-bottom: 6px;"}
     `;
 
     export const AdvancedSubcategoryHeader = styled.div`
@@ -273,7 +272,6 @@ namespace S {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        width: 100%;
         padding: 4px 12px;
         margin: 0 -12px;
         border-radius: 5px;
