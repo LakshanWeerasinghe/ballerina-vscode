@@ -222,7 +222,6 @@
             "selected": false
           }
         ],
-        "placeholder": "()",
         "optional": true,
         "editable": true,
         "advanced": false,

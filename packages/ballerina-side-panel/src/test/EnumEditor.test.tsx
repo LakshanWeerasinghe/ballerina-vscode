@@ -88,6 +88,15 @@ describe("EnumEditor", () => {
         expect(renderEditor("someVariable", '"chat_completions"').selected).toBe(NONE_SELECTED);
     });
 
+    it("INVARIANT: presents the empty selection for a placeholder that is not one of the members", () => {
+        // The backend puts the declared default in `placeholder`, or leaves it empty when the default
+        // resolves to none of the members. A placeholder holding anything else (e.g. a sample value of
+        // the type, such as `()` for a nilable enum) names no member, and must not select an arbitrary
+        // one in its place.
+        expect(renderEditor("", "()").selected).toBe(NONE_SELECTED);
+        expect(renderEditor("", "object {}").selected).toBe(NONE_SELECTED);
+    });
+
     it("clears the field when the empty selection is picked", () => {
         const { onChange } = renderEditor('"responses"', '"chat_completions"');
         const select = document.querySelector("vscode-dropdown") as HTMLElement & { value: string };

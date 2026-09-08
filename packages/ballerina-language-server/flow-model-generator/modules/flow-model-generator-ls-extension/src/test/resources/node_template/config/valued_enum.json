@@ -60,7 +60,7 @@
             "selected": false
           }
         ],
-        "placeholder": "()",
+        "placeholder": "\"5\"",
         "optional": true,
         "editable": true,
         "advanced": true,

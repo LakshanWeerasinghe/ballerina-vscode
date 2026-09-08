@@ -1445,14 +1445,19 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         }
 
         /**
-         * Aligns the placeholder of the property with the declared default of the parameter, when the placeholder
-         * holds one of the options.
+         * Sets the placeholder of a single select to the option the parameter defaults to, and to nothing when
+         * there is no such option.
          *
-         * <p>The placeholder is derived from the type of the parameter, which for a union yields an arbitrary
-         * member of it rather than the default. That member is then presented as the default of the field, and the
-         * generated source omits an argument matching it, so selecting it produces no code at all. The declared
-         * default replaces it here, and the placeholder is dropped when the default does not resolve to an option
-         * (or the parameter declares none), which leaves no option presented as the default.
+         * <p>On a single select the placeholder names the member the field defaults to, never a sample value of
+         * the type: the type of a union yields an arbitrary member of it, which says nothing about the default.
+         * The declared default is therefore the only source, and it is not always resolvable to an option - the
+         * parameter may declare none, or the union may refer to constants rather than enum members (e.g.
+         * {@code http:Compression} is COMPRESSION_AUTO|COMPRESSION_ALWAYS|...), whose names the type does not
+         * carry. Both leave the placeholder empty, which presents the empty selection rather than claiming an
+         * arbitrary member is the default.
+         *
+         * <p>The placeholder also decides the generated source: an argument matching it is omitted, and one is
+         * written for every other selection. Holding the declared default is what makes that omission correct.
          *
          * @param builder      the builder of the property being built
          * @param options      the options of the single select
@@ -1460,26 +1465,10 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
          */
         private static void alignPlaceholderWithDefault(Builder<?> builder, List<Option> options,
                                                         String defaultValue) {
-            boolean placeholderIsAnOption = options.stream()
-                    .anyMatch(option -> option.value().equals(builder.placeholder));
-            if (!placeholderIsAnOption) {
-                return;
-            }
             // Not every caller passes the default down to the type, hence the one held by the property is used
             // when it does not, so that a declared default is not mistaken for an absent one.
             String declaredDefault = defaultValue == null || defaultValue.isEmpty() ? builder.defaultValue
                     : defaultValue;
-            if (declaredDefault == null || declaredDefault.isEmpty()) {
-                // The parameter declares no default, hence none of the options is the default of the field
-                builder.placeholder(null);
-                return;
-            }
-            // A default that does not resolve to an option is dropped rather than guessed at, as the union may
-            // refer to constants instead of enum members (e.g. `http:Compression` is
-            // COMPRESSION_AUTO|COMPRESSION_ALWAYS|...). Keeping the member derived from the type would present
-            // an arbitrary one as the default, and an argument matching it is omitted from the generated
-            // source, so selecting that member would generate nothing. Without a placeholder every selection
-            // is generated, which states what was selected even when it is what the parameter defaults to.
             builder.placeholder(findMatchingOption(options, declaredDefault).map(Option::value).orElse(null));
         }
 

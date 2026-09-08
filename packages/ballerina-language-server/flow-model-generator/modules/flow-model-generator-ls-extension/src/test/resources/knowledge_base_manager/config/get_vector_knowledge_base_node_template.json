@@ -136,7 +136,7 @@
               "selected": false
             }
           ],
-          "placeholder": "object {}",
+          "placeholder": "\"AUTO\"",
           "optional": true,
           "editable": true,
           "advanced": false,

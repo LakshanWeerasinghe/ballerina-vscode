@@ -291,14 +291,15 @@ public class PropertyType {
     }
 
     /**
-     * Aligns the placeholder of the property with the declared default of the parameter, when the placeholder
-     * holds one of the options.
+     * Sets the placeholder of a single select to the option the parameter defaults to, and to nothing when there
+     * is no such option.
      *
-     * <p>The placeholder is derived from the type of the parameter, which for a union yields an arbitrary member
-     * of it rather than the default. That member is then presented as the default of the field, and the generated
-     * source omits an argument matching it, so selecting it produces no code at all. The declared default replaces
-     * it here, and the placeholder is dropped when the default does not resolve to an option (or the parameter
-     * declares none), which leaves no option presented as the default.
+     * <p>On a single select the placeholder names the member the field defaults to, never a sample value of the
+     * type: the type of a union yields an arbitrary member of it, which says nothing about the default. The
+     * declared default is therefore the only source, and it is not always resolvable to an option - the parameter
+     * may declare none, or the union may refer to constants rather than enum members (e.g. {@code ftp:Protocol}
+     * against {@code http:Compression}), whose names the type does not carry. Both leave the placeholder empty,
+     * which presents the empty selection rather than claiming an arbitrary member is the default.
      *
      * @param valueBuilder the builder of the property being built
      * @param options      the options of the single select
@@ -306,21 +307,6 @@ public class PropertyType {
      */
     private static void alignPlaceholderWithDefault(Value.ValueBuilder valueBuilder, List<Option> options,
                                                     String defaultValue) {
-        String placeholder = valueBuilder.getPlaceholder();
-        boolean placeholderIsAnOption = options.stream()
-                .anyMatch(option -> option.value().equals(placeholder));
-        if (!placeholderIsAnOption) {
-            return;
-        }
-        if (defaultValue == null || defaultValue.isEmpty()) {
-            // The parameter declares no default, hence none of the options is the default of the field
-            valueBuilder.setPlaceholder(null);
-            return;
-        }
-        // A default that does not resolve to an option is dropped rather than guessed at, as the union may refer
-        // to constants instead of enum members (e.g. `http:Compression` is COMPRESSION_AUTO|COMPRESSION_ALWAYS|...).
-        // Keeping the member derived from the type would present an arbitrary one as the default, and an argument
-        // matching it is omitted from the generated source, so selecting that member would generate nothing.
         valueBuilder.setPlaceholder(findMatchingOption(options, defaultValue).map(Option::value).orElse(null));
     }
 
