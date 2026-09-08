@@ -1942,6 +1942,10 @@ export interface ResourceSourceCodeResponse {
         [key: string]: TextEdit[];
     };
     validationErrors?: ValidationResult[];
+    // An unexpected failure the builder threw, distinct from a validation failure. `textEdits`
+    // is empty whenever this is set (see CommonSourceResponse(Throwable) on the language server).
+    errorMsg?: string;
+    stacktrace?: string;
 }
 
 export interface ResourceReturnTypesRequest {
