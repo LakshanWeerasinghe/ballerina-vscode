@@ -899,7 +899,7 @@
         "id": "90488",
         "metadata": {
           "label": "Run Child Workflow",
-          "description": "Start a child workflow and continue without waiting for its result",
+          "description": "childFlow",
           "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_workflow_0.8.3.png"
         },
         "codedata": {

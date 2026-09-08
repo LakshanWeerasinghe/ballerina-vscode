@@ -1087,9 +1087,9 @@ public class CodeAnalyzer extends NodeVisitor {
         }
         nodeBuilder.metadata().label(label);
         String target = callNode instanceof RemoteMethodCallActionNode remoteCall
-                && !remoteCall.arguments().isEmpty()
-                && remoteCall.arguments().get(0) instanceof PositionalArgumentNode positional
-                ? positional.expression().toSourceCode().trim() : null;
+                ? argumentExpression(remoteCall.arguments(), 0, CHILD_WORKFLOW_PARAM)
+                        .map(expression -> expression.toSourceCode().trim()).orElse(null)
+                : null;
         if (target == null || target.isEmpty()) {
             return;
         }
@@ -1357,8 +1357,10 @@ public class CodeAnalyzer extends NodeVisitor {
             String method = call.methodName().toSourceCode().trim();
             boolean startsChild = Constants.Workflow.RUN_CHILD_WORKFLOW_METHOD_NAME.equals(method)
                     || Constants.Workflow.CALL_CHILD_WORKFLOW_METHOD_NAME.equals(method);
-            if (startsChild && call.arguments().get(0) instanceof PositionalArgumentNode positional) {
-                workflowName = positional.expression().toSourceCode().trim();
+            if (startsChild) {
+                workflowName = argumentExpression(call.arguments(), 0, CHILD_WORKFLOW_PARAM)
+                        .map(childRef -> childRef.toSourceCode().trim())
+                        .orElse(null);
             }
         }
     }
@@ -1636,7 +1638,7 @@ public class CodeAnalyzer extends NodeVisitor {
 
     // Capability declaration fields whose values render in text-mode form fields.
     private static final Set<String> TEXT_MODE_CAPABILITY_FIELDS =
-            Set.of("name", "title", "description", "roles", "callbackChannel");
+            Set.of("name", "title", "description", "roles", "callbackChannel", "userRoles");
 
     private static void putIfNotBlank(Map<String, String> values, String key, String value) {
         if (value != null && !value.isBlank()) {
@@ -2009,12 +2011,6 @@ public class CodeAnalyzer extends NodeVisitor {
     }
 
     /**
-     * Fallback path used when the {@code awaitHumanTask} symbol cannot be resolved (e.g., the installed
-     * workflow library predates it). Reads positional/named args directly and builds a stable, static form
-     * matching {@link HumanTaskBuilder}'s fallback shape. The result type uses the inferred {@code T} key so
-     * {@code toSource} round-trips consistently with the resolved path.
-     */
-    /**
      * Reads an {@code awaitHumanTask} call's arguments into the fallback form's values, by parameter
      * name. Each parameter may be written positionally, in the signature's order —
      * {@code awaitHumanTask(taskName, userRoles, payload, title, description, timeout)} — or as a
@@ -2035,6 +2031,12 @@ public class CodeAnalyzer extends NodeVisitor {
         return values;
     }
 
+    /**
+     * Fallback path used when the {@code awaitHumanTask} symbol cannot be resolved (e.g., the installed
+     * workflow library predates it). Reads positional/named args directly and builds a stable, static form
+     * matching {@link HumanTaskBuilder}'s fallback shape. The result type uses the inferred {@code T} key so
+     * {@code toSource} round-trips consistently with the resolved path.
+     */
     private void populateFallbackHumanTaskProperties(RemoteMethodCallActionNode callNode,
                                                      Map<String, Property> currentProps) {
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();

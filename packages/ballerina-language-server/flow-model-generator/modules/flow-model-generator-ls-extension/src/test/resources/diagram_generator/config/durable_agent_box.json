@@ -151,7 +151,7 @@
                   "wait": "false",
                   "callbackChannel": "hotelResults",
                   "requiresApproval": "true",
-                  "userRoles": "\"travel-lead\""
+                  "userRoles": "travel-lead"
                 }
               }
             ],

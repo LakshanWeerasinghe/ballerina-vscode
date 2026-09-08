@@ -247,6 +247,11 @@ public class DurableAgentPeerBuilder extends CallBuilder {
         }
         if (!waits) {
             entry.append(", 'wait: false");
+        }
+        // PeerDecl declares callbackChannel independently of 'wait — it is *required* when the
+        // delegation does not wait, not exclusive to it. Emitting it only for the async case
+        // dropped a channel a waiting peer had declared, which now hydrates into the form.
+        if (!callbackChannel.isBlank()) {
             entry.append(", callbackChannel: ").append(WorkflowUtil.quoteIfPlain(callbackChannel));
         }
         if (requiresApproval) {
