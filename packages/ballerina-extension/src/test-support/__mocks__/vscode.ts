@@ -42,7 +42,7 @@ export const workspace = {
     workspaceFolders: [] as unknown[],
     isTrusted: true,
     // Tests assign this to stand in for the documents VS Code has materialised.
-    textDocuments: [] as { uri: { fsPath: string }; isDirty: boolean; save(): Promise<boolean> }[],
+    textDocuments: [] as { uri: { fsPath: string; toString(): string }; isDirty: boolean; save(): Promise<boolean> }[],
     onDidChangeConfiguration: () => ({ dispose() {} }),
     onDidGrantWorkspaceTrust: () => ({ dispose() {} }),
 };

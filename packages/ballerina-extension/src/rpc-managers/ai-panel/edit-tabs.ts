@@ -35,8 +35,10 @@ function textTabs(): { tab: unknown; uri: Uri }[] {
         .map((tab) => ({ tab, uri: (tab.input as TabInputText).uri }));
 }
 
+/** A `git:` view of a file shares its fsPath with the real document, so match on the full URI. */
 function documentFor(uri: Uri) {
-    return workspace.textDocuments.find((document) => document.uri.fsPath === uri.fsPath);
+    const key = uri.toString();
+    return workspace.textDocuments.find((document) => document.uri.toString() === key);
 }
 
 /** Every file currently shown in a tab, so an edit can tell which tabs are its own doing. */
