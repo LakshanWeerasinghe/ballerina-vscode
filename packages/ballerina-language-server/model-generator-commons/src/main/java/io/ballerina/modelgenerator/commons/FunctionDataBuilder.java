@@ -652,9 +652,14 @@ public class FunctionDataBuilder {
                 if (returnTypeMap.containsKey(paramName)) {
                     TypeSymbol typeDescriptor = returnTypeMap.get(paramName);
                     TypeSymbol typeSymbol = ((TypeReferenceTypeSymbol) typeDescriptor).typeDescriptor();
-                    String defaultValue = getTypeSignature(typeSymbol);
+                    // Shared so the rendered text and the imports built from it in getParameters() agree on which
+                    // qualifier a colliding module was given -- see qualifiedImports().
+                    TypeQualifierAllocator inferAllocator = new TypeQualifierAllocator();
+                    String defaultValue = getTypeSignature(typeSymbol, false, inferAllocator);
                     paramForTypeInfer = new ParamForTypeInfer(paramName, defaultValue, typeSymbol,
-                            CommonUtils.getTypeSignature(semanticModel, CommonUtils.getRawType(typeDescriptor), true));
+                            CommonUtils.getTypeSignature(semanticModel, CommonUtils.getRawType(typeDescriptor), true,
+                                    null, inferAllocator),
+                            inferAllocator);
                     break;
                 }
             }
@@ -899,9 +904,10 @@ public class FunctionDataBuilder {
         } else {
             if (paramForTypeInfer != null) {
                 if (paramForTypeInfer.paramName().equals(paramName)) {
-                    // The inferred type's text is rendered elsewhere, so this parameter's imports are the ones
-                    // its own type symbol names.
-                    String inferredImports = getImportStatements(paramForTypeInfer.typeSymbol());
+                    // Reconciled through the same allocator the text was rendered with, so a collision resolves to
+                    // the same qualifier here as it does in paramForTypeInfer.type().
+                    String inferredImports = qualifiedImports(paramForTypeInfer.allocator(),
+                            paramForTypeInfer.typeSymbol());
                     placeholder = paramForTypeInfer.defaultValue();
                     defaultValue = paramForTypeInfer.defaultValue();
                     paramType = paramForTypeInfer.type();
@@ -1436,7 +1442,8 @@ public class FunctionDataBuilder {
         return sb.toString();
     }
 
-    private record ParamForTypeInfer(String paramName, String defaultValue, TypeSymbol typeSymbol, String type) {
+    private record ParamForTypeInfer(String paramName, String defaultValue, TypeSymbol typeSymbol, String type,
+                                     TypeQualifierAllocator allocator) {
     }
 
     private record ReturnData(String returnType, ParamForTypeInfer paramForTypeInfer, boolean returnError,
