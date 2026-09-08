@@ -53,8 +53,11 @@ public class HumanTaskKeyFallbackTest {
 
         Assert.assertNotEquals(ESCAPED_DESCRIPTION, HumanTaskBuilder.DESCRIPTION_KEY,
                 "the test only means something if the two spellings differ");
-        Assert.assertNull(new LinkedHashMap<String, Property>()
-                .get(HumanTaskBuilder.presentKey(new LinkedHashMap<>(), HumanTaskBuilder.DESCRIPTION_KEY)));
+        // An absent key resolves to its escaped form, so the caller's lookup simply finds nothing.
+        // Assert on presentKey's own return: a get() against an empty map is null for every key,
+        // so it would pass whatever presentKey returned.
+        Assert.assertEquals(HumanTaskBuilder.presentKey(new LinkedHashMap<>(), HumanTaskBuilder.DESCRIPTION_KEY),
+                ESCAPED_DESCRIPTION);
     }
 
     @Test(description = "The relabel pass reaches the Description under either spelling and keeps its value")

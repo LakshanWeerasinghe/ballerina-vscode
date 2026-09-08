@@ -247,6 +247,7 @@ import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.HUMAN_TASK
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.HUMAN_TASK_LABEL;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_DURABLE_AGENT_DESCRIPTION;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_DURABLE_AGENT_LABEL;
+import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_INPUT_PARAM;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_METHOD_NAME;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.RUN_PROCESS_FUNCTION_PARAM;
 import static io.ballerina.flowmodelgenerator.core.Constants.Workflow.SEND_DATA_METHOD_NAME;
@@ -1262,14 +1263,17 @@ public class CodeAnalyzer extends NodeVisitor {
     private String resolveDurableAgentDataEventName(MethodCallExpressionNode callNode, NodeKind nodeKind) {
         SeparatedNodeList<FunctionArgumentNode> arguments = callNode.arguments();
         if (nodeKind == NodeKind.DURABLE_AGENT_UPDATE) {
-            // sendData(instanceId, "<event>", data)
-            return arguments.size() > 1 ? stringLiteralArgument(arguments.get(1)) : null;
+            // sendData(instanceId, "<event>", data) — the channel may also be named.
+            return argumentExpression(arguments, 1, AGENT_EVENT_NAME_PARAM)
+                    .map(CodeAnalyzer::stringLiteralValue)
+                    .orElse(null);
         }
-        if (nodeKind != NodeKind.DURABLE_AGENT_DATA_RESULT || arguments.size() < 2) {
+        if (nodeKind != NodeKind.DURABLE_AGENT_DATA_RESULT) {
             return null;
         }
-        String tokenName = arguments.get(1) instanceof PositionalArgumentNode positional
-                ? positional.expression().toSourceCode().trim() : null;
+        String tokenName = argumentExpression(arguments, 1, AGENT_TOKEN_PARAM)
+                .map(expression -> expression.toSourceCode().trim())
+                .orElse(null);
         if (tokenName == null || tokenName.isEmpty()) {
             return null;
         }
@@ -1359,11 +1363,8 @@ public class CodeAnalyzer extends NodeVisitor {
         }
     }
 
-    private static String stringLiteralArgument(FunctionArgumentNode argument) {
-        if (!(argument instanceof PositionalArgumentNode positional)) {
-            return null;
-        }
-        ExpressionNode expression = positional.expression();
+    // The unquoted text of a string-literal expression, or null when it is not one.
+    private static String stringLiteralValue(ExpressionNode expression) {
         if (expression.kind() != SyntaxKind.STRING_LITERAL) {
             return null;
         }
@@ -1410,7 +1411,9 @@ public class CodeAnalyzer extends NodeVisitor {
                     && Constants.Workflow.AGENT_SEND_DATA_METHOD_NAME
                             .equals(getIdentifierName(call.methodName()))
                     && call.arguments().size() > 1) {
-                eventName = stringLiteralArgument(call.arguments().get(1));
+                eventName = argumentExpression(call.arguments(), 1, AGENT_EVENT_NAME_PARAM)
+                        .map(CodeAnalyzer::stringLiteralValue)
+                        .orElse(null);
             }
         }
     }
@@ -1667,10 +1670,11 @@ public class CodeAnalyzer extends NodeVisitor {
      * builtin activity functions in the {@code workflow.activity} module, or {@code null} otherwise.
      */
     private String resolveBuiltinActivitySymbol(SeparatedNodeList<FunctionArgumentNode> args) {
-        if (args.isEmpty() || !(args.get(0) instanceof PositionalArgumentNode firstArg)) {
+        Optional<ExpressionNode> activityRef = argumentExpression(args, 0, CALL_ACTIVITY_FUNCTION_PARAM);
+        if (activityRef.isEmpty()) {
             return null;
         }
-        Optional<Symbol> resolvedSymbol = semanticModel.symbol(firstArg.expression());
+        Optional<Symbol> resolvedSymbol = semanticModel.symbol(activityRef.get());
         if (resolvedSymbol.isEmpty()) {
             return null;
         }
@@ -2097,14 +2101,11 @@ public class CodeAnalyzer extends NodeVisitor {
         // Validate the second argument is a mapping constructor BEFORE clearing properties.
         // Clearing first would discard connection/result/checkError state on every early return.
         SeparatedNodeList<FunctionArgumentNode> args = callNode.arguments();
-        if (args.size() <= 1) {
+        Optional<ExpressionNode> argsExpression = argumentExpression(args, 1, CALL_ACTIVITY_ARGS_PARAM);
+        if (argsExpression.isEmpty()) {
             return;
         }
-        FunctionArgumentNode secondArg = args.get(1);
-        if (!(secondArg instanceof PositionalArgumentNode posArg)) {
-            return;
-        }
-        ExpressionNode secondExpr = posArg.expression();
+        ExpressionNode secondExpr = argsExpression.get();
         if (secondExpr.kind() != SyntaxKind.MAPPING_CONSTRUCTOR) {
             return;
         }
@@ -4499,17 +4500,8 @@ public class CodeAnalyzer extends NodeVisitor {
             return;
         }
 
-        // Resolve the current input value from the call source (second positional or named arg).
-        Node valueNode = null;
-        if (args.size() > 1 && args.get(1) instanceof PositionalArgumentNode secondArg) {
-            valueNode = secondArg.expression();
-        }
-        for (FunctionArgumentNode arg : args) {
-            if (arg instanceof NamedArgumentNode namedArg
-                    && WorkflowRunBuilder.INPUT_KEY.equals(namedArg.argumentName().name().text())) {
-                valueNode = namedArg.expression();
-            }
-        }
+        // Resolve the current input value from the call source, in either argument form.
+        Node valueNode = argumentExpression(args, 1, RUN_INPUT_PARAM).orElse(null);
         // The input property built by processFunctionSymbol already consumed the diagnostic-handler
         // cursor for this value node, so its diagnostics are correct — only its type is wrong
         // (library map<anydata>? vs the workflow's declared type). Capture those diagnostics and

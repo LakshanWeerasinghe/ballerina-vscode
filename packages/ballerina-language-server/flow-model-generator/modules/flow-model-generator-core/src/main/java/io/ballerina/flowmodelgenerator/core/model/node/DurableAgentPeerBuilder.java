@@ -232,7 +232,11 @@ public class DurableAgentPeerBuilder extends CallBuilder {
         }
 
         boolean requiresApproval = "true".equalsIgnoreCase(propertyValue(sourceBuilder, REQUIRES_APPROVAL_KEY));
-        String userRoles = propertyValue(sourceBuilder, USER_ROLES_KEY);
+        // Multi-mode field: read it the way the tool and activity forms do. propertyValue would
+        // hand back the raw value, quoting an expression-mode reference into a role literal of
+        // the same spelling and leaving a text-mode string template unwrapped.
+        String userRoles = sourceBuilder.getProperty(USER_ROLES_KEY)
+                .map(WorkflowUtil::roleSource).orElse("");
 
         // 'wait is a keyword, so the field is written quoted; it is only emitted when it differs
         // from the declaration's default.
@@ -249,7 +253,7 @@ public class DurableAgentPeerBuilder extends CallBuilder {
             entry.append(", requiresApproval: true");
         }
         if (!userRoles.isBlank()) {
-            entry.append(", userRoles: ").append(WorkflowUtil.quoteIfBareRole(userRoles));
+            entry.append(", userRoles: ").append(userRoles);
         }
         entry.append("}");
         return WorkflowUtil.upsertAgentCapabilityEntry(sourceBuilder, "peers", entry.toString());
