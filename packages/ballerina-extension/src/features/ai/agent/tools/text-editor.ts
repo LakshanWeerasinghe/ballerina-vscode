@@ -33,13 +33,17 @@ import { seedNewPackageBaseline } from "../../utils/project/ls-schema-notificati
  */
 const fileEditLocks = new Map<string, Promise<void>>();
 
-/** Runs before path validation, so it must not throw on whatever the model sent. */
+/**
+ * Runs before path validation, so it must not throw on whatever the model sent. Uses
+ * path.join, not path.resolve: validateFilePath allows "/main.bal", which resolve would key
+ * outside the project, giving the same file two locks.
+ */
 function fileLockKey(tempProjectPath: string, filePath: unknown): string {
   if (typeof filePath !== 'string' || filePath.length === 0) {
     return `${tempProjectPath}|<invalid>`;
   }
   try {
-    return path.resolve(tempProjectPath, filePath);
+    return path.join(tempProjectPath, filePath);
   } catch {
     return `${tempProjectPath}|${filePath}`;
   }
@@ -64,17 +68,26 @@ function withFileLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
  * Confirms the computed content reached disk. Only "the file is unchanged" is treated as a
  * failure; a mismatch against the exact expected content is warned about instead, since
  * format-on-save legitimately reshapes the file after we hand it over.
+ *
+ * Skipped when the two paths differ: the migration flow (runStagesForPackage, no
+ * existingTempPath) reads from a temp copy while the write goes to the real package root.
  */
 function verifyPersisted(
-  fullPath: string,
+  writtenPath: string | undefined,
+  readPath: string,
   preEditRaw: string,
   expected: string,
   logPrefix: string,
   file_path: string
 ): ValidationResult {
+  if (!writtenPath || path.resolve(writtenPath) !== path.resolve(readPath)) {
+    console.warn(`${logPrefix} Skipping write verification for ${file_path}: read from ${readPath}, wrote to ${writtenPath}.`);
+    return { valid: true };
+  }
+
   let actual: string;
   try {
-    actual = fs.readFileSync(fullPath, 'utf-8');
+    actual = fs.readFileSync(readPath, 'utf-8');
   } catch (error) {
     console.error(`${logPrefix} Could not re-read ${file_path} to verify the edit:`, error);
     return {
@@ -83,7 +96,9 @@ function verifyPersisted(
     };
   }
 
-  if (contentsEquivalent(actual, preEditRaw) && !contentsEquivalent(expected, preEditRaw)) {
+  // Exact comparison: an edit that only touches trailing whitespace still has to register as
+  // applied, and contentsEquivalent would call it unchanged.
+  if (actual === preEditRaw && expected !== preEditRaw) {
     console.error(`${logPrefix} Edit did not reach disk for ${file_path} — content is unchanged after write.`);
     return {
       valid: false,
@@ -113,7 +128,7 @@ async function persistLiveEdit(
   allModifiedFiles: Set<string> | undefined,
   ctx: ExecutionContext | undefined,
   tempProjectPath: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; writtenPath?: string }> {
   if (modifiedFiles) {
     insertIntoUpdateFileNames(modifiedFiles, file_path);
   }
@@ -125,7 +140,7 @@ async function persistLiveEdit(
       fs.mkdirSync(path.dirname(directPath), { recursive: true });
       fs.writeFileSync(directPath, content, 'utf8');
       allModifiedFiles?.add(file_path);
-      return { ok: true };
+      return { ok: true, writtenPath: directPath };
     } catch (error) {
       console.error("[TextEditorTool] Direct persist failed:", error);
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -153,7 +168,7 @@ async function persistLiveEdit(
         .map(abs => path.relative(packageRoot, abs));
       await seedNewPackageBaseline(packageRoot, content, preexistingBalFiles);
     }
-    return { ok: true };
+    return { ok: true, writtenPath: absolutePath };
   } catch (error) {
     console.error("[TextEditorTool] Live persist failed:", error);
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -428,7 +443,7 @@ export function createWriteExecute(
       return result;
     }
 
-    const verification = verifyPersisted(fullPath, preEditRaw, contentToWrite, '[FileWriteTool]', file_path);
+    const verification = verifyPersisted(persisted.writtenPath, fullPath, preEditRaw, contentToWrite, '[FileWriteTool]', file_path);
     if (!verification.valid) {
       const result = {
         success: false,
@@ -586,7 +601,7 @@ export function createEditExecute(
       return result;
     }
 
-    const verification = verifyPersisted(fullPath, rawContent, contentToWrite, '[FileEditTool]', file_path);
+    const verification = verifyPersisted(persisted.writtenPath, fullPath, rawContent, contentToWrite, '[FileEditTool]', file_path);
     if (!verification.valid) {
       const result = {
         success: false,
@@ -762,7 +777,7 @@ export function createMultiEditExecute(
       return result;
     }
 
-    const verification = verifyPersisted(fullPath, rawContent, contentToWrite, '[FileMultiEditTool]', file_path);
+    const verification = verifyPersisted(persisted.writtenPath, fullPath, rawContent, contentToWrite, '[FileMultiEditTool]', file_path);
     if (!verification.valid) {
       const result = {
         success: false,

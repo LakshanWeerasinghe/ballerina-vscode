@@ -22,6 +22,7 @@
 // JS expanded `$` patterns in it. An end-anchored Ballerina regex (re `...$`) yielded
 // `` $` `` and spliced the head of the file in at the match point, multiplying the file.
 
+import * as path from 'path';
 import { applyEdit, contentsEquivalent, replaceLiteral } from '../features/ai/utils/edit-replacement';
 
 describe('replaceLiteral / applyEdit — $ substitution patterns are inserted literally', () => {
@@ -72,8 +73,7 @@ describe('replaceLiteral / applyEdit — $ substitution patterns are inserted li
 
         // Growth must be bounded by the payload delta, not by the file size.
         expect(result.length).toBe(source.length + 6 * (payload.length - '    return "x";'.length));
-        // Every function must still appear exactly once — a duplicated, self-similar file
-        // is what left the agent with no way to recover.
+        // Every function must still appear exactly once; a self-similar dup is unrecoverable.
         for (let i = 1; i <= 6; i++) {
             expect(result.split(`function f${i}()`)).toHaveLength(2);
         }
@@ -104,5 +104,22 @@ describe('contentsEquivalent', () => {
         expect(contentsEquivalent('a\nb', 'a\nc')).toBe(false);
         // Leading indentation is significant in Ballerina and must not be normalised away.
         expect(contentsEquivalent('    a', 'a')).toBe(false);
+    });
+});
+
+// The per-file lock must key off the same path the tools operate on: path.resolve drops the
+// project root for an absolute-looking file_path that validateFilePath still accepts.
+describe('lock key path normalization', () => {
+    const root = path.join(path.sep, 'tmp', 'proj');
+
+    it.each(['main.bal', 'sub/main.bal'])('agrees with path.join for the relative path %s', (p) => {
+        expect(path.join(root, p)).toBe(path.resolve(root, p));
+    });
+
+    it('keeps an absolute-looking file_path inside the project root', () => {
+        const abs = `${path.sep}main.bal`;
+        expect(path.join(root, abs)).toBe(path.join(root, 'main.bal'));
+        // The bug: resolve escapes the root, so it would not collide with the plain spelling.
+        expect(path.resolve(root, abs)).not.toBe(path.join(root, abs));
     });
 });
