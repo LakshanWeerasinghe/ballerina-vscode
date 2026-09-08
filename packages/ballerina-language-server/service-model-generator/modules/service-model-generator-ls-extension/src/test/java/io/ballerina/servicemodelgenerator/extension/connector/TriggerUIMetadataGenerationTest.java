@@ -29,8 +29,7 @@ import java.util.List;
 
 /**
  * Behavioural coverage for runtime models generated from packaged L1 + L2 and semantic facts, over a
- * small, cheap set of connectors. Byte-for-byte parity against all 26 bundled runtime models is a
- * separate, more expensive concern covered by {@link TriggerParityTest}.
+ * small, cheap set of connectors.
  */
 public class TriggerUIMetadataGenerationTest {
 
@@ -181,9 +180,8 @@ public class TriggerUIMetadataGenerationTest {
 
     private static TriggerUISchemaModel cdcModel(String module, String version) {
         TriggerModelReader reader = TriggerModelReader.getInstance();
-        // The parity corpus separately proves the generated pinned model equals this bundled fallback.
-        // Some developer homes contain the exact bala without a repository index entry, so the smaller
-        // behavioural suite remains runnable without duplicating TriggerParityTest's direct bala loader.
+        // Some developer homes contain the exact bala without a repository index entry, so fall back to
+        // the bundled model rather than requiring offline resolution here.
         return reader.getGeneratedTriggerModel("ballerinax", module, version)
                 .or(() -> reader.getBundledTriggerModel(module, version)).orElseThrow();
     }

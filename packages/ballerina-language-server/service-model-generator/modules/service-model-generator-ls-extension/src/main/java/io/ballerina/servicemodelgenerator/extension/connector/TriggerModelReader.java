@@ -93,7 +93,7 @@ public class TriggerModelReader {
 
     /**
      * Whether the generated (L1 + semantic facts + L2) tier is tried ahead of the bundled/shipped tiers.
-     * Generation is opt-in until the parity corpus is complete; use
+     * Generation is opt-in until it has been fully validated against real connector packages; use
      * {@code -Dballerina.trigger.models=generated} to exercise the new tier. The default keeps the
      * established bundled/shipped resolution path intact while the generated models are being onboarded.
      */
@@ -282,8 +282,7 @@ public class TriggerModelReader {
      * {@code src/main/resources/}: this tier no longer ships in the jar, and in production this is
      * always {@code false}. It stays a real code path, not dead code, because the test suite's ~15
      * fixture-consuming classes (e.g. {@code TriggerSourceGenerationTest}) call it directly as their
-     * golden-JSON source, and {@link TriggerParityTest} reads it as the comparison target the generated
-     * tier is measured against.
+     * golden-JSON source.
      */
     public boolean hasBundledTriggerModel(String moduleName) {
         return getBundledTriggerModel(moduleName).isPresent();
@@ -403,8 +402,8 @@ public class TriggerModelReader {
     /**
      * The L1 + semantic facts + L2 generated model, cached by {@code org/module:version}. This is the
      * default resolution tier as of the L1+L2 cutover -- {@link #getGeneratedTriggerModel} itself stays
-     * uncached and version-precise for the parity harness, which is exactly why this wrapper exists
-     * rather than caching inside it.
+     * uncached and version-precise so callers needing an exact pinned version can bypass the cache,
+     * which is exactly why this wrapper exists rather than caching inside it.
      */
     private Optional<TriggerUISchemaModel> getCachedGeneratedTriggerModel(String orgName, String moduleName,
                                                                           String version) {
@@ -547,10 +546,9 @@ public class TriggerModelReader {
     }
 
     /**
-     * Builds the L1 + semantic + L2 model for one connector: uncached and version-precise, since the
-     * parity harness ({@code TriggerParityTest}) needs to compare it against a specific pinned bundled
-     * fixture. Production resolution goes through {@link #getCachedGeneratedTriggerModel}, which adds
-     * caching on top of this.
+     * Builds the L1 + semantic + L2 model for one connector: uncached and version-precise, so callers
+     * needing an exact pinned version can bypass the cache. Production resolution goes through
+     * {@link #getCachedGeneratedTriggerModel}, which adds caching on top of this.
      */
     Optional<TriggerUISchemaModel> getGeneratedTriggerModel(String orgName, String moduleName, String version) {
         if (orgName == null || moduleName == null) {
@@ -560,15 +558,6 @@ public class TriggerModelReader {
         Optional<Package> pkg = PackageUtil.getModulePackageOffline(PackageUtil.getSampleProject(), orgName,
                 moduleName, version);
         return pkg.flatMap(value -> getGeneratedTriggerModel(moduleInfo, value));
-    }
-
-    /** Package-injected counterpart used by parity tests that load a bala directly from an isolated repository. */
-    Optional<TriggerUISchemaModel> getGeneratedTriggerModel(String orgName, String moduleName, String version,
-                                                             Package pkg) {
-        if (orgName == null || moduleName == null || pkg == null) {
-            return Optional.empty();
-        }
-        return getGeneratedTriggerModel(new ModuleInfo(orgName, moduleName, moduleName, version), pkg);
     }
 
     private Optional<TriggerUISchemaModel> getGeneratedTriggerModel(ModuleInfo moduleInfo, Package pkg) {

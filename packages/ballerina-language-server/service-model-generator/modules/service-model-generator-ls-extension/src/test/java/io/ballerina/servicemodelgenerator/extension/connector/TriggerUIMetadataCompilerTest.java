@@ -47,8 +47,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_K
  * facts. Each test hand-builds a small L1 + {@link TriggerLibraryFacts} + {@link Listener} fixture
  * (following {@link TriggerModelSynthesizerTest}'s convention), derives the pre-L2 model via the real
  * synthesizer, then applies a hand-built L2 through the real compiler -- no {@code .bala} resolution or
- * compilation, so these run fast and hermetically. Fidelity against real connector packages is a
- * separate, more expensive concern covered by {@link TriggerParityTest}.
+ * compilation, so these run fast and hermetically.
  *
  * <p>Fixture: one connector ({@code triggerfixture}) with a reusable {@code Listener(host, port =
  * 9092)}, two concrete service types -- {@code Service} (handler {@code onMessage}, annotation {@code
