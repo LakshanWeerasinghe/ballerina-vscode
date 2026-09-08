@@ -114,12 +114,11 @@ function verifyPersisted(
 }
 
 /**
- * Persists a tool's computed content directly into the real workspace file via VS Code's
- * document model (workspace.applyEdit + saveAll), so open editors and diagrams see it
- * immediately. No intermediate temp-directory write: tempProjectPath is the real project
- * root, so this is the only place a live edit is actually written.
- *
- * Callers must not report success when this returns ok: false.
+ * Persists a tool's computed content. Workspace-backed edits go through VS Code's document
+ * model (workspace.applyEdit + saveAll) so open editors and diagrams see them immediately;
+ * without an ExecutionContext there is no document model and the write goes straight to disk.
+ * Either way this is the only place an edit is written, and callers must not report success
+ * when it returns ok: false.
  */
 async function persistLiveEdit(
   file_path: string,
@@ -154,6 +153,15 @@ async function persistLiveEdit(
   const isNewPackageToml = path.basename(file_path) === 'Ballerina.toml' && !fs.existsSync(absolutePath);
   try {
     await addToIntegration(workspaceRoot, [{ filePath: file_path, content }]);
+  } catch (error) {
+    console.error("[TextEditorTool] Live persist failed:", error);
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  // The write landed; everything below is bookkeeping. A failure here must not be reported as
+  // a failed edit: the model would retry, and for a new package's Ballerina.toml the
+  // isNewPackageToml check no longer holds on the retry, so the baseline would never be seeded.
+  try {
     recordAiTouchedFile(absolutePath);
     allModifiedFiles?.add(file_path);
     if (isNewPackageToml) {
@@ -168,11 +176,10 @@ async function persistLiveEdit(
         .map(abs => path.relative(packageRoot, abs));
       await seedNewPackageBaseline(packageRoot, content, preexistingBalFiles);
     }
-    return { ok: true, writtenPath: absolutePath };
   } catch (error) {
-    console.error("[TextEditorTool] Live persist failed:", error);
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    console.error(`[TextEditorTool] Post-write bookkeeping failed for ${file_path}:`, error);
   }
+  return { ok: true, writtenPath: absolutePath };
 }
 
 // ============================================================================
