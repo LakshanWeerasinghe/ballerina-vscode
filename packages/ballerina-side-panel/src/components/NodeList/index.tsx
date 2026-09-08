@@ -655,46 +655,48 @@ export function NodeList(props: NodeListProps) {
 
         return (
             <>
-                <S.Grid columns={2}>
-                    {nodes.map((node, index) => {
-                        if (["NP_FUNCTION"].includes(node.id) && !isNPSupported) {
-                            return;
-                        }
+                {nodes.length > 0 && (
+                    <S.Grid columns={2}>
+                        {nodes.map((node, index) => {
+                            if (["NP_FUNCTION"].includes(node.id) && !isNPSupported) {
+                                return;
+                            }
 
-                        return (
-                            <Tooltip
-                                key={node.id + index}
-                                content={renderTooltipContent(node.description)}
-                                position="bottom"
-                                offset={{top: 16, left: 20}}
-                                sx={{
-                                    maxWidth: "280px",
-                                    whiteSpace: "normal",
-                                    wordWrap: "break-word",
-                                    overflowWrap: "break-word"
-                                }}
-                            >
-                                <S.Component
-                                    enabled={node.enabled}
-                                    onClick={() => handleAddNode(node, parentCategoryTitle)}
+                            return (
+                                <Tooltip
+                                    key={node.id + index}
+                                    content={renderTooltipContent(node.description)}
+                                    position="bottom"
+                                    offset={{top: 16, left: 20}}
+                                    sx={{
+                                        maxWidth: "280px",
+                                        whiteSpace: "normal",
+                                        wordWrap: "break-word",
+                                        overflowWrap: "break-word"
+                                    }}
                                 >
-                                    <S.IconContainer>{node.icon || <LogIcon />}</S.IconContainer>
-                                    <S.ComponentTitle
-                                        ref={(el) => {
-                                            if (el && el.scrollWidth > el.clientWidth) {
-                                                el.style.fontSize = "13px";
-                                                el.style.wordBreak = "break-word";
-                                                el.style.whiteSpace = "nowrap";
-                                            }
-                                        }}
+                                    <S.Component
+                                        enabled={node.enabled}
+                                        onClick={() => handleAddNode(node, parentCategoryTitle)}
                                     >
-                                        {node.label}
-                                    </S.ComponentTitle>
-                                </S.Component>
-                            </Tooltip>
-                        );
-                    })}
-                </S.Grid>
+                                        <S.IconContainer>{node.icon || <LogIcon />}</S.IconContainer>
+                                        <S.ComponentTitle
+                                            ref={(el) => {
+                                                if (el && el.scrollWidth > el.clientWidth) {
+                                                    el.style.fontSize = "13px";
+                                                    el.style.wordBreak = "break-word";
+                                                    el.style.whiteSpace = "nowrap";
+                                                }
+                                            }}
+                                        >
+                                            {node.label}
+                                        </S.ComponentTitle>
+                                    </S.Component>
+                                </Tooltip>
+                            );
+                        })}
+                    </S.Grid>
+                )}
                 {subcategories.map((subcategory, index) => {
                     // Chevron-collapsible subcategories that start collapsed: the generic
                     // "More" section and advanced groups like the workflow context functions.

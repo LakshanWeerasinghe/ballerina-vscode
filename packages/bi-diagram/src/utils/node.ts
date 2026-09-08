@@ -48,11 +48,15 @@ const WORKFLOW_UTILITY_NODE_TITLES: Record<string, string> = {
     SLEEP: "Sleep",
 };
 
+// SLEEP is the one exception with its own dedicated node kind (see WORKFLOW_UTILITY_NODE_TITLES
+// above), but it is included here too so this map is the single source of truth if the language
+// server ever starts sending it as a generic statement, matching WORKFLOW_MODULE_FUNCTION_ICONS.
 const WORKFLOW_MODULE_FUNCTION_TITLES: Record<string, string> = {
     currentTime: "Current Time",
     isReplaying: "Is Replaying",
     getWorkflowId: "Get Workflow ID",
-    getWorkflowType: "Get Workflow Type"
+    getWorkflowType: "Get Workflow Type",
+    sleep: "Sleep"
 };
 
 // Workflow and durable-agent statements are actions on the context or the agent — `ctx->callActivity`,
