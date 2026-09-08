@@ -59,7 +59,7 @@ class AgentStatusManager {
             return;
         }
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
-        this.statusBarItem.name = 'WSO2 Integration Intelligence';
+        this.statusBarItem.name = 'WSO2 Integrator Copilot';
         this.statusBarItem.command = SHARED_COMMANDS.OPEN_AI_PANEL;
         context.subscriptions.push(this.statusBarItem, new vscode.Disposable(() => this.clearResetTimer()));
         this.render();
@@ -219,25 +219,25 @@ class AgentStatusManager {
         const label = truncate(this.status.label, STATUS_BAR_LABEL_MAX);
         switch (this.status.state) {
             case 'running':
-                this.statusBarItem.text = `$(loading~spin) ${label ?? 'WSO2 Integration Intelligence'}`;
+                this.statusBarItem.text = `$(loading~spin) ${label ?? 'WSO2 Integrator Copilot'}`;
                 this.statusBarItem.backgroundColor = undefined;
                 break;
             case 'awaiting-input':
-                this.statusBarItem.text = `$(bi-ai-chat) WSO2 Integration Intelligence needs your input`;
+                this.statusBarItem.text = `$(bi-ai-chat) WSO2 Integrator Copilot needs your input`;
                 this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 break;
             case 'completed':
-                this.statusBarItem.text = `$(check) WSO2 Integration Intelligence finished`;
+                this.statusBarItem.text = `$(check) WSO2 Integrator Copilot finished`;
                 this.statusBarItem.backgroundColor = undefined;
                 break;
             case 'error':
-                this.statusBarItem.text = `$(error) WSO2 Integration Intelligence error`;
+                this.statusBarItem.text = `$(error) WSO2 Integrator Copilot error`;
                 this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
                 break;
         }
         const tooltip = new vscode.MarkdownString();
-        tooltip.appendMarkdown(`**WSO2 Integration Intelligence**${this.status.label ? ` — ${this.status.label}` : ''}\n\n`);
-        tooltip.appendMarkdown('Click to open the WSO2 Integration Intelligence chat.');
+        tooltip.appendMarkdown(`**WSO2 Integrator Copilot**${this.status.label ? ` — ${this.status.label}` : ''}\n\n`);
+        tooltip.appendMarkdown('Click to open the WSO2 Integrator Copilot chat.');
         this.statusBarItem.tooltip = tooltip;
         this.statusBarItem.show();
     }
