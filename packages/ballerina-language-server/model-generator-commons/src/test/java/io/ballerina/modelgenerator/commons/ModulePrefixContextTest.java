@@ -409,6 +409,41 @@ public class ModulePrefixContextTest {
                 imports("github", "ballerinax/github:5.1.0")), "github2:Client|github2:Error");
     }
 
+    /** A package literally named {@code http}, so its own natural prefix collides with {@code ballerina/http}. */
+    private static final ModuleInfo HTTP_PACKAGE = new ModuleInfo("testorg", "http", "http", "0.1.0");
+
+    @Test
+    public void testCallerWithNoModuleInfoCanTurnASelfReferenceIntoASelfImport() {
+        // The caller ExpressionEditorContext.generateStatement once built its context via the single-arg
+        // from(rootNode) -- exactly what testWithoutModuleInfoEverythingIsExternal pins as "today's behaviour".
+        // This is why that behaviour is dangerous when it reaches a real map: an entry naming the file's own
+        // module competes for the natural prefix like any other module. Whichever request registers first keeps
+        // "http" unaliased; here the external one does, so the self entry is pushed onto an alias -- and an
+        // *aliased* self-import is what a caller-side guard keyed on the plain "org/module" string cannot
+        // recognise as self at all, so it gets emitted and the compiler rejects it as a cyclic import.
+        Map<String, String> importsByAuthored = imports("ext", "ballerina/http:2.14.0", "self", "http");
+        ModulePrefixContext blind = ModulePrefixContext.from(rootOf(""));
+
+        blind.requalifyAuthored("anydata", importsByAuthored);
+
+        Assert.assertTrue(blind.pendingImportStatements().contains("http as http2"),
+                "the file's own module ends up an aliased, and therefore unrecognisable, self-import");
+    }
+
+    @Test
+    public void testCallerWithModuleInfoNeverRegistersTheSelfReference() {
+        // Threading the current module (what generateStatement does now) resolves the self entry to SAME_MODULE
+        // before it ever competes for a prefix, so the external module simply keeps its natural one and no
+        // self-import is ever registered.
+        Map<String, String> importsByAuthored = imports("ext", "ballerina/http:2.14.0", "self", "http");
+        ModulePrefixContext informed = ModulePrefixContext.from(rootOf(""), HTTP_PACKAGE);
+
+        informed.requalifyAuthored("anydata", importsByAuthored);
+
+        Assert.assertEquals(informed.pendingImportStatements(), List.of("ballerina/http"),
+                "only the genuinely external module needs an import, and it keeps its natural prefix");
+    }
+
     @Test
     public void testAnEmptyImportsMapLeavesTextAlone() {
         ModulePrefixContext context = ModulePrefixContext.from(rootOf(""), CURRENT);
