@@ -507,6 +507,17 @@ public class PackageUtil {
                 .findFirst();
         if (pkgMetadata.isEmpty()
                 || pkgMetadata.get().resolutionStatus() == ResolutionResponse.ResolutionStatus.UNRESOLVED) {
+            return Optional.empty();
+        }
+
+        return packageResolver.resolvePackages(
+                        Collections.singletonList(ResolutionRequest.from(pkgMetadata.get().resolvedDescriptor())),
+                        ResolutionOptions.builder().setOffline(true).build()).stream()
+                .filter(response -> response.resolvedPackage() != null)
+                .findFirst()
+                .map(response -> response.resolvedPackage().project().sourceRoot());
+    }
+
     public static Optional<Package> getModulePackageOffline(BuildProject buildProject, String org, String name) {
         return getModulePackageOffline(buildProject, org, name, null);
     }
@@ -549,7 +560,7 @@ public class PackageUtil {
                         ResolutionOptions.builder().setOffline(true).build()).stream()
                 .filter(response -> response.resolvedPackage() != null)
                 .findFirst()
-                .map(response -> response.resolvedPackage().project().sourceRoot());
+                .map(ResolutionResponse::resolvedPackage);
     }
 
     public static boolean isModuleUnresolved(String org, String name, String version) {
