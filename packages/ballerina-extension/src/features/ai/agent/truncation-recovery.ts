@@ -27,6 +27,21 @@ import { LanguageModelUsage, ModelMessage } from 'ai';
  */
 
 /**
+ * Raw stop reasons that unify to `'length'` but that a resume cannot fix. The Anthropic
+ * provider maps both `max_tokens` and `model_context_window_exceeded` to `'length'`, and
+ * re-sending an overflowed context only makes it larger.
+ */
+const NON_RESUMABLE_RAW_FINISH_REASONS = new Set(['model_context_window_exceeded']);
+
+/**
+ * Whether an attempt stopped for a reason a resume can recover from. A denylist, so an
+ * unrecognised raw reason still resumes and only the known-unrecoverable case opts out.
+ */
+export function isResumableTruncation(finishReason?: string, rawFinishReason?: string): boolean {
+    return finishReason === 'length' && !NON_RESUMABLE_RAW_FINISH_REASONS.has(rawFinishReason ?? '');
+}
+
+/**
  * Resume budget for a turn that ran out of output room. Bounded because each resume
  * re-sends the whole context, so a model that keeps truncating would loop indefinitely.
  */

@@ -22,6 +22,7 @@ import {
     buildTruncationRecoveryNote,
     addUsage,
     dropDanglingToolCalls,
+    isResumableTruncation,
 } from '../features/ai/agent/truncation-recovery';
 
 describe('dropDanglingToolCalls', () => {
@@ -133,5 +134,25 @@ describe('buildTruncationRecoveryNote', () => {
     it('bounds the resume budget', () => {
         expect(MAX_TRUNCATION_RETRIES).toBeGreaterThan(0);
         expect(MAX_TRUNCATION_RETRIES).toBeLessThanOrEqual(3);
+    });
+});
+
+describe('isResumableTruncation', () => {
+    it('resumes when the model hit its output cap', () => {
+        expect(isResumableTruncation('length', 'max_tokens')).toBe(true);
+    });
+
+    it('does not resume an overflowed context, which re-sending can only worsen', () => {
+        expect(isResumableTruncation('length', 'model_context_window_exceeded')).toBe(false);
+    });
+
+    it('ignores every other finish reason', () => {
+        expect(isResumableTruncation('stop', 'end_turn')).toBe(false);
+        expect(isResumableTruncation('tool-calls', 'tool_use')).toBe(false);
+    });
+
+    it('still resumes when the provider gave no raw reason', () => {
+        expect(isResumableTruncation('length', undefined)).toBe(true);
+        expect(isResumableTruncation('length', 'some_future_reason')).toBe(true);
     });
 });

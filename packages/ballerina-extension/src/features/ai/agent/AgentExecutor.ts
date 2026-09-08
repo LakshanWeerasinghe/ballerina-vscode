@@ -45,6 +45,7 @@ import {
     addUsage,
     buildTruncationRecoveryNote,
     dropDanglingToolCalls,
+    isResumableTruncation,
 } from './truncation-recovery';
 import { updateAndSaveChat, calculateTotalCost } from '../utils/events';
 import { chatStateStorage } from '../../../views/ai-panel/chatStateStorage';
@@ -664,7 +665,8 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                     // A truncated attempt never ran its last tool call, so the change it
                     // carried is missing while earlier ones are already on disk. Hand the
                     // model its partial work back with a note and let it finish.
-                    if (attemptFinishReason === 'length' && truncationRetries < MAX_TRUNCATION_RETRIES) {
+                    if (isResumableTruncation(attemptFinishReason, attemptRawFinishReason)
+                        && truncationRetries < MAX_TRUNCATION_RETRIES) {
                         truncationRetries++;
                         console.warn(
                             `[AgentExecutor] Output limit reached (raw: ${attemptRawFinishReason ?? 'n/a'}) — ` +
@@ -680,14 +682,16 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                         continue;
                     }
 
-                    // Finalise against the whole turn, not just the last attempt's slice.
-                    streamContext.response = Promise.resolve({
-                        ...attemptResponse,
-                        messages: [...carriedMessages, ...attemptMessages],
-                    }) as StreamContext['response'];
-                    streamContext.totalUsage = Promise.resolve(addUsage(carriedUsage, await totalUsage));
-                    await this.handleStreamFinish(
-                        streamContext, attemptFinishReason, attemptRawFinishReason, truncationRetries);
+                    // Passed in, not written back onto `streamContext`: the abort and error
+                    // handlers prepend `carriedMessages` themselves, so a pre-merged `response`
+                    // would double them — and duplicate `tool_use` ids 400 the next turn.
+                    await this.handleStreamFinish(streamContext, {
+                        turnMessages: [...carriedMessages, ...attemptMessages],
+                        turnUsage: addUsage(carriedUsage, await totalUsage),
+                        finishReason: attemptFinishReason,
+                        rawFinishReason: attemptRawFinishReason,
+                        truncationRetries,
+                    });
                     break;
                 }
             } catch (error: any) {
@@ -967,26 +971,35 @@ Generation stopped by user. The last in-progress task was not saved. Any complet
      */
     private async handleStreamFinish(
         context: StreamContext,
-        finishReason?: FinishReason,
-        rawFinishReason?: string,
-        truncationRetries = 0,
+        turn: {
+            /** Every message the turn produced, across all attempts. */
+            turnMessages: ModelMessage[];
+            /** Usage summed across all attempts. */
+            turnUsage: LanguageModelUsage;
+            finishReason?: FinishReason;
+            rawFinishReason?: string;
+            truncationRetries?: number;
+        },
     ): Promise<void> {
+        const { turnMessages, turnUsage, finishReason, rawFinishReason, truncationRetries = 0 } = turn;
         // 'length' covers both max_tokens and model_context_window_exceeded. Typed as the
         // SDK's `FinishReason`, not `string`: the provider hands up a `{ unified, raw }`
         // object that the SDK flattens, and an upgrade that stopped flattening it would make
         // this silently false forever. This way it fails the build instead.
-        const exhaustedTruncationRetries = finishReason === 'length';
-        if (exhaustedTruncationRetries) {
+        const endedTruncated = finishReason === 'length';
+        if (endedTruncated) {
+            const why = isResumableTruncation(finishReason, rawFinishReason)
+                ? `after ${truncationRetries} automatic resume(s)`
+                : 'and is not resumable';
             console.warn(
-                `[AgentExecutor] Turn still truncated after ${truncationRetries} automatic ` +
-                `resume(s) (raw: ${rawFinishReason ?? 'n/a'}) — giving up with work unfinished.`
+                `[AgentExecutor] Turn ended truncated ${why} ` +
+                `(raw: ${rawFinishReason ?? 'n/a'}) — work left unfinished.`
             );
         } else if (truncationRetries > 0) {
             console.log(`[AgentExecutor] Turn completed after ${truncationRetries} automatic resume(s)`);
         }
 
-        const finalResponse = await context.response;
-        const assistantMessages = finalResponse.messages || [];
+        const assistantMessages = turnMessages;
         const tempProjectPath = context.ctx.tempProjectPath!;
 
         // Run final diagnostics
@@ -1002,7 +1015,7 @@ Generation stopped by user. The last in-progress task was not saved. Any complet
         const finalProjectMetrics = await getProjectMetrics(tempProjectPath);
 
         // Get total token usage across all agent steps (includes cache stats)
-        const totalTokenUsage = await context.totalUsage;
+        const totalTokenUsage = turnUsage;
         const inputTokens = totalTokenUsage.inputTokens || 0;
         const outputTokens = totalTokenUsage.outputTokens || 0;
         const totalCacheRead = totalTokenUsage.inputTokenDetails?.cacheReadTokens || 0;
@@ -1019,7 +1032,7 @@ Generation stopped by user. The last in-progress task was not saved. Any complet
             context.toolModelUsage
         );
 
-        console.log(`[AgentExecutor] Generation ${exhaustedTruncationRetries ? 'truncated' : 'complete'} — token usage:`, {
+        console.log(`[AgentExecutor] Generation ${endedTruncated ? 'truncated' : 'complete'} — token usage:`, {
             input: inputTokens,
             output: outputTokens,
             cacheRead: totalCacheRead,
@@ -1029,12 +1042,11 @@ Generation stopped by user. The last in-progress task was not saved. Any complet
             cost: `$${totalCost.toFixed(4)}`,
         });
 
-        // Only a turn that exhausted its resumes counts as truncated; one that recovered is a
-        // real completion, with `truncation_retries` recording what it cost. Recovery is
-        // invisible in the UI, so this is the only signal that it happened.
+        // A recovered turn is a real completion; `truncation_retries` records what it cost.
+        // Recovery is invisible in the UI, so this is the only signal that it happened.
         sendTelemetryEvent(
             extension.ballerinaExtInstance,
-            exhaustedTruncationRetries
+            endedTruncated
                 ? TM_EVENT_BALLERINA_AI_GENERATION_TRUNCATED
                 : TM_EVENT_BALLERINA_AI_GENERATION_COMPLETED,
             CMP_BALLERINA_AI_GENERATION,
@@ -1044,7 +1056,7 @@ Generation stopped by user. The last in-progress task was not saved. Any complet
                 'generation.start_time': context.generationStartTime.toString(),
                 'generation.end_time': generationEndTime.toString(),
                 'plan_mode': isPlanModeEnabled.toString(),
-                ...(exhaustedTruncationRetries ? { 'generation.raw_finish_reason': rawFinishReason ?? 'unknown' } : {}),
+                ...(endedTruncated ? { 'generation.raw_finish_reason': rawFinishReason ?? 'unknown' } : {}),
             },
             {
                 'tokens.input': inputTokens,
