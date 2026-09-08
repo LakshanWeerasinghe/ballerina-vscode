@@ -19,19 +19,15 @@
 // L1 regression test for issue #2307: switching a FLAG (boolean) field to
 // Expression mode crashed because the raw JS boolean form value was handed to
 // the CodeMirror-backed chip editor, whose doc/insert APIs require a string
-// (EditorState.create({ doc: <boolean> }) throws). jsdom cannot instantiate the
-// CodeMirror editor (see docs/TEST_GUIDE "jsdom limits"), so instead of driving
-// the live editor we stub ChipExpressionEditorComponent and assert the
-// normalization invariant at the funnel boundary: ExpressionField must hand the
-// chip editor a string | null | undefined — never a boolean/number. This is the
-// AWS SQS "Auto Delete Messages" flow (type: FLAG, value: false) in EXP mode.
+// (EditorState.create({ doc: <boolean> }) throws).
 
 import React from "react";
 import { render } from "@testing-library/react";
 import type { FormField } from "../components/Form/types";
 import { InputMode } from "../components/editors/MultiModeExpressionEditor/ChipExpressionEditor/types";
+import { coerceChipEditorValue } from "../components/editors/MultiModeExpressionEditor/ChipExpressionEditor/utils";
 
-// Capture whatever value ExpressionField passes to the chip editor.
+// Capture whatever value each mount site passes to the chip editor.
 const chipValues: unknown[] = [];
 jest.mock(
     "../components/editors/MultiModeExpressionEditor/ChipExpressionEditor/components/ChipExpressionEditor",
@@ -53,6 +49,8 @@ jest.mock(
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { ExpressionField } = require("../components/editors/ExpressionField");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { ExpressionMode } = require("../components/editors/ExpandedEditor/modes/ExpressionMode");
 
 const autoDeleteMessagesField = (value: any): FormField =>
     ({
@@ -66,7 +64,7 @@ const autoDeleteMessagesField = (value: any): FormField =>
         enabled: true,
     } as unknown as FormField);
 
-const renderExpressionField = (value: any) =>
+const renderInlineEditor = (value: any) =>
     render(
         <ExpressionField
             field={autoDeleteMessagesField(value)}
@@ -84,37 +82,57 @@ const renderExpressionField = (value: any) =>
         />
     );
 
-describe("ExpressionField chip-editor value normalization (issue #2307)", () => {
-    beforeEach(() => {
-        chipValues.length = 0;
-    });
-
-    it.each([
-        ["boolean false", false, "false"],
-        ["boolean true", true, "true"],
-    ])(
-        "INVARIANT: a FLAG %s reaches the chip editor as a string, not a boolean",
-        (_desc, value, expected) => {
-            renderExpressionField(value);
-            const received = chipValues.at(-1);
-            expect(typeof received).toBe("string");
-            expect(received).toBe(expected);
-        }
+const renderExpandedEditor = (value: any) =>
+    render(
+        <ExpressionMode
+            value={value}
+            onChange={() => {}}
+            field={autoDeleteMessagesField(value)}
+            completions={[]}
+        />
     );
+
+describe("coerceChipEditorValue (issue #2307 fix)", () => {
+    it.each([
+        ["boolean true", true, "true"],
+        ["boolean false", false, "false"],
+        ["number", 42, "42"],
+    ])("coerces a non-string %s to a string", (_desc, value, expected) => {
+        const result = coerceChipEditorValue(value);
+        expect(typeof result).toBe("string");
+        expect(result).toBe(expected);
+    });
 
     it.each([
         ["a string expression", "check foo()"],
         ["an empty string", ""],
     ])("passes %s through unchanged", (_desc, value) => {
-        renderExpressionField(value);
-        expect(chipValues.at(-1)).toBe(value);
+        expect(coerceChipEditorValue(value)).toBe(value);
     });
 
     it.each([
         ["null", null],
         ["undefined", undefined],
     ])("leaves %s as-is (never coerced to a string)", (_desc, value) => {
-        renderExpressionField(value);
-        expect(chipValues.at(-1)).toBe(value);
+        expect(coerceChipEditorValue(value)).toBe(value);
+    });
+});
+
+describe("Boolean-to-expression mount sites funnel through ChipExpressionEditorComponent", () => {
+    beforeEach(() => {
+        chipValues.length = 0;
+    });
+
+    // Both mount sites must render without throwing for a raw FLAG boolean, and
+    // both must delegate the value to the single ChipExpressionEditorComponent
+    // that applies coerceChipEditorValue. The earlier inline-only fix left the
+    // expanded site (below) unguarded.
+    it.each([
+        ["inline editor (ExpressionField)", renderInlineEditor],
+        ["expanded editor (ExpressionMode)", renderExpandedEditor],
+    ])("%s hands a raw boolean to the chip editor without crashing", (_desc, renderFn) => {
+        expect(() => renderFn(false)).not.toThrow();
+        expect(chipValues).toHaveLength(1);
+        expect(chipValues.at(-1)).toBe(false);
     });
 });
