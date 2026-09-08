@@ -462,7 +462,7 @@ export function TriggerHandlerForm(props: TriggerHandlerFormProps) {
 
     // ----- variant selection -----
 
-    const hasVariants = isNew ? addableVariants.length > 0 : !!functionModel?.variantLabel;
+    const hasVariants = isNew ? !!functionModel?.variantLabel : addableVariants.length > 0;
     const selectedVariantLabel = functionModel?.variantLabel ?? functionModel?.name?.metadata?.label ?? "";
 
     const handleVariantChange = (label: string) => {
