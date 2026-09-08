@@ -29,6 +29,7 @@ import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.PropertyType;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
 import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.ModulePrefixContext;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
@@ -216,7 +217,7 @@ public class ExpressionEditorContext {
             // `github:`; imported verbatim they redeclare that prefix and every diagnostic reported from this
             // statement is an artefact of the probe rather than of the user's expression.
             ModulePrefixContext prefixes = ModulePrefixContext.from(documentContext.document()
-                    .syntaxTree().rootNode());
+                    .syntaxTree().rootNode(), ModuleInfo.from(documentContext.document().module().descriptor()));
             String ballerinaType = prefixes.requalifyAuthored(property.propertyType().ballerinaType(),
                     property.importStatements());
             if (ballerinaType != null) {

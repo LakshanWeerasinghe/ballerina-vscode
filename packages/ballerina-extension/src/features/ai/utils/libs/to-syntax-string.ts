@@ -150,7 +150,9 @@ function assignModulePrefixes(links: { recordName: string; libraryName: string }
         }
     }
     const prefixByLibrary = new Map<string, string>();
-    const taken = new Set<string>();
+    // Seeded from the document-wide allocation (when one is in effect) so a library it missed can't be given a
+    // prefix the document has already committed to a different module.
+    const taken = new Set<string>(documentPrefixes?.values());
     for (const { libraryName } of links) {
         if (prefixByLibrary.has(libraryName)) {
             continue;

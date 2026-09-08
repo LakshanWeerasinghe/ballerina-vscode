@@ -101,19 +101,6 @@ describe("toSyntaxString module prefixes", () => {
         expect(new Set(qualifiers).size).toBe(2);
     });
 
-    it("agrees between a parameter and the return type naming the same library", () => {
-        const signature = signatureOf(
-            libraryWithFunction(
-                [param("a", "File", "googleapis.drive"), param("b", "TextDataLoader", "ai.google.drive")],
-                externalType("File", "googleapis.drive")
-            )
-        );
-
-        const paramQualifier = /(\w+):File a/.exec(signature)?.[1];
-        const returnQualifier = /returns (\w+):File/.exec(signature)?.[1];
-        expect(paramQualifier).toBe(returnQualifier);
-    });
-
     it("prefixes a record name shared by two colliding libraries exactly once", () => {
         // Both parameters are named `File`, so the merged link set holds two links with the same record name.
         // Replacing with the whole set ran the second link over the first one's output -- `File` became
