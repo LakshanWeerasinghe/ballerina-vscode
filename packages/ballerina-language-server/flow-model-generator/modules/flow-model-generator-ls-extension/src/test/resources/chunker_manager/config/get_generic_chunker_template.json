@@ -134,10 +134,6 @@
               "fieldType": "SINGLE_SELECT",
               "options": [
                 {
-                  "label": "PARAGRAPH",
-                  "value": "\"PARAGRAPH\""
-                },
-                {
                   "label": "CHARACTER",
                   "value": "\"CHARACTER\""
                 },
@@ -152,6 +148,10 @@
                 {
                   "label": "SENTENCE",
                   "value": "\"SENTENCE\""
+                },
+                {
+                  "label": "PARAGRAPH",
+                  "value": "\"PARAGRAPH\""
                 }
               ],
               "selected": false

@@ -826,11 +826,8 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                         // The singleton members (e.g. the members of an enum) become single-select options, even
                         // when the union holds other member types as well.
                         if (!options.isEmpty()) {
-                            // Reorder options so that the default value appears first
-                            List<Option> orderedOptions = defaultValue == null || defaultValue.isEmpty() ? options
-                                    : reorderOptionsByDefaultValue(options, defaultValue);
-                            builder.type().fieldType(ValueType.SINGLE_SELECT).options(orderedOptions).stepOut();
-                            alignPlaceholderWithDefault(builder, orderedOptions, defaultValue);
+                            builder.type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
+                            alignPlaceholderWithDefault(builder, options, defaultValue);
                         }
 
                         if (!otherTypes.isEmpty()) {
@@ -1445,24 +1442,6 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                     .filter(option -> value.equals(CommonUtils.removeQuotes(option.value()))
                             || memberName.equals(option.label()))
                     .findFirst();
-        }
-
-        /**
-         * Reorders enum options so that the option matching the defaultValue appears first in the list.
-         * This improves user experience by showing the default option at the top of dropdown lists.
-         * Returns a new list without modifying the input list.
-         *
-         * @param options      The list of Option objects to reorder
-         * @param defaultValue The default value to prioritize (may contain quotes)
-         * @return A new list with the default option first, or the original list if no match found
-         */
-        private static List<Option> reorderOptionsByDefaultValue(List<Option> options, String defaultValue) {
-            List<Option> reorderedOptions = new ArrayList<>(options != null ? options : List.of());
-            findMatchingOption(reorderedOptions, defaultValue).ifPresent(defaultOption -> {
-                reorderedOptions.remove(defaultOption);
-                reorderedOptions.addFirst(defaultOption);
-            });
-            return reorderedOptions;
         }
 
         /**

@@ -40,12 +40,12 @@
             "fieldType": "SINGLE_SELECT",
             "options": [
               {
-                "label": "MEDIUM",
-                "value": "\"5\""
-              },
-              {
                 "label": "HIGH",
                 "value": "\"10\""
+              },
+              {
+                "label": "MEDIUM",
+                "value": "\"5\""
               },
               {
                 "label": "LOW",

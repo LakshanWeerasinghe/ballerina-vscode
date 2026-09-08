@@ -160,16 +160,13 @@ public class PropertyType {
             // The singleton members (e.g. the members of an enum) become single-select options, even when the
             // union holds other member types as well.
             if (!options.isEmpty()) {
-                // Reorder options so that the default value appears first
-                List<Option> orderedOptions = defaultValue == null || defaultValue.isEmpty() ? options
-                        : reorderOptionsByDefaultValue(options, defaultValue);
                 PropertyType propType = new Builder()
                         .fieldType(Value.FieldType.SINGLE_SELECT)
-                        .options(orderedOptions)
+                        .options(options)
                         .ballerinaType(ballerinaType)
                         .build();
                 propertyTypes.add(propType);
-                alignPlaceholderWithDefault(valueBuilder, orderedOptions, defaultValue);
+                alignPlaceholderWithDefault(valueBuilder, options, defaultValue);
             }
 
             if (!otherTypes.isEmpty()) {
@@ -291,23 +288,6 @@ public class PropertyType {
                 .filter(option -> value.equals(CommonUtils.removeQuotes(option.value()))
                         || memberName.equals(option.label()))
                 .findFirst();
-    }
-
-    /**
-     * Reorders the options so that the one standing for the default appears first, which presents the default at
-     * the top of the dropdown. Returns a new list without modifying the given one.
-     *
-     * @param options      the options of the single select
-     * @param defaultValue the declared default of the parameter
-     * @return a new list with the default option first, or a copy of the given list when none matches
-     */
-    private static List<Option> reorderOptionsByDefaultValue(List<Option> options, String defaultValue) {
-        List<Option> reorderedOptions = new ArrayList<>(options != null ? options : List.of());
-        findMatchingOption(reorderedOptions, defaultValue).ifPresent(defaultOption -> {
-            reorderedOptions.remove(defaultOption);
-            reorderedOptions.addFirst(defaultOption);
-        });
-        return reorderedOptions;
     }
 
     /**
