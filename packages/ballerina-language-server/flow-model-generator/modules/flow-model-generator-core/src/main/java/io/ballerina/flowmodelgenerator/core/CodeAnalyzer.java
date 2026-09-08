@@ -3285,6 +3285,7 @@ public class CodeAnalyzer extends NodeVisitor {
                         .defaultValue(restParamResult.defaultValue())
                         .editable()
                         .optional(!hasOnlyRestParams)
+                        .advanced(!hasOnlyRestParams && restParamResult.advanced())
                         .codedata()
                         .kind(restParamResult.kind().name())
                         .originalName(restParamResult.name())
