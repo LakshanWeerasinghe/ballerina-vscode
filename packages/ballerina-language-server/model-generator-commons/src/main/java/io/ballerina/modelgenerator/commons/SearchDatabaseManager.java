@@ -170,7 +170,10 @@ public class SearchDatabaseManager {
                         WHERE f.name LIKE ? COLLATE NOCASE
                     )
                     GROUP BY id
-                    ORDER BY rank, function_name, module_name
+                    -- package_org separates same-named modules from different organizations, and id is unique
+                    -- per grouped row, so the order is total: equal-ranked rows can't swap between pages and
+                    -- duplicate or drop across a LIMIT/OFFSET boundary.
+                    ORDER BY rank, function_name, module_name, package_org, id
                     LIMIT ?
                     OFFSET ?;""".replace("%LIKE_MATCH_RANK", LIKE_MATCH_RANK);
         }
