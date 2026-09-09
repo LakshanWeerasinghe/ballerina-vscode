@@ -23,7 +23,7 @@
 // the members), which is the contract these tests pin down.
 
 import React from "react";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import type { FormField } from "../components/Form/types";
 import { EnumEditor } from "../components/editors/MultiModeExpressionEditor/EnumEditor/EnumEditor";
 
@@ -103,5 +103,47 @@ describe("EnumEditor", () => {
         select.value = NONE_SELECTED;
         select.dispatchEvent(new Event("change", { bubbles: true }));
         expect(onChange).toHaveBeenLastCalledWith("", 0);
+    });
+
+    // The field carries the same empty value whether it was never touched or just emptied on purpose, so
+    // these drive the editor through a real change event and let it re-render with the value it asked for.
+    const Controlled = ({ initial, placeholder }: { initial: string; placeholder?: string }) => {
+        const [value, setValue] = React.useState(initial);
+        return (
+            <EnumEditor
+                value={value}
+                field={enumField(placeholder)}
+                onChange={next => setValue(next)}
+                items={items}
+            />
+        );
+    };
+
+    const pick = (value: string) => {
+        const dropdown = document.querySelector("vscode-dropdown") as HTMLElement & { value: string };
+        act(() => {
+            dropdown.value = value;
+            dropdown.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    };
+
+    // React writes the value onto the custom element as a property, so this reads back what the editor
+    // rendered, overwriting whatever the change event above set. A snap-back to the default is therefore
+    // visible here rather than hidden behind the value the event carried.
+    const presented = () =>
+        (document.querySelector("vscode-dropdown") as HTMLElement & { value?: string })?.value;
+
+    it("keeps the empty selection presented once it is picked over a declared default", () => {
+        render(<Controlled initial={'"responses"'} placeholder={'"chat_completions"'} />);
+        pick(NONE_SELECTED);
+        expect(presented()).toBe(NONE_SELECTED);
+    });
+
+    it("presents a member picked after the empty selection", () => {
+        render(<Controlled initial="" placeholder={'"chat_completions"'} />);
+        pick(NONE_SELECTED);
+        expect(presented()).toBe(NONE_SELECTED);
+        pick('"responses"');
+        expect(presented()).toBe('"responses"');
     });
 });

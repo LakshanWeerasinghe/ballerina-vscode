@@ -63,9 +63,22 @@ const toBooleanValue = (value: unknown): string | undefined => {
 
 export const BooleanEditor: React.FC<BooleanEditorProps> = ({ value, onChange, field }) => {
 
+    // Emptying the field and never having touched it leave the same empty value behind, as both let the
+    // declared default apply. Presenting the default for the one just emptied would drop the selection in
+    // front of the person who made it, hence which of the two it is, is remembered here rather than read
+    // back from the value. Picking either entry ends it, `false` among them, so the entry the value stands
+    // for is what is asked for below rather than the value being taken as truthy.
+    const [emptiedByUser, setEmptiedByUser] = React.useState(false);
+    React.useEffect(() => {
+        if (toBooleanValue(value) !== undefined) {
+            setEmptiedByUser(false);
+        }
+    }, [value]);
+
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
         let value = e.target.value;
         if (value === DEFAULT_NONE_SELECTED_VALUE) {
+            setEmptiedByUser(true);
             onChange("", 0);
         } else {
             const bool = toBooleanValue(value) ?? String(false);
@@ -79,11 +92,13 @@ export const BooleanEditor: React.FC<BooleanEditorProps> = ({ value, onChange, f
             return selected;
         }
         // An empty field applies the declared default of the parameter, which the documentation of the field
-        // states, hence the entry standing for that default is the one presented as the current selection.
-        // A default is not always declared, and one written as an expression rather than a boolean literal
-        // stands for neither entry, which both leave the empty selection presented.
+        // states, hence the entry standing for that default is the one presented as the current selection,
+        // until the field is emptied on purpose. A default is not always declared, and one written as an
+        // expression rather than a boolean literal stands for neither entry, which both leave the empty
+        // selection presented.
         if (value === undefined || value === null || value === "") {
-            return toBooleanValue(field.defaultValue) ?? DEFAULT_NONE_SELECTED_VALUE;
+            return emptiedByUser ? DEFAULT_NONE_SELECTED_VALUE
+                : toBooleanValue(field.defaultValue) ?? DEFAULT_NONE_SELECTED_VALUE;
         }
         // A value that is neither boolean (e.g. pro code written by hand) is not a selection of either entry
         return DEFAULT_NONE_SELECTED_VALUE;

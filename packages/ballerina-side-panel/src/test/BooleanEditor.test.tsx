@@ -22,7 +22,7 @@
 // the field states, so the entry standing for that default is presented.
 
 import React from "react";
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import type { FormField } from "../components/Form/types";
 import { BooleanEditor } from "../components/editors/MultiModeExpressionEditor/BooleanEditor/BooleanEditor";
 
@@ -98,5 +98,45 @@ describe("BooleanEditor", () => {
         select.value = "false";
         select.dispatchEvent(new Event("change", { bubbles: true }));
         expect(onChange).toHaveBeenLastCalledWith("false", "false".length);
+    });
+    // The field carries the same empty value whether it was never touched or just emptied on purpose, so
+    // these drive the editor through a real change event and let it re-render with the value it asked for.
+    const Controlled = ({ initial, defaultValue }: { initial: any; defaultValue?: string }) => {
+        const [value, setValue] = React.useState(initial);
+        return (
+            <BooleanEditor
+                value={value}
+                field={booleanField(defaultValue)}
+                onChange={next => setValue(next)}
+            />
+        );
+    };
+
+    const pick = (value: string) => {
+        const dropdown = document.querySelector("vscode-dropdown") as HTMLElement & { value: string };
+        act(() => {
+            dropdown.value = value;
+            dropdown.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    };
+
+    // React writes the value onto the custom element as a property, so this reads back what the editor
+    // rendered, overwriting whatever the change event above set. A snap-back to the default is therefore
+    // visible here rather than hidden behind the value the event carried.
+    const presented = () =>
+        (document.querySelector("vscode-dropdown") as HTMLElement & { value?: string })?.value;
+
+    it("keeps the empty selection presented once it is picked over a declared default", () => {
+        render(<Controlled initial="true" defaultValue="true" />);
+        pick(NONE_SELECTED);
+        expect(presented()).toBe(NONE_SELECTED);
+    });
+
+    it("presents False picked after the empty selection, rather than treating it as empty", () => {
+        render(<Controlled initial="" defaultValue="true" />);
+        pick(NONE_SELECTED);
+        expect(presented()).toBe(NONE_SELECTED);
+        pick("false");
+        expect(presented()).toBe("false");
     });
 });

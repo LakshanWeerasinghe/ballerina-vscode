@@ -17,7 +17,7 @@
  */
 
 import { Dropdown, OptionProps } from "@wso2/ui-toolkit";
-import React, { ChangeEvent, useMemo } from "react"
+import React, { ChangeEvent, useEffect, useMemo, useState } from "react"
 import { FormField } from "../../../Form/types";
 
 interface EnumEditorProps {
@@ -60,22 +60,36 @@ export const EnumEditor = (props: EnumEditorProps) => {
         [options]
     );
 
+    // Emptying the field and never having touched it are the same state of the parameter, as both leave the
+    // argument out of the call and let the declared default apply. They are not the same to the reader
+    // though: one is a choice just made, and presenting the default in its place would drop the selection in
+    // front of the person who made it. Which of the two it is, is therefore remembered here rather than read
+    // back from the value.
+    const [emptiedByUser, setEmptiedByUser] = useState(false);
+    useEffect(() => {
+        if (props.value) {
+            setEmptiedByUser(false);
+        }
+    }, [props.value]);
+
     const selectedValue = useMemo(() => {
         if (isSetToAnOption) {
             return props.value;
         }
         // An empty field applies the default of the parameter, hence the member it applies is shown as the
-        // selected one. A value that none of the members stands for (e.g. pro code written by hand) is not a
-        // selection of any of them, and showing one would misreport what the source holds.
-        if (!props.value && defaultOption) {
+        // selected one until the field is emptied on purpose. A value that none of the members stands for
+        // (e.g. pro code written by hand) is not a selection of any of them, and showing one would misreport
+        // what the source holds.
+        if (!props.value && defaultOption && !emptiedByUser) {
             return defaultOption.value;
         }
         return DEFAULT_NONE_SELECTED_VALUE;
-    }, [props.value, isSetToAnOption, defaultOption]);
+    }, [props.value, isSetToAnOption, defaultOption, emptiedByUser]);
 
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
         if (value === DEFAULT_NONE_SELECTED_VALUE) {
+            setEmptiedByUser(true);
             props.onChange("", 0);
         } else {
             props.onChange(value, value.length);
