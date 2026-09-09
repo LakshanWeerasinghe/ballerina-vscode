@@ -7,7 +7,7 @@
       "mcp"
     ],
     "triggerName": "MCP Service",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "kind": "mcp",
     "minSupportedVersion": "1.3.0"
   },
@@ -22,7 +22,7 @@
       "event"
     ],
     "triggerName": "Kafka",
-    "version": "4.5.0",
+    "version": "4.6.6",
     "kind": "event",
     "minSupportedVersion": "4.6.6"
   },
@@ -36,9 +36,9 @@
       "event"
     ],
     "triggerName": "RabbitMQ",
-    "version": "3.6.0",
+    "version": "3.6.1",
     "kind": "event",
-    "minSupportedVersion": "3.6.0"
+    "minSupportedVersion": "3.6.1"
   },
   "4": {
     "name": "solace",
@@ -50,10 +50,10 @@
       "event"
     ],
     "triggerName": "Solace",
-    "version": "1.0.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace_1.0.0.png",
+    "version": "1.0.4",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace_1.0.4.png",
     "kind": "event",
-    "minSupportedVersion": "1.0.1"
+    "minSupportedVersion": "1.0.4"
   },
   "5": {
     "name": "solace.jms",
@@ -66,10 +66,10 @@
       "event"
     ],
     "triggerName": "Solace (JMS)",
-    "version": "1.0.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace.jms_1.0.0.png",
+    "version": "1.0.2",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_solace.jms_1.0.2.png",
     "kind": "event",
-    "minSupportedVersion": "1.0.1"
+    "minSupportedVersion": "1.0.2"
   },
   "6": {
     "name": "mqtt",
@@ -80,7 +80,7 @@
       "event"
     ],
     "triggerName": "MQTT",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "kind": "event",
     "minSupportedVersion": "1.4.2"
   },
@@ -96,7 +96,7 @@
       "event"
     ],
     "triggerName": "Azure Service Bus",
-    "version": "3.10.0",
+    "version": "3.10.1",
     "kind": "event",
     "minSupportedVersion": "3.10.1"
   },
@@ -111,7 +111,7 @@
       "event"
     ],
     "triggerName": "AWS SQS",
-    "version": "5.0.0",
+    "version": "5.0.1",
     "kind": "event",
     "minSupportedVersion": "5.0.1"
   },
@@ -125,9 +125,9 @@
       "event"
     ],
     "triggerName": "CDC for MySQL",
-    "version": "1.18.0",
+    "version": "1.19.1",
     "kind": "event",
-    "minSupportedVersion": "1.19.0"
+    "minSupportedVersion": "1.19.1"
   },
   "10": {
     "name": "postgresql",
@@ -140,9 +140,9 @@
       "event"
     ],
     "triggerName": "CDC for PostgreSQL",
-    "version": "1.18.0",
+    "version": "1.19.1",
     "kind": "event",
-    "minSupportedVersion": "1.19.0"
+    "minSupportedVersion": "1.19.1"
   },
   "11": {
     "name": "mssql",
@@ -154,9 +154,9 @@
       "event"
     ],
     "triggerName": "CDC for Microsoft SQL Server",
-    "version": "1.19.0",
+    "version": "1.19.1",
     "kind": "event",
-    "minSupportedVersion": "1.19.0"
+    "minSupportedVersion": "1.19.1"
   },
   "12": {
     "name": "oracledb",
@@ -169,10 +169,10 @@
       "event"
     ],
     "triggerName": "CDC for Oracle DB",
-    "version": "1.17.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_oracledb_1.17.0.png",
+    "version": "1.17.2",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_oracledb_1.17.2.png",
     "kind": "event",
-    "minSupportedVersion": "1.17.1"
+    "minSupportedVersion": "1.17.2"
   },
   "13": {
     "name": "sap.jco",
@@ -186,9 +186,10 @@
       "event"
     ],
     "triggerName": "SAP ECC (JCo)",
-    "version": "2.0.1",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_sap.jco_2.0.1.png",
-    "kind": "event"
+    "version": "2.1.2",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_sap.jco_2.1.2.png",
+    "kind": "event",
+    "minSupportedVersion": "2.1.2"
   },
   "14": {
     "name": "salesforce",
@@ -199,9 +200,9 @@
       "event"
     ],
     "triggerName": "Salesforce",
-    "version": "8.7.0",
+    "version": "8.7.2",
     "kind": "event",
-    "minSupportedVersion": "8.7.0"
+    "minSupportedVersion": "8.7.2"
   },
   "15": {
     "name": "trigger.github",
@@ -212,7 +213,7 @@
       "event"
     ],
     "triggerName": "GitHub",
-    "version": "0.10.0",
+    "version": "0.12.0",
     "kind": "event",
     "minSupportedVersion": "0.12.0"
   },
@@ -225,9 +226,9 @@
       "event"
     ],
     "triggerName": "Shopify",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "kind": "event",
-    "minSupportedVersion": "1.6.0"
+    "minSupportedVersion": "1.6.1"
   },
   "17": {
     "name": "trigger.hubspot",
@@ -238,9 +239,9 @@
       "event"
     ],
     "triggerName": "HubSpot",
-    "version": "0.12.0",
+    "version": "0.12.1",
     "kind": "event",
-    "minSupportedVersion": "0.12.0"
+    "minSupportedVersion": "0.12.1"
   },
   "18": {
     "name": "trigger.twilio",
@@ -252,9 +253,9 @@
       "sms"
     ],
     "triggerName": "Twilio",
-    "version": "0.10.0",
+    "version": "0.10.1",
     "kind": "event",
-    "minSupportedVersion": "0.10.0"
+    "minSupportedVersion": "0.10.1"
   },
   "19": {
     "name": "whatsapp.business",
@@ -267,10 +268,10 @@
       "event"
     ],
     "triggerName": "WhatsApp Business",
-    "version": "2.1.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_whatsapp.business_2.1.0.png",
+    "version": "2.1.1",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_whatsapp.business_2.1.1.png",
     "kind": "event",
-    "minSupportedVersion": "2.1.0"
+    "minSupportedVersion": "2.1.1"
   },
   "20": {
     "name": "telegram",
@@ -283,10 +284,10 @@
       "event"
     ],
     "triggerName": "Telegram",
-    "version": "0.9.3",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_telegram_0.9.3.png",
+    "version": "0.9.4",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_telegram_0.9.4.png",
     "kind": "event",
-    "minSupportedVersion": "0.9.3"
+    "minSupportedVersion": "0.9.4"
   },
   "21": {
     "name": "googleapis.chat",
@@ -300,8 +301,8 @@
       "event"
     ],
     "triggerName": "Google Chat",
-    "version": "0.1.0",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_googleapis.chat_0.1.0.png",
+    "version": "0.1.1",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_googleapis.chat_0.1.1.png",
     "kind": "event",
     "minSupportedVersion": "0.1.1"
   },
@@ -317,7 +318,7 @@
       "event"
     ],
     "triggerName": "FTP / SFTP",
-    "version": "2.20.0",
+    "version": "2.20.3",
     "kind": "file",
     "minSupportedVersion": "2.20.3"
   },
@@ -333,7 +334,7 @@
       "event"
     ],
     "triggerName": "SMB",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "kind": "file",
     "minSupportedVersion": "2.0.2"
   },
@@ -348,7 +349,7 @@
       "event"
     ],
     "triggerName": "Local Files",
-    "version": "1.13.0",
+    "version": "1.13.1",
     "kind": "file",
     "minSupportedVersion": "1.13.1"
   },
@@ -364,9 +365,9 @@
       "event"
     ],
     "triggerName": "Azure Files",
-    "version": "1.0.1",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.1.png",
+    "version": "1.0.2",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerinax_azure.storage.files_1.0.2.png",
     "kind": "file",
-    "minSupportedVersion": "1.0.1"
+    "minSupportedVersion": "1.0.2"
   }
 }
