@@ -153,7 +153,7 @@ const WelcomeMessage: React.FC<WelcomeMessageProps> = ({ isOnboarding = false })
                         marginTop: "16px",
                     }}
                 >
-                    I can help you build, update, and understand your integration. Tell me what you’d like to do.
+                    Build integrations faster with AI. Describe what you need and get working integrations instantly.
                 </Typography>
                 <Typography
                     variant="body1"
