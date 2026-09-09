@@ -194,7 +194,7 @@
               "selected": false
             }
           ],
-          "placeholder": "",
+          "placeholder": "\"AUTO\"",
           "optional": true,
           "editable": true,
           "advanced": false,
