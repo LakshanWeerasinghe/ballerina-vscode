@@ -46,7 +46,7 @@
     "org": "ballerina",
     "package": "mcp",
     "module": "mcp",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   {
     "key": "mqtt",
@@ -67,21 +67,21 @@
     "org": "ballerinax",
     "package": "mysql",
     "module": "mysql",
-    "version": "1.18.0"
+    "version": "1.19.1"
   },
   {
     "key": "oracledb",
     "org": "ballerinax",
     "package": "oracledb",
     "module": "oracledb",
-    "version": "1.14.0"
+    "version": "1.17.2"
   },
   {
     "key": "postgresql",
     "org": "ballerinax",
     "package": "postgresql",
     "module": "postgresql",
-    "version": "1.17.0"
+    "version": "1.19.1"
   },
   {
     "key": "rabbitmq",
@@ -95,7 +95,7 @@
     "org": "ballerinax",
     "package": "salesforce",
     "module": "salesforce",
-    "version": "8.4.0"
+    "version": "8.7.2"
   },
   {
     "key": "smb",
@@ -109,7 +109,7 @@
     "org": "ballerinax",
     "package": "solace",
     "module": "solace",
-    "version": "0.3.0"
+    "version": "1.0.4"
   },
   {
     "key": "solace.jms",
@@ -126,18 +126,11 @@
     "version": "5.0.1"
   },
   {
-    "key": "telegram",
-    "org": "ballerinax",
-    "package": "telegram",
-    "module": "telegram",
-    "version": "0.9.3"
-  },
-  {
     "key": "trigger.github",
     "org": "ballerinax",
     "package": "trigger.github",
     "module": "trigger.github",
-    "version": "0.11.0"
+    "version": "0.12.0"
   },
   {
     "key": "trigger.hubspot",
@@ -152,19 +145,5 @@
     "package": "trigger.shopify",
     "module": "trigger.shopify",
     "version": "1.6.0"
-  },
-  {
-    "key": "trigger.twilio",
-    "org": "ballerinax",
-    "package": "trigger.twilio",
-    "module": "trigger.twilio",
-    "version": "0.10.0"
-  },
-  {
-    "key": "whatsapp.business",
-    "org": "ballerinax",
-    "package": "whatsapp.business",
-    "module": "whatsapp.business",
-    "version": "2.1.0"
   }
 ]

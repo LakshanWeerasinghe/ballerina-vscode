@@ -91,9 +91,9 @@ public class TriggerUIMetadataGenerationTest {
     public Object[][] cdcTriggers() {
         return new Object[][] {
                 {"mssql", "1.19.0"},
-                {"mysql", "1.18.0"},
-                {"oracledb", "1.17.0"},
-                {"postgresql", "1.18.0"},
+                {"mysql", "1.19.1"},
+                {"oracledb", "1.17.2"},
+                {"postgresql", "1.19.1"},
         };
     }
 
@@ -132,14 +132,16 @@ public class TriggerUIMetadataGenerationTest {
                 module + ": unexpected onError source: " + onErrorSource);
 
         if ("postgresql".equals(module)) {
-            Assert.assertFalse(handlerNames.contains("onTruncate"),
-                    "PostgreSQL retains its truncate listener option but omits the handler catalog entry");
+            // As of 1.19.1, PostgreSQL's onTruncate handler is a full catalog entry alongside
+            // onRead/onCreate/onUpdate/onDelete (it used to be listener-option-only in older releases).
+            Assert.assertTrue(handlerNames.contains("onTruncate"),
+                    "PostgreSQL should surface onTruncate as an addable handler catalog entry");
         }
     }
 
     @Test
     public void testOracleLegacyListenerWidgets() {
-        TriggerUISchemaModel model = cdcModel("oracledb", "1.17.0");
+        TriggerUISchemaModel model = cdcModel("oracledb", "1.17.2");
         MapView listener = listenerFields(model);
         TriggerUISchemaModel.Property schemas = listener.get("schemas");
         Assert.assertEquals(schemas.types().size(), 1);
@@ -160,7 +162,7 @@ public class TriggerUIMetadataGenerationTest {
 
     @Test
     public void testPostgresqlLegacyListenerWidgets() {
-        TriggerUISchemaModel model = cdcModel("postgresql", "1.18.0");
+        TriggerUISchemaModel model = cdcModel("postgresql", "1.19.1");
         MapView listener = listenerFields(model);
         TriggerUISchemaModel.Property schemas = listener.get("schemas");
         Assert.assertEquals(schemas.types().size(), 1);

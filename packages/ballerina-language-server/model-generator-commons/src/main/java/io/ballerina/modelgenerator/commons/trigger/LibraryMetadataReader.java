@@ -478,7 +478,8 @@ public final class LibraryMetadataReader {
         if (moduleInfo == null || moduleInfo.org() == null || moduleInfo.moduleName() == null) {
             return Optional.empty();
         }
-        String key = moduleInfo.org() + "/" + moduleInfo.moduleName();
+        String key = moduleInfo.org() + "/" + moduleInfo.moduleName() + ":"
+                + (moduleInfo.version() == null ? "" : moduleInfo.version());
         Optional<Path> cached = packageRootCache.getIfPresent(key);
         if (cached != null) {
             return cached;
@@ -492,8 +493,8 @@ public final class LibraryMetadataReader {
 
     private Optional<Path> resolvePackageRoot(ModuleInfo moduleInfo) {
         try {
-            Optional<Package> pkg = PackageUtil.getModulePackageOffline(
-                    moduleInfo.org(), moduleInfo.moduleName());
+            Optional<Package> pkg = PackageUtil.getModulePackageOffline(PackageUtil.getSampleProject(),
+                    moduleInfo.org(), moduleInfo.moduleName(), moduleInfo.version());
             return pkg.map(aPackage -> aPackage.project().sourceRoot());
         } catch (Throwable e) {
             return Optional.empty();
