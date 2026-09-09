@@ -212,7 +212,7 @@
               "metadata": {
                 "label": "AbortedError",
                 "description": "Represents error occur when operation is aborted.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -220,7 +220,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AbortedError",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -228,7 +228,7 @@
               "metadata": {
                 "label": "AbstractClientEndpoint",
                 "description": "Represents the abstract gRPC client endpoint. This abstract object is used in the generated client.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -236,7 +236,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AbstractClientEndpoint",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -244,7 +244,7 @@
               "metadata": {
                 "label": "AccessLogConfiguration",
                 "description": "Represents gRPC access log configuration.\n",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -252,7 +252,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AccessLogConfiguration",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -260,7 +260,7 @@
               "metadata": {
                 "label": "AllRetryAttemptsFailed",
                 "description": "Represents error scenario where the maximum retry attempts are done and still received an error.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -268,7 +268,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AllRetryAttemptsFailed",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -276,7 +276,7 @@
               "metadata": {
                 "label": "AlreadyExistsError",
                 "description": "Represents error occur when attempt to create an entity which already exists.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -284,7 +284,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AlreadyExistsError",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -292,7 +292,7 @@
               "metadata": {
                 "label": "BearerTokenConfig",
                 "description": "Represents token for Bearer token authentication.\n",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -300,7 +300,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "BearerTokenConfig",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -308,7 +308,7 @@
               "metadata": {
                 "label": "CancelledError",
                 "description": "Represents the operation canceled(typically by the caller) error.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -316,7 +316,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "CancelledError",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -324,7 +324,7 @@
               "metadata": {
                 "label": "CertKey",
                 "description": "Represents combination of certificate, private key and private key password if encrypted.\n",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -332,7 +332,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "CertKey",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -340,7 +340,7 @@
               "metadata": {
                 "label": "CertValidationType",
                 "description": "Represents certification validation type options.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -348,7 +348,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "CertValidationType",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -356,7 +356,7 @@
               "metadata": {
                 "label": "ClientAuthConfig",
                 "description": "Defines the authentication configurations for the HTTP client.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -364,7 +364,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "ClientAuthConfig",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             }

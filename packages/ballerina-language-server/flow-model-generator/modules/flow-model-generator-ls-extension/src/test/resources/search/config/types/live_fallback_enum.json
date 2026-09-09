@@ -43,7 +43,7 @@
               "metadata": {
                 "label": "CompressionType",
                 "description": "Compression types that are supported.\nGZIP - Gzip compression",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -51,7 +51,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "CompressionType",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -59,7 +59,7 @@
               "metadata": {
                 "label": "Compression",
                 "description": "Represents compression options.\n\n`AUTO`: When the service behaves as a HTTP gateway, the inbound request/response accept-encoding option is set as the\noutbound request/response accept-encoding/content-encoding option\n`ALWAYS`: Always set accept-encoding/content-encoding in outbound request/response\n`NEVER`: Never set accept-encoding/content-encoding header in outbound request/response",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -67,7 +67,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "Compression",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             }

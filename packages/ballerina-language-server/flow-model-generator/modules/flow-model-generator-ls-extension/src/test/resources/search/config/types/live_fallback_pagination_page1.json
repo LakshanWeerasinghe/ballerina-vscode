@@ -117,7 +117,7 @@
               "metadata": {
                 "label": "AbortedError",
                 "description": "Represents error occur when operation is aborted.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -125,7 +125,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AbortedError",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -133,7 +133,7 @@
               "metadata": {
                 "label": "AbstractClientEndpoint",
                 "description": "Represents the abstract gRPC client endpoint. This abstract object is used in the generated client.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -141,7 +141,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AbstractClientEndpoint",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -149,7 +149,7 @@
               "metadata": {
                 "label": "AccessLogConfiguration",
                 "description": "Represents gRPC access log configuration.\n",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -157,7 +157,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AccessLogConfiguration",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             },
@@ -165,7 +165,7 @@
               "metadata": {
                 "label": "AllRetryAttemptsFailed",
                 "description": "Represents error scenario where the maximum retry attempts are done and still received an error.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.14.2.png"
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_grpc_1.15.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
@@ -173,7 +173,7 @@
                 "module": "grpc",
                 "packageName": "grpc",
                 "symbol": "AllRetryAttemptsFailed",
-                "version": "1.14.2"
+                "version": "1.15.1"
               },
               "enabled": true
             }
