@@ -35,4 +35,16 @@ public class IntersectionType extends Type {
         this.typeName = "intersection";
         this.members = new ArrayList<>();
     }
+
+    public IntersectionType(IntersectionType intersectionType) {
+        this.typeName = intersectionType.typeName;
+        this.members = intersectionType.members;
+        this.name = intersectionType.name;
+        this.optional = intersectionType.optional;
+        this.typeInfo = intersectionType.typeInfo;
+        this.defaultable = intersectionType.defaultable;
+        this.defaultValue = intersectionType.defaultValue;
+        this.displayAnnotation = intersectionType.displayAnnotation;
+        this.documentation = intersectionType.documentation;
+    }
 }
