@@ -131,8 +131,9 @@ public class CopilotLibraryFilterTest extends AbstractLSTest {
      * {@code ballerinax/aws}, not a package. Resolving it as a package used to <b>throw</b> (Central
      * answers the latest-version lookup with a 404), and the exception unwound through the JSON-RPC
      * boundary, discarding every sibling library in the request — the already-built {@code aws.sns}
-     * catalog was lost to its own dependency's coordinate. Resolution failures are now contained in
-     * {@code CopilotLibraryManager.resolvePackageSafely}, and an unresolvable entry is skipped.
+     * catalog was lost to its own dependency's coordinate. {@code CopilotLibraryManager.loadFilteredLibraries}
+     * now contains every failure per library — resolution as well as compilation and symbol processing —
+     * and skips the failing entry.
      */
     @Test
     public void testUnresolvableLibraryDoesNotAbortBatch() throws IOException {
