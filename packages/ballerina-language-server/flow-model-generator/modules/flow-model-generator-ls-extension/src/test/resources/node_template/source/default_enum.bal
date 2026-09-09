@@ -41,3 +41,11 @@ function function8(Priority? priority = MEDIUM) {
 
 function function9(int|Day day) {
 }
+
+const LEVEL_QUIET = "quiet";
+const LEVEL_LOUD = "loud";
+
+type Level LEVEL_QUIET|LEVEL_LOUD;
+
+function function10(Level level = LEVEL_LOUD) {
+}
