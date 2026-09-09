@@ -106,19 +106,14 @@ function supportsCompaction(loginMethod: LoginMethod): boolean {
 }
 
 /**
- * Server-side compaction trigger, in input tokens.
- *
- * Unlike MI, BI re-sends the entire project source in every turn's user message, so its
- * per-turn baseline is much larger — MI's 200K trigger would fire too eagerly. 500K leaves
- * ample working headroom while staying well within the 1M context window (Claude Sonnet).
+ * Server-side compaction trigger, in input tokens. Higher than MI's 200K because BI re-sends
+ * the whole project source each turn; 500K sits well within Claude Sonnet's 1M window.
  */
 const COMPACT_TRIGGER_TOKENS = 500_000;
 
 /**
- * Builds providerOptions.anthropic.contextManagement, mirroring MI's approach: compaction
- * only, no `clear_tool_uses`. `clear_tool_uses` *deletes* older tool results with no summary
- * to replace them, degrading the agent mid-task; `compact_20260112` *summarizes* instead,
- * preserving the context the agent needs to keep working.
+ * Builds providerOptions.anthropic.contextManagement: compaction only, no `clear_tool_uses`
+ * (which deletes tool results without summarizing). Mirrors MI.
  */
 function buildCompactionProviderOptions(loginMethod: LoginMethod, floorTokens: number) {
     if (!supportsCompaction(loginMethod)) { return undefined; }
@@ -483,15 +478,16 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
             let compactionContent = '';
             let cleanedCompactionSummary: string | undefined;
             // Counts compactions in this turn so each renders as its own card (upsertComponent
-            // keys by id). Mirrors MI: a notice + the extracted summary, rendered in-stream —
-            // never emitted as a raw <compaction> text block (which would render as literal text).
+            // keys by id), instead of a raw <compaction> text block that would show as literal text.
             let compactionCount = 0;
-            const emitCompactionNotice = (summary?: string) => {
+            const emitCompactionNotice = () => {
+                // Notice only — the model-authored summary is kept internal (#2371), never
+                // forwarded to the webview or persisted in the transcript.
                 this.config.eventHandler({
                     type: 'chat_component',
                     componentType: 'compaction',
                     id: `compaction-${this.config.generationId}-${compactionCount++}`,
-                    data: { summary: summary ?? '' },
+                    data: {},
                 });
             };
 
@@ -520,6 +516,25 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 projectId,
                 toolModelUsage,
                 carriedMessages,
+            };
+
+            // Flush an open compaction block: extract its summary, clear the UI compaction state,
+            // reset the context widget, and emit the in-stream notice card. Called from the block's
+            // own text-end (so the notice lands right after the summary, before any following tool
+            // calls or text), with a stream-end fallback for a block left open at stream end.
+            const flushCompactionBlock = () => {
+                isCompactionBlock = false;
+                const summary = extractCompactionSummary(compactionContent);
+                cleanedCompactionSummary = summary || compactionContent;
+                streamContext.wasCompactionTurn = true;
+                this.config.eventHandler({ type: 'compaction_end', summary: summary ?? undefined });
+                // Reset context widget to near-zero after compaction
+                this.config.eventHandler({
+                    type: 'usage_metrics',
+                    usage: { inputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, outputTokens: 0 },
+                });
+                // Compaction notice, positioned before the continuing response.
+                emitCompactionNotice();
             };
 
             // Process stream events - NATIVE V6 PATTERN
@@ -632,27 +647,20 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                                 compactionContent = '';
                                 this.config.eventHandler({ type: 'compaction_start' });
                             } else {
-                                if (isCompactionBlock) {
-                                    // Compaction block just ended — flush it
-                                    isCompactionBlock = false;
-                                    const summary = extractCompactionSummary(compactionContent);
-                                    cleanedCompactionSummary = summary || compactionContent;
-                                    streamContext.wasCompactionTurn = true;
-                                    this.config.eventHandler({ type: 'compaction_end', summary: summary ?? undefined });
-                                    // Reset context widget to near-zero after compaction
-                                    this.config.eventHandler({
-                                        type: 'usage_metrics',
-                                        usage: { inputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, outputTokens: 0 },
-                                    });
-                                    // Inline notice before the continuing response
-                                    this.config.eventHandler({
-                                        type: 'content_block',
-                                        content: '<compaction>Context compacted — key context preserved, conversation continues below.</compaction>',
-                                    });
-                                }
-                                // Normal text-start: emit paragraph break
+                                // Normal text-start: emit a paragraph break. The compaction block is
+                                // flushed on its own text-end (below), not here, so its notice lands
+                                // before any tool calls that follow it rather than after them, and a
+                                // second compaction can't reset an unflushed first block.
                                 this.config.eventHandler({ type: 'content_block', content: ' \n' });
                             }
+                            continue;
+                        }
+
+                        // Compaction block closed: flush it now so the notice is emitted immediately
+                        // after the summary. Only intercepts the compaction block's own text-end; a
+                        // normal text-end falls through to handleStreamPart as before.
+                        if (part.type === 'text-end' && isCompactionBlock) {
+                            flushCompactionBlock();
                             continue;
                         }
 
@@ -681,20 +689,10 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                         await this.handleStreamPart(part, streamContext);
                     }
 
-                    // Flush compaction block if still open at stream end (e.g. compaction was last block)
+                    // Fallback: flush a compaction block still open at stream end (no text-end arrived,
+                    // e.g. the stream ended on the compaction block itself).
                     if (isCompactionBlock) {
-                        isCompactionBlock = false;
-                        const summary = extractCompactionSummary(compactionContent);
-                        cleanedCompactionSummary = summary || compactionContent;
-                        this.config.eventHandler({ type: 'compaction_end', summary: summary ?? undefined });
-                        this.config.eventHandler({
-                            type: 'usage_metrics',
-                            usage: { inputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, outputTokens: 0 },
-                        });
-                        this.config.eventHandler({
-                            type: 'content_block',
-                            content: '<compaction>Context compacted — key context preserved.</compaction>',
-                        });
+                        flushCompactionBlock();
                     }
 
                     // Check if abort was called after stream completed

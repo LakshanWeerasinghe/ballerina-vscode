@@ -57,12 +57,14 @@ import {
 
 // ── Item renderer — order-preserving, used by both floating and named entries ─
 
+// Fixed notice for the server-side compaction card. The model-authored summary is kept
+// internal (#2371) — the compaction chat_component carries no summary and none is rendered.
+const COMPACTION_NOTICE_TEXT = "Context compacted — conversation continues below";
+
 /**
- * Renders a text stream item, rendering any embedded `<compaction>…</compaction>`
- * notice as a compaction row rather than raw markdown. New runs emit compaction as a
- * `chat_component`, but a notice can still be folded into a text item by older
- * transcripts (persisted before that change) or a stray raw emission — this keeps
- * those rendering cleanly instead of leaking the literal tag.
+ * Renders a text stream item, folding any embedded `<compaction>…</compaction>` tag (the
+ * compaction-disabled warning, or an old transcript's notice) into a notice row rather than
+ * leaking the literal tag as markdown.
  */
 function renderTextItem(text: string, idx: number): React.ReactNode {
     if (!text.includes("<compaction>")) {
@@ -86,6 +88,8 @@ function renderTextItem(text: string, idx: number): React.ReactNode {
                 </ItemMarkdownWrapper>
             );
         }
+        // The tag's inner text is always a developer-authored notice (the old compaction
+        // notice or the compaction-disabled warning), never the model summary — render it.
         const notice = m[1].trim();
         parts.push(
             <ItemRow key={`${idx}-c${k}`}>
@@ -194,24 +198,12 @@ function renderItem(item: StreamItem, idx: number, streamActive: boolean, rpcCli
                 );
             }
             if (item.componentType === "compaction") {
-                const summary = typeof item.data?.summary === "string" ? item.data.summary.trim() : "";
+                // Notice only — the model-authored summary is kept internal (#2371).
                 return (
-                    <React.Fragment key={idx}>
-                        <ItemRow>
-                            <span className="codicon codicon-fold" aria-hidden="true" />
-                            <ItemLabel loading={false}>Context compacted — conversation continues below</ItemLabel>
-                        </ItemRow>
-                        {summary && (
-                            <ItemDetail>
-                                <details>
-                                    <summary style={{ cursor: "pointer" }}>View summary</summary>
-                                    <ItemMarkdownWrapper>
-                                        <MarkdownRenderer markdownContent={summary} />
-                                    </ItemMarkdownWrapper>
-                                </details>
-                            </ItemDetail>
-                        )}
-                    </React.Fragment>
+                    <ItemRow key={idx}>
+                        <span className="codicon codicon-fold" aria-hidden="true" />
+                        <ItemLabel loading={false}>{COMPACTION_NOTICE_TEXT}</ItemLabel>
+                    </ItemRow>
                 );
             }
             return null;
