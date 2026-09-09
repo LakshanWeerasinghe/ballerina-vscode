@@ -652,16 +652,13 @@ export function NodeList(props: NodeListProps) {
         const safeItems = items.filter((item) => item != null);
         const nodes = safeItems.filter((item): item is Node => "id" in item && !("title" in item));
         const subcategories = safeItems.filter((item): item is Category => "title" in item && "items" in item);
+        const visibleNodes = nodes.filter((node) => !(["NP_FUNCTION"].includes(node.id) && !isNPSupported));
 
         return (
             <>
-                {nodes.length > 0 && (
+                {visibleNodes.length > 0 && (
                     <S.Grid columns={2}>
-                        {nodes.map((node, index) => {
-                            if (["NP_FUNCTION"].includes(node.id) && !isNPSupported) {
-                                return;
-                            }
-
+                        {visibleNodes.map((node, index) => {
                             return (
                                 <Tooltip
                                     key={node.id + index}
