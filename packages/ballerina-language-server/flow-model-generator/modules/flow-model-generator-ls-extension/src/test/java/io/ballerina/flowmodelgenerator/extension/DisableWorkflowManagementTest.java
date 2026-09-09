@@ -37,9 +37,9 @@ import java.util.Map;
 
 /**
  * Tests for disabling the workflow management REST API: the {@code workflow.management.rest}
- * import is removed with or without a prefix, the unused pre-0.9.0 {@code workflow.management as _}
- * import the old checkbox wrote goes with it, and an import of that module a program uses is left
- * alone.
+ * import is removed with or without a prefix, unless the file names the module through that prefix;
+ * the unused pre-0.9.0 {@code workflow.management as _} import the old checkbox wrote goes with it,
+ * and an import of that module a program uses is left alone.
  *
  * @since 1.7.0
  */

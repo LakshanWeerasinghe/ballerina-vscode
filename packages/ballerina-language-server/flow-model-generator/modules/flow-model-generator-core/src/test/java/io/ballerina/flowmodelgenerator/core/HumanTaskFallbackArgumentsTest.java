@@ -106,6 +106,23 @@ public class HumanTaskFallbackArgumentsTest {
         Assert.assertEquals(values.get(HumanTaskBuilder.TIMEOUT_KEY), "{days: 1}");
     }
 
+    @Test(description = "With the roles named, the positional argument after the name is the task input "
+            + "whatever its shape: a variable holding the input is not dropped for the form's `{}`")
+    public void testNamedRolesMakePositionalInputTheInput() {
+        Map<String, String> values = CodeAnalyzer.fallbackHumanTaskArgumentValues(arguments(
+                "ctx->awaitHumanTask(\"approve\", requestData, userRoles = \"manager\")"));
+        Assert.assertEquals(values.get(HumanTaskBuilder.TASK_NAME_KEY), "\"approve\"");
+        Assert.assertEquals(values.get(HumanTaskBuilder.USER_ROLES_KEY), "\"manager\"");
+        Assert.assertEquals(values.get(HumanTaskBuilder.TASK_INPUT_KEY), "requestData",
+                "the input must survive the read, or the next save replaces it with {}");
+
+        // A call on a function result reads the same way — the shape of the expression says nothing.
+        Assert.assertEquals(CodeAnalyzer.fallbackHumanTaskArgumentValues(arguments(
+                        "ctx->awaitHumanTask(\"approve\", buildInput(), userRoles = [\"finance\", \"manager\"], "
+                                + "title = \"Approve\")"))
+                .get(HumanTaskBuilder.TASK_INPUT_KEY), "buildInput()");
+    }
+
     @Test(description = "A call that omits the input leaves the field unset — the form fills `{}` — and does "
             + "not read a role string as the input")
     public void testOmittedInput() {

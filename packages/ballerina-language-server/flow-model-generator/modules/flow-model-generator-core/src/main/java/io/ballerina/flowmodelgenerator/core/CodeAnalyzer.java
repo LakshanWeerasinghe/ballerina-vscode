@@ -2131,10 +2131,12 @@ public class CodeAnalyzer extends NodeVisitor {
      *   <li>0.9.0: {@code awaitHumanTask(taskName, taskInput, userRoles = ..., title = ...)} — the
      *       input is positional argument 1 and the roles a definition field.</li>
      * </ul>
-     * A stated name settles which. With neither stated, positional argument 1 tells them apart by
-     * shape: the input is a {@code map<json>} and so a record literal, where roles are a string or a
-     * list of strings. Whichever name the call used for the input, the value lands in the one task
-     * input field; the form writes the module's current name for it.
+     * A stated name settles which: {@code userRoles} named makes positional argument 1 the task
+     * input, whatever its shape — a variable holding the input as much as a record literal. With
+     * neither stated, that argument tells them apart by shape: the input is a {@code map<json>} and
+     * so a record literal, where roles are a string or a list of strings. Whichever name the call
+     * used for the input, the value lands in the one task input field; the form writes the module's
+     * current name for it.
      *
      * @param args the call's arguments
      * @return the form values keyed by property name
@@ -2163,10 +2165,12 @@ public class CodeAnalyzer extends NodeVisitor {
         String firstArg = args.size() > 1 && args.get(1) instanceof PositionalArgumentNode posArg1
                 ? posArg1.expression().toSourceCode().strip() : null;
         if (firstArg != null) {
-            if (firstArg.startsWith("{")) {
-                // A record literal in the roles' position: 0.9.0's task input.
+            if (!userRolesValue.isEmpty() || firstArg.startsWith("{")) {
+                // 0.9.0's task input: named roles settle the layout on their own, so this argument is
+                // the input whatever its shape — a variable holding it is not a role list. Without
+                // them, a record literal in the roles' position is the input.
                 taskInputValue = firstArg;
-            } else if (userRolesValue.isEmpty()) {
+            } else {
                 userRolesValue = firstArg;
             }
         }
@@ -2381,12 +2385,12 @@ public class CodeAnalyzer extends NodeVisitor {
 
     // The retry-policy form's decomposition of a raw retryPolicy source value: the dropdown
     // selection plus its sub-field values.
-    private record RetryPolicyForm(String dropdownValue, String maxRetries, String retryDelay,
-                                   String retryBackoff, String maxRetryDelay,
-                                   ActivityCallBuilder.ReviewFormValues review) {
+    record RetryPolicyForm(String dropdownValue, String maxRetries, String retryDelay,
+                           String retryBackoff, String maxRetryDelay,
+                           ActivityCallBuilder.ReviewFormValues review) {
     }
 
-    private static RetryPolicyForm normalizeRetryPolicy(String rawValue) {
+    static RetryPolicyForm normalizeRetryPolicy(String rawValue) {
         String dropdownValue = ActivityCallBuilder.NO_RETRY_VALUE;
         String maxRetries = "", retryDelay = "", retryBackoff = "", maxRetryDelay = "";
         ActivityCallBuilder.ReviewFormValues review = ActivityCallBuilder.ReviewFormValues.empty();
@@ -2446,14 +2450,14 @@ public class CodeAnalyzer extends NodeVisitor {
     /** The field that tells a record-shaped review from an AutoRetry. */
     private static final String USER_ROLES_FIELD = "userRoles";
 
-    /** A string literal as the form shows it — the quotes belong to the source, not the value. */
+    /**
+     * A string literal as the form shows it: the quotes and the escapes belong to the source, not to
+     * the value. The one inverse of the encoder the form writes with
+     * ({@link WorkflowUtil#stringLiteral}), so a title carrying a quote or a line break survives a
+     * read and a save unchanged instead of gaining a backslash on each edit.
+     */
     private static String unquoted(String literal) {
-        if (literal == null) {
-            return "";
-        }
-        String value = literal.trim();
-        return value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
-                ? value.substring(1, value.length() - 1) : value;
+        return WorkflowUtil.stringLiteralText(literal);
     }
 
     // Whether the expression IS one of the named policy sentinels, bare or module-qualified.

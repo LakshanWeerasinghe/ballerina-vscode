@@ -190,6 +190,14 @@ public class HumanTaskFormTest {
         Assert.assertEquals(properties.get(HumanTaskBuilder.RESULT_TYPE_KEY).value(), "Decision",
                 "a stated resultType is kept, so a save writes it back");
         Assert.assertFalse(properties.get(HumanTaskBuilder.USER_ROLES_KEY).hidden());
+        // `description` is a reserved property key, so the signature-derived form carries it under
+        // `$description` — the relabel has to find it there too, or the field alone keeps the
+        // module's own wording while Title and Timeout get the form's.
+        Assert.assertEquals(properties.get("$description").metadata().label(), "Description",
+                "the escaped key is relabelled like every other field");
+        Assert.assertEquals(properties.get("$description").metadata().description(),
+                "Additional context shown alongside the form");
+        Assert.assertEquals(properties.get(HumanTaskBuilder.TITLE_KEY).metadata().label(), "Title");
     }
 
     @Test(description = "A pre-0.9 form — payload, no record fields — keeps its own order untouched")

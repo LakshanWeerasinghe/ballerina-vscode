@@ -1186,8 +1186,11 @@ public class ActivityCallBuilder extends CallBuilder {
      * written: an omitted field is not the same as an empty one — the runtime derives the
      * review's name and wording from the activity, and emitting {@code title: ""} would
      * replace that derivation with nothing.
+     *
+     * @param properties the form's retry-policy properties
+     * @return the record literal source
      */
-    static String humanReviewRecordLiteral(Map<String, Property> properties) {
+    public static String humanReviewRecordLiteral(Map<String, Property> properties) {
         List<String> fields = new ArrayList<>();
         // The roles field offers both a text and an expression mode, so roleSource — not the raw
         // value — is what reads either one back as source.

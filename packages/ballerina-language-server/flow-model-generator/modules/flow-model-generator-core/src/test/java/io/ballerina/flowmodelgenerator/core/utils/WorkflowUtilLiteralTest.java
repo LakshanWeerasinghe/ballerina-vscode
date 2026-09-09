@@ -115,6 +115,43 @@ public class WorkflowUtilLiteralTest {
         Assert.assertEquals(WorkflowUtil.stringLiteral(""), "\"\"");
     }
 
+    @Test(description = "The literal reader is the encoder's inverse: quotes and escapes are the source's, "
+            + "not the value's")
+    public void testStringLiteralTextDecodes() {
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"plain\""), "plain");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"He said \\\"hi\\\"\""), "He said \"hi\"");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"C:\\\\temp\""), "C:\\temp");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"line1\\nline2\\tend\\r\""), "line1\nline2\tend\r");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"grin \\u{1F600}\""), "grin \uD83D\uDE00");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"\""), "");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText(null), "");
+    }
+
+    @Test(description = "What is not one string literal is the form's own source and passes through: an "
+            + "expression, a template, a concatenation that merely begins and ends with a quote, and an "
+            + "escape the syntax does not define")
+    public void testStringLiteralTextLeavesSourceAlone() {
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("titleVar"), "titleVar");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("string `Order ${id}`"), "string `Order ${id}`");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"a\" + \"b\""), "\"a\" + \"b\"");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"keep \\q\""), "keep \\q");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"keep \\u{zz}\""), "keep \\u{zz}");
+        Assert.assertEquals(WorkflowUtil.stringLiteralText("\"trailing \\\""), "trailing \\");
+    }
+
+    @Test(description = "Reading a literal and writing it again reproduces the source: escapes do not "
+            + "accumulate over repeated saves")
+    public void testStringLiteralRoundTrip() {
+        for (String literal : List.of("\"plain\"", "\"He said \\\"hi\\\"\"", "\"C:\\\\temp\"",
+                "\"line1\\nline2\\tend\\r\"", "\"\"", "\"grin \\u{1F600}\"")) {
+            String once = WorkflowUtil.stringLiteral(WorkflowUtil.stringLiteralText(literal));
+            Assert.assertEquals(WorkflowUtil.stringLiteral(WorkflowUtil.stringLiteralText(once)), once,
+                    "a second save must not change " + literal);
+        }
+        Assert.assertEquals(WorkflowUtil.stringLiteral(
+                WorkflowUtil.stringLiteralText("\"He said \\\"hi\\\"\\nnow\"")), "\"He said \\\"hi\\\"\\nnow\"");
+    }
+
     @Test(description = "quoteIfPlain leaves source-shaped values alone and encodes plain text fully")
     public void testQuoteIfPlain() {
         Assert.assertEquals(WorkflowUtil.quoteIfPlain("\"already\""), "\"already\"");

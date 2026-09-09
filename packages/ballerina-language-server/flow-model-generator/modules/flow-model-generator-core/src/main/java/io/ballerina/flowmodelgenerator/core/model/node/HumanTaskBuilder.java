@@ -368,9 +368,12 @@ public class HumanTaskBuilder extends CallBuilder {
         // The record's fields arrive after the positional parameters and the inferred type, which
         // puts the required roles below the type selector. The form is what it was before the
         // record: name, roles, input, then the optional details, then the completion type. Keys
-        // the module does not declare are simply absent; anything else keeps its place after.
+        // the module does not declare are simply absent; anything else keeps its place after. Both
+        // spellings of the description are named for the same reason `relabel` looks up both: the
+        // signature-derived path escapes the reserved name to `$description`.
         reorder(properties, TASK_NAME_KEY, USER_ROLES_KEY, TASK_INPUT_KEY, PAYLOAD_KEY,
-                TITLE_KEY, DESCRIPTION_KEY, "$description", TIMEOUT_KEY, DATABINDING_TYPE_KEY);
+                TITLE_KEY, DESCRIPTION_KEY, FlowNodeUtil.getPropertyKey(DESCRIPTION_KEY),
+                TIMEOUT_KEY, DATABINDING_TYPE_KEY);
 
         relabel(properties, TASK_NAME_KEY, TASK_NAME_LABEL, TASK_NAME_DOC);
         relabel(properties, USER_ROLES_KEY, USER_ROLES_LABEL, USER_ROLES_DOC);

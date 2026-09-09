@@ -821,6 +821,92 @@ public class WorkflowUtil {
     }
 
     /**
+     * The plain text a string literal carries — the inverse of {@link #stringLiteral}. The quotes
+     * are dropped and every escape the literal syntax defines is decoded, so a title written
+     * {@code "He said \"hi\""} reaches the form as {@code He said "hi"} and encoding it again
+     * reproduces the source it came from. Stripping the quotes alone would leave the escapes in the
+     * value, and the re-encode would escape those, so the text gained a backslash on every save.
+     *
+     * <p>Anything that is not one string literal — a variable reference, a template, a concatenation
+     * that merely begins and ends with a quote — is returned as written: the form holds those as
+     * source. An escape the syntax does not define is left as written for the same reason.
+     *
+     * @param literal the source of a string-literal expression
+     * @return the text it denotes, or the expression unchanged when it is not a string literal
+     */
+    public static String stringLiteralText(String literal) {
+        if (literal == null) {
+            return "";
+        }
+        String trimmed = literal.trim();
+        if (trimmed.length() < 2 || !trimmed.startsWith("\"") || !trimmed.endsWith("\"")) {
+            return trimmed;
+        }
+        String body = trimmed.substring(1, trimmed.length() - 1);
+        StringBuilder text = new StringBuilder(body.length());
+        for (int i = 0; i < body.length(); i++) {
+            char current = body.charAt(i);
+            if (current == '"') {
+                // The quotes are not this expression's own: it is not a single string literal.
+                return trimmed;
+            }
+            if (current != '\\' || i + 1 == body.length()) {
+                text.append(current);
+                continue;
+            }
+            int consumed = appendEscaped(body, i, text);
+            if (consumed == 0) {
+                text.append(current);
+            } else {
+                i += consumed;
+            }
+        }
+        return text.toString();
+    }
+
+    /**
+     * Decodes the escape at {@code start} (the backslash) into {@code text}.
+     *
+     * @return the number of characters consumed after the backslash, or 0 when the escape is not one
+     *         the literal syntax defines and must stay as written
+     */
+    private static int appendEscaped(String body, int start, StringBuilder text) {
+        char escaped = body.charAt(start + 1);
+        switch (escaped) {
+            case '\\', '"' -> text.append(escaped);
+            case 'n' -> text.append('\n');
+            case 't' -> text.append('\t');
+            case 'r' -> text.append('\r');
+            case 'u' -> {
+                // A numeric escape. Decoded because the re-encode cannot reproduce the escape, only
+                // the character it names — left as written, its backslash is escaped on save.
+                int close = start + 2 < body.length() && body.charAt(start + 2) == '{'
+                        ? body.indexOf('}', start + 3) : -1;
+                if (close < 0) {
+                    return 0;
+                }
+                try {
+                    int codePoint = Integer.parseInt(body.substring(start + 3, close), 16);
+                    // A lone surrogate is no character to hold in the form, and the literal syntax
+                    // does not name one either: leave it as written.
+                    if (!Character.isValidCodePoint(codePoint)
+                            || Character.getType(codePoint) == Character.SURROGATE) {
+                        return 0;
+                    }
+                    text.appendCodePoint(codePoint);
+                } catch (NumberFormatException e) {
+                    return 0;
+                }
+                return close - start;
+            }
+            default -> {
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    /**
      * Splits a record literal {@code {key: value, ...}} into its top-level fields, each value kept
      * as source. Only commas and colons at the literal's own level separate anything: a comma
      * inside a nested list or record ({@code userRoles: ["finance", "manager"]},
