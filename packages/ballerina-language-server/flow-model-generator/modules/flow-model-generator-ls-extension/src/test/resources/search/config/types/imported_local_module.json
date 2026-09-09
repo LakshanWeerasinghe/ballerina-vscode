@@ -1281,20 +1281,29 @@
                 "version": "2.16.2"
               },
               "enabled": true
-            },
+            }
+          ]
+        },
+        {
+          "metadata": {
+            "label": "url",
+            "description": "",
+            "keywords": []
+          },
+          "items": [
             {
               "metadata": {
-                "label": "ClientBearerTokenAuthHandler",
-                "description": "Defines the Bearer token auth handler for client authentication.",
-                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.16.2.png"
+                "label": "Error",
+                "description": "Represents the error type of the module.",
+                "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_url_2.6.1.png"
               },
               "codedata": {
                 "node": "TYPEDESC",
                 "org": "ballerina",
-                "module": "http",
-                "packageName": "http",
-                "symbol": "ClientBearerTokenAuthHandler",
-                "version": "2.16.2"
+                "module": "url",
+                "packageName": "url",
+                "symbol": "Error",
+                "version": "2.6.1"
               },
               "enabled": true
             }
