@@ -47,4 +47,15 @@ public class IntersectionType extends Type {
         this.displayAnnotation = intersectionType.displayAnnotation;
         this.documentation = intersectionType.documentation;
     }
+
+    @Override
+    public IntersectionType copy() {
+        IntersectionType copy = new IntersectionType(this);
+        copyBaseFields(copy);
+        copy.members = new ArrayList<>();
+        for (Type member : this.members) {
+            copy.members.add(member.copy());
+        }
+        return copy;
+    }
 }
