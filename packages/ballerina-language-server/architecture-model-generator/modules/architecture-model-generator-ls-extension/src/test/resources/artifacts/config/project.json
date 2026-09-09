@@ -73,9 +73,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {}
       },
       "securedEP": {
@@ -97,9 +99,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {}
       },
       "securedEP2": {
@@ -121,9 +125,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {}
       }
     },
@@ -187,9 +193,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {
           "get#path": {
             "id": "get#path",
@@ -232,9 +240,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {
           "get#path": {
             "id": "get#path",
@@ -296,9 +306,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {
           "init": {
             "id": "init",
@@ -360,9 +372,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {
           "init": {
             "id": "init",

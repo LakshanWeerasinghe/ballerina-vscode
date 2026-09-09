@@ -76,6 +76,8 @@ public final class LibraryMetadataReader {
     private static final int MAX_CACHE_SIZE = 2;
     private static final Pattern SUPPORTED_VERSION = Pattern.compile("^v1\\.\\d+$");
     private static final Set<String> TRIGGER_KINDS = Set.of("event", "mcp", "graphql", "http", "file", "ai");
+    private static final Set<String> SELF_NAMED_TRIGGER_KIND_MODULES = Set.of("http", "graphql", "mcp", "ai");
+    private static final String BALLERINA_ORG = "ballerina";
 
     private static final Duration PACKAGE_ROOT_CACHE_TTL = Duration.ofSeconds(60);
 
@@ -106,8 +108,26 @@ public final class LibraryMetadataReader {
 
     /** Reads the artifact-tree projection without materializing or caching the complete L2 document. */
     public Optional<ArtifactMetadata> getArtifactMetadata(ModuleInfo moduleInfo) {
-        return packageRoot(moduleInfo)
+        Optional<ArtifactMetadata> metadata = packageRoot(moduleInfo)
                 .flatMap(root -> readArtifactMetadata(root, moduleInfo == null ? null : moduleInfo.version()));
+        if (metadata.isPresent() && metadata.get().triggerKind() != null) {
+            return metadata;
+        }
+        return selfNamedTriggerKind(moduleInfo)
+                .map(kind -> new ArtifactMetadata(metadata.map(ArtifactMetadata::artifactInfo).orElse(null), kind))
+                .or(() -> metadata);
+    }
+
+    /**
+     * The module's own name, when it is a {@linkplain #SELF_NAMED_TRIGGER_KIND_MODULES core module} whose
+     * kind equals its module name.
+     */
+    private Optional<String> selfNamedTriggerKind(ModuleInfo moduleInfo) {
+        if (moduleInfo == null || !BALLERINA_ORG.equals(moduleInfo.org())
+                || !SELF_NAMED_TRIGGER_KIND_MODULES.contains(moduleInfo.moduleName())) {
+            return Optional.empty();
+        }
+        return Optional.of(moduleInfo.moduleName());
     }
 
     /** Compatibility accessor for callers interested only in presentation metadata. */

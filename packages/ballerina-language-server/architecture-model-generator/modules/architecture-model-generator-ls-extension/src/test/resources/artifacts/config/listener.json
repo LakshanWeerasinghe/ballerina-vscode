@@ -23,9 +23,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {}
       },
       "httpListener": {
@@ -95,9 +97,11 @@
         "visibility": "module",
         "icon": {
           "url": "https://bcentral-packageicons.azureedge.net/images/ballerina_http_2.17.1.png",
+          "kind": "http",
           "source": "ballerina-central"
         },
         "module": "http",
+        "triggerKind": "http",
         "children": {}
       }
     }
