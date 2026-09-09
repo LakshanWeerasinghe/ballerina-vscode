@@ -478,6 +478,7 @@ public record TriggerUISchemaModel(
      *                         cannot reference a type owned by, the service-model-generator module;
      *                         the shape survives the Gson round-trip into that module's own
      *                         {@code Codedata}.
+     * @param preserveValue  whether to preserve the value override
      */
     public record Codedata(
             String type,
