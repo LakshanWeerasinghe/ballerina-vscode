@@ -230,6 +230,9 @@ public class SearchDatabaseManager {
             return results;
         }
         String sanitizedQuery = sanitizeQuery(q);
+        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values.
+        int safeLimit = Math.max(limit, 0);
+        int safeOffset = Math.max(offset, 0);
 
         String orgPlaceholders = String.join(",", Collections.nCopies(allowedOrgs.size(), "?"));
 
@@ -295,8 +298,8 @@ public class SearchDatabaseManager {
             for (String pattern : blacklistedNamePatterns) {
                 stmt.setString(paramIndex++, "%" + pattern + "%");
             }
-            stmt.setInt(paramIndex++, limit);
-            stmt.setInt(paramIndex, offset);
+            stmt.setInt(paramIndex++, safeLimit);
+            stmt.setInt(paramIndex, safeOffset);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -361,11 +364,26 @@ public class SearchDatabaseManager {
                 + ") WHERE rn > pkg_skip AND rn <= pkg_skip + pkg_take "
                 + "ORDER BY module_name, package_org, function_name, package_id";
 
+        // An unbounded request - which is what the imported-functions default view asks for - would give every
+        // module a quota equal to its own row count, i.e. a "take everything" range. Build that window directly
+        // instead: fetchPerPackageFunctionCounts is a second round trip whose only job is to size the quotas, so on
+        // this path it is pure overhead.
+        boolean unbounded = offset <= 0 && limit == Integer.MAX_VALUE;
+
         try (Connection conn = DriverManager.getConnection(dbPath)) {
-            // limit/offset come straight from the client query map with no bounds checking, so FairShareWindow
-            // clamps them and guards the window end against overflow.
-            Map<ModuleCoordinate, Integer> counts = fetchPerPackageFunctionCounts(conn, modules, functionNames);
-            FairShareWindow.Ranges<ModuleCoordinate> ranges = FairShareWindow.rangesOf(counts, offset, limit);
+            FairShareWindow.Ranges<ModuleCoordinate> ranges;
+            if (unbounded) {
+                Map<ModuleCoordinate, Integer> wholePool = new HashMap<>();
+                for (ModuleCoordinate module : moduleList) {
+                    wholePool.put(module, Integer.MAX_VALUE);
+                }
+                ranges = new FairShareWindow.Ranges<>(Map.of(), wholePool);
+            } else {
+                // limit/offset come straight from the client query map with no bounds checking, so FairShareWindow
+                // clamps them and guards the window end against overflow.
+                Map<ModuleCoordinate, Integer> counts = fetchPerPackageFunctionCounts(conn, modules, functionNames);
+                ranges = FairShareWindow.rangesOf(counts, offset, limit);
+            }
 
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 int paramIndex = 1;
@@ -450,6 +468,9 @@ public class SearchDatabaseManager {
      */
     public List<SearchResult> searchConnectorsByPackage(List<String> packageConnectorMap, int limit, int offset) {
         List<SearchResult> results = new ArrayList<>();
+        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values.
+        int safeLimit = Math.max(limit, 0);
+        int safeOffset = Math.max(offset, 0);
 
         StringBuilder sqlBuilder = new StringBuilder();
         sqlBuilder.append("SELECT ")
@@ -488,8 +509,8 @@ public class SearchDatabaseManager {
             }
 
             // Set limit and offset
-            stmt.setInt(paramIndex++, limit);
-            stmt.setInt(paramIndex, offset);
+            stmt.setInt(paramIndex++, safeLimit);
+            stmt.setInt(paramIndex, safeOffset);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -687,6 +708,11 @@ public class SearchDatabaseManager {
      * together, since {@code Package.name} has no uniqueness constraint and two organizations can publish a
      * same-named package.</p>
      *
+     * <p>Not on the request path: type search pages through {@link #indexedTypeCounts(Set, String)} plus
+     * {@link #searchTypesInRanges(Map, String)} instead, so that one allocation can span indexed and live rows.
+     * Kept because it exercises the tiling end to end against the shipped index, which is worth asserting in a
+     * test.</p>
+     *
      * @param modules the modules to search, each identified by organization and index module name
      * @param limit   the maximum number of results to return
      * @param offset  the number of results to skip
@@ -702,7 +728,8 @@ public class SearchDatabaseManager {
      *
      * <p>Pages over the given modules alone, as its own pool. A caller that has to blend this pool with rows from
      * outside the index wants {@link #searchTypesInRanges(Map, String)} instead, so that one allocation can span
-     * both.</p>
+     * both - which is what the product does, leaving this method off the request path and exercised only by
+     * tests.</p>
      *
      * @param modules the modules to search, each identified by organization and index module name
      * @param q       the search query string
@@ -949,6 +976,10 @@ public class SearchDatabaseManager {
      * Returns the total number of indexed type rows across the given modules, i.e. the full capacity of the
      * fair-share pool {@link #searchTypesByPackages(Set, int, int)} pages over.
      *
+     * <p>Not on the request path - the product reads the same per-module counts from
+     * {@link #indexedTypeCounts(Set, String)}, which it needs anyway. Kept because a pool's total capacity is what
+     * pins how many rows paging over it must eventually yield, which is worth asserting in a test.</p>
+     *
      * @param modules the modules to count, each identified by organization and index module name
      * @return the sum of indexed type counts across those modules
      * @throws RuntimeException if there is an error executing the query
@@ -958,7 +989,8 @@ public class SearchDatabaseManager {
     }
 
     /**
-     * Same as {@link #countIndexedTypes(Set)} but counting only the types matching the given query.
+     * Same as {@link #countIndexedTypes(Set)} but counting only the types matching the given query. Off the request
+     * path for the same reason, and likewise kept for tests.
      *
      * @param q       the search query string
      * @param modules the modules to count, each identified by organization and index module name
@@ -983,6 +1015,10 @@ public class SearchDatabaseManager {
      * such a module must still count as indexed, otherwise it is misreported as missing and forces a full live
      * compilation on every request. Unpaginated, so a module isn't misreported as missing just because paging cut
      * it off.</p>
+     *
+     * <p>Not on the request path: type search reads the same key set off the {@link #indexedTypeCounts(Set, String)}
+     * map it already fetches. Kept because "indexed with zero types still counts as indexed" is exactly the
+     * distinction that regressed before, and it is worth asserting on its own.</p>
      *
      * @param modules the modules to check, each identified by organization and index module name
      * @return the subset of {@code modules} present in the index under their given organization
@@ -1105,6 +1141,10 @@ public class SearchDatabaseManager {
     public List<UnifiedSearchResult> searchAllTypes(String q, int limit, int offset) {
         List<UnifiedSearchResult> results = new ArrayList<>();
         String sanitizedQuery = sanitizeQuery(q);
+        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values. Clamped before the
+        // per-kind split below, which would otherwise propagate a negative limit into both inner LIMITs as well.
+        int safeLimit = Math.max(limit, 0);
+        int safeOffset = Math.max(offset, 0);
 
         String sql;
         if (sanitizedQuery.isEmpty()) {
@@ -1195,8 +1235,8 @@ public class SearchDatabaseManager {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             int paramIndex = 1;
-            int functionsLimit = limit / 2;
-            int connectorsLimit = limit - functionsLimit;
+            int functionsLimit = safeLimit / 2;
+            int connectorsLimit = safeLimit - functionsLimit;
             if (sanitizedQuery.isEmpty()) {
                 stmt.setInt(paramIndex++, functionsLimit);
                 stmt.setInt(paramIndex++, connectorsLimit);
@@ -1206,8 +1246,8 @@ public class SearchDatabaseManager {
                 stmt.setString(paramIndex++, sanitizedQuery + "*");
                 stmt.setInt(paramIndex++, connectorsLimit);
             }
-            stmt.setInt(paramIndex++, limit);
-            stmt.setInt(paramIndex, offset);
+            stmt.setInt(paramIndex++, safeLimit);
+            stmt.setInt(paramIndex, safeOffset);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
