@@ -29,6 +29,7 @@ import io.ballerina.flowmodelgenerator.core.model.NodeBuilder;
 import io.ballerina.flowmodelgenerator.core.model.NodeKind;
 import io.ballerina.flowmodelgenerator.core.model.Property;
 import io.ballerina.flowmodelgenerator.core.model.SourceBuilder;
+import io.ballerina.flowmodelgenerator.core.utils.FlowNodeUtil;
 import io.ballerina.modelgenerator.commons.FunctionData;
 import io.ballerina.modelgenerator.commons.FunctionDataBuilder;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
@@ -467,13 +468,29 @@ public class HumanTaskBuilder extends CallBuilder {
     }
 
     private static void relabel(Map<String, Property> properties, String key, String label, String description) {
-        Property existing = properties.get(key);
+        String actualKey = presentKey(properties, key);
+        Property existing = properties.get(actualKey);
         if (existing == null) {
             return;
         }
-        properties.put(key, Property.Builder.copyFrom(existing)
+        properties.put(actualKey, Property.Builder.copyFrom(existing)
                 .metadata().label(label).description(description).stepOut()
                 .build());
+    }
+
+    /**
+     * The key a parameter's property actually sits under. The signature-derived path escapes a
+     * reserved name — {@code description} lands under {@code $description} — while the fallback form
+     * uses the plain name, so every lookup by parameter name tries the plain key first and the
+     * escaped one second. Source generation needs no such lookup: it walks the properties and
+     * writes each argument under its codedata original name.
+     *
+     * @param properties the node's properties
+     * @param key        the parameter name as {@code awaitHumanTask} declares it
+     * @return the plain key when present, else its reserved-escaped form
+     */
+    static String presentKey(Map<String, Property> properties, String key) {
+        return properties.containsKey(key) ? key : FlowNodeUtil.getPropertyKey(key);
     }
 
     @Override

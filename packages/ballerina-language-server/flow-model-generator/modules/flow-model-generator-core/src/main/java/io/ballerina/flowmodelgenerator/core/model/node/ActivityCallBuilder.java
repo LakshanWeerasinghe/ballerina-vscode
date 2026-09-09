@@ -32,6 +32,7 @@ import io.ballerina.compiler.syntax.tree.ParameterNode;
 import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.UnionTypeDescriptorNode;
+import io.ballerina.flowmodelgenerator.core.Constants;
 import io.ballerina.flowmodelgenerator.core.model.Codedata;
 import io.ballerina.flowmodelgenerator.core.model.FlowNode;
 import io.ballerina.flowmodelgenerator.core.model.ItemOption;
@@ -143,7 +144,8 @@ public class ActivityCallBuilder extends CallBuilder {
     private static final String RETRY_BACKOFF_DOC = "Multiplier applied to delay after each retry (default: 2.0)";
     private static final String MAX_RETRY_DELAY_DOC = "Cap on the delay between retries, in seconds";
     // retryPolicy is excluded from ADVANCE_PARAM_LIST; it is added at root level as a DROPDOWN_CHOICE.
-    public static final Set<String> EXCLUDED_CALL_ACTIVITY_PARAMS = Set.of("activityFunction", "args", "T",
+    public static final Set<String> EXCLUDED_CALL_ACTIVITY_PARAMS = Set.of(
+            Constants.Workflow.CALL_ACTIVITY_FUNCTION_PARAM, Constants.Workflow.CALL_ACTIVITY_ARGS_PARAM, "T",
             Property.CHECK_ERROR_KEY, Property.CONNECTION_KEY, RETRY_POLICY_PARAM);
     private static final String NEW_CONNECTION_SENTINEL = "NEW_CONNECTION";
     private static final String ACTIVITY_MODULE_PREFIX = "activity";
@@ -747,9 +749,9 @@ public class ActivityCallBuilder extends CallBuilder {
         // declared with. Only the roles are required; the rest default to wording derived
         // from the activity being reviewed, which is why each says so in its description.
         Map<String, Property> manualRetryFields = new LinkedHashMap<>();
-        manualRetryFields.put(RETRY_USER_ROLES_KEY, buildRetrySubProperty("Reviewer Roles",
+        manualRetryFields.put(RETRY_USER_ROLES_KEY, buildReviewerRolesSubProperty("Reviewer Roles",
                 "Role(s) permitted to decide the human review, e.g. \"manager\" or "
-                        + "[\"finance\", \"manager\"]. Leave empty to allow any role.", "string|string[]", false));
+                        + "[\"finance\", \"manager\"]. Leave empty to allow any role."));
         manualRetryFields.put(RETRY_TITLE_KEY, buildRetrySubProperty("Title",
                 "Short summary shown in the reviewer's inbox. Defaults to a phrase naming "
                         + "the activity being reviewed.", "string", true));
@@ -800,6 +802,27 @@ public class ActivityCallBuilder extends CallBuilder {
                 "Retry Backoff", RETRY_BACKOFF_DOC, "decimal", retryBackoff);
         addHiddenRetrySubFieldProperty(nodeBuilder, MAX_RETRY_DELAY_KEY,
                 "Max Retry Delay", MAX_RETRY_DELAY_DOC, "decimal", maxRetryDelay);
+    }
+
+    /**
+     * The reviewer-role sub-property of the manual-retry policy. Same shape as the other retry
+     * sub-properties, except the role field offers every mode a role field offers elsewhere —
+     * see {@link WorkflowUtil#addRoleFieldTypes}.
+     */
+    private static Property buildReviewerRolesSubProperty(String label, String description) {
+        return WorkflowUtil.addRoleFieldTypes(
+                        new Property.Builder<Void>(null)
+                                .metadata()
+                                    .label(label)
+                                    .description(description)
+                                    .stepOut())
+                .value("")
+                .editable(true)
+                // Optional on purpose: an empty role list is the documented "any role may decide"
+                // configuration, which retryPolicyExpression writes out as `[]`. Marking the field
+                // required would make the form refuse to save that.
+                .optional(true)
+                .build();
     }
 
     private static Property buildRetrySubProperty(String label, String description, String ballerinaType,
@@ -1166,11 +1189,13 @@ public class ActivityCallBuilder extends CallBuilder {
      */
     static String humanReviewRecordLiteral(Map<String, Property> properties) {
         List<String> fields = new ArrayList<>();
-        String roles = trimmedValue(properties, RETRY_USER_ROLES_KEY);
+        // The roles field offers both a text and an expression mode, so roleSource — not the raw
+        // value — is what reads either one back as source.
+        String roles = WorkflowUtil.roleSource(properties.get(RETRY_USER_ROLES_KEY));
         // userRoles is required by the record, so the literal always carries it. An empty
         // form field yields an empty list, which the compiler rejects with a message naming
         // the field — better than silently emitting a policy that decides nothing.
-        fields.add("userRoles: " + (roles.isBlank() ? "[]" : WorkflowUtil.quoteIfBareRole(roles)));
+        fields.add("userRoles: " + (roles.isBlank() ? "[]" : roles));
         addQuotedRecordField(fields, properties, RETRY_TITLE_KEY, "title");
         addQuotedRecordField(fields, properties, RETRY_DESCRIPTION_KEY, "description");
         String timeout = trimmedValue(properties, RETRY_TIMEOUT_KEY);
@@ -1290,8 +1315,6 @@ public class ActivityCallBuilder extends CallBuilder {
             return functionSymbol;
         }
 
-        String modulePrefix = module.substring(module.lastIndexOf('.') + 1);
-        sourceBuilder.acceptImport(org, module);
-        return modulePrefix + ":" + functionSymbol;
+        return sourceBuilder.importPrefix(org, module) + ":" + functionSymbol;
     }
 }

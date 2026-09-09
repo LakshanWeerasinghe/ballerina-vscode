@@ -35,6 +35,7 @@ import java.util.Map;
  * workflow module does not resolve, so the form is built from the call's arguments alone. The call
  * may follow the 0.9.0 layout (task name, task input, definition fields by name) or the older one
  * (task name, user roles, payload), and both must land in the same form fields.
+ * (product-integrator#2109)
  *
  * @since 1.7.0
  */
@@ -90,6 +91,19 @@ public class HumanTaskFallbackArgumentsTest {
         Map<String, String> legacy = CodeAnalyzer.fallbackHumanTaskArgumentValues(arguments(
                 "ctx->awaitHumanTask(taskName = \"signoff\", userRoles = \"ops\", payload = {})"));
         Assert.assertEquals(legacy.get(HumanTaskBuilder.TASK_INPUT_KEY), "{}");
+    }
+
+    @Test(description = "Named arguments are read by name, in any order, and mixed with positional ones")
+    public void testNamedArgumentsInAnyOrder() {
+        Map<String, String> values = CodeAnalyzer.fallbackHumanTaskArgumentValues(arguments(
+                "ctx->awaitHumanTask(\"approve\", \"manager\", timeout = {days: 1}, description = \"Why\", "
+                        + "title = \"Approve\")"));
+        Assert.assertEquals(values.get(HumanTaskBuilder.TASK_NAME_KEY), "\"approve\"");
+        Assert.assertEquals(values.get(HumanTaskBuilder.USER_ROLES_KEY), "\"manager\"");
+        Assert.assertNull(values.get(HumanTaskBuilder.TASK_INPUT_KEY));
+        Assert.assertEquals(values.get(HumanTaskBuilder.TITLE_KEY), "\"Approve\"");
+        Assert.assertEquals(values.get(HumanTaskBuilder.DESCRIPTION_KEY), "\"Why\"");
+        Assert.assertEquals(values.get(HumanTaskBuilder.TIMEOUT_KEY), "{days: 1}");
     }
 
     @Test(description = "A call that omits the input leaves the field unset — the form fills `{}` — and does "

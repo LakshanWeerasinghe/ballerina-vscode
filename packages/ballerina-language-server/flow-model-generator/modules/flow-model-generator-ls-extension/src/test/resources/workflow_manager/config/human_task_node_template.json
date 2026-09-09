@@ -173,7 +173,7 @@
       "$description": {
         "metadata": {
           "label": "Description",
-          "description": "Additional context shown with the form or decision"
+          "description": "Additional context shown alongside the form"
         },
         "types": [
           {
