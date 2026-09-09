@@ -20,6 +20,7 @@ import React, { ChangeEvent } from "react";
 import { Dropdown } from "@wso2/ui-toolkit";
 import { FormField } from "../../../Form/types";
 import { OptionProps } from "@wso2/ballerina-core";
+import { useDefaultUntilEmptied } from "../useDefaultUntilEmptied";
 
 interface BooleanEditorProps {
     value: string;
@@ -63,22 +64,14 @@ const toBooleanValue = (value: unknown): string | undefined => {
 
 export const BooleanEditor: React.FC<BooleanEditorProps> = ({ value, onChange, field }) => {
 
-    // Emptying the field and never having touched it leave the same empty value behind, as both let the
-    // declared default apply. Presenting the default for the one just emptied would drop the selection in
-    // front of the person who made it, hence which of the two it is, is remembered here rather than read
-    // back from the value. Picking either entry ends it, `false` among them, so the entry the value stands
-    // for is what is asked for below rather than the value being taken as truthy.
-    const [emptiedByUser, setEmptiedByUser] = React.useState(false);
-    React.useEffect(() => {
-        if (toBooleanValue(value) !== undefined) {
-            setEmptiedByUser(false);
-        }
-    }, [value]);
+    // Picking either entry ends the emptied state, `false` among them, hence the entry the value stands for
+    // is what is asked about rather than the value being taken as truthy.
+    const [emptiedByUser, reportEmptied] = useDefaultUntilEmptied(toBooleanValue(value) !== undefined);
 
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const value = e.target.value;
         if (value === DEFAULT_NONE_SELECTED_VALUE) {
-            setEmptiedByUser(true);
+            reportEmptied();
             onChange("", 0);
             return;
         }
