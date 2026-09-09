@@ -38,3 +38,6 @@ enum Priority {
 
 function function8(Priority? priority = MEDIUM) {
 }
+
+function function9(int|Day day) {
+}

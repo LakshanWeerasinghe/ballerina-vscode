@@ -131,10 +131,9 @@ public class PropertyType {
         // Handle union of singleton types as single-select options
         if (!success && rawType instanceof UnionTypeSymbol unionTypeSymbol) {
             List<Option> options = new ArrayList<>();
-            List<TypeSymbol> otherTypes = new ArrayList<>();
 
             // A union flattens its enum members into their singletons, hence the enums are resolved from the user
-            // specified members before the singletons are collected below.
+            // specified members before the singletons are walked over below.
             Set<String> enumMemberTypes = new HashSet<>();
             List<TypeSymbol> unionMembers = getEnumSymbol(typeSymbol).isPresent() ? List.of(typeSymbol)
                     : unionTypeSymbol.userSpecifiedMemberTypes();
@@ -143,9 +142,22 @@ public class PropertyType {
                         addEnumOptions(enumSymbol, options, enumMemberTypes));
             }
 
+            // Each member is turned into an input type as it is declared, so that the modes of the field are
+            // offered in the order of the union. The singletons share one single select rather than getting one
+            // each, which is added where the first of them is declared and holds the very list the remaining
+            // ones keep being collected into.
+            boolean addedSingleSelect = false;
             for (TypeSymbol symbol : unionTypeSymbol.memberTypeDescriptors()) {
                 TypeDescKind memberTypeKind = CommonUtil.getRawType(symbol).typeKind();
                 if (memberTypeKind == TypeDescKind.SINGLETON) {
+                    if (!addedSingleSelect) {
+                        propertyTypes.add(new Builder()
+                                .fieldType(Value.FieldType.SINGLE_SELECT)
+                                .options(options)
+                                .ballerinaType(ballerinaType)
+                                .build());
+                        addedSingleSelect = true;
+                    }
                     // Skip the singletons that are already covered by the options of an enum
                     if (!enumMemberTypes.contains(symbol.signature())) {
                         String label = CommonUtils.removeQuotes(symbol.signature());
@@ -153,61 +165,46 @@ public class PropertyType {
                     }
                 } else if (memberTypeKind != TypeDescKind.NIL) {
                     // The nil member is conveyed by the `optional` flag of the property
-                    otherTypes.add(symbol);
+                    handlePrimitiveType(symbol, CommonUtils.getTypeSignature(symbol, moduleInfo), semanticModel,
+                            moduleInfo, valueBuilder, propertyTypes);
                 }
             }
-
-            // The singleton members (e.g. the members of an enum) become single-select options, even when the
-            // union holds other member types as well.
-            if (!options.isEmpty()) {
-                PropertyType propType = new Builder()
-                        .fieldType(Value.FieldType.SINGLE_SELECT)
-                        .options(options)
-                        .ballerinaType(ballerinaType)
-                        .build();
-                propertyTypes.add(propType);
+            if (addedSingleSelect) {
                 alignPlaceholderWithDefault(valueBuilder, options, defaultValue);
             }
 
-            if (!otherTypes.isEmpty()) {
-                // Handle the remaining member types by defining an input type for each of them
-                for (TypeSymbol ts : otherTypes) {
-                    handlePrimitiveType(ts, CommonUtils.getTypeSignature(ts, moduleInfo), semanticModel, moduleInfo,
-                            valueBuilder, propertyTypes);
-                }
-                // group by the fieldType
-                propertyTypes.stream()
-                        .filter(pt -> !(pt.fieldType() == Value.FieldType.REPEATABLE_LIST
-                                || pt.fieldType() == Value.FieldType.REPEATABLE_MAP
-                                || pt.fieldType() == Value.FieldType.SINGLE_SELECT))
-                        .collect(java.util.stream.Collectors.groupingBy(PropertyType::fieldType))
-                        .forEach((fieldType, groupedTypes) -> {
-                            if (groupedTypes.size() > 1) {
-                                // merge the ballerina types
-                                String mergedBallerinaType = groupedTypes.stream()
-                                        .map(PropertyType::ballerinaType)
+            // group by the fieldType
+            propertyTypes.stream()
+                    .filter(pt -> !(pt.fieldType() == Value.FieldType.REPEATABLE_LIST
+                            || pt.fieldType() == Value.FieldType.REPEATABLE_MAP
+                            || pt.fieldType() == Value.FieldType.SINGLE_SELECT))
+                    .collect(java.util.stream.Collectors.groupingBy(PropertyType::fieldType))
+                    .forEach((fieldType, groupedTypes) -> {
+                        if (groupedTypes.size() > 1) {
+                            // merge the ballerina types
+                            String mergedBallerinaType = groupedTypes.stream()
+                                    .map(PropertyType::ballerinaType)
+                                    .distinct()
+                                    .reduce((a, b) -> a + "|" + b)
+                                    .orElse("");
+                            // remove the existing types
+                            propertyTypes.removeIf(t -> t.fieldType() == fieldType);
+
+                            List<PropertyTypeMemberInfo> distinctMembers = null;
+                            if (fieldType == Value.FieldType.RECORD_MAP_EXPRESSION) {
+                                distinctMembers = new ArrayList<>(groupedTypes.stream()
+                                        .filter(t -> t.typeMembers() != null)
+                                        .flatMap(t -> t.typeMembers().stream())
                                         .distinct()
-                                        .reduce((a, b) -> a + "|" + b)
-                                        .orElse("");
-                                // remove the existing types
-                                propertyTypes.removeIf(t -> t.fieldType() == fieldType);
-
-                                List<PropertyTypeMemberInfo> distinctMembers = null;
-                                if (fieldType == Value.FieldType.RECORD_MAP_EXPRESSION) {
-                                    distinctMembers = new ArrayList<>(groupedTypes.stream()
-                                            .filter(t -> t.typeMembers() != null)
-                                            .flatMap(t -> t.typeMembers().stream())
-                                            .distinct()
-                                            .toList());
-                                }
-
-                                // add the merged type
-                                propertyTypes.add(new PropertyType(fieldType, mergedBallerinaType, null,
-                                        distinctMembers, null, false, null, null,
-                                        null, null));
+                                        .toList());
                             }
-                        });
-            }
+
+                            // add the merged type
+                            propertyTypes.add(new PropertyType(fieldType, mergedBallerinaType, null,
+                                    distinctMembers, null, false, null, null,
+                                    null, null));
+                        }
+                    });
         }
 
         // All the ballerina types will have a default to expression type
