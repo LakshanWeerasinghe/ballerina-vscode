@@ -137,6 +137,22 @@ public class ActivityCallBuilder extends CallBuilder {
     public static final String RETRY_DELAY_KEY = "retryDelay";
     public static final String RETRY_BACKOFF_KEY = "retryBackoff";
     public static final String MAX_RETRY_DELAY_KEY = "maxRetryDelay";
+    // The review fields' wording. Each field is rendered twice — once as the dropdown's visible
+    // sub-property and once as the root hidden property that stores its value — so the label and the
+    // doc live here rather than inline at both call sites, where they had already drifted apart.
+    private static final String RETRY_USER_ROLES_LABEL = "Reviewer Roles";
+    private static final String RETRY_USER_ROLES_DOC =
+            "Role(s) permitted to decide the human review, e.g. \"manager\" or [\"finance\", "
+                    + "\"manager\"]. Leave empty to allow any role.";
+    private static final String RETRY_TITLE_LABEL = "Title";
+    private static final String RETRY_TITLE_DOC = "Short summary shown in the reviewer's inbox. Defaults to a "
+            + "phrase naming the activity being reviewed.";
+    private static final String RETRY_DESCRIPTION_LABEL = "Description";
+    private static final String RETRY_DESCRIPTION_DOC = "Context shown with the decision. Defaults to a "
+            + "description of the failure and the outcomes available.";
+    private static final String RETRY_TIMEOUT_LABEL = "Timeout";
+    private static final String RETRY_TIMEOUT_DOC =
+            "How long to wait for a decision, e.g. {hours: 4}. Empty waits indefinitely.";
     // The AutoRetry record's own documentation: each field states the default that applies when it is
     // left empty, since the generated record omits an empty field rather than writing a value for it.
     private static final String MAX_RETRIES_DOC = "Maximum retry attempts (default: 3)";
@@ -698,14 +714,6 @@ public class ActivityCallBuilder extends CallBuilder {
     public static void addRetryPolicyFormProperties(NodeBuilder nodeBuilder, String retryPolicyValue,
                                                     String maxRetries, String retryDelay,
                                                     String retryBackoff, String maxRetryDelay,
-                                                    String retryUserRoles) {
-        addRetryPolicyFormProperties(nodeBuilder, retryPolicyValue, maxRetries, retryDelay,
-                retryBackoff, maxRetryDelay, ReviewFormValues.ofRoles(retryUserRoles));
-    }
-
-    public static void addRetryPolicyFormProperties(NodeBuilder nodeBuilder, String retryPolicyValue,
-                                                    String maxRetries, String retryDelay,
-                                                    String retryBackoff, String maxRetryDelay,
                                                     ReviewFormValues review) {
         String retryUserRoles = review.userRoles();
         String selectedValue = retryPolicyValue == null || retryPolicyValue.isBlank()
@@ -749,18 +757,14 @@ public class ActivityCallBuilder extends CallBuilder {
         // declared with. Only the roles are required; the rest default to wording derived
         // from the activity being reviewed, which is why each says so in its description.
         Map<String, Property> manualRetryFields = new LinkedHashMap<>();
-        manualRetryFields.put(RETRY_USER_ROLES_KEY, buildReviewerRolesSubProperty("Reviewer Roles",
-                "Role(s) permitted to decide the human review, e.g. \"manager\" or "
-                        + "[\"finance\", \"manager\"]. Leave empty to allow any role."));
-        manualRetryFields.put(RETRY_TITLE_KEY, buildRetrySubProperty("Title",
-                "Short summary shown in the reviewer's inbox. Defaults to a phrase naming "
-                        + "the activity being reviewed.", "string", true));
-        manualRetryFields.put(RETRY_DESCRIPTION_KEY, buildRetrySubProperty("Description",
-                "Context shown with the decision. Defaults to a description of the failure "
-                        + "and the outcomes available.", "string", true));
-        manualRetryFields.put(RETRY_TIMEOUT_KEY, buildRetrySubProperty("Timeout",
-                "How long to wait for a decision, e.g. {hours: 4}. Empty waits "
-                        + "indefinitely.", "workflow:Duration", true));
+        manualRetryFields.put(RETRY_USER_ROLES_KEY,
+                buildReviewerRolesSubProperty(RETRY_USER_ROLES_LABEL, RETRY_USER_ROLES_DOC));
+        manualRetryFields.put(RETRY_TITLE_KEY,
+                buildRetrySubProperty(RETRY_TITLE_LABEL, RETRY_TITLE_DOC, "string", true));
+        manualRetryFields.put(RETRY_DESCRIPTION_KEY,
+                buildRetrySubProperty(RETRY_DESCRIPTION_LABEL, RETRY_DESCRIPTION_DOC, "string", true));
+        manualRetryFields.put(RETRY_TIMEOUT_KEY,
+                buildRetrySubProperty(RETRY_TIMEOUT_LABEL, RETRY_TIMEOUT_DOC, "workflow:Duration", true));
         dynamicFields.put(MANUAL_RETRY_VALUE, manualRetryFields);
         if (opaquePolicy) {
             dynamicFields.put(selectedValue, Map.of());
@@ -790,14 +794,13 @@ public class ActivityCallBuilder extends CallBuilder {
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_DELAY_KEY,
                 "Retry Delay", RETRY_DELAY_DOC, "decimal", retryDelay);
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_USER_ROLES_KEY,
-                "Reviewer Roles", "Role(s) permitted to decide the retry review", "string|string[]",
-                retryUserRoles);
+                RETRY_USER_ROLES_LABEL, RETRY_USER_ROLES_DOC, "string|string[]", retryUserRoles);
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_TITLE_KEY,
-                "Title", "Short summary shown in the reviewer's inbox", "string", review.title());
+                RETRY_TITLE_LABEL, RETRY_TITLE_DOC, "string", review.title());
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_DESCRIPTION_KEY,
-                "Description", "Context shown with the decision", "string", review.description());
+                RETRY_DESCRIPTION_LABEL, RETRY_DESCRIPTION_DOC, "string", review.description());
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_TIMEOUT_KEY,
-                "Timeout", "How long to wait for a decision", "workflow:Duration", review.timeout());
+                RETRY_TIMEOUT_LABEL, RETRY_TIMEOUT_DOC, "workflow:Duration", review.timeout());
         addHiddenRetrySubFieldProperty(nodeBuilder, RETRY_BACKOFF_KEY,
                 "Retry Backoff", RETRY_BACKOFF_DOC, "decimal", retryBackoff);
         addHiddenRetrySubFieldProperty(nodeBuilder, MAX_RETRY_DELAY_KEY,

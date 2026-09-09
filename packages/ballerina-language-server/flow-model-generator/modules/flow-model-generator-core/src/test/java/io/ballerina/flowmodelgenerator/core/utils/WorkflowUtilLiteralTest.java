@@ -115,6 +115,19 @@ public class WorkflowUtilLiteralTest {
         Assert.assertEquals(WorkflowUtil.stringLiteral(""), "\"\"");
     }
 
+    @Test(description = "A correlation name goes through the same encoder: an already-quoted name passes "
+            + "through, and a line break in a free-form name cannot end the literal early")
+    public void testEventNameLiteral() {
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("chat"), "\"chat\"");
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("  chat  "), "\"chat\"");
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("\"chat\""), "\"chat\"");
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("say \"hi\""), "\"say \\\"hi\\\"\"");
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("line\nbreak"), "\"line\\nbreak\"");
+        // A lone quote is not a pair, so it is encoded rather than taken for a literal.
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral("\""), "\"\\\"\"");
+        Assert.assertEquals(WorkflowUtil.eventNameLiteral(null), "\"\"");
+    }
+
     @Test(description = "The literal reader is the encoder's inverse: quotes and escapes are the source's, "
             + "not the value's")
     public void testStringLiteralTextDecodes() {

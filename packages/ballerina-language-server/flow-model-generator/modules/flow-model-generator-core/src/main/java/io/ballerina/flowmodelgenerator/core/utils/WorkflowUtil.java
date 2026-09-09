@@ -821,6 +821,22 @@ public class WorkflowUtil {
     }
 
     /**
+     * A correlation name — a data event, an agent channel — as a string literal. The name has to be
+     * a literal even when the form submits the bare word, so a value that is not already one is
+     * encoded with {@link #stringLiteral}: one encoder, so a name carrying a line break cannot
+     * produce a literal that ends before its closing quote.
+     *
+     * @param value the raw form value
+     * @return the name as a Ballerina string literal
+     */
+    public static String eventNameLiteral(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        // Already a string literal: needs a distinct pair of quotes (a lone quote does not qualify).
+        return trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")
+                ? trimmed : stringLiteral(trimmed);
+    }
+
+    /**
      * The plain text a string literal carries — the inverse of {@link #stringLiteral}. The quotes
      * are dropped and every escape the literal syntax defines is decoded, so a title written
      * {@code "He said \"hi\""} reaches the form as {@code He said "hi"} and encoding it again
@@ -983,6 +999,37 @@ public class WorkflowUtil {
     private static List<String> splitTopLevel(String text) {
         List<String> parts = new ArrayList<>();
         int start = 0;
+        for (int comma : topLevelPositions(text, ',', false)) {
+            parts.add(text.substring(start, comma));
+            start = comma + 1;
+        }
+        if (start < text.length() || !parts.isEmpty()) {
+            parts.add(text.substring(start));
+        }
+        return parts;
+    }
+
+    // The first occurrence of the character outside any nesting, string or template, or -1.
+    private static int topLevelIndexOf(String text, char target) {
+        List<Integer> positions = topLevelPositions(text, target, true);
+        return positions.isEmpty() ? -1 : positions.get(0);
+    }
+
+    /**
+     * The positions of {@code target} at the text's own level — outside every bracket pair, string
+     * literal (an escaped quote does not end one) and template.
+     *
+     * <p>The one scanner behind both readers of a record literal: the field split takes every
+     * top-level comma and the key/value cut the first top-level colon, so the two cannot disagree
+     * about what counts as nested. A character that opens or closes nesting is never reported as the
+     * target — it is the nesting.
+     *
+     * @param text      the literal's interior
+     * @param target    the character to find
+     * @param firstOnly stop at the first occurrence
+     */
+    private static List<Integer> topLevelPositions(String text, char target, boolean firstOnly) {
+        List<Integer> positions = new ArrayList<>();
         int depth = 0;
         char quote = 0;
         for (int i = 0; i < text.length(); i++) {
@@ -999,46 +1046,17 @@ public class WorkflowUtil {
                 case '"', '`' -> quote = c;
                 case '[', '{', '(' -> depth++;
                 case ']', '}', ')' -> depth--;
-                case ',' -> {
-                    if (depth == 0) {
-                        parts.add(text.substring(start, i));
-                        start = i + 1;
+                default -> {
+                    if (c == target && depth == 0) {
+                        positions.add(i);
+                        if (firstOnly) {
+                            return positions;
+                        }
                     }
                 }
-                default -> { }
             }
         }
-        if (start < text.length() || !parts.isEmpty()) {
-            parts.add(text.substring(start));
-        }
-        return parts;
-    }
-
-    // The first occurrence of the character outside any nesting, string or template, or -1.
-    private static int topLevelIndexOf(String text, char target) {
-        int depth = 0;
-        char quote = 0;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (quote != 0) {
-                if (c == '\\' && quote == '"') {
-                    i++;
-                } else if (c == quote) {
-                    quote = 0;
-                }
-                continue;
-            }
-            if (c == '"' || c == '`') {
-                quote = c;
-            } else if (c == '[' || c == '{' || c == '(') {
-                depth++;
-            } else if (c == ']' || c == '}' || c == ')') {
-                depth--;
-            } else if (c == target && depth == 0) {
-                return i;
-            }
-        }
-        return -1;
+        return positions;
     }
 
     // Characters that cannot occur in a bare role name but do occur in references and calls.

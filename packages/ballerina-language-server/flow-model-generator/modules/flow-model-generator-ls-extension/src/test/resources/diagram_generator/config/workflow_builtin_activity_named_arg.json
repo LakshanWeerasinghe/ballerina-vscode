@@ -686,7 +686,7 @@
           "retryUserRoles": {
             "metadata": {
               "label": "Reviewer Roles",
-              "description": "Role(s) permitted to decide the retry review"
+              "description": "Role(s) permitted to decide the human review, e.g. \"manager\" or [\"finance\", \"manager\"]. Leave empty to allow any role."
             },
             "types": [
               {
@@ -704,7 +704,7 @@
           "retryTitle": {
             "metadata": {
               "label": "Title",
-              "description": "Short summary shown in the reviewer's inbox"
+              "description": "Short summary shown in the reviewer's inbox. Defaults to a phrase naming the activity being reviewed."
             },
             "types": [
               {
@@ -722,7 +722,7 @@
           "retryDescription": {
             "metadata": {
               "label": "Description",
-              "description": "Context shown with the decision"
+              "description": "Context shown with the decision. Defaults to a description of the failure and the outcomes available."
             },
             "types": [
               {
@@ -740,7 +740,7 @@
           "retryTimeout": {
             "metadata": {
               "label": "Timeout",
-              "description": "How long to wait for a decision"
+              "description": "How long to wait for a decision, e.g. {hours: 4}. Empty waits indefinitely."
             },
             "types": [
               {
@@ -1436,7 +1436,7 @@
           "retryUserRoles": {
             "metadata": {
               "label": "Reviewer Roles",
-              "description": "Role(s) permitted to decide the retry review"
+              "description": "Role(s) permitted to decide the human review, e.g. \"manager\" or [\"finance\", \"manager\"]. Leave empty to allow any role."
             },
             "types": [
               {
@@ -1454,7 +1454,7 @@
           "retryTitle": {
             "metadata": {
               "label": "Title",
-              "description": "Short summary shown in the reviewer's inbox"
+              "description": "Short summary shown in the reviewer's inbox. Defaults to a phrase naming the activity being reviewed."
             },
             "types": [
               {
@@ -1472,7 +1472,7 @@
           "retryDescription": {
             "metadata": {
               "label": "Description",
-              "description": "Context shown with the decision"
+              "description": "Context shown with the decision. Defaults to a description of the failure and the outcomes available."
             },
             "types": [
               {
@@ -1490,7 +1490,7 @@
           "retryTimeout": {
             "metadata": {
               "label": "Timeout",
-              "description": "How long to wait for a decision"
+              "description": "How long to wait for a decision, e.g. {hours: 4}. Empty waits indefinitely."
             },
             "types": [
               {

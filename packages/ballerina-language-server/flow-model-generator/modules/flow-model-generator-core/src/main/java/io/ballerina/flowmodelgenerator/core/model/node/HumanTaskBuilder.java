@@ -116,15 +116,21 @@ public class HumanTaskBuilder extends CallBuilder {
     private static final String USER_ROLES_LABEL = "User Roles";
     private static final String TASK_INPUT_LABEL = "Task Input";
     private static final String TITLE_LABEL = "Title";
+    private static final String PAYLOAD_LABEL = "Payload";
     private static final String DESCRIPTION_LABEL = "Description";
     private static final String TIMEOUT_LABEL = "Timeout";
 
     // Form field descriptions.
     private static final String TASK_NAME_DOC = "Identifies the task type";
     private static final String USER_ROLES_DOC = "One or more roles permitted to complete this task";
-    private static final String TASK_INPUT_DOC =
+    // The input field's documentation. The module renamed the parameter — `payload` before 0.9.0,
+    // `taskInput` after — and a resolved form carries whichever key the pinned bala declares, so both
+    // spellings are needed. One template, so the wording cannot drift while the pre-rename pin lives.
+    private static final String INPUT_DOC_TEMPLATE =
             "Read-only JSON object shown alongside the form. Required — a task with nothing to show "
-                    + "says so with {}, and the runtime checks this against the task's taskInputType";
+                    + "says so with {}, and the runtime checks this against the task's %s";
+    private static final String TASK_INPUT_DOC = INPUT_DOC_TEMPLATE.formatted("taskInputType");
+    private static final String PAYLOAD_DOC = INPUT_DOC_TEMPLATE.formatted("payloadType");
     /** What an unstated task input is: a task that shows nothing, said explicitly. */
     private static final String EMPTY_TASK_INPUT = "{}";
     private static final String TITLE_DOC = "Short summary shown in the inbox";
@@ -381,9 +387,7 @@ public class HumanTaskBuilder extends CallBuilder {
         // The pinned workflow bala still names this parameter `payload`; a resolved-signature
         // form therefore carries that key, and the emitted argument keeps the module's own
         // name, so the label must not pretend otherwise. Dies with the pre-rename pin.
-        relabel(properties, PAYLOAD_KEY, "Payload",
-                "Read-only JSON object shown alongside the form. Required — a task with nothing "
-                        + "to show says so with {}, and the runtime checks this against the task's payloadType");
+        relabel(properties, PAYLOAD_KEY, PAYLOAD_LABEL, PAYLOAD_DOC);
         relabel(properties, TITLE_KEY, TITLE_LABEL, TITLE_DOC);
         relabel(properties, DESCRIPTION_KEY, DESCRIPTION_LABEL, DESCRIPTION_DOC);
         relabel(properties, TIMEOUT_KEY, TIMEOUT_LABEL, TIMEOUT_DOC);
