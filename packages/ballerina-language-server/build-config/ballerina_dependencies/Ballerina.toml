@@ -302,6 +302,11 @@ org = "ballerinax"
 name = "asb"
 version = "3.10.1"
 
+[[dependency]]
+org = "ballerina"
+name = "udp"
+version = "1.13.7"
+
 # ballerinax/ibm.ibmmq declares the IBM MQ client jar with 'provided' scope, so it
 # is not bundled and must be supplied by the consuming project. Declaring it here
 # (available on Maven Central) lets `bal build` resolve ibm.ibmmq and cache it for
