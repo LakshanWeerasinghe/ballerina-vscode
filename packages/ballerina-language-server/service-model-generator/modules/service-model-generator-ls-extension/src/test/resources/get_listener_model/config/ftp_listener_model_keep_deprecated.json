@@ -582,6 +582,7 @@
               "fieldType": "REPEATABLE_LIST",
               "ballerinaType": "ftp:TransferCompression[]",
               "template": {
+                "placeholder": "",
                 "types": [
                   {
                     "fieldType": "SINGLE_SELECT",

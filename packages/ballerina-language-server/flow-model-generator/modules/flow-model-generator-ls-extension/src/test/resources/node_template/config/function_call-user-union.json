@@ -58,6 +58,7 @@
             "selected": false
           }
         ],
+        "placeholder": "",
         "optional": false,
         "editable": true,
         "advanced": false,
@@ -100,6 +101,7 @@
             "selected": false
           }
         ],
+        "placeholder": "",
         "optional": false,
         "editable": true,
         "advanced": false,
@@ -146,6 +148,7 @@
             "selected": false
           }
         ],
+        "placeholder": "",
         "optional": false,
         "editable": true,
         "advanced": false,

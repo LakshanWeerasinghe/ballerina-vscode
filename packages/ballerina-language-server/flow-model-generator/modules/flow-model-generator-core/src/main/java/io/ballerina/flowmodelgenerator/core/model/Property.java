@@ -808,17 +808,18 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                                     addEnumOptions(enumSymbol, options, enumMemberTypes));
                         }
 
-                        // Each member is turned into an input type as it is declared, so that the modes of the
-                        // field are offered in the order of the union. The singletons share one single select
-                        // rather than getting one each, which is added where the first of them is declared and
-                        // holds the very list the remaining ones keep being collected into.
-                        boolean addedSingleSelect = false;
+                        // The members that are not singletons keep an input type each, gathered here rather than
+                        // turned into one on sight, so that the single select standing for the singletons can be
+                        // added once its options are complete rather than while they are still arriving.
+                        List<TypeSymbol> otherTypes = new ArrayList<>();
+                        // Where the union declares the first singleton, which is the place the select belongs in
+                        // among those members, so that the modes are offered in the order the union declares.
+                        int selectPosition = -1;
                         for (TypeSymbol symbol : unionTypeSymbol.memberTypeDescriptors()) {
                             TypeDescKind memberTypeKind = CommonUtil.getRawType(symbol).typeKind();
                             if (memberTypeKind == TypeDescKind.SINGLETON) {
-                                if (!addedSingleSelect) {
-                                    builder.type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
-                                    addedSingleSelect = true;
+                                if (selectPosition < 0) {
+                                    selectPosition = otherTypes.size();
                                 }
                                 // Skip the singletons that are already covered by the options of an enum
                                 if (!enumMemberTypes.contains(symbol.signature())) {
@@ -826,13 +827,22 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                                     options.add(new Option(label, symbol.signature()));
                                 }
                             } else if (memberTypeKind != TypeDescKind.NIL) {
-                                // The nil member is conveyed by the `optional` flag of the property
-                                handlePrimitiveType(symbol, CommonUtils.getTypeSignature(symbol, moduleInfo),
-                                        semanticModel, moduleInfo, builder);
+                                // A nil member stands for no value, which no entry of a dropdown can offer and
+                                // no input mode of its own can express, hence it is left to the expression mode.
+                                otherTypes.add(symbol);
                             }
                         }
-                        if (addedSingleSelect) {
-                            alignPlaceholderWithDefault(builder, options, defaultValue);
+
+                        for (int i = 0; i <= otherTypes.size(); i++) {
+                            if (i == selectPosition) {
+                                builder.type().fieldType(ValueType.SINGLE_SELECT).options(options).stepOut();
+                                alignPlaceholderWithDefault(builder, options, defaultValue);
+                            }
+                            if (i < otherTypes.size()) {
+                                TypeSymbol ts = otherTypes.get(i);
+                                handlePrimitiveType(ts, CommonUtils.getTypeSignature(ts, moduleInfo), semanticModel,
+                                        moduleInfo, builder);
+                            }
                         }
 
                         // group by the fieldType
@@ -1403,6 +1413,27 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         }
 
         /**
+         * Adds an option standing for the given enum member or constant, labelled by its name and holding the
+         * singleton it stands for as the generated value.
+         *
+         * <p>One that carries no name is left out entirely, registering nothing: the singleton it stands for is
+         * then still collected by the walk over the members of the union, which offers it labelled by its value
+         * rather than dropping it.
+         *
+         * @param member          the enum member or constant to offer
+         * @param options         the options to append to
+         * @param enumMemberTypes collects the signatures of the singleton types covered by the added options
+         */
+        private static void addMemberOption(ConstantSymbol member, List<Option> options,
+                                            Set<String> enumMemberTypes) {
+            String memberValue = member.typeDescriptor().signature();
+            member.getName().ifPresent(name -> {
+                enumMemberTypes.add(memberValue);
+                options.add(new Option(name, memberValue));
+            });
+        }
+
+        /**
          * Adds an option for each member of the given enum. A member is labelled with its name (e.g. `HIGH`), while
          * the value it holds (e.g. `"10"`) stays the generated value, so that the source keeps referring to the
          * member the way it did before the members were surfaced by name, and hence needs no module prefix.
@@ -1414,9 +1445,7 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
         private static void addEnumOptions(EnumSymbol enumSymbol, List<Option> options, Set<String> enumMemberTypes) {
             // The members are returned in the reverse order of their declaration
             for (ConstantSymbol enumMember : enumSymbol.members().reversed()) {
-                String memberValue = enumMember.typeDescriptor().signature();
-                enumMemberTypes.add(memberValue);
-                enumMember.getName().ifPresent(name -> options.add(new Option(name, memberValue)));
+                addMemberOption(enumMember, options, enumMemberTypes);
             }
         }
 
@@ -1435,10 +1464,17 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
                 return Optional.empty();
             }
             String value = CommonUtils.removeQuotes(defaultValue);
+            // The value is looked for across every option before any label is, so that a default holding the
+            // value of one member and the name of another is read as the value it plainly is.
+            Optional<Option> byValue = options.stream()
+                    .filter(option -> value.equals(CommonUtils.removeQuotes(option.value())))
+                    .findFirst();
+            if (byValue.isPresent()) {
+                return byValue;
+            }
             String memberName = removeModulePrefix(value);
             return options.stream()
-                    .filter(option -> value.equals(CommonUtils.removeQuotes(option.value()))
-                            || memberName.equals(option.label()))
+                    .filter(option -> memberName.equals(option.label()))
                     .findFirst();
         }
 
@@ -1448,11 +1484,10 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
          *
          * <p>On a single select the placeholder names the member the field defaults to, never a sample value of
          * the type: the type of a union yields an arbitrary member of it, which says nothing about the default.
-         * The declared default is therefore the only source, and it is not always resolvable to an option - the
-         * parameter may declare none, or the union may refer to constants rather than enum members (e.g.
-         * {@code http:Compression} is COMPRESSION_AUTO|COMPRESSION_ALWAYS|...), whose names the type does not
-         * carry. Both leave the placeholder empty, which presents the empty selection rather than claiming an
-         * arbitrary member is the default.
+         * The declared default is therefore the only source, and it does not always name one of the options -
+         * the parameter may declare no default at all, or declare one the union does not offer. Both leave the
+         * placeholder empty, which presents the empty selection rather than claiming an arbitrary member is the
+         * default.
          *
          * <p>The placeholder also decides the generated source: an argument matching it is omitted, and one is
          * written for every other selection. Holding the declared default is what makes that omission correct.
@@ -1467,7 +1502,10 @@ public record Property(Metadata metadata, List<PropertyType> types, Object value
             // when it does not, so that a declared default is not mistaken for an absent one.
             String declaredDefault = defaultValue == null || defaultValue.isEmpty() ? builder.defaultValue
                     : defaultValue;
-            builder.placeholder(findMatchingOption(options, declaredDefault).map(Option::value).orElse(null));
+            // A default that names none of the options leaves the field with none to present, which is said
+            // with an empty placeholder rather than none at all: the placeholder of a single select is read as
+            // a value elsewhere, and absence there is not a state those readers are prepared for.
+            builder.placeholder(findMatchingOption(options, declaredDefault).map(Option::value).orElse(""));
         }
 
         private static String removeModulePrefix(String value) {
