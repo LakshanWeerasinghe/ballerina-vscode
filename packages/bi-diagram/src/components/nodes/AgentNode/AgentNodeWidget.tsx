@@ -34,7 +34,7 @@ import {
     NODE_WIDTH,
     NodeTypes,
 } from "../../../resources/constants";
-import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, Tooltip, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
+import { Button, Icon, Item, Menu, MenuItem, Popover, ThemeColors, getAIModuleIcon, DefaultLlmIcon } from "@wso2/ui-toolkit";
 import { MoreVertIcon } from "../../../resources/icons";
 import { FlowNode, ToolData } from "../../../utils/types";
 import NodeIcon from "../../NodeIcon";
@@ -44,9 +44,9 @@ import { nodeHasError } from "../../../utils/node";
 import { css } from "@emotion/react";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeMetadata, isDefaultModelProviderExpr } from "@wso2/ballerina-core";
-import ReactMarkdown from "react-markdown";
 
 import { flowDashAnimation, sanitizeAgentData, sanitizeId } from "../agentNodeUtils";
+import { MarkdownWithTooltip } from "../AgentMarkdownTooltip";
 import { getAgentNodeContainerHeight } from "../AgentWidget/agentNodeLayout";
 import { useAgentNodeController } from "../AgentWidget/useAgentNodeController";
 import { ApprovalBadge } from "../AgentWidget/ApprovalBadge";
@@ -429,35 +429,6 @@ function getAgentNodePresentation(variant: "agent" | "typedAgent", agentInfo?: N
         showModelCircle: !isTypeDefinition || Boolean(agentInfo?.modelProvider?.propertyKey),
         toolsReadOnly: isTypeDefinition,
     };
-}
-
-const MARKDOWN_DISALLOWED_ELEMENTS = ['script', 'iframe', 'object', 'embed', 'link', 'style'];
-
-// Renders markdown text clamped/faded to its Styled container, plus a hover tooltip with the
-// unclamped text — the box's fixed height means long role/instructions text is always truncated,
-// so this is the only way to read it in full without opening the node's configuration form.
-function MarkdownWithTooltip(props: { text: string; Styled: React.ComponentType<{ children?: ReactNode }>; containerSx?: any }) {
-    const { text, Styled, containerSx } = props;
-    return (
-        <Tooltip
-            content={
-                // Stop wheel events from bubbling out of the scrollable tooltip so scrolling
-                // its overflowing text doesn't also pan/zoom the diagram canvas underneath.
-                <NodeStyles.TooltipMarkdown onWheel={(e) => e.stopPropagation()}>
-                    <ReactMarkdown disallowedElements={MARKDOWN_DISALLOWED_ELEMENTS} unwrapDisallowed={true}>
-                        {text}
-                    </ReactMarkdown>
-                </NodeStyles.TooltipMarkdown>
-            }
-            containerSx={containerSx}
-        >
-            <Styled>
-                <ReactMarkdown disallowedElements={MARKDOWN_DISALLOWED_ELEMENTS} unwrapDisallowed={true}>
-                    {text}
-                </ReactMarkdown>
-            </Styled>
-        </Tooltip>
-    );
 }
 
 export function AgentNodeWidget(props: AgentNodeWidgetProps) {
@@ -939,11 +910,13 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                                             <MarkdownWithTooltip
                                                 text={sanitizedAgent?.role}
                                                 Styled={NodeStyles.Role}
+                                                TooltipStyled={NodeStyles.TooltipMarkdown}
                                                 containerSx={{ display: "block", width: "100%" }}
                                             />
                                             <MarkdownWithTooltip
                                                 text={sanitizedAgent?.instructions}
                                                 Styled={NodeStyles.Instructions}
+                                                TooltipStyled={NodeStyles.TooltipMarkdown}
                                                 containerSx={{ display: "block", width: "100%", height: "100%" }}
                                             />
                                         </>
@@ -951,6 +924,7 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                                         <MarkdownWithTooltip
                                             text={description}
                                             Styled={NodeStyles.AgentDescription}
+                                            TooltipStyled={NodeStyles.TooltipMarkdown}
                                             containerSx={{ display: "block", width: "100%", height: "100%" }}
                                         />
                                     )}
@@ -963,6 +937,7 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                                 <MarkdownWithTooltip
                                     text={sanitizedAgent.role}
                                     Styled={NodeStyles.Role}
+                                    TooltipStyled={NodeStyles.TooltipMarkdown}
                                     containerSx={{ display: "block", width: "100%" }}
                                 />
                             </NodeStyles.Row>
@@ -979,6 +954,7 @@ export function AgentNodeWidget(props: AgentNodeWidgetProps) {
                                 <MarkdownWithTooltip
                                     text={sanitizedAgent.instructions}
                                     Styled={NodeStyles.Instructions}
+                                    TooltipStyled={NodeStyles.TooltipMarkdown}
                                     containerSx={{ display: "block", width: "100%", height: "100%" }}
                                 />
                             </NodeStyles.InstructionsRow>

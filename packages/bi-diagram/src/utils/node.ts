@@ -39,18 +39,18 @@ const DURABLE_AGENT_REGISTER_NODE_KINDS = new Set([
     "DURABLE_AGENT_HUMAN_TASK",
 ]);
 
+// SLEEP is the one exception with its own dedicated node kind, matched directly here; it is also
+// included in WORKFLOW_MODULE_FUNCTION_TITLES below so that map remains the single source of truth
+// if the language server ever starts sending it as a generic statement instead.
+const WORKFLOW_UTILITY_NODE_TITLES: Record<string, string> = {
+    SLEEP: "Sleep",
+};
+
 // Workflow accessor/utility statements — `workflow:currentTime()`, `workflow:sleep()`, etc. — are plain
 // function calls on the workflow context, not calls into a module's public API, so they render with the
 // same friendly names the side panel's "Workflow Functions" list uses instead of "workflow : <symbol>".
 // The language server currently emits these as generic statement kinds (e.g. "EXPRESSION") rather than
 // the dedicated WORKFLOW_* node kinds, so matching has to key off the function symbol, not the node kind.
-const WORKFLOW_UTILITY_NODE_TITLES: Record<string, string> = {
-    SLEEP: "Sleep",
-};
-
-// SLEEP is the one exception with its own dedicated node kind (see WORKFLOW_UTILITY_NODE_TITLES
-// above), but it is included here too so this map is the single source of truth if the language
-// server ever starts sending it as a generic statement, matching WORKFLOW_MODULE_FUNCTION_ICONS.
 const WORKFLOW_MODULE_FUNCTION_TITLES: Record<string, string> = {
     currentTime: "Get Current Time",
     isReplaying: "Is Replaying",
@@ -195,6 +195,16 @@ function splitListElements(body: string): string[] {
 
 export function isWaitingAgentCall(node?: FlowNode) {
     return (node?.metadata?.data as { waits?: boolean } | undefined)?.waits === true;
+}
+
+/**
+ * Whether a data-event wait or human task has a configured timeout deadline. The language server
+ * can emit an empty `timeout = ()` call, which arrives as the literal string "()" rather than an
+ * absent value, so a plain truthiness check on the property would still badge it.
+ */
+export function hasWaitTimeout(node?: FlowNode): boolean {
+    const timeoutValue = (node?.properties as any)?.timeout?.value as string | undefined;
+    return !!timeoutValue && timeoutValue.trim() !== "()";
 }
 
 /**

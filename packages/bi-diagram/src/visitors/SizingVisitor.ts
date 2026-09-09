@@ -84,17 +84,18 @@ export class SizingVisitor implements BaseVisitor {
         node.viewState.ch = containerHeight || height;
     }
 
-    // Mirrors the description BaseNodeWidget/CallActivityNodeWidget actually render: a full
-    // assignment concatenates "variable = expression"; otherwise whichever single value is shown.
-    // Used only to estimate whether that text wraps to a second line.
+    // Mirrors the description BaseNodeWidget/CallActivityNodeWidget/ApiCallNodeWidget actually
+    // render: a full assignment concatenates "variable = expression"; otherwise whichever single
+    // value is shown. Used only to estimate whether that text wraps to a second line.
     private estimateDescriptionLength(node: FlowNode): number {
         const variable = node.properties?.variable?.value;
         const expression = node.properties?.expression?.value;
         const type = node.properties?.type?.value;
+        const msg = node.properties?.msg?.value;
         const text =
             typeof variable === "string" && typeof expression === "string" && variable && expression
                 ? `${variable} = ${expression}`
-                : [variable, expression, type].find((value) => typeof value === "string" && value) ?? "";
+                : [variable, expression, type, msg].find((value) => typeof value === "string" && value) ?? "";
         return (text as string).length;
     }
 
@@ -122,7 +123,7 @@ export class SizingVisitor implements BaseVisitor {
 
         const nodeHeight = NODE_HEIGHT;
         let containerHeight = nodeHeight;
-        if (node.properties?.variable?.value || node.properties?.type?.value) {
+        if (this.estimateDescriptionLength(node) > NODE_DESCRIPTION_SINGLE_LINE_CHARS) {
             containerHeight += LABEL_HEIGHT;
         }
 

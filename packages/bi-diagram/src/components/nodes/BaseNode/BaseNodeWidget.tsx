@@ -50,6 +50,7 @@ import {
     getDiffTitleStyles,
     getNodeTitle,
     getWorkflowFunctionName,
+    hasWaitTimeout,
     isWorkflowNode,
     nodeHasError,
 } from "../../../utils/node";
@@ -486,7 +487,7 @@ export function BaseNodeWidget(props: BaseNodeWidgetProps) {
                         {/* A configured timeout on a data-event wait or human task is a deadline:
                             surface it with a small clock badge, as on the agent canvas. */}
                         {(model.node.codedata.node === "WAIT_DATA" || model.node.codedata.node === "HUMAN_TASK") &&
-                            !!(model.node.properties as any)?.timeout?.value && (
+                            hasWaitTimeout(model.node) && (
                                 <Icon
                                     name="bi-clock"
                                     sx={{ fontSize: "11px", position: "absolute", right: "-5px", bottom: "-3px" }}

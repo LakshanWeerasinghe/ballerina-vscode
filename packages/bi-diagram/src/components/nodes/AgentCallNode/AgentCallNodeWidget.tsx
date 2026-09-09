@@ -53,9 +53,9 @@ import { getDiffContainerStyles, getDiffTitleStyles, nodeHasError } from "../../
 import { css } from "@emotion/react";
 import { BreakpointMenu } from "../../BreakNodeMenu/BreakNodeMenu";
 import { NodeMetadata, isDefaultModelProviderExpr } from "@wso2/ballerina-core";
-import ReactMarkdown from "react-markdown";
 
 import { flowDashAnimation, sanitizeAgentData, sanitizeId } from "../agentNodeUtils";
+import { MarkdownWithTooltip } from "../AgentMarkdownTooltip";
 import { getAgentNodeContainerHeight } from "../AgentWidget/agentNodeLayout";
 import { useAgentNodeController } from "../AgentWidget/useAgentNodeController";
 import { ApprovalBadge } from "../AgentWidget/ApprovalBadge";
@@ -322,35 +322,6 @@ export namespace NodeStyles {
             border-bottom-color: ${ThemeColors.OUTLINE_VARIANT};
         }
     `;
-}
-
-const MARKDOWN_DISALLOWED_ELEMENTS = ['script', 'iframe', 'object', 'embed', 'link', 'style'];
-
-// Renders markdown text clamped/faded to its Styled container, plus a hover tooltip with the
-// unclamped text — the box's fixed height means long role/instructions text is always truncated,
-// so this is the only way to read it in full without opening the node's configuration form.
-function MarkdownWithTooltip(props: { text: string; Styled: React.ComponentType<{ children?: ReactNode }>; containerSx?: any }) {
-    const { text, Styled, containerSx } = props;
-    return (
-        <Tooltip
-            content={
-                // Stop wheel events from bubbling out of the scrollable tooltip so scrolling
-                // its overflowing text doesn't also pan/zoom the diagram canvas underneath.
-                <NodeStyles.TooltipMarkdown onWheel={(e) => e.stopPropagation()}>
-                    <ReactMarkdown disallowedElements={MARKDOWN_DISALLOWED_ELEMENTS} unwrapDisallowed={true}>
-                        {text}
-                    </ReactMarkdown>
-                </NodeStyles.TooltipMarkdown>
-            }
-            containerSx={containerSx}
-        >
-            <Styled>
-                <ReactMarkdown disallowedElements={MARKDOWN_DISALLOWED_ELEMENTS} unwrapDisallowed={true}>
-                    {text}
-                </ReactMarkdown>
-            </Styled>
-        </Tooltip>
-    );
 }
 
 const TitleArrow = styled.span`
@@ -710,6 +681,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                     <MarkdownWithTooltip
                                         text={sanitizedAgent.role}
                                         Styled={NodeStyles.Role}
+                                        TooltipStyled={NodeStyles.TooltipMarkdown}
                                         containerSx={{ display: "block", width: "100%" }}
                                     />
                                 </NodeStyles.Row>
@@ -718,6 +690,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                     <MarkdownWithTooltip
                                         text={sanitizedAgent.instructions}
                                         Styled={NodeStyles.Instructions}
+                                        TooltipStyled={NodeStyles.TooltipMarkdown}
                                         containerSx={{ display: "block", width: "100%", height: "100%" }}
                                     />
                                 </NodeStyles.InstructionsRow>
@@ -727,6 +700,7 @@ export function AgentCallNodeWidget(props: AgentCallNodeWidgetProps) {
                                 <MarkdownWithTooltip
                                     text={agentInfo.description}
                                     Styled={NodeStyles.Instructions}
+                                    TooltipStyled={NodeStyles.TooltipMarkdown}
                                     containerSx={{ display: "block", width: "100%", height: "100%" }}
                                 />
                             </NodeStyles.InstructionsRow>
