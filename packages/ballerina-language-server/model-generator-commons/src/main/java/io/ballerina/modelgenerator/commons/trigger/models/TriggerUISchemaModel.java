@@ -506,7 +506,8 @@ public record TriggerUISchemaModel(
             String variantLabel,
             Boolean nameEditable,
             String bindingGroup,
-            Object driverDependency) {
+            Object driverDependency,
+            Boolean preserveValue) {
 
         /** Compatibility constructor for existing call sites predating {@code driverDependency}. */
         public Codedata(String type, String argType, String originalName, String moduleName, String orgName,
@@ -518,7 +519,20 @@ public record TriggerUISchemaModel(
             this(type, argType, originalName, moduleName, orgName, packageName, position, path, defaultType,
                     boundType, bindable, bindingKind, typeConstraint, template, modifier, supersedes, targetParam,
                     modifiers, field, optional, value, valueQualifier, group, variantLabel, nameEditable,
-                    bindingGroup, null);
+                    bindingGroup, null, null);
+        }
+
+        /** Compatibility constructor for existing call sites predating {@code preserveValue}. */
+        public Codedata(String type, String argType, String originalName, String moduleName, String orgName,
+                         String packageName, Integer position, String path, String defaultType, String boundType,
+                         Boolean bindable, String bindingKind, String typeConstraint, String template,
+                         String modifier, List<String> supersedes, String targetParam, Object modifiers,
+                         String field, Boolean optional, String value, String valueQualifier, String group,
+                         String variantLabel, Boolean nameEditable, String bindingGroup, Object driverDependency) {
+            this(type, argType, originalName, moduleName, orgName, packageName, position, path, defaultType,
+                    boundType, bindable, bindingKind, typeConstraint, template, modifier, supersedes, targetParam,
+                    modifiers, field, optional, value, valueQualifier, group, variantLabel, nameEditable,
+                    bindingGroup, driverDependency, null);
         }
 
         public static Builder builder() {
@@ -554,6 +568,7 @@ public record TriggerUISchemaModel(
             private Boolean nameEditable;
             private String bindingGroup;
             private Object driverDependency;
+            private Boolean preserveValue;
 
             private Builder() {
             }
@@ -693,11 +708,16 @@ public record TriggerUISchemaModel(
                 return this;
             }
 
+            public Builder preserveValue(Boolean preserveValue) {
+                this.preserveValue = preserveValue;
+                return this;
+            }
+
             public Codedata build() {
                 return new Codedata(type, argType, originalName, moduleName, orgName, packageName, position, path,
                         defaultType, boundType, bindable, bindingKind, typeConstraint, template, modifier, supersedes,
                         targetParam, modifiers, field, optional, value, valueQualifier, group, variantLabel,
-                        nameEditable, bindingGroup, driverDependency);
+                        nameEditable, bindingGroup, driverDependency, preserveValue);
             }
         }
     }

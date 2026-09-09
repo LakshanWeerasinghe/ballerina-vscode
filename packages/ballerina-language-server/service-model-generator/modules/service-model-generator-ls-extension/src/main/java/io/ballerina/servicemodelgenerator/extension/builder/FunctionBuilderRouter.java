@@ -89,10 +89,21 @@ public class FunctionBuilderRouter {
      * this to {@code false} unconditionally.
      */
     private static boolean useSchemaDrivenPath(String orgName, String moduleName) {
+        return useSchemaDrivenPath(orgName, moduleName, null);
+    }
+
+    /**
+     * Version-aware counterpart of {@link #useSchemaDrivenPath(String, String)}. A version must be
+     * threaded through whenever it's known (e.g. from the resolved {@code ModuleID}/{@code Codedata}
+     * of a real source symbol): the unversioned check resolves "whatever the offline cache holds as
+     * newest", which is ambiguous -- and can silently miss the model entirely -- once more than one
+     * version of the connector is cached locally (see {@code TriggerModelReader}'s resolution notes).
+     */
+    private static boolean useSchemaDrivenPath(String orgName, String moduleName, String version) {
         if (moduleName == null || NEVER_SCHEMA_DRIVEN.contains(moduleName)) {
             return false;
         }
-        return TriggerModelReader.getInstance().hasSchemaDrivenModel(orgName, moduleName);
+        return TriggerModelReader.getInstance().hasSchemaDrivenModel(orgName, moduleName, version, false);
     }
 
     public static Optional<Function> getModelTemplate(String moduleName, String functionType) {
@@ -153,7 +164,8 @@ public class FunctionBuilderRouter {
                 context = new ModelFromSourceContext(functionNode, null, semanticModel, null, "",
                         metadata.serviceTypeIdentifier(), moduleID.orgName(), moduleID.packageName(),
                         moduleID.moduleName(), moduleID.version());
-                NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(), moduleID.moduleName())
+                NodeBuilder<Function> functionBuilder = useSchemaDrivenPath(moduleID.orgName(),
+                                moduleID.moduleName(), moduleID.version())
                                 ? new SchemaDrivenFunctionBuilder()
                                 : getFunctionBuilder(moduleID.moduleName());
                 Function function = functionBuilder.getModelFromSource(context);
