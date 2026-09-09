@@ -52,7 +52,7 @@ const WORKFLOW_UTILITY_NODE_TITLES: Record<string, string> = {
 // above), but it is included here too so this map is the single source of truth if the language
 // server ever starts sending it as a generic statement, matching WORKFLOW_MODULE_FUNCTION_ICONS.
 const WORKFLOW_MODULE_FUNCTION_TITLES: Record<string, string> = {
-    currentTime: "Current Time",
+    currentTime: "Get Current Time",
     isReplaying: "Is Replaying",
     getWorkflowId: "Get Workflow ID",
     getWorkflowType: "Get Workflow Type",

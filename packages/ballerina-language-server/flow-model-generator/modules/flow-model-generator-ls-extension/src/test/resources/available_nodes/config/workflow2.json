@@ -81,7 +81,7 @@
           "items": [
             {
               "metadata": {
-                "label": "Current Time",
+                "label": "Get Current Time",
                 "description": "Deterministic current time, safe to use inside workflow logic"
               },
               "codedata": {
