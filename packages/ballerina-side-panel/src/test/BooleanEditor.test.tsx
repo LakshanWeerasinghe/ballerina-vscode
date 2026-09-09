@@ -99,6 +99,21 @@ describe("BooleanEditor", () => {
         select.dispatchEvent(new Event("change", { bubbles: true }));
         expect(onChange).toHaveBeenLastCalledWith("false", "false".length);
     });
+
+    // Every entry of the dropdown, so that what a pick writes is pinned for all of them rather than
+    // for one. The list is the only source of what can be picked, hence a pick never stands for
+    // something the entries do not offer and needs no value to fall back on.
+    it.each([
+        ["true", "true"],
+        ["false", "false"],
+        [NONE_SELECTED, ""]
+    ])("writes %s to the field as %s", (picked, written) => {
+        const { onChange } = renderEditor("", "true");
+        const select = document.querySelector("vscode-dropdown") as HTMLElement & { value: string };
+        select.value = picked;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        expect(onChange).toHaveBeenLastCalledWith(written, written.length);
+    });
     // The field carries the same empty value whether it was never touched or just emptied on purpose, so
     // these drive the editor through a real change event and let it re-render with the value it asked for.
     const Controlled = ({ initial, defaultValue }: { initial: any; defaultValue?: string }) => {

@@ -76,14 +76,15 @@ export const BooleanEditor: React.FC<BooleanEditorProps> = ({ value, onChange, f
     }, [value]);
 
     const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        let value = e.target.value;
+        const value = e.target.value;
         if (value === DEFAULT_NONE_SELECTED_VALUE) {
             setEmptiedByUser(true);
             onChange("", 0);
-        } else {
-            const bool = toBooleanValue(value) ?? String(false);
-            onChange(bool, bool.length);
+            return;
         }
+        // The entries are the only source of what can be picked, and the one standing for the empty
+        // selection is answered above, hence what is left is the boolean an entry stands for.
+        onChange(value, value.length);
     }
 
     const getValidatedValue = (): string => {
