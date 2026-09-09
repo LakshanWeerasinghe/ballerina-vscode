@@ -238,9 +238,7 @@ class FunctionSearchCommand extends SearchCommand {
                     .version(packageInfo.version())
                     .build();
             Category.Builder builder;
-            // Org-aware: results are sourced from queries that span the whole library, so a same-named package
-            // from another org must not be mistaken for the import.
-            if (importedModules.contains(new ModuleCoordinate(packageInfo.org(), packageInfo.moduleName()))) {
+            if (importedModules.contains(packageInfo.coordinate())) {
                 builder = importedFnBuilder;
             } else if (!categorizeByOrganization || STANDARD_LIBRARY_ORG.equals(packageInfo.org())) {
                 builder = standardLibBuilder;

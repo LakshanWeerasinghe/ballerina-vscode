@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 /**
@@ -50,6 +51,13 @@ public class SearchDatabaseManager {
 
     private static final String INDEX_FILE_NAME = "search-index.sqlite";
     private static final String LIKE_MATCH_RANK = "100000000.0";
+    /**
+     * Takes each module's own rows {@code (pkg_skip, pkg_skip + pkg_take]} out of the per-module
+     * {@code ROW_NUMBER()} its subquery assigns. Half-open, so the ranges of consecutive pages tile without
+     * duplicating or dropping a row. Only correct together with {@link #rangePairsJoin(int)}, which is what carries
+     * the ranges in.
+     */
+    private static final String RANGE_WINDOW_FILTER = ") WHERE rn > pkg_skip AND rn <= pkg_skip + pkg_take ";
     private static final Logger LOGGER = Logger.getLogger(SearchDatabaseManager.class.getName());
     private final String dbPath;
 
@@ -106,14 +114,11 @@ public class SearchDatabaseManager {
      * @param limit  the maximum number of results to return
      * @param offset the offset from which to start returning results
      * @return a list of search results matching the query
-     * @throws RuntimeException if there is an error executing the search or if the limit or offset values are invalid
+     * @throws RuntimeException if there is an error executing the search
      */
     public List<SearchResult> searchFunctions(String q, int limit, int offset) {
-        List<SearchResult> results = new ArrayList<>();
         String sanitizedQuery = sanitizeQuery(q);
-        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values.
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
+        Page page = Page.of(limit, offset);
         String sql;
         if (sanitizedQuery.isEmpty()) {
             // When the sanitized query is empty, query the base table directly
@@ -178,41 +183,14 @@ public class SearchDatabaseManager {
                     OFFSET ?;""".replace("%LIKE_MATCH_RANK", LIKE_MATCH_RANK);
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            if (sanitizedQuery.isEmpty()) {
-                stmt.setInt(1, safeLimit);
-                stmt.setInt(2, safeOffset);
-            } else {
-                stmt.setString(1, sanitizedQuery + "*");
-                stmt.setString(2, "%" + sanitizedQuery + "%");
-                stmt.setInt(3, safeLimit);
-                stmt.setInt(4, safeOffset);
+        return queryList(sql, "searching functions", stmt -> {
+            int paramIndex = 1;
+            if (!sanitizedQuery.isEmpty()) {
+                stmt.setString(paramIndex++, sanitizedQuery + "*");
+                stmt.setString(paramIndex++, "%" + sanitizedQuery + "%");
             }
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    String functionName = rs.getString("function_name");
-                    String description = rs.getString("function_description");
-                    String moduleName = rs.getString("module_name");
-                    String packageName = rs.getString("package_name");
-                    String org = rs.getString("package_org");
-                    String version = rs.getString("package_version");
-                    SearchResult result = SearchResult.from(org, packageName, moduleName, version,
-                            functionName, description);
-                    results.add(result);
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching functions: " + e.getMessage());
-            throw new RuntimeException("Failed to search functions", e);
-        } catch (NumberFormatException e) {
-            LOGGER.severe("Invalid number format in query parameters: " + e.getMessage());
-            throw new RuntimeException("Invalid limit or offset value", e);
-        }
-
-        return results;
+            page.bind(stmt, paramIndex);
+        }, rs -> readRow(rs, "function_name", "function_description"));
     }
 
     /**
@@ -228,14 +206,11 @@ public class SearchDatabaseManager {
      */
     public List<SearchResult> searchConnectors(String q, int limit, int offset,
                                                Set<String> allowedOrgs, Set<String> blacklistedNamePatterns) {
-        List<SearchResult> results = new ArrayList<>();
         if (allowedOrgs.isEmpty()) {
-            return results;
+            return new ArrayList<>();
         }
         String sanitizedQuery = sanitizeQuery(q);
-        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values.
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
+        Page page = Page.of(limit, offset);
 
         String orgPlaceholders = String.join(",", Collections.nCopies(allowedOrgs.size(), "?"));
 
@@ -288,9 +263,7 @@ public class SearchDatabaseManager {
                    .replace("%BLACKLIST_CLAUSE", blacklistClause);
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+        return queryList(sql, "searching connectors", stmt -> {
             int paramIndex = 1;
             if (!sanitizedQuery.isEmpty()) {
                 stmt.setString(paramIndex++, sanitizedQuery + "*");
@@ -301,31 +274,8 @@ public class SearchDatabaseManager {
             for (String pattern : blacklistedNamePatterns) {
                 stmt.setString(paramIndex++, "%" + pattern + "%");
             }
-            stmt.setInt(paramIndex++, safeLimit);
-            stmt.setInt(paramIndex, safeOffset);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    String connectorName = rs.getString("connector_name");
-                    String description = rs.getString("connector_description");
-                    String moduleName = rs.getString("module_name");
-                    String packageName = rs.getString("package_name");
-                    String org = rs.getString("package_org");
-                    String version = rs.getString("package_version");
-                    SearchResult result = SearchResult.from(org, packageName, moduleName, version, connectorName,
-                            description);
-                    results.add(result);
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching connectors: " + e.getMessage());
-            throw new RuntimeException("Failed to search connectors", e);
-        } catch (NumberFormatException e) {
-            LOGGER.severe("Invalid number format in query parameters: " + e.getMessage());
-            throw new RuntimeException("Invalid limit or offset value", e);
-        }
-
-        return results;
+            page.bind(stmt, paramIndex);
+        }, rs -> readRow(rs, "connector_name", "connector_description"));
     }
 
     /**
@@ -351,8 +301,6 @@ public class SearchDatabaseManager {
         List<ModuleCoordinate> moduleList = List.copyOf(modules);
         List<SearchResult> results = new ArrayList<>();
 
-        String rangeValuesClause = String.join(",", Collections.nCopies(moduleList.size(), "(?,?,?,?)"));
-        String nameFilter = functionNameFilter(functionNames);
         String sql = "SELECT function_name, function_description, package_id, module_name, package_name, "
                 + "package_org, package_version FROM ("
                 + "  SELECT f.name AS function_name, f.description AS function_description, f.package_id, "
@@ -361,10 +309,8 @@ public class SearchDatabaseManager {
                 + "         ROW_NUMBER() OVER (PARTITION BY p.org, p.name ORDER BY f.name, p.id, f.id) AS rn "
                 + "  FROM Package p "
                 + "  JOIN Function f ON p.id = f.package_id "
-                + "  JOIN (SELECT column1 AS pkg_org, column2 AS pkg_name, column3 AS pkg_skip, "
-                + "               column4 AS pkg_take FROM (VALUES " + rangeValuesClause + ")) AS q "
-                + "  ON q.pkg_org = p.org AND q.pkg_name = p.name" + nameFilter
-                + ") WHERE rn > pkg_skip AND rn <= pkg_skip + pkg_take "
+                + rangePairsJoin(moduleList.size()) + functionNameFilter(functionNames)
+                + RANGE_WINDOW_FILTER
                 + "ORDER BY module_name, package_org, function_name, package_id";
 
         // An unbounded request - which is what the imported-functions default view asks for - would give every
@@ -389,25 +335,14 @@ public class SearchDatabaseManager {
             }
 
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                int paramIndex = 1;
-                for (ModuleCoordinate module : moduleList) {
-                    FairShareWindow.Range range = ranges.of(module);
-                    stmt.setString(paramIndex++, module.org());
-                    stmt.setString(paramIndex++, module.moduleName());
-                    stmt.setInt(paramIndex++, range.skip());
-                    stmt.setInt(paramIndex++, range.take());
-                }
+                int paramIndex = bindModuleRanges(stmt, 1, moduleList, ranges::of);
                 for (String functionName : functionNames) {
                     stmt.setString(paramIndex++, functionName);
                 }
 
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
-                        SearchResult.Package packageInfo = new SearchResult.Package(rs.getString("package_org"),
-                                rs.getString("package_name"), rs.getString("module_name"),
-                                rs.getString("package_version"));
-                        results.add(SearchResult.from(packageInfo, rs.getString("function_name"),
-                                rs.getString("function_description")));
+                        results.add(readRow(rs, "function_name", "function_description"));
                     }
                 }
             }
@@ -467,13 +402,10 @@ public class SearchDatabaseManager {
      * @param limit               The maximum number of results to return
      * @param offset              The number of results to skip
      * @return A list of search results matching the criteria
-     * @throws RuntimeException if there is an error executing the search or if the limit or offset values are invalid
+     * @throws RuntimeException if there is an error executing the search
      */
     public List<SearchResult> searchConnectorsByPackage(List<String> packageConnectorMap, int limit, int offset) {
-        List<SearchResult> results = new ArrayList<>();
-        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values.
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
+        Page page = Page.of(limit, offset);
 
         StringBuilder sqlBuilder = new StringBuilder();
         sqlBuilder.append("SELECT ")
@@ -500,9 +432,7 @@ public class SearchDatabaseManager {
         }
         sqlBuilder.append(" LIMIT ? OFFSET ?");
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sqlBuilder.toString())) {
-
+        return queryList(sqlBuilder.toString(), "searching connectors", stmt -> {
             // Set parameters for package names and connector names
             int paramIndex = 1;
             for (String mapping : packageConnectorMap) {
@@ -510,30 +440,8 @@ public class SearchDatabaseManager {
                 stmt.setString(paramIndex++, mappingTuple[0]);
                 stmt.setString(paramIndex++, mappingTuple[1]);
             }
-
-            // Set limit and offset
-            stmt.setInt(paramIndex++, safeLimit);
-            stmt.setInt(paramIndex, safeOffset);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    String name = rs.getString("connector_name");
-                    String description = rs.getString("connector_description");
-                    String org = rs.getString("package_org");
-                    String moduleName = rs.getString("module_name");
-                    String pkgName = rs.getString("package_name");
-                    String version = rs.getString("package_version");
-
-                    SearchResult.Package packageInfo = new SearchResult.Package(org, pkgName, moduleName, version);
-                    results.add(SearchResult.from(packageInfo, name, description));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching connectors: " + e.getMessage());
-            throw new RuntimeException("Failed to search connectors", e);
-        }
-
-        return results;
+            page.bind(stmt, paramIndex);
+        }, rs -> readRow(rs, "connector_name", "connector_description"));
     }
 
     /**
@@ -545,9 +453,8 @@ public class SearchDatabaseManager {
      * @since 1.8.0
      */
     public List<IndexedConnector> listConnectors(Set<String> allowedOrgs) {
-        List<IndexedConnector> results = new ArrayList<>();
         if (allowedOrgs.isEmpty()) {
-            return results;
+            return new ArrayList<>();
         }
         String sql = """
                 SELECT
@@ -564,31 +471,13 @@ public class SearchDatabaseManager {
                 WHERE p.org IN (%ORG_PLACEHOLDERS);
                 """.replace("%ORG_PLACEHOLDERS", String.join(",", Collections.nCopies(allowedOrgs.size(), "?")));
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+        return queryList(sql, "listing connectors", stmt -> {
             int paramIndex = 1;
             for (String org : allowedOrgs) {
                 stmt.setString(paramIndex++, org);
             }
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    SearchResult.Package packageInfo = new SearchResult.Package(rs.getString("package_org"),
-                            rs.getString("package_name"), rs.getString("module_name"),
-                            rs.getString("package_version"));
-                    SearchResult searchResult = SearchResult.from(packageInfo, rs.getString("connector_name"),
-                            rs.getString("connector_description"));
-                    results.add(new IndexedConnector(searchResult, splitKeywords(rs.getString("keywords")),
-                            rs.getInt("pull_count")));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error listing connectors: " + e.getMessage());
-            throw new RuntimeException("Failed to list connectors", e);
-        }
-
-        return results;
+        }, rs -> new IndexedConnector(readRow(rs, "connector_name", "connector_description"),
+                splitKeywords(rs.getString("keywords")), rs.getInt("pull_count")));
     }
 
     private static List<String> splitKeywords(String keywords) {
@@ -610,95 +499,19 @@ public class SearchDatabaseManager {
     }
 
     /**
-     * Searches for types in the database based on the given query.
+     * Searches for types in the database based on the given query, across the whole index.
+     *
+     * <p>The whole index is just {@link #searchTypesExcludingPackages(String, Set, int, int)} excluding nothing, so
+     * the two share one query rather than keeping two copies of it in step.</p>
      *
      * @param q      the search query string
      * @param limit  the maximum number of results to return
      * @param offset the offset from which to start returning results
      * @return a list of search results matching the query
-     * @throws RuntimeException if there is an error executing the search or if the limit or offset values are invalid
+     * @throws RuntimeException if there is an error executing the search
      */
     public List<SearchResult> searchTypes(String q, int limit, int offset) {
-        List<SearchResult> results = new ArrayList<>();
-        String sanitizedQuery = sanitizeQuery(q);
-        // limit/offset come straight from the client query map with no bounds checking, and SQLite treats a
-        // negative LIMIT as unlimited, so clamp both to non-negative.
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
-        String sql;
-        if (sanitizedQuery.isEmpty()) {
-            sql = """
-                SELECT
-                    t.id,
-                    t.name AS type_name,
-                    t.description AS type_description,
-                    t.package_id,
-                    p.name AS module_name,
-                    p.package_name,
-                    p.org AS package_org,
-                    p.version AS package_version
-                FROM Type AS t
-                JOIN Package AS p ON t.package_id = p.id
-                ORDER BY t.name, p.name, p.org
-                LIMIT ?
-                OFFSET ?;
-                """;
-        } else {
-            sql = """
-                SELECT
-                    t.id,
-                    t.name AS type_name,
-                    t.description AS type_description,
-                    t.package_id,
-                    p.name AS module_name,
-                    p.package_name,
-                    p.org AS package_org,
-                    p.version AS package_version,
-                    fts.rank
-                FROM TypeFTS AS fts
-                JOIN Type AS t ON fts.rowid = t.id
-                JOIN Package AS p ON t.package_id = p.id
-                WHERE fts.TypeFTS MATCH ?
-                ORDER BY fts.rank, t.name, p.name, p.org
-                LIMIT ?
-                OFFSET ?;
-                """;
-        }
-
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            if (sanitizedQuery.isEmpty()) {
-                stmt.setInt(1, safeLimit);
-                stmt.setInt(2, safeOffset);
-            } else {
-                stmt.setString(1, sanitizedQuery + "*");
-                stmt.setInt(2, safeLimit);
-                stmt.setInt(3, safeOffset);
-            }
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    String typeName = rs.getString("type_name");
-                    String description = rs.getString("type_description");
-                    String moduleName = rs.getString("module_name");
-                    String packageName = rs.getString("package_name");
-                    String org = rs.getString("package_org");
-                    String version = rs.getString("package_version");
-                    SearchResult result = SearchResult.from(org, packageName, moduleName, version, typeName,
-                            description);
-                    results.add(result);
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching types: " + e.getMessage());
-            throw new RuntimeException("Failed to search types", e);
-        } catch (NumberFormatException e) {
-            LOGGER.severe("Invalid number format in query parameters: " + e.getMessage());
-            throw new RuntimeException("Invalid limit or offset value", e);
-        }
-
-        return results;
+        return searchTypesExcludingPackages(q, Set.of(), limit, offset);
     }
 
     /**
@@ -755,14 +568,7 @@ public class SearchDatabaseManager {
         // them and guards the window end against overflow.
         Map<ModuleCoordinate, Integer> counts = indexedTypeCounts(modules, sanitizedQuery, true);
         FairShareWindow.Ranges<ModuleCoordinate> ranges = FairShareWindow.rangesOf(counts, offset, limit);
-        Map<ModuleCoordinate, FairShareWindow.Range> moduleRanges = new HashMap<>();
-        for (ModuleCoordinate module : counts.keySet()) {
-            FairShareWindow.Range range = ranges.of(module);
-            if (range.take() > 0) {
-                moduleRanges.put(module, range);
-            }
-        }
-        return searchTypesInRanges(moduleRanges, sanitizedQuery, true);
+        return searchTypesInRanges(ranges.nonEmpty(counts.keySet()), sanitizedQuery, true);
     }
 
     /**
@@ -791,71 +597,42 @@ public class SearchDatabaseManager {
         }
         String sanitizedQuery = querySanitized ? q : sanitizeQuery(q);
         List<ModuleCoordinate> moduleList = List.copyOf(ranges.keySet());
-        List<SearchResult> results = new ArrayList<>();
 
-        String rangeValuesClause = String.join(",", Collections.nCopies(moduleList.size(), "(?,?,?,?)"));
+        String rowColumns = "SELECT type_name, type_description, package_id, module_name, package_name, "
+                + "package_org, package_version FROM ("
+                + "  SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
+                + "         p.name AS module_name, p.package_name, p.org AS package_org, "
+                + "         p.version AS package_version, q.pkg_skip AS pkg_skip, q.pkg_take AS pkg_take, ";
         String sql;
         if (sanitizedQuery.isEmpty()) {
             // FTS rank is only meaningful within a query that has a MATCH constraint, so query the base table.
-            sql = "SELECT type_name, type_description, package_id, module_name, package_name, package_org, "
-                    + "package_version FROM ("
-                    + "  SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
-                    + "         p.name AS module_name, p.package_name, p.org AS package_org, "
-                    + "         p.version AS package_version, q.pkg_skip AS pkg_skip, q.pkg_take AS pkg_take, "
+            sql = rowColumns
                     + "         ROW_NUMBER() OVER (PARTITION BY p.org, p.name ORDER BY t.name, p.id, t.id) AS rn "
                     + "  FROM Package p "
                     + "  JOIN Type t ON p.id = t.package_id "
-                    + "  JOIN (SELECT column1 AS pkg_org, column2 AS pkg_name, column3 AS pkg_skip, "
-                    + "               column4 AS pkg_take FROM (VALUES " + rangeValuesClause + ")) AS q "
-                    + "  ON q.pkg_org = p.org AND q.pkg_name = p.name"
-                    + ") WHERE rn > pkg_skip AND rn <= pkg_skip + pkg_take "
+                    + rangePairsJoin(moduleList.size())
+                    + RANGE_WINDOW_FILTER
                     + "ORDER BY module_name, package_org, type_name, package_id";
         } else {
-            sql = "SELECT type_name, type_description, package_id, module_name, package_name, package_org, "
-                    + "package_version FROM ("
-                    + "  SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
-                    + "         p.name AS module_name, p.package_name, p.org AS package_org, "
-                    + "         p.version AS package_version, fts.rank AS match_rank, "
-                    + "         q.pkg_skip AS pkg_skip, q.pkg_take AS pkg_take, "
+            sql = rowColumns
+                    + "         fts.rank AS match_rank, "
                     + "         ROW_NUMBER() OVER (PARTITION BY p.org, p.name "
                     + "                            ORDER BY fts.rank, t.name, p.id, t.id) AS rn "
                     + "  FROM TypeFTS AS fts "
                     + "  JOIN Type t ON fts.rowid = t.id "
                     + "  JOIN Package p ON t.package_id = p.id "
-                    + "  JOIN (SELECT column1 AS pkg_org, column2 AS pkg_name, column3 AS pkg_skip, "
-                    + "               column4 AS pkg_take FROM (VALUES " + rangeValuesClause + ")) AS q "
-                    + "  ON q.pkg_org = p.org AND q.pkg_name = p.name "
+                    + rangePairsJoin(moduleList.size()) + " "
                     + "  WHERE fts.TypeFTS MATCH ?"
-                    + ") WHERE rn > pkg_skip AND rn <= pkg_skip + pkg_take "
+                    + RANGE_WINDOW_FILTER
                     + "ORDER BY match_rank, type_name, module_name, package_org";
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            int paramIndex = 1;
-            for (ModuleCoordinate module : moduleList) {
-                FairShareWindow.Range range = ranges.get(module);
-                stmt.setString(paramIndex++, module.org());
-                stmt.setString(paramIndex++, module.moduleName());
-                stmt.setInt(paramIndex++, Math.max(range.skip(), 0));
-                stmt.setInt(paramIndex++, Math.max(range.take(), 0));
-            }
+        return queryList(sql, "searching types", stmt -> {
+            int paramIndex = bindModuleRanges(stmt, 1, moduleList, ranges::get);
             if (!sanitizedQuery.isEmpty()) {
                 stmt.setString(paramIndex, sanitizedQuery + "*");
             }
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    results.add(readTypeRow(rs));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching types: " + e.getMessage());
-            throw new RuntimeException("Failed to search types", e);
-        }
-
-        return results;
+        }, rs -> readRow(rs, "type_name", "type_description"));
     }
 
     /**
@@ -863,7 +640,8 @@ public class SearchDatabaseManager {
      *
      * <p>This is the standard-library tier of the query-based type search - the complement of
      * {@link #searchTypesByPackagesMatching(Set, String, int, int)} - so the two tiers together cover exactly the
-     * rows a plain global query would return, without overlap.</p>
+     * rows a plain global query would return, without overlap. With an empty exclusion set it <i>is</i> that global
+     * query, which is how {@link #searchTypes(String, int, int)} is served.</p>
      *
      * @param q                the search query string
      * @param excludedModules  the modules to exclude, each identified by organization and index module name; an
@@ -875,55 +653,36 @@ public class SearchDatabaseManager {
      */
     public List<SearchResult> searchTypesExcludingPackages(String q, Set<ModuleCoordinate> excludedModules,
                                                            int limit, int offset) {
-        if (excludedModules.isEmpty()) {
-            return searchTypes(q, limit, offset);
-        }
-        List<SearchResult> results = new ArrayList<>();
         String sanitizedQuery = sanitizeQuery(q);
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
-        String notExistsClause = notExistsModuleClause(excludedModules.size());
+        Page page = Page.of(limit, offset);
+        String exclusion = excludedModules.isEmpty() ? "" : notExistsModuleClause(excludedModules.size());
+        String rowColumns = "SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
+                + "p.name AS module_name, p.package_name, p.org AS package_org, p.version AS package_version ";
 
         String sql;
         if (sanitizedQuery.isEmpty()) {
-            sql = "SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
-                    + "p.name AS module_name, p.package_name, p.org AS package_org, p.version AS package_version "
+            sql = rowColumns
                     + "FROM Type AS t "
                     + "JOIN Package AS p ON t.package_id = p.id "
-                    + "WHERE " + notExistsClause + " "
+                    + (exclusion.isEmpty() ? "" : "WHERE " + exclusion + " ")
                     + "ORDER BY t.name, p.name, p.org LIMIT ? OFFSET ?";
         } else {
-            sql = "SELECT t.name AS type_name, t.description AS type_description, t.package_id, "
-                    + "p.name AS module_name, p.package_name, p.org AS package_org, p.version AS package_version "
+            sql = rowColumns
                     + "FROM TypeFTS AS fts "
                     + "JOIN Type AS t ON fts.rowid = t.id "
                     + "JOIN Package AS p ON t.package_id = p.id "
-                    + "WHERE fts.TypeFTS MATCH ? AND " + notExistsClause + " "
+                    + "WHERE fts.TypeFTS MATCH ?"
+                    + (exclusion.isEmpty() ? " " : " AND " + exclusion + " ")
                     + "ORDER BY fts.rank, t.name, p.name, p.org LIMIT ? OFFSET ?";
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+        return queryList(sql, "searching types", stmt -> {
             int paramIndex = 1;
             if (!sanitizedQuery.isEmpty()) {
                 stmt.setString(paramIndex++, sanitizedQuery + "*");
             }
-            paramIndex = bindModulePairs(stmt, paramIndex, excludedModules);
-            stmt.setInt(paramIndex++, safeLimit);
-            stmt.setInt(paramIndex, safeOffset);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    results.add(readTypeRow(rs));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching types: " + e.getMessage());
-            throw new RuntimeException("Failed to search types", e);
-        }
-
-        return results;
+            page.bind(stmt, bindModulePairs(stmt, paramIndex, excludedModules));
+        }, rs -> readRow(rs, "type_name", "type_description"));
     }
 
     /**
@@ -957,22 +716,13 @@ public class SearchDatabaseManager {
                     + (notExistsClause.isEmpty() ? "" : " AND " + notExistsClause);
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+        return queryFirst(sql, "counting types", stmt -> {
             int paramIndex = 1;
             if (!sanitizedQuery.isEmpty()) {
                 stmt.setString(paramIndex++, sanitizedQuery + "*");
             }
             bindModulePairs(stmt, paramIndex, excludedModules);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error counting types: " + e.getMessage());
-            throw new RuntimeException("Failed to count types", e);
-        }
+        }, rs -> rs.getInt(1), 0);
     }
 
     /**
@@ -1094,6 +844,58 @@ public class SearchDatabaseManager {
     }
 
     /**
+     * Runs one query and reads every row of its result, which is the shape of nearly every read here: open a
+     * connection, prepare, bind, iterate, and turn a {@link SQLException} into the unchecked failure the search API
+     * reports. Shared so a query can't leave a statement open or report a failure differently from its neighbours.
+     *
+     * <p>Two reads stay on the raw JDBC calls: {@link #searchFunctionsByPackages(Set, List, int, int)} runs two
+     * statements over one connection, and {@link #indexedTypeCounts(Set, String, boolean)} folds its rows into a map
+     * whose {@code LEFT JOIN} contract is the point of the method and is better read undiluted.</p>
+     *
+     * @param sql    the query to run
+     * @param action what the query is doing, for the failure message, as a gerund phrase
+     * @param binder binds the query's parameters
+     * @param reader builds one result from the row the cursor is on
+     * @param <T>    the result type
+     * @return one result per row, in the order the query returned them
+     * @throws RuntimeException if the query fails
+     */
+    private <T> List<T> queryList(String sql, String action, ParameterBinder binder, RowReader<T> reader) {
+        List<T> results = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(dbPath);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            binder.bind(stmt);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    results.add(reader.read(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.severe("Error " + action + ": " + e.getMessage());
+            throw new RuntimeException("Failed while " + action, e);
+        }
+        return results;
+    }
+
+    /**
+     * Runs a query expected to yield a single row, such as a {@code COUNT}.
+     *
+     * @param sql      the query to run
+     * @param action   what the query is doing, for the failure message, as a gerund phrase
+     * @param binder   binds the query's parameters
+     * @param reader   builds the result from the first row
+     * @param fallback the result for a query that returned no row at all
+     * @param <T>      the result type
+     * @return the first row's result, or {@code fallback} if there was none
+     * @throws RuntimeException if the query fails
+     */
+    private <T> T queryFirst(String sql, String action, ParameterBinder binder, RowReader<T> reader, T fallback) {
+        List<T> rows = queryList(sql, action, binder, reader);
+        return rows.isEmpty() ? fallback : rows.getFirst();
+    }
+
+    /**
      * Builds a joinable {@code (org, name)} pair list. Uses the {@code SELECT column1 AS ... FROM (VALUES ...)} form
      * rather than a {@code (VALUES ...) AS t(a, b)} table alias, which SQLite does not support.
      *
@@ -1125,10 +927,95 @@ public class SearchDatabaseManager {
         return index;
     }
 
-    private static SearchResult readTypeRow(ResultSet rs) throws SQLException {
+    /**
+     * Builds the join that carries each module's row range into a query, as {@code (org, name, skip, take)} tuples
+     * bound by {@link #bindModuleRanges(PreparedStatement, int, List, Function)}. Uses the same
+     * {@code SELECT column1 AS ... FROM (VALUES ...)} form, and carries the same
+     * {@code SQLITE_MAX_COMPOUND_SELECT} ceiling, as {@link #modulePairsSubquery(int)}.
+     */
+    private static String rangePairsJoin(int size) {
+        return "  JOIN (SELECT column1 AS pkg_org, column2 AS pkg_name, column3 AS pkg_skip, "
+                + "               column4 AS pkg_take FROM (VALUES "
+                + String.join(",", Collections.nCopies(size, "(?,?,?,?)")) + ")) AS q "
+                + "  ON q.pkg_org = p.org AND q.pkg_name = p.name";
+    }
+
+    /**
+     * Binds an {@code (org, name, skip, take)} tuple per module starting at {@code paramIndex}, returning the next
+     * free index. The range is clamped here because {@link #searchTypesInRanges(Map, String)} takes its ranges from
+     * a caller, so they aren't necessarily the non-negative ones {@link FairShareWindow} produces.
+     */
+    private static int bindModuleRanges(PreparedStatement stmt, int paramIndex, List<ModuleCoordinate> modules,
+                                        Function<ModuleCoordinate, FairShareWindow.Range> rangeOf)
+            throws SQLException {
+        int index = paramIndex;
+        for (ModuleCoordinate module : modules) {
+            FairShareWindow.Range range = rangeOf.apply(module);
+            stmt.setString(index++, module.org());
+            stmt.setString(index++, module.moduleName());
+            stmt.setInt(index++, Math.max(range.skip(), 0));
+            stmt.setInt(index++, Math.max(range.take(), 0));
+        }
+        return index;
+    }
+
+    /**
+     * Reads one result row. Every query that returns searchable symbols aliases its package columns to the same
+     * names, so only the symbol's own two columns vary between them.
+     */
+    private static SearchResult readRow(ResultSet rs, String nameColumn, String descriptionColumn)
+            throws SQLException {
         SearchResult.Package packageInfo = new SearchResult.Package(rs.getString("package_org"),
                 rs.getString("package_name"), rs.getString("module_name"), rs.getString("package_version"));
-        return SearchResult.from(packageInfo, rs.getString("type_name"), rs.getString("type_description"));
+        return SearchResult.from(packageInfo, rs.getString(nameColumn), rs.getString(descriptionColumn));
+    }
+
+    /**
+     * Binds a query's parameters. A callback rather than a list of values because the parameter order depends on
+     * which optional clauses the query was built with.
+     */
+    @FunctionalInterface
+    private interface ParameterBinder {
+
+        void bind(PreparedStatement stmt) throws SQLException;
+    }
+
+    /**
+     * Builds one result from the row a cursor is on.
+     *
+     * @param <T> the result type
+     */
+    @FunctionalInterface
+    private interface RowReader<T> {
+
+        T read(ResultSet rs) throws SQLException;
+    }
+
+    /**
+     * A pagination window in the form SQLite has to receive it.
+     *
+     * <p>{@code limit} and {@code offset} reach the search API straight from the client query map with no bounds
+     * checking, and SQLite reads a <b>negative {@code LIMIT} as unlimited</b> - so an out-of-range page would
+     * silently return the whole index rather than nothing. Clamping once, here, is what keeps that from having to
+     * be remembered at every query.</p>
+     *
+     * @param limit  the page size, never negative
+     * @param offset the number of rows to skip, never negative
+     */
+    private record Page(int limit, int offset) {
+
+        static Page of(int limit, int offset) {
+            return new Page(Math.max(limit, 0), Math.max(offset, 0));
+        }
+
+        /**
+         * Binds this page's {@code LIMIT} and then its {@code OFFSET} starting at {@code paramIndex}, which is the
+         * order every query here declares them in.
+         */
+        void bind(PreparedStatement stmt, int paramIndex) throws SQLException {
+            stmt.setInt(paramIndex, limit);
+            stmt.setInt(paramIndex + 1, offset);
+        }
     }
 
     /**
@@ -1142,12 +1029,10 @@ public class SearchDatabaseManager {
      * @throws RuntimeException if there is an error executing the search
      */
     public List<UnifiedSearchResult> searchAllTypes(String q, int limit, int offset) {
-        List<UnifiedSearchResult> results = new ArrayList<>();
         String sanitizedQuery = sanitizeQuery(q);
-        // SQLite treats a negative LIMIT as unlimited, so clamp the unchecked client values. Clamped before the
-        // per-kind split below, which would otherwise propagate a negative limit into both inner LIMITs as well.
-        int safeLimit = Math.max(limit, 0);
-        int safeOffset = Math.max(offset, 0);
+        // Clamped before the per-kind split below, which would otherwise propagate a negative limit into both
+        // inner LIMITs as well.
+        Page page = Page.of(limit, offset);
 
         String sql;
         if (sanitizedQuery.isEmpty()) {
@@ -1158,10 +1043,10 @@ public class SearchDatabaseManager {
                     SELECT 'function' as result_type,
                            f.name,
                            f.description,
-                           p.org,
+                           p.org AS package_org,
                            p.name AS module_name,
                            p.package_name,
-                           p.version,
+                           p.version AS package_version,
                            0 as relevance_score
                     FROM Function f
                     JOIN Package p ON f.package_id = p.id
@@ -1172,10 +1057,10 @@ public class SearchDatabaseManager {
                     SELECT 'connector' as result_type,
                            c.name,
                            c.description,
-                           p.org,
+                           p.org AS package_org,
                            p.name AS module_name,
                            p.package_name,
-                           p.version,
+                           p.version AS package_version,
                            0 as relevance_score
                     FROM Connector c
                     JOIN Package p ON c.package_id = p.id
@@ -1196,10 +1081,10 @@ public class SearchDatabaseManager {
                     SELECT 'function' as result_type,
                            f.name,
                            f.description,
-                           p.org,
+                           p.org AS package_org,
                            p.name AS module_name,
                            p.package_name,
-                           p.version,
+                           p.version AS package_version,
                            fts.rank as relevance_score
                     FROM FunctionFTS fts
                     JOIN Function f ON fts.rowid = f.id
@@ -1212,10 +1097,10 @@ public class SearchDatabaseManager {
                     SELECT 'connector' as result_type,
                            c.name,
                            c.description,
-                           p.org,
+                           p.org AS package_org,
                            p.name AS module_name,
                            p.package_name,
-                           p.version,
+                           p.version AS package_version,
                            fts.rank as relevance_score
                     FROM ConnectorFTS fts
                     JOIN Connector c ON fts.rowid = c.id
@@ -1234,12 +1119,10 @@ public class SearchDatabaseManager {
                 """;
         }
 
-        try (Connection conn = DriverManager.getConnection(dbPath);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
+        return queryList(sql, "searching all types", stmt -> {
             int paramIndex = 1;
-            int functionsLimit = safeLimit / 2;
-            int connectorsLimit = safeLimit - functionsLimit;
+            int functionsLimit = page.limit() / 2;
+            int connectorsLimit = page.limit() - functionsLimit;
             if (sanitizedQuery.isEmpty()) {
                 stmt.setInt(paramIndex++, functionsLimit);
                 stmt.setInt(paramIndex++, connectorsLimit);
@@ -1249,33 +1132,8 @@ public class SearchDatabaseManager {
                 stmt.setString(paramIndex++, sanitizedQuery + "*");
                 stmt.setInt(paramIndex++, connectorsLimit);
             }
-            stmt.setInt(paramIndex++, safeLimit);
-            stmt.setInt(paramIndex, safeOffset);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    String resultType = rs.getString("result_type");
-                    String name = rs.getString("name");
-                    String description = rs.getString("description");
-                    String org = rs.getString("org");
-                    String moduleName = rs.getString("module_name");
-                    String packageName = rs.getString("package_name");
-                    String version = rs.getString("version");
-
-                    SearchResult searchResult = SearchResult.from(org, packageName, moduleName, version, name,
-                            description);
-                    results.add(new UnifiedSearchResult(resultType, searchResult));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.severe("Error searching all types: " + e.getMessage());
-            throw new RuntimeException("Failed to search all types", e);
-        } catch (NumberFormatException e) {
-            LOGGER.severe("Invalid number format in query parameters: " + e.getMessage());
-            throw new RuntimeException("Invalid limit or offset value", e);
-        }
-
-        return results;
+            page.bind(stmt, paramIndex);
+        }, rs -> new UnifiedSearchResult(rs.getString("result_type"), readRow(rs, "name", "description")));
     }
 
     /**

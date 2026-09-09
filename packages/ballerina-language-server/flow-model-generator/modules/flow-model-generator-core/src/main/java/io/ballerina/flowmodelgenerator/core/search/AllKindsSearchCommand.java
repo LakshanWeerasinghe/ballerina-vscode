@@ -181,10 +181,7 @@ public class AllKindsSearchCommand extends SearchCommand {
 
         for (SearchResult result : results) {
             String moduleName = result.packageInfo().moduleName();
-            // Org-aware: this pool is a global query, so a same-named package from another org must not be
-            // mistaken for the import.
-            Builder builder = importedModules.contains(
-                    new ModuleCoordinate(result.packageInfo().org(), moduleName))
+            Builder builder = importedModules.contains(result.packageInfo().coordinate())
                     ? importedFnBuilder : stdLibBuilder;
             builder.stepIn(moduleName, "", List.of())
                     .node(createFunctionNode(result));

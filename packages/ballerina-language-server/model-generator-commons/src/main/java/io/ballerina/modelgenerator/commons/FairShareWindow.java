@@ -19,6 +19,7 @@
 package io.ballerina.modelgenerator.commons;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +109,27 @@ public final class FairShareWindow {
         public Range of(K key) {
             int skip = startQuotas.getOrDefault(key, 0);
             return new Range(skip, endQuotas.getOrDefault(key, 0) - skip);
+        }
+
+        /**
+         * Returns the ranges of the given keys that this page actually takes rows from, dropping the empty ones.
+         *
+         * <p>A page rarely reaches every source - the sources it skips entirely are the common case, not the
+         * exception - and a consumer that has to read rows per source (one SQL range join, one list slice) wants
+         * only the sources it will read from, so the empty ranges are filtered here rather than at each consumer.</p>
+         *
+         * @param keys the sources to report on
+         * @return the range of each of those keys with a non-empty {@code take}, keyed by source
+         */
+        public Map<K, Range> nonEmpty(Collection<K> keys) {
+            Map<K, Range> nonEmptyRanges = new HashMap<>();
+            for (K key : keys) {
+                Range range = of(key);
+                if (range.take() > 0) {
+                    nonEmptyRanges.put(key, range);
+                }
+            }
+            return nonEmptyRanges;
         }
     }
 

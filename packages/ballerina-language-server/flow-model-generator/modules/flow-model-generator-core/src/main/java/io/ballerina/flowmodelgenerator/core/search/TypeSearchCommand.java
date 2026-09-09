@@ -194,8 +194,7 @@ class TypeSearchCommand extends SearchCommand {
                 continue;
             }
             String typeName = typeSymbol.getName().get();
-            String description = typeSymbol instanceof Documentable documentable
-                    ? documentable.documentation().flatMap(Documentation::description).orElse("") : "";
+            String description = description(typeSymbol);
             int score = RelevanceCalculator.calculateFuzzyRelevanceScore(typeName, description, query);
             if (score > 0) {
                 scoredTypes.add(new ScoredType(typeSymbol, typeEntry.kind(), typeName, description, score));
@@ -261,31 +260,15 @@ class TypeSearchCommand extends SearchCommand {
             SearchResult.Package packageInfo = searchResult.packageInfo();
 
             // Add the type to the respective category
-            String icon = CommonUtils.generateIcon(packageInfo.org(), packageInfo.packageName(), packageInfo.version());
-            Metadata metadata = new Metadata.Builder<>(null)
-                    .label(searchResult.name())
-                    .description(searchResult.description())
-                    .icon(icon)
-                    .build();
-            Codedata codedata = new Codedata.Builder<>(null)
-                    .node(NodeKind.TYPEDESC)
-                    .org(packageInfo.org())
-                    .module(packageInfo.moduleName())
-                    .packageName(packageInfo.packageName())
-                    .symbol(searchResult.name())
-                    .version(packageInfo.version())
-                    .build();
-            // Org-aware: search() sources results from a query that spans the whole library, so a same-named
-            // package from another org (e.g. ballerina/np vs ballerinax/np) must not be mistaken for the import.
             Category.Builder builder;
-            if (importedModules.contains(new ModuleCoordinate(packageInfo.org(), packageInfo.moduleName()))) {
+            if (importedModules.contains(packageInfo.coordinate())) {
                 builder = importedTypesBuilder;
                 importedCount++;
             } else {
                 builder = availableTypesBuilder;
             }
             builder.stepIn(packageInfo.moduleName(), "", List.of())
-                    .node(new AvailableNode(metadata, codedata, true));
+                    .node(typeNode(packageInfo, searchResult.name(), searchResult.description()));
         }
         return importedCount;
     }
@@ -317,17 +300,10 @@ class TypeSearchCommand extends SearchCommand {
         liveMatches.forEach((module, matches) -> pool.put(module, matches.size()));
         FairShareWindow.Ranges<ModuleCoordinate> ranges = FairShareWindow.rangesOf(pool, offset, limit);
 
-        Map<ModuleCoordinate, FairShareWindow.Range> indexedRanges = new HashMap<>();
-        for (ModuleCoordinate module : indexedCounts.keySet()) {
-            FairShareWindow.Range range = ranges.of(module);
-            if (range.take() > 0) {
-                indexedRanges.put(module, range);
-            }
-        }
-
         // Called unconditionally, and before anything else: it is what creates the imported and standard-library
         // categories, which stay in the response even when a page puts nothing in them.
-        List<SearchResult> indexedMatches = dbManager.searchTypesInRanges(indexedRanges, query);
+        List<SearchResult> indexedMatches =
+                dbManager.searchTypesInRanges(ranges.nonEmpty(indexedCounts.keySet()), query);
         buildLibraryNodes(indexedMatches);
         int emitted = indexedMatches.size() + buildLiveTypeNodes(liveMatches, ranges);
 
@@ -341,6 +317,30 @@ class TypeSearchCommand extends SearchCommand {
         int importedCapacity = pool.values().stream().mapToInt(Integer::intValue).sum();
         buildLibraryNodes(dbManager.searchTypesExcludingPackages(query, importedModules,
                 Math.max(0, limit - emitted), Math.max(0, offset - importedCapacity)));
+    }
+
+    /**
+     * Builds the node one imported type is emitted as.
+     *
+     * <p>Shared by the indexed and the live-compiled tiers so a type's node can't depend on which tier found it.
+     * {@code TYPEDESC} for both: the index stores no type-kind column, so resolving the real kind on the live side
+     * would make an imported type's node depend on whether its module happens to be indexed.</p>
+     */
+    private static AvailableNode typeNode(SearchResult.Package packageInfo, String typeName, String description) {
+        Metadata metadata = new Metadata.Builder<>(null)
+                .label(typeName)
+                .description(description)
+                .icon(CommonUtils.generateIcon(packageInfo.org(), packageInfo.packageName(), packageInfo.version()))
+                .build();
+        Codedata codedata = new Codedata.Builder<>(null)
+                .node(NodeKind.TYPEDESC)
+                .org(packageInfo.org())
+                .module(packageInfo.moduleName())
+                .packageName(packageInfo.packageName())
+                .symbol(typeName)
+                .version(packageInfo.version())
+                .build();
+        return new AvailableNode(metadata, codedata, true);
     }
 
     /**
@@ -420,25 +420,8 @@ class TypeSearchCommand extends SearchCommand {
             int end = Math.min(range.skip() + range.take(), moduleMatches.size());
             for (int i = Math.max(range.skip(), 0); i < end; i++) {
                 LiveTypeMatch match = moduleMatches.get(i);
-                String icon = CommonUtils.generateIcon(match.orgName(), match.packageName(), match.version());
-                Metadata metadata = new Metadata.Builder<>(null)
-                        .label(match.typeName())
-                        .description(match.description())
-                        .icon(icon)
-                        .build();
-                Codedata codedata = new Codedata.Builder<>(null)
-                        // TYPEDESC to match what the indexed tiers emit: the index stores no type-kind column, so
-                        // resolving the real kind here would make an imported type's node depend on whether its
-                        // module happens to be indexed.
-                        .node(NodeKind.TYPEDESC)
-                        .org(match.orgName())
-                        .module(match.moduleName())
-                        .packageName(match.packageName())
-                        .symbol(match.typeName())
-                        .version(match.version())
-                        .build();
                 importedTypesBuilder.stepIn(match.moduleName(), "", List.of())
-                        .node(new AvailableNode(metadata, codedata, true));
+                        .node(typeNode(match.packageInfo(), match.typeName(), match.description()));
                 emitted++;
             }
         }
@@ -473,9 +456,9 @@ class TypeSearchCommand extends SearchCommand {
             return List.of();
         }
 
-        String orgName = dependencyPackage.packageOrg().toString();
-        String packageName = dependencyPackage.packageName().toString();
-        String version = dependencyPackage.packageVersion().toString();
+        SearchResult.Package packageInfo = new SearchResult.Package(dependencyPackage.packageOrg().toString(),
+                dependencyPackage.packageName().toString(), moduleName,
+                dependencyPackage.packageVersion().toString());
         String liveQuery = SearchDatabaseManager.sanitizeQuery(query);
 
         List<LiveTypeMatch> matches = new ArrayList<>();
@@ -495,18 +478,21 @@ class TypeSearchCommand extends SearchCommand {
                 continue;
             }
             String typeName = symbol.getName().get();
-            String description = symbol instanceof Documentable documentable
-                    ? documentable.documentation().flatMap(Documentation::description).orElse("") : "";
+            String description = description(symbol);
             int score = RelevanceCalculator.calculateFuzzyRelevanceScore(typeName, description, liveQuery);
             if (score > 0) {
-                matches.add(new LiveTypeMatch(moduleName, orgName, packageName, version, typeName, description,
-                        score));
+                matches.add(new LiveTypeMatch(packageInfo, typeName, description, score));
             }
         }
         // An empty query scores every type 1, so this settles into alphabetical order for the browse view.
         matches.sort(Comparator.comparingInt(LiveTypeMatch::score).reversed()
                 .thenComparing(LiveTypeMatch::typeName));
         return matches;
+    }
+
+    private static String description(Symbol symbol) {
+        return symbol instanceof Documentable documentable
+                ? documentable.documentation().flatMap(Documentation::description).orElse("") : "";
     }
 
     private static NodeKind toNodeKind(TypeDescKind typeDescKind) {
@@ -533,16 +519,17 @@ class TypeSearchCommand extends SearchCommand {
      * A type match found by live compilation, carrying enough context to build its node once matches from every
      * missing module have been collected and ranked together.
      *
-     * @param moduleName  the module key ("packageName[.moduleNamePart]") the type was found in
-     * @param orgName     the organization of the dependency package
-     * @param packageName the name of the dependency package
-     * @param version     the version of the dependency package
+     * @param packageInfo the dependency package the type was found in, keyed the way indexed results are so both
+     *                    tiers can be emitted by one node builder
      * @param typeName    the name of the matched type
      * @param description the description of the matched type
      * @param score       the relevance score for ranking
      */
-    private record LiveTypeMatch(String moduleName, String orgName, String packageName, String version,
-                                 String typeName, String description, int score) {
+    private record LiveTypeMatch(SearchResult.Package packageInfo, String typeName, String description, int score) {
+
+        String moduleName() {
+            return packageInfo.moduleName();
+        }
     }
 
     /**
