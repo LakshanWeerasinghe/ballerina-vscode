@@ -560,7 +560,8 @@ public class PackageUtil {
                         ResolutionOptions.builder().setOffline(true).build()).stream()
                 .filter(response -> response.resolvedPackage() != null)
                 .findFirst()
-                .map(ResolutionResponse::resolvedPackage);
+                .map(response -> response.resolvedPackage().project().sourceRoot())
+                .flatMap(PackageUtil::loadBalaPackage);
     }
 
     public static boolean isModuleUnresolved(String org, String name, String version) {

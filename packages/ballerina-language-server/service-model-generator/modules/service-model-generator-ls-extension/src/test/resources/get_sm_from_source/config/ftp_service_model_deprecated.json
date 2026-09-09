@@ -13,13 +13,14 @@
     "id": "0",
     "name": "FTP Integration",
     "type": "ftp",
+    "triggerKind": "file",
     "displayName": "FTP Integration",
     "moduleName": "ftp",
     "orgName": "ballerina",
-    "version": "2.20.1",
+    "version": "2.20.3",
     "packageName": "ftp",
     "listenerProtocol": "ftp",
-    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.20.1.png",
+    "icon": "https://bcentral-packageicons.azureedge.net/images/ballerina_ftp_2.20.3.png",
     "properties": {
       "listener": {
         "metadata": {
@@ -322,7 +323,7 @@
           "orgName": "ballerina",
           "packageName": "ftp",
           "moduleName": "ftp",
-          "version": "2.20.1"
+          "version": "2.20.3"
         },
         "properties": {},
         "group": "onFileChange",
