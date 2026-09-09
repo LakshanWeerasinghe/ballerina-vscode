@@ -158,6 +158,7 @@ class AgentStatusManager {
             return;
         }
         this.aiPanelVisible = visible;
+        vscode.commands.executeCommand('setContext', 'ballerina.aiPanelVisible', visible);
         // Either direction means the panel has been on screen: becoming visible
         // shows the outcome, and going hidden means it was visible until now.
         const acknowledged = this.acknowledgeTerminalState();

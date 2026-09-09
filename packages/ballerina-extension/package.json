@@ -1157,7 +1157,7 @@
                 {
                     "command": "ballerina.open.ai.panel",
                     "group": "navigation@1",
-                    "when": "resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject && !ballerina.copilotAmbientPresent)",
+                    "when": "(resourceLangId == ballerina || isBallerinaDiagram || (isBalVisualizerActive && isBIProject && !ballerina.copilotAmbientPresent)) && !ballerina.aiPanelVisible",
                     "title": "Open WSO2 Integrator Copilot"
                 },
                 {
