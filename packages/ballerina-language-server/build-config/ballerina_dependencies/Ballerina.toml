@@ -190,7 +190,7 @@ version = "1.0.2"
 [[dependency]]
 org = "ballerinax"
 name = "salesforce"
-version = "8.4.0"
+version = "8.7.2"
 
 [[dependency]]
 org = "ballerinax"
