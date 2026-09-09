@@ -125,4 +125,18 @@ describe("saveEditedDocuments", () => {
 
         expect(edited.save).toHaveBeenCalled();
     });
+
+    it("reports a save that failed and still saves the rest", async () => {
+        const failing = documentFor("/ws/a.bal", true);
+        failing.save.mockResolvedValue(false);
+        const next = documentFor("/ws/b.bal", true);
+        workspace.textDocuments = [failing, next];
+        const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+
+        await saveEditedDocuments([uri("/ws/a.bal"), uri("/ws/b.bal")]);
+
+        expect(next.save).toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
+        warn.mockRestore();
+    });
 });

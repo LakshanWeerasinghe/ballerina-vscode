@@ -22,10 +22,11 @@ import { TabInputText, Uri, window, workspace } from 'vscode';
  * Keeping a live workspace edit out of the user's tab bar.
  *
  * The agent writes `.bal` files through `workspace.applyEdit`, which is what keeps open editors,
- * the diagrams and the Language Server's `file://` view in step — nothing else notifies the LS,
- * since the language client registers no file watcher. The cost is that VS Code materialises a
- * document for every file the edit touches and surfaces one the user never opened as a tab, so a
- * generation writing twenty files buries the editor in twenty tabs.
+ * the diagrams and the Language Server's `file://` view in step: the LS ignores disk-watcher events
+ * for files the client already syncs, so a plain disk write would silently desync any file the
+ * editor holds. The cost is that VS Code materialises a dirty document for every file the edit
+ * touches and, unless it is saved within ~800 ms, opens a tab for it — so a generation writing
+ * twenty files buried the editor in twenty tabs.
  */
 
 function textTabs(): { tab: unknown; uri: Uri }[] {
@@ -46,12 +47,12 @@ export function openTabUris(): Set<string> {
     return new Set(textTabs().map(({ uri }) => uri.toString()));
 }
 
-/** Saves what this edit touched; `workspace.saveAll` would also flush the user's own unsaved work. */
+/** Saves what this edit touched; `workspace.saveAll` skips editor-less documents and flushes the user's own unsaved work. */
 export async function saveEditedDocuments(uris: Uri[]): Promise<void> {
     for (const uri of uris) {
         const document = documentFor(uri);
-        if (document?.isDirty) {
-            await document.save();
+        if (document?.isDirty && !(await document.save())) {
+            console.warn(`[EditTabs] Failed to save ${uri.fsPath}; VS Code will surface it as a dirty tab.`);
         }
     }
 }
