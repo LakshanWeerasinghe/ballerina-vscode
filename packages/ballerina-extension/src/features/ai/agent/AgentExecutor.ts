@@ -527,7 +527,9 @@ export class AgentExecutor extends AICommandExecutor<GenerateAgentCodeRequest> {
                 const summary = extractCompactionSummary(compactionContent);
                 cleanedCompactionSummary = summary || compactionContent;
                 streamContext.wasCompactionTurn = true;
-                this.config.eventHandler({ type: 'compaction_end', summary: summary ?? undefined });
+                // The summary stays internal (kept only in cleanedCompactionSummary for prepareStep);
+                // it is never forwarded to the webview or the persisted transcript.
+                this.config.eventHandler({ type: 'compaction_end' });
                 // Reset context widget to near-zero after compaction
                 this.config.eventHandler({
                     type: 'usage_metrics',
