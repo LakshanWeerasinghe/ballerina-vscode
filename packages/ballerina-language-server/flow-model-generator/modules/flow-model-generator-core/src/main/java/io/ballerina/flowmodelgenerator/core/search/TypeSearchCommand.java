@@ -24,6 +24,7 @@ import io.ballerina.compiler.api.symbols.ClassSymbol;
 import io.ballerina.compiler.api.symbols.Documentable;
 import io.ballerina.compiler.api.symbols.Documentation;
 import io.ballerina.compiler.api.symbols.EnumSymbol;
+import io.ballerina.compiler.api.symbols.ModuleSymbol;
 import io.ballerina.compiler.api.symbols.Qualifiable;
 import io.ballerina.compiler.api.symbols.Qualifier;
 import io.ballerina.compiler.api.symbols.Symbol;
@@ -32,6 +33,8 @@ import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeReferenceTypeSymbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.syntax.tree.ImportDeclarationNode;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.flowmodelgenerator.core.model.AvailableNode;
 import io.ballerina.flowmodelgenerator.core.model.Category;
 import io.ballerina.flowmodelgenerator.core.model.Codedata;
@@ -46,6 +49,8 @@ import io.ballerina.modelgenerator.commons.PackageModuleUtils;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.SearchDatabaseManager;
 import io.ballerina.modelgenerator.commons.SearchResult;
+import io.ballerina.projects.Document;
+import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageName;
@@ -276,10 +281,10 @@ class TypeSearchCommand extends SearchCommand {
     /**
      * Builds the imported-types category for one page, and optionally the standard-library category after it.
      *
-     * <p>The imported pool spans <b>both</b> the modules the search index knows and the ones reachable only by
-     * compiling them on demand - a connector published too recently to have been indexed is otherwise invisible to
-     * type search entirely. One {@link FairShareWindow} allocation covers all of them, so each imported module gets
-     * its share of the page regardless of which pool it came from.</p>
+     * <p>The imported pool spans <b>both</b> the modules the search index knows and the ones reachable only
+     * through their module symbols - a connector published too recently to have been indexed is otherwise
+     * invisible to type search entirely. One {@link FairShareWindow} allocation covers all of them, so each
+     * imported module gets its share of the page regardless of which pool it came from.</p>
      *
      * <p>Giving the live pool only the slots the indexed pools leave over does not work, and is what made the
      * original fix ineffective in a real project: one imported module the size of {@code ballerina/http} (330
@@ -292,7 +297,7 @@ class TypeSearchCommand extends SearchCommand {
      */
     private void buildImportedNodes(boolean includeLibrary) {
         // One query answers both "which imported modules does the index know" (the keys) and "how many of their
-        // types match" (the values); a module absent from the map isn't indexed and has to be compiled.
+        // types match" (the values); a module absent from the map isn't indexed and is read from its symbols.
         Map<ModuleCoordinate, Integer> indexedCounts = dbManager.indexedTypeCounts(importedModules, query);
         Map<ModuleCoordinate, List<LiveTypeMatch>> liveMatches = collectLiveMatches(indexedCounts.keySet());
 
@@ -344,14 +349,15 @@ class TypeSearchCommand extends SearchCommand {
     }
 
     /**
-     * Compiles the imported modules the index doesn't know about and scores their public types against the query.
+     * Reads the imported modules the index doesn't know about from their module symbols and scores their public
+     * types against the query.
      *
      * <p>Matches are ranked within each module rather than pooled across modules, to match how the indexed side is
      * paged: a page takes each module's own best matches, so no module's weaker matches can push another module's
      * stronger ones onto a later page.</p>
      *
-     * @param indexedModules the imported modules the index does know, which need no compilation
-     * @return the ranked matches of each module that had to be compiled, keyed by module
+     * @param indexedModules the imported modules the index does know, which are paged from the index instead
+     * @return the ranked matches of each module read from its symbols, keyed by module
      */
     private Map<ModuleCoordinate, List<LiveTypeMatch>> collectLiveMatches(Set<ModuleCoordinate> indexedModules) {
         Set<ModuleCoordinate> missingModules = new HashSet<>();
@@ -375,6 +381,7 @@ class TypeSearchCommand extends SearchCommand {
                 new ArrayList<>(currentPackage.getResolution().dependencyGraph().getNodes());
         Collections.sort(sortedDependencies);
 
+        Map<ModuleCoordinate, ModuleSymbol> importedSymbols = importedModuleSymbols();
         Map<ModuleCoordinate, List<LiveTypeMatch>> matches = new HashMap<>();
         outer:
         for (ResolvedPackageDependency dependency : sortedDependencies) {
@@ -390,7 +397,16 @@ class TypeSearchCommand extends SearchCommand {
                 if (!missingModules.contains(coordinate) || matches.containsKey(coordinate)) {
                     continue;
                 }
-                matches.put(coordinate, collectLiveModuleTypes(module, coordinate.moduleName(), dependencyPackage));
+                ModuleSymbol moduleSymbol = importedSymbols.get(coordinate);
+                if (moduleSymbol == null) {
+                    // Costs the user every type of this module, and a tier that reports nothing is
+                    // indistinguishable from a module with no matches - so say so at a level that is on.
+                    LOGGER.warning("No module symbol resolved for the imported module " + coordinate.org() + "/"
+                            + coordinate.moduleName() + "; its types are absent from type search");
+                    continue;
+                }
+                matches.put(coordinate,
+                        collectLiveModuleTypes(moduleSymbol, coordinate.moduleName(), dependencyPackage));
                 if (matches.size() >= missingModules.size()) {
                     break outer;
                 }
@@ -429,11 +445,18 @@ class TypeSearchCommand extends SearchCommand {
     }
 
     /**
-     * Scores the public types of one live-compiled dependency module, ranked best match first.
+     * Scores the public types of one imported module the index doesn't know, ranked best match first.
+     *
+     * <p>The symbols come from the module's {@link ModuleSymbol}, which the root compilation has already resolved.
+     * Asking the dependency to compile itself instead does not work: a dependency resolved from a bala stops at
+     * {@code MODULE_SYMBOL_LOADED} - its symbols are read from the BIR cache rather than compiled from source - and
+     * {@code PackageCompilation.getSemanticModel} refuses any module that never reached {@code COMPILED}. That is
+     * the state of every dependency of a project that has been built once, so this tier returned nothing at all for
+     * exactly the projects it exists to serve.</p>
      *
      * <p>Client classes are excluded: those are connectors rather than types, mirroring what the index generator
-     * itself leaves out. Enums are included, since {@code EnumSymbol} is a {@code TypeDefinitionSymbol} and the
-     * index stores enums as types.</p>
+     * itself leaves out. Enums are included, but have to be asked for separately: {@code EnumSymbol} is a
+     * {@code TypeDefinitionSymbol}, yet {@link ModuleSymbol#typeDefinitions()} does not return them.</p>
      *
      * <p>Scoring starts from the same sanitized query the indexed tiers are given, but it is deliberately
      * <i>wider</i> than they are: the index is queried by FTS token prefix, while this scores substring and
@@ -442,31 +465,20 @@ class TypeSearchCommand extends SearchCommand {
      * reimplementing FTS5 tokenization in Java for a pool that is meant to be forgiving, so the asymmetry is
      * accepted; widening the indexed side instead is the change to make if the two must agree exactly.</p>
      */
-    private List<LiveTypeMatch> collectLiveModuleTypes(Module module, String moduleName, Package dependencyPackage) {
-        SemanticModel semanticModel;
-        try {
-            semanticModel = PackageUtil.getCompilation(module.packageInstance()).getSemanticModel(module.moduleId());
-        } catch (RuntimeException e) {
-            // Expected for generated/testonly modules with no semantic model, but this also catches genuine compiler
-            // errors - which silently cost the user every type in the module, so say so at a level that is on.
-            LOGGER.log(Level.WARNING, "Failed to compile dependency module for live type search: " + moduleName, e);
-            return List.of();
-        }
-        if (semanticModel == null) {
-            return List.of();
-        }
-
+    private List<LiveTypeMatch> collectLiveModuleTypes(ModuleSymbol moduleSymbol, String moduleName,
+                                                       Package dependencyPackage) {
         SearchResult.Package packageInfo = new SearchResult.Package(dependencyPackage.packageOrg().toString(),
                 dependencyPackage.packageName().toString(), moduleName,
                 dependencyPackage.packageVersion().toString());
         String liveQuery = SearchDatabaseManager.sanitizeQuery(query);
 
+        List<Symbol> candidates = new ArrayList<>(moduleSymbol.typeDefinitions());
+        candidates.addAll(moduleSymbol.classes());
+        candidates.addAll(moduleSymbol.enums());
+
         List<LiveTypeMatch> matches = new ArrayList<>();
-        for (Symbol symbol : semanticModel.moduleSymbols()) {
-            if (!(symbol instanceof TypeDefinitionSymbol) && !(symbol instanceof ClassSymbol)) {
-                continue;
-            }
-            // Both TypeDefinitionSymbol and ClassSymbol are Qualifiable, so this cast is safe.
+        for (Symbol symbol : candidates) {
+            // Every one of those three lists holds Qualifiable symbols, so this cast is safe.
             Qualifiable qualifiable = (Qualifiable) symbol;
             if (!qualifiable.qualifiers().contains(Qualifier.PUBLIC)) {
                 continue;
@@ -474,7 +486,7 @@ class TypeSearchCommand extends SearchCommand {
             if (symbol instanceof ClassSymbol && qualifiable.qualifiers().contains(Qualifier.CLIENT)) {
                 continue;
             }
-            if (symbol.getName().isEmpty()) {
+            if (symbol.getName().isEmpty() || !isWritableTypeName(symbol.getName().get())) {
                 continue;
             }
             String typeName = symbol.getName().get();
@@ -488,6 +500,67 @@ class TypeSearchCommand extends SearchCommand {
         matches.sort(Comparator.comparingInt(LiveTypeMatch::score).reversed()
                 .thenComparing(LiveTypeMatch::typeName));
         return matches;
+    }
+
+    /**
+     * The {@link ModuleSymbol} of every module the active package imports, keyed by coordinate.
+     *
+     * <p>Read from the root modules' own semantic models, which are compiled from source and so always available -
+     * unlike a dependency's. Keyed the way {@link ImportedModules} keys its coordinates, so a same-named module
+     * from another organization stays distinct.</p>
+     */
+    private Map<ModuleCoordinate, ModuleSymbol> importedModuleSymbols() {
+        Map<ModuleCoordinate, ModuleSymbol> moduleSymbols = new HashMap<>();
+        Package currentPackage = project.currentPackage();
+        for (Module module : PackageModuleUtils.modules(currentPackage)) {
+            SemanticModel semanticModel;
+            try {
+                semanticModel = PackageUtil.getCompilation(currentPackage).getSemanticModel(module.moduleId());
+            } catch (RuntimeException e) {
+                LOGGER.log(Level.WARNING, "Failed to read the semantic model of module " + module.moduleName(), e);
+                continue;
+            }
+            for (DocumentId documentId : module.documentIds()) {
+                Document document = module.document(documentId);
+                ModulePartNode rootNode = (ModulePartNode) document.syntaxTree().rootNode();
+                for (ImportDeclarationNode importNode : rootNode.imports()) {
+                    Optional<Symbol> symbol = semanticModel.symbol(importNode);
+                    if (symbol.isEmpty() || symbol.get().kind() != SymbolKind.MODULE) {
+                        continue;
+                    }
+                    ModuleSymbol moduleSymbol = (ModuleSymbol) symbol.get();
+                    // ModuleID.moduleName() already spells a submodule the way ModuleCoordinate.of normalizes a
+                    // resolved ModuleName - packageName[.moduleNamePart] - so it is taken as it stands.
+                    moduleSymbols.putIfAbsent(new ModuleCoordinate(moduleSymbol.id().orgName(),
+                            moduleSymbol.id().moduleName()), moduleSymbol);
+                }
+            }
+        }
+        return moduleSymbols;
+    }
+
+    /**
+     * Whether a symbol's name can be written as {@code module:Name} in Ballerina source.
+     *
+     * <p>A module read from its BIR carries compiler-generated symbols that a source compilation never surfaced:
+     * {@code ballerina/grpc} alone exposes a public anonymous service class, {@code $anonType$_0}, and a public
+     * readonly intersection whose name is a type descriptor, {@code (ballerina/oauth2:2:ClientAuth & readonly)}.
+     * Both carry {@code PUBLIC}, so no qualifier separates them from real types, and both sort ahead of every one
+     * of them. Neither can be inserted into source, which is all this tier emits, so the name is the test.</p>
+     */
+    private static boolean isWritableTypeName(String name) {
+        // A quoted identifier ('from) is still writable, so only its leading quote is skipped.
+        int start = name.startsWith("'") ? 1 : 0;
+        if (name.length() <= start || Character.isDigit(name.charAt(start))) {
+            return false;
+        }
+        for (int index = start; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if (!Character.isLetterOrDigit(character) && character != '_') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String description(Symbol symbol) {
