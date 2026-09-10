@@ -352,10 +352,8 @@ export function libraryContains(library: string, libraries: string[]): boolean {
 }
 
 export async function getMaximizedSelectedLibs(libNames: string[]): Promise<Library[]> {
-    const result = (await langClient.getCopilotFilteredLibraries({
-        libNames: libNames
-    })) as { libraries: Library[] };
-    const normalizedLibraries: Library[] = result.libraries.map(lib => {
+    const libraries = await fetchFilteredLibraries(libNames);
+    const normalizedLibraries: Library[] = libraries.map(lib => {
             return {
                 name: lib.name,
                 description: lib.description,
@@ -370,6 +368,49 @@ export async function getMaximizedSelectedLibs(libNames: string[]): Promise<Libr
         });
 
     return normalizedLibraries;
+}
+
+/**
+ * Fetches the full catalogs of the given libraries in one request, degrading to one request per library
+ * when the batch is rejected.
+ *
+ * The language server already contains failures per library, so a rejected batch means the request as a
+ * whole failed. Retrying each library on its own lets every library that can still be served reach the
+ * caller instead of one bad entry costing the whole batch, e.g. `[salesforce, aws.sns]` losing both.
+ * Retries run one at a time: each compiles a package, so fanning them out would only contend for the
+ * language server. When no library can be served the original error propagates, so a dead language server
+ * still surfaces as a failure rather than an empty catalog.
+ */
+async function fetchFilteredLibraries(libNames: string[]): Promise<Library[]> {
+    const fetchLibraries = async (names: string[]): Promise<Library[]> => {
+        const result = (await langClient.getCopilotFilteredLibraries({
+            libNames: names
+        })) as { libraries: Library[] };
+        return result.libraries ?? [];
+    };
+
+    try {
+        return await fetchLibraries(libNames);
+    } catch (error) {
+        if (libNames.length <= 1) {
+            throw error;
+        }
+        console.warn(`Batch fetch of libraries [${libNames}] failed: ${error}. Retrying each library individually.`);
+        const libraries: Library[] = [];
+        let anyFetched = false;
+        for (const libName of libNames) {
+            try {
+                libraries.push(...await fetchLibraries([libName]));
+                anyFetched = true;
+            } catch (libError) {
+                console.warn(`Library ${libName} could not be fetched: ${libError}. Skipping.`);
+            }
+        }
+        if (!anyFetched) {
+            throw error;
+        }
+        return libraries;
+    }
 }
 
 export async function toMaximizedLibrariesFromLibJson(
@@ -952,9 +993,22 @@ async function getExternalRecords(
 
         let library = cachedLibraries.find((lib) => lib.name === libName);
         if (!library) {
-            const result = (await langClient.getCopilotFilteredLibraries({
-                libNames: [libName]
-            })) as { libraries: Library[] };
+            // A failed fetch of ONE external dependency must not cost the caller the libraries it
+            // already has. Without this catch, a rejected request unwound uncaught to LibraryGetTool's
+            // catch-all, which answers the WHOLE tool call with `[]` — `ballerinax/aws.sns` was lost
+            // because its `ConnectionConfig.auth` field links to `ballerinax/aws.auth`, whose fetch the
+            // language server answered with a JSON-RPC error. Skipping degrades to the same shape as a
+            // gracefully-empty response below: the referencing field still renders, with its Special
+            // Agent Note naming the owning module, so only this record's definition is missing.
+            let result: { libraries: Library[] };
+            try {
+                result = (await langClient.getCopilotFilteredLibraries({
+                    libNames: [libName]
+                })) as { libraries: Library[] };
+            } catch (error) {
+                console.warn(`Library ${libName} could not be fetched: ${error}. Skipping.`);
+                continue;
+            }
             if (result.libraries && result.libraries.length > 0) {
                 library = result.libraries[0];
             } else {
