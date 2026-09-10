@@ -21,11 +21,7 @@ package io.ballerina.modelgenerator.commons.trigger;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
@@ -40,7 +36,6 @@ import io.ballerina.projects.PackageDescriptor;
 import io.ballerina.projects.PackageName;
 import io.ballerina.projects.PackageOrg;
 import io.ballerina.projects.PackageVersion;
-import io.ballerina.projects.SemanticVersion;
 import io.ballerina.projects.environment.PackageRepository;
 import io.ballerina.projects.environment.ResolutionOptions;
 import io.ballerina.projects.environment.ResolutionRequest;
@@ -102,14 +97,12 @@ public final class LibraryMetadataReader {
 
     /** The connector's sparse {@code metadata/trigger-ui-metadata.json}, resolved from its {@code .bala}. */
     public Optional<TriggerUIMetadataModel> getTriggerUIMetadataModel(ModuleInfo moduleInfo) {
-        return packageRoot(moduleInfo)
-                .flatMap(root -> readTriggerUIMetadataModel(root, moduleInfo == null ? null : moduleInfo.version()));
+        return packageRoot(moduleInfo).flatMap(this::readTriggerUIMetadataModel);
     }
 
     /** Reads the artifact-tree projection without materializing or caching the complete L2 document. */
     public Optional<ArtifactMetadata> getArtifactMetadata(ModuleInfo moduleInfo) {
-        Optional<ArtifactMetadata> metadata = packageRoot(moduleInfo)
-                .flatMap(root -> readArtifactMetadata(root, moduleInfo == null ? null : moduleInfo.version()));
+        Optional<ArtifactMetadata> metadata = packageRoot(moduleInfo).flatMap(this::readArtifactMetadata);
         if (metadata.isPresent() && metadata.get().triggerKind() != null) {
             return metadata;
         }
@@ -150,14 +143,12 @@ public final class LibraryMetadataReader {
 
     /** The connector's sparse UI metadata, resolved from the Ballerina local repository. */
     public Optional<TriggerUIMetadataModel> getTriggerUIMetadataModelFromLocalRepository(ModuleInfo moduleInfo) {
-        return localPackageRoot(moduleInfo)
-                .flatMap(root -> readTriggerUIMetadataModel(root, moduleInfo == null ? null : moduleInfo.version()));
+        return localPackageRoot(moduleInfo).flatMap(this::readTriggerUIMetadataModel);
     }
 
     /** Artifact-tree L2 read from the Ballerina local repository. */
     public Optional<ArtifactMetadata> getArtifactMetadataFromLocalRepository(ModuleInfo moduleInfo) {
-        return localPackageRoot(moduleInfo)
-                .flatMap(root -> readArtifactMetadata(root, moduleInfo == null ? null : moduleInfo.version()));
+        return localPackageRoot(moduleInfo).flatMap(this::readArtifactMetadata);
     }
 
     /** Compatibility accessor for callers interested only in presentation metadata. */
@@ -238,25 +229,25 @@ public final class LibraryMetadataReader {
         });
     }
 
-    Optional<TriggerUIMetadataModel> readTriggerUIMetadataModel(Path packageRoot, String version) {
+    Optional<TriggerUIMetadataModel> readTriggerUIMetadataModel(Path packageRoot) {
         return readResourceFile(packageRoot, TRIGGER_UI_METADATA_RESOURCE_PATH)
-                .flatMap(json -> parseTriggerUIMetadata(json, version,
+                .flatMap(json -> parseTriggerUIMetadata(json,
                         packageRoot.resolve(TRIGGER_UI_METADATA_RESOURCE_PATH).toString()));
     }
 
-    Optional<ArtifactInfo.Resolved> readArtifactInfo(Path packageRoot, String version) {
-        return readArtifactMetadata(packageRoot, version)
+    Optional<ArtifactInfo.Resolved> readArtifactInfo(Path packageRoot) {
+        return readArtifactMetadata(packageRoot)
                 .flatMap(metadata -> Optional.ofNullable(metadata.artifactInfo()));
     }
 
-    Optional<ArtifactMetadata> readArtifactMetadata(Path packageRoot, String version) {
+    Optional<ArtifactMetadata> readArtifactMetadata(Path packageRoot) {
         Path metadataFile = packageRoot.resolve(TRIGGER_UI_METADATA_RESOURCE_PATH).normalize();
         if (!metadataFile.startsWith(packageRoot) || !Files.isRegularFile(metadataFile)) {
             return Optional.empty();
         }
         Path resourceRoot = metadataFile.getParent();
         try (Reader reader = Files.newBufferedReader(metadataFile, StandardCharsets.UTF_8)) {
-            return parseArtifactMetadata(reader, version, metadataFile.toString(),
+            return parseArtifactMetadata(reader, metadataFile.toString(),
                     relative -> readRelativeAsset(resourceRoot, relative));
         } catch (IOException | JsonParseException | IllegalStateException e) {
             LOGGER.log(Level.WARNING, "Ignoring artifactInfo in " + metadataFile, e);
@@ -264,21 +255,15 @@ public final class LibraryMetadataReader {
         }
     }
 
-    private Optional<ArtifactMetadata> parseArtifactMetadata(Reader sourceReader, String requestedVersion,
-                                                              String source,
+    private Optional<ArtifactMetadata> parseArtifactMetadata(Reader sourceReader, String source,
                                                               Function<String, Optional<String>> assetReader)
             throws IOException {
         try (JsonReader reader = new JsonReader(sourceReader)) {
-            ArtifactDocument root = readArtifactDocument(reader, null);
-            ArtifactDocument selected = root;
-            if (root.variants() != null && !root.variants().isEmpty()) {
-                selected = selectArtifactVariant(root.variants(), requestedVersion);
-            }
-            if (selected == null || selected.version() == null
-                    || !SUPPORTED_VERSION.matcher(selected.version()).matches()) {
+            ArtifactDocument document = readArtifactDocument(reader);
+            if (document.version() == null || !SUPPORTED_VERSION.matcher(document.version()).matches()) {
                 return Optional.empty();
             }
-            ArtifactInfo info = selected.artifactInfo();
+            ArtifactInfo info = document.artifactInfo();
             ArtifactInfo.Resolved resolved = null;
             if (info != null && info.icon() != null) {
                 Optional<String> light = assetReader.apply(info.icon().lightPath());
@@ -291,8 +276,8 @@ public final class LibraryMetadataReader {
                     LOGGER.warning("Ignoring incomplete or unsafe artifact icon in " + source);
                 }
             }
-            String triggerKind = selected.triggerKind() != null && TRIGGER_KINDS.contains(selected.triggerKind())
-                    ? selected.triggerKind() : null;
+            String triggerKind = document.triggerKind() != null && TRIGGER_KINDS.contains(document.triggerKind())
+                    ? document.triggerKind() : null;
             if (resolved == null && triggerKind == null) {
                 return Optional.empty();
             }
@@ -300,30 +285,21 @@ public final class LibraryMetadataReader {
         }
     }
 
-    private ArtifactDocument readArtifactDocument(JsonReader reader, String minVersion) throws IOException {
+    private ArtifactDocument readArtifactDocument(JsonReader reader) throws IOException {
         String version = null;
         String triggerKind = null;
         ArtifactInfo artifactInfo = null;
-        List<ArtifactDocument> variants = null;
         reader.beginObject();
         while (reader.hasNext()) {
             switch (reader.nextName()) {
                 case "version" -> version = reader.nextString();
                 case "metadata" -> triggerKind = readTriggerKind(reader);
                 case "artifactInfo" -> artifactInfo = plainGson.fromJson(reader, ArtifactInfo.class);
-                case "variants" -> {
-                    variants = new ArrayList<>();
-                    reader.beginArray();
-                    while (reader.hasNext()) {
-                        variants.add(readVariant(reader));
-                    }
-                    reader.endArray();
-                }
                 default -> reader.skipValue();
             }
         }
         reader.endObject();
-        return new ArtifactDocument(minVersion, version, triggerKind, artifactInfo, variants);
+        return new ArtifactDocument(version, triggerKind, artifactInfo);
     }
 
     private String readTriggerKind(JsonReader reader) throws IOException {
@@ -339,37 +315,6 @@ public final class LibraryMetadataReader {
         }
         reader.endObject();
         return triggerKind == null ? kind : triggerKind;
-    }
-
-    private ArtifactDocument readVariant(JsonReader reader) throws IOException {
-        String minVersion = null;
-        ArtifactDocument model = null;
-        reader.beginObject();
-        while (reader.hasNext()) {
-            switch (reader.nextName()) {
-                case "minVersion" -> minVersion = reader.nextString();
-                case "model" -> model = readArtifactDocument(reader, minVersion);
-                default -> reader.skipValue();
-            }
-        }
-        reader.endObject();
-        if (model == null) {
-            return new ArtifactDocument(minVersion, null, null, null, null);
-        }
-        return new ArtifactDocument(minVersion, model.version(), model.triggerKind(), model.artifactInfo(),
-                model.variants());
-    }
-
-    private ArtifactDocument selectArtifactVariant(List<ArtifactDocument> variants, String version) {
-        ArtifactDocument fallback = null;
-        for (ArtifactDocument variant : variants) {
-            fallback = variant;
-            if (variant.minVersion() == null || variant.minVersion().isBlank()
-                    || version == null || version.isBlank() || versionAtLeast(version, variant.minVersion())) {
-                return variant;
-            }
-        }
-        return fallback;
     }
 
     private Optional<String> readRelativeAsset(Path root, String relative) {
@@ -405,81 +350,21 @@ public final class LibraryMetadataReader {
                 && !value.contains("href=\"http") && !value.contains("href='http");
     }
 
-    private record ArtifactDocument(String minVersion, String version, String triggerKind, ArtifactInfo artifactInfo,
-                                    List<ArtifactDocument> variants) {
+    private record ArtifactDocument(String version, String triggerKind, ArtifactInfo artifactInfo) {
     }
 
-    private Optional<TriggerUIMetadataModel> parseTriggerUIMetadata(String json, String version, String source) {
+    private Optional<TriggerUIMetadataModel> parseTriggerUIMetadata(String json, String source) {
         try {
-            JsonElement parsed = JsonParser.parseString(json);
-            if (!parsed.isJsonObject()) {
-                return Optional.empty();
-            }
-            JsonObject document = selectUIMetadataVariant(parsed.getAsJsonObject(), version);
-            TriggerUIMetadataModel model = TriggerUIAuthoringParser.parse(document.toString());
+            TriggerUIMetadataModel model = TriggerUIAuthoringParser.parse(json);
             if (model != null && model.version() != null && SUPPORTED_VERSION.matcher(model.version()).matches()) {
                 return Optional.of(model);
             }
             LOGGER.log(Level.WARNING, "Unsupported trigger-ui-metadata.json version \""
                     + (model == null ? null : model.version()) + "\" in " + source + "; expected v1.x");
             return Optional.empty();
-        } catch (JsonParseException | IllegalStateException e) {
+        } catch (JsonParseException | IllegalArgumentException | IllegalStateException e) {
             LOGGER.log(Level.WARNING, "Ignoring invalid trigger-ui-metadata.json in " + source, e);
             return Optional.empty();
-        }
-    }
-
-    /**
-     * Selects the first matching variant; resources are ordered newest to oldest.
-     *
-     * <p>The {@code variants} envelope is an LS packaging convention layered on top of the L2 spec, not
-     * part of it: {@code spec.json}'s root has no {@code variants} property, because a single L2
-     * document describes the version a connector <em>is</em>, not a version-selection policy -- that
-     * policy only exists here, where the LS bundles several package-version surfaces of one connector
-     * (today, only {@code mcp}) side by side. A packaged {@code trigger-ui-metadata.json} is therefore
-     * either (a) a spec-valid L2 document on its own, or (b) {@code {"variants": [{"minVersion"?:
-     * <semver>, "model": <spec-valid L2 document>}, ...]}}, ordered newest to oldest, where an omitted
-     * {@code minVersion} means "matches anything" and must be the last entry. Each {@code model} payload
-     * is independently spec-valid; only the wrapper itself is not an L2 document, so it is unmodeled by
-     * {@link io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel} and is resolved
-     * to a plain {@link JsonObject} at this layer, before Gson binds the selected variant.
-     *
-     * <p>A {@code null}/blank {@code version} -- no package version to compare against -- resolves to
-     * the <em>first</em> (newest) variant rather than the fallback, matching {@code
-     * getModulePackageOffline}'s own "no version means newest" convention elsewhere in this reader.
-     */
-    private JsonObject selectUIMetadataVariant(JsonObject root, String version) {
-        JsonElement variantsElement = root.get("variants");
-        if (variantsElement == null || !variantsElement.isJsonArray()) {
-            return root;
-        }
-        JsonArray variants = variantsElement.getAsJsonArray();
-        JsonObject fallback = null;
-        for (JsonElement element : variants) {
-            if (!element.isJsonObject()) {
-                continue;
-            }
-            JsonObject variant = element.getAsJsonObject();
-            JsonElement model = variant.get("model");
-            if (model == null || !model.isJsonObject()) {
-                continue;
-            }
-            fallback = model.getAsJsonObject();
-            JsonElement minVersion = variant.get("minVersion");
-            if (minVersion == null || minVersion.isJsonNull()
-                    || version == null || version.isBlank()
-                    || versionAtLeast(version, minVersion.getAsString())) {
-                return model.getAsJsonObject();
-            }
-        }
-        return fallback == null ? root : fallback;
-    }
-
-    private static boolean versionAtLeast(String version, String minimum) {
-        try {
-            return SemanticVersion.from(version).greaterThanOrEqualTo(SemanticVersion.from(minimum));
-        } catch (RuntimeException e) {
-            return true;
         }
     }
 

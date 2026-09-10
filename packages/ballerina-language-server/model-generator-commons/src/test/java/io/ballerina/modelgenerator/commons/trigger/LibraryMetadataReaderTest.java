@@ -172,19 +172,19 @@ public class LibraryMetadataReaderTest {
     @Test
     public void testUiMissingVersionReadsEmpty() throws IOException {
         Path root = shippingUi("{ \"trigger\": { \"displayName\": \"No Version\" } }");
-        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root).isEmpty());
     }
 
     @Test
     public void testUiUnsupportedMajorVersionRefused() throws IOException {
         Path root = shippingUi("{ \"version\": \"v2.0\", \"trigger\": { \"displayName\": \"V2\" } }");
-        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root).isEmpty());
     }
 
     @Test
     public void testUiNewerMinorVersionAccepted() throws IOException {
         Path root = shippingUi("{ \"version\": \"v1.19\", \"trigger\": { \"displayName\": \"V1_19\" } }");
-        TriggerUIMetadataModel model = READER.readTriggerUIMetadataModel(root, null).orElseThrow();
+        TriggerUIMetadataModel model = READER.readTriggerUIMetadataModel(root).orElseThrow();
         Assert.assertEquals(model.trigger().displayName(), "V1_19");
     }
 
@@ -193,7 +193,7 @@ public class LibraryMetadataReaderTest {
         Path newer = shippingUi("""
                 { "version": "v1.0", "metadata": { "kind": "listener", "triggerKind": "graphql" } }
                 """);
-        TriggerUIMetadataModel.Metadata newerMetadata = READER.readTriggerUIMetadataModel(newer, null)
+        TriggerUIMetadataModel.Metadata newerMetadata = READER.readTriggerUIMetadataModel(newer)
                 .orElseThrow().metadata();
         Assert.assertEquals(newerMetadata.kind(), "listener");
         Assert.assertEquals(newerMetadata.effectiveTriggerKind(), "graphql");
@@ -201,14 +201,14 @@ public class LibraryMetadataReaderTest {
         Path legacy = shippingUi("""
                 { "version": "v1.0", "metadata": { "kind": "file" } }
                 """);
-        Assert.assertEquals(READER.readTriggerUIMetadataModel(legacy, null).orElseThrow().metadata()
+        Assert.assertEquals(READER.readTriggerUIMetadataModel(legacy).orElseThrow().metadata()
                 .effectiveTriggerKind(), "file");
     }
 
     @Test
     public void testUiMalformedDocumentReadsEmpty() throws IOException {
         Path root = shippingUi("{ \"version\": \"v1.0\", \"trigger\": { ");
-        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root).isEmpty());
     }
 
     @Test
@@ -216,7 +216,7 @@ public class LibraryMetadataReaderTest {
         // parseTriggerUIMetadata requires a JSON object at the root; a bare array is valid JSON but not
         // a legal L2 document shape.
         Path root = shippingUi("[]");
-        Assert.assertTrue(READER.readTriggerUIMetadataModel(root, null).isEmpty());
+        Assert.assertTrue(READER.readTriggerUIMetadataModel(root).isEmpty());
     }
 
     @Test
@@ -243,7 +243,7 @@ public class LibraryMetadataReaderTest {
         Files.writeString(icons.resolve("light.svg"), "<svg><path fill=\"currentColor\"/></svg>");
         Files.writeString(icons.resolve("dark.svg"), "<svg><path fill=\"currentColor\"/></svg>");
 
-        ArtifactMetadata metadata = READER.readArtifactMetadata(root, "1.0.0").orElseThrow();
+        ArtifactMetadata metadata = READER.readArtifactMetadata(root).orElseThrow();
         ArtifactInfo.Resolved info = metadata.artifactInfo();
         Assert.assertEquals(metadata.triggerKind(), "event");
         Assert.assertEquals(info.displayLabel(), "RabbitMQ Event Integration");
@@ -257,17 +257,17 @@ public class LibraryMetadataReaderTest {
         Path newer = shippingUi("""
                 { "version": "v1.0", "metadata": { "kind": "file", "triggerKind": "event" } }
                 """);
-        Assert.assertEquals(READER.readArtifactMetadata(newer, null).orElseThrow().triggerKind(), "event");
+        Assert.assertEquals(READER.readArtifactMetadata(newer).orElseThrow().triggerKind(), "event");
 
         Path legacy = shippingUi("""
                 { "version": "v1.0", "metadata": { "kind": "file" } }
                 """);
-        Assert.assertEquals(READER.readArtifactMetadata(legacy, null).orElseThrow().triggerKind(), "file");
+        Assert.assertEquals(READER.readArtifactMetadata(legacy).orElseThrow().triggerKind(), "file");
 
         Path nonCanonical = shippingUi("""
                 { "version": "v1.0", "metadata": { "kind": "listener" } }
                 """);
-        Assert.assertTrue(READER.readArtifactMetadata(nonCanonical, null).isEmpty());
+        Assert.assertTrue(READER.readArtifactMetadata(nonCanonical).isEmpty());
     }
 
     @Test
@@ -278,7 +278,7 @@ public class LibraryMetadataReaderTest {
                   "icon": { "lightPath": "../light.svg", "darkPath": "../dark.svg" }
                 } }
                 """);
-        Assert.assertTrue(READER.readArtifactInfo(root, null).isEmpty());
+        Assert.assertTrue(READER.readArtifactInfo(root).isEmpty());
     }
 
     /** A package root shipping the given {@code metadata/trigger-metadata.json}. */
