@@ -674,12 +674,15 @@ modules = [
 [[package]]
 org = "ballerina"
 name = "workflow"
-version = "0.8.3"
+version = "0.9.0"
 dependencies = [
 	{org = "ballerina", name = "ai"},
 	{org = "ballerina", name = "email"},
 	{org = "ballerina", name = "http"},
+	{org = "ballerina", name = "io"},
 	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "jwt"},
+	{org = "ballerina", name = "lang.array"},
 	{org = "ballerina", name = "lang.runtime"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "mime"},
@@ -691,7 +694,8 @@ modules = [
 	{org = "ballerina", packageName = "workflow", moduleName = "workflow"},
 	{org = "ballerina", packageName = "workflow", moduleName = "workflow.activity"},
 	{org = "ballerina", packageName = "workflow", moduleName = "workflow.internal"},
-	{org = "ballerina", packageName = "workflow", moduleName = "workflow.management"}
+	{org = "ballerina", packageName = "workflow", moduleName = "workflow.management"},
+	{org = "ballerina", packageName = "workflow", moduleName = "workflow.management.rest"}
 ]
 
 [[package]]
