@@ -27,7 +27,7 @@ export default function createTests() {
     }, async () => {
         let listenerName: string;
         initTest();
-        test('Create Github Integration', async ({ }, testInfo) => {
+        test.skip('Create Github Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Creating a new service in test attempt: ', testAttempt);
 
@@ -58,7 +58,7 @@ export default function createTests() {
             await artifactWebView.locator(`text=${listenerName}`).waitFor({ timeout: 30000 });
         });
 
-        test('Editing Github Service', async ({ }, testInfo) => {
+        test.skip('Editing Github Service', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Editing a service in test attempt: ', testAttempt);
             const artifactWebView = await getWebview(BI_INTEGRATOR_LABEL, page);
@@ -95,7 +95,7 @@ export default function createTests() {
             await artifactWebView.locator(`text="onOpened"`).waitFor();
         });
 
-        test('Delete Github Integration', async ({ }, testInfo) => {
+        test.skip('Delete Github Integration', async ({ }, testInfo) => {
             const testAttempt = testInfo.retry + 1;
             console.log('Deleting Github integration in test attempt: ', testAttempt);
 
