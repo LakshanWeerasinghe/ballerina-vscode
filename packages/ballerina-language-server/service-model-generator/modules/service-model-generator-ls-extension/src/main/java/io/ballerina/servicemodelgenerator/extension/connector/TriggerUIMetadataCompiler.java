@@ -241,7 +241,8 @@ final class TriggerUIMetadataCompiler {
                 overlayMetadata(runtime, listener.metadata());
                 put(runtime, "enabled", listener.enabledByDefault());
 
-                Map<String, JsonObject> templates = propertyTemplates(runtime.getAsJsonObject(PROP_KEY_INIT_PROPERTIES));
+                Map<String, JsonObject> templates =
+                        propertyTemplates(runtime.getAsJsonObject(PROP_KEY_INIT_PROPERTIES));
                 if (root.has(PROP_KEY_INIT_PROPERTIES)) {
                     Map<String, JsonObject> derivedTemplates = propertyTemplatesDeep(
                             root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES));
@@ -253,7 +254,8 @@ final class TriggerUIMetadataCompiler {
                     runtime.add(PROP_KEY_INIT_PROPERTIES, compileFieldMap(listener.formFields(), templates, null));
                 }
                 if (listener.serviceProperties() != null) {
-                    runtime.add(PROP_KEY_SERVICE_PROPERTIES, compileFieldMap(listener.serviceProperties(), Map.of(), null));
+                    runtime.add(PROP_KEY_SERVICE_PROPERTIES,
+                            compileFieldMap(listener.serviceProperties(), Map.of(), null));
                 }
                 if (listener.form() != null && listenerForm == null) {
                     listenerForm = GSON.toJsonTree(listener.form()).getAsJsonObject();
@@ -273,7 +275,8 @@ final class TriggerUIMetadataCompiler {
     }
 
     private static void applyExistingListenerMetadata(JsonObject root, JsonObject listenerForm) {
-        if (!root.has(PROP_KEY_INIT_PROPERTIES) || !root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).has(PROP_KEY_LISTENER)) {
+        if (!root.has(PROP_KEY_INIT_PROPERTIES)
+                || !root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).has(PROP_KEY_LISTENER)) {
             return;
         }
         JsonObject choice = root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).getAsJsonObject(PROP_KEY_LISTENER);
@@ -289,7 +292,8 @@ final class TriggerUIMetadataCompiler {
         if (listenerForm.has("useExistingEditable")) {
             existing.add("editable", listenerForm.get("useExistingEditable"));
         }
-        if (!existing.has(PROP_KEY_PROPERTIES) || !existing.getAsJsonObject(PROP_KEY_PROPERTIES).has("existingListener")) {
+        if (!existing.has(PROP_KEY_PROPERTIES)
+                || !existing.getAsJsonObject(PROP_KEY_PROPERTIES).has("existingListener")) {
             return;
         }
         JsonObject selector = existing.getAsJsonObject(PROP_KEY_PROPERTIES).getAsJsonObject("existingListener");
@@ -327,7 +331,8 @@ final class TriggerUIMetadataCompiler {
             removeOptionalIdentifier(root);
             return;
         }
-        JsonObject existing = root.has(PROP_KEY_INIT_PROPERTIES) ? root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES) : new JsonObject();
+        JsonObject existing = root.has(PROP_KEY_INIT_PROPERTIES)
+                ? root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES) : new JsonObject();
         JsonObject compiled = new JsonObject();
         // The derived "listener" CHOICE survives an L2 initForm that never mentions it (an L2 typically
         // restates "serviceType"/annotation fields but not this one) -- same principle as the
@@ -662,7 +667,8 @@ final class TriggerUIMetadataCompiler {
             put(coordinates, "artifactId", dependency.artifactId());
             put(coordinates, "version", dependency.version());
             put(coordinates, "scope", dependency.scope());
-            JsonObject codedata = field.has(PROP_KEY_CODEDATA) ? field.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
+            JsonObject codedata = field.has(PROP_KEY_CODEDATA)
+                    ? field.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
             codedata.add("driverDependency", coordinates);
             field.add(PROP_KEY_CODEDATA, codedata);
         }
@@ -711,7 +717,8 @@ final class TriggerUIMetadataCompiler {
                     }
                 }
             }
-            if (runtime.has("name") && runtime.has(PROP_KEY_METADATA) && runtime.getAsJsonObject(PROP_KEY_METADATA).has("label")) {
+            if (runtime.has("name") && runtime.has(PROP_KEY_METADATA)
+                    && runtime.getAsJsonObject(PROP_KEY_METADATA).has("label")) {
                 labelsByName.put(string(runtime, "name"), string(runtime.getAsJsonObject(PROP_KEY_METADATA), "label"));
             }
             ordered.add(runtime);
@@ -947,7 +954,8 @@ final class TriggerUIMetadataCompiler {
             replace(runtime, field);
         }
         if (overlay.field() != null && overlay.field().binding() != null) {
-            JsonObject codedata = runtime.has(PROP_KEY_CODEDATA) ? runtime.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
+            JsonObject codedata = runtime.has(PROP_KEY_CODEDATA)
+                    ? runtime.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
             put(codedata, "nameEditable", overlay.field().binding().nameEditable());
             put(codedata, "bindingKind", overlay.field().binding().bindingKind());
             runtime.add(PROP_KEY_CODEDATA, codedata);
@@ -1043,7 +1051,8 @@ final class TriggerUIMetadataCompiler {
         schema.add("type", type);
         schema.add("name", schemaField("Name", "The parameter's identifier", null, "IDENTIFIER"));
         JsonObject defaultValue = defaultProperty();
-        defaultValue.add(PROP_KEY_METADATA, metadata("Default Value", "The default value, if this parameter is optional"));
+        defaultValue.add(PROP_KEY_METADATA,
+                metadata("Default Value", "The default value, if this parameter is optional"));
         defaultValue.add("types", types("EXPRESSION", null));
         defaultValue.addProperty("optional", true);
         defaultValue.addProperty("advanced", true);
