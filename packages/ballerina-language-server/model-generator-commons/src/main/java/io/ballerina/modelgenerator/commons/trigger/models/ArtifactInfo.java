@@ -74,8 +74,9 @@ public record ArtifactInfo(
         }
     }
 
-    /** Raw, trusted SVG text returned on the LS wire, plus the optional brand tint. */
     /**
+     * Raw, trusted SVG text returned on the LS wire, plus the optional brand tint.
+     *
      * @param light raw SVG text for light themes
      * @param dark raw SVG text for dark themes
      * @param color optional replacement color for {@code currentColor}

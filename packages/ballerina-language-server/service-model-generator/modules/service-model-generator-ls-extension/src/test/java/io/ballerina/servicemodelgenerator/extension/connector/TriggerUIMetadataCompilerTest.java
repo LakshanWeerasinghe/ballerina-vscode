@@ -58,6 +58,62 @@ public class TriggerUIMetadataCompilerTest {
 
     private static final String MODULE = "triggerfixture";
 
+    private static TriggerUIMetadataModel newTriggerUIMetadataModel(
+            String version, TriggerUIMetadataModel.Metadata metadata, TriggerUIMetadataModel.Trigger trigger,
+            List<TriggerUIMetadataModel.ReadOnlyMetadata> readOnlyMetadata, TriggerUIMetadataModel.InitForm initForm,
+            List<TriggerUIMetadataModel.TargetedNode> listeners,
+            List<TriggerUIMetadataModel.TargetedNode> serviceTypes, String importPrefix) {
+        return new TriggerUIMetadataModel(version, metadata, trigger, readOnlyMetadata, initForm, listeners,
+                serviceTypes, importPrefix, null);
+    }
+
+    private static TriggerUIMetadataModel.Metadata newMetadata(
+            String label, String description, String notice, String subLabel, String addLabel,
+            String addDescription, String groupName, String badge, Boolean deprecated, Boolean derived,
+            String kind) {
+        return new TriggerUIMetadataModel.Metadata(label, description, notice, subLabel, addLabel, addDescription,
+                groupName, badge, deprecated, derived, kind, null);
+    }
+
+    private static TriggerUIMetadataModel.Codedata newCodedata(
+            String type, String argType, String originalName, String moduleName, String orgName,
+            String packageName, Integer position, String path, String defaultType, String boundType,
+            Boolean bindable, String bindingKind, String typeConstraint, String template, String modifier,
+            List<String> supersedes, String targetParam, Object modifiers, String field, Boolean optional,
+            String value, String valueQualifier, String group, String variantLabel, Boolean nameEditable,
+            String bindingGroup, Object driverDependency) {
+        return new TriggerUIMetadataModel.Codedata(type, argType, originalName, moduleName, orgName, packageName,
+                position, path, defaultType, boundType, bindable, bindingKind, typeConstraint, template, modifier,
+                supersedes, targetParam, modifiers, field, optional, value, valueQualifier, group, variantLabel,
+                nameEditable, bindingGroup, driverDependency, null, null, null);
+    }
+
+    private static TriggerUIMetadataModel.Field newField(
+            String key, TriggerUIMetadataModel.Metadata metadata, String placeholder, Object defaultValue,
+            TriggerUIMetadataModel.WidgetPolicy widget, List<String> items,
+            List<TriggerUIMetadataModel.Field> choices, Map<String, TriggerUIMetadataModel.Field> properties,
+            List<TriggerUIMetadataModel.Validation> validations, TriggerUIMetadataModel.Binding binding,
+            TriggerUIMetadataModel.State state, TriggerUIMetadataModel.Source source, Boolean literal) {
+        return new TriggerUIMetadataModel.Field(key, metadata, placeholder, defaultValue, widget, items, choices,
+                properties, validations, binding, state, source, literal, null);
+    }
+
+    private static TriggerUIMetadataModel.Widget newWidget(
+            String widgetKind, Boolean selected, String ballerinaType, List<TriggerUIMetadataModel.Option> options,
+            List<TriggerUIMetadataModel.TypeMember> typeMembers, Object template, String itemLabel,
+            List<TriggerUIMetadataModel.PayloadFormat> formats, List<TriggerUIMetadataModel.Validation> validations) {
+        return new TriggerUIMetadataModel.Widget(widgetKind, selected, ballerinaType, options, typeMembers, template,
+                itemLabel, formats, validations, null, null, null);
+    }
+
+    private static TriggerUIMetadataModel.ListenerForm newListenerForm(
+            TriggerUIMetadataModel.Metadata section, TriggerUIMetadataModel.Metadata typeSelector,
+            TriggerUIMetadataModel.Metadata createNew, TriggerUIMetadataModel.Metadata useExisting,
+            TriggerUIMetadataModel.Metadata listenerConfig) {
+        return new TriggerUIMetadataModel.ListenerForm(section, typeSelector, createNew, useExisting, listenerConfig,
+                null, null, null, null, null, null, null);
+    }
+
     // ---- fixture construction (mirrors TriggerModelSynthesizerTest's convention) ----
 
     private static Value textValue(String ballerinaType) {
@@ -187,15 +243,15 @@ public class TriggerUIMetadataCompilerTest {
     public void testTriggerKindIsCanonicalAndKindRemainsCompatible() {
         TriggerUIMetadataModel.Metadata newerMetadata = new TriggerUIMetadataModel.Metadata(
                 null, null, null, null, null, null, null, null, null, null, "listener", "event");
-        TriggerUIMetadataModel newer = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel newer = newTriggerUIMetadataModel(
                 "v1.0", newerMetadata, null, null, null, null, null, null);
         TriggerUISchemaModel newerModel = apply(derived(true), true, newer);
         Assert.assertEquals(newerModel.kind(), "listener");
         Assert.assertEquals(newerModel.triggerKind(), "event");
 
-        TriggerUIMetadataModel.Metadata legacyMetadata = new TriggerUIMetadataModel.Metadata(
+        TriggerUIMetadataModel.Metadata legacyMetadata = newMetadata(
                 null, null, null, null, null, null, null, null, null, null, "file");
-        TriggerUIMetadataModel legacy = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel legacy = newTriggerUIMetadataModel(
                 "v1.0", legacyMetadata, null, null, null, null, null, null);
         TriggerUISchemaModel legacyModel = apply(derived(true), true, legacy);
         Assert.assertEquals(legacyModel.kind(), "file");
@@ -213,15 +269,15 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test
     public void testListenerFormAndMetadataOverlay() {
-        TriggerUIMetadataModel.Metadata badge = new TriggerUIMetadataModel.Metadata(
+        TriggerUIMetadataModel.Metadata badge = newMetadata(
                 null, null, "Superseded soon", null, null, null, null, null, null, null, null);
-        TriggerUIMetadataModel.ListenerForm form = new TriggerUIMetadataModel.ListenerForm(
-                new TriggerUIMetadataModel.Metadata("Configure Listener", null, null, null, null, null, null,
+        TriggerUIMetadataModel.ListenerForm form = newListenerForm(
+                newMetadata("Configure Listener", null, null, null, null, null, null,
                         null, null, null, null),
                 null,
-                new TriggerUIMetadataModel.Metadata("New", null, null, null, null, null, null, null, null, null,
+                newMetadata("New", null, null, null, null, null, null, null, null, null,
                         null),
-                new TriggerUIMetadataModel.Metadata("Existing", null, null, null, null, null, null, null, null,
+                newMetadata("Existing", null, null, null, null, null, null, null, null,
                         null, null),
                 null);
         TriggerUIMetadataModel.ListenerNode listenerNode = new TriggerUIMetadataModel.ListenerNode(
@@ -229,7 +285,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode overlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$listener"), null, null, null, null, null, null, listenerNode,
                 null, null, null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, List.of(overlay), null, null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -248,8 +304,8 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test
     public void testListenerServiceProperty() {
-        TriggerUIMetadataModel.Field basePath = new TriggerUIMetadataModel.Field(
-                "basePath", new TriggerUIMetadataModel.Metadata("Base Path", "The service base path", null, null,
+        TriggerUIMetadataModel.Field basePath = newField(
+                "basePath", newMetadata("Base Path", "The service base path", null, null,
                         null, null, null, null, null, null, null),
                 "/", "\"/\"", null, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.ListenerNode listenerNode = new TriggerUIMetadataModel.ListenerNode(
@@ -257,7 +313,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode overlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$listener"), null, null, null, null, null, null, listenerNode,
                 null, null, null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, List.of(overlay), null, null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -275,16 +331,16 @@ public class TriggerUIMetadataCompilerTest {
     public void testServiceTypeSelectorMetadataAndOrdering() {
         TriggerUIMetadataModel.TargetedNode pingOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$pingService"),
-                null, new TriggerUIMetadataModel.Metadata("Ping", null, null, null, null, null, null, null, null,
+                null, newMetadata("Ping", null, null, null, null, null, null, null, null,
                         null, null),
                 null, null, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"),
-                null, new TriggerUIMetadataModel.Metadata("Main", null, null, null, null, null, null, null, null,
+                null, newMetadata("Main", null, null, null, null, null, null, null, null,
                         null, null),
                 null, null, null, null, null, null, null, null, null, null);
         // L2 declares ping BEFORE service -- the runtime order must follow.
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(pingOverlay, serviceOverlay), null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -307,13 +363,13 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode handlerOverlay = new TriggerUIMetadataModel.TargetedNode(
                 new TriggerUIMetadataModel.Target("l1", null, null, null, null, null, null, null, null,
                         "onMessage", null),
-                null, new TriggerUIMetadataModel.Metadata("On Message", "Fires per inbound message", null, null,
+                null, newMetadata("On Message", "Fires per inbound message", null, null,
                         null, null, null, null, null, null, null),
                 null, null, function, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null,
                 null, List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -346,7 +402,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null,
                 null, List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -366,12 +422,12 @@ public class TriggerUIMetadataCompilerTest {
     public void testParameterMetadataAndBindingOverride() {
         TriggerUIMetadataModel.Binding binding = new TriggerUIMetadataModel.Binding(
                 "Payload", "The message body", null, null, "RECORD_MAP_EXPRESSION", null);
-        TriggerUIMetadataModel.Field field = new TriggerUIMetadataModel.Field(
+        TriggerUIMetadataModel.Field field = newField(
                 null, null, null, null, null, null, null, null, null, binding, null, null, null);
         TriggerUIMetadataModel.TargetedNode paramOverlay = new TriggerUIMetadataModel.TargetedNode(
                 new TriggerUIMetadataModel.Target("l1", null, null, null, null, null, null, null, null,
                         "payload", null),
-                null, new TriggerUIMetadataModel.Metadata("Message Body", null, null, null, null, null, null,
+                null, newMetadata("Message Body", null, null, null, null, null, null,
                         null, null, null, null),
                 null, field, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode handlerOverlay = new TriggerUIMetadataModel.TargetedNode(
@@ -381,7 +437,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null,
                 null, List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -397,9 +453,9 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test
     public void testOptionalParameterUsesAuthoredFlagWidget() {
-        TriggerUIMetadataModel.Widget flag = new TriggerUIMetadataModel.Widget(
+        TriggerUIMetadataModel.Widget flag = newWidget(
                 "FLAG", Boolean.TRUE, "string", null, null, null, null, null, null);
-        TriggerUIMetadataModel.Field typeField = new TriggerUIMetadataModel.Field(
+        TriggerUIMetadataModel.Field typeField = newField(
                 null, null, null, null, new TriggerUIMetadataModel.WidgetPolicy(Boolean.FALSE, List.of(flag)),
                 null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode typeOverlay = new TriggerUIMetadataModel.TargetedNode(
@@ -416,7 +472,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null, null,
                 List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel.Parameter payload = function(apply(derived(true), true, l2),
@@ -431,7 +487,7 @@ public class TriggerUIMetadataCompilerTest {
     public void testTextSetWidgetCarriesMinItemsAndDefaultItems() {
         TriggerUIMetadataModel.Widget textSet = new TriggerUIMetadataModel.Widget(
                 "TEXT_SET", Boolean.TRUE, "string", null, null, null, null, null, null, null, 1, 2);
-        TriggerUIMetadataModel.Field typeField = new TriggerUIMetadataModel.Field(
+        TriggerUIMetadataModel.Field typeField = newField(
                 null, null, null, null, new TriggerUIMetadataModel.WidgetPolicy(Boolean.FALSE, List.of(textSet)),
                 null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode typeOverlay = new TriggerUIMetadataModel.TargetedNode(
@@ -448,7 +504,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null, null,
                 List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel.Parameter payload = function(apply(derived(true), true, l2),
@@ -481,7 +537,7 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test(dataProvider = "returnTypeOverrides")
     public void testReturnTypeOverrideRecomputesHasError(String returnType, boolean hasError) {
-        TriggerUIMetadataModel.Field returnField = new TriggerUIMetadataModel.Field(
+        TriggerUIMetadataModel.Field returnField = newField(
                 null, null, null, returnType, null, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode returnOverlay = new TriggerUIMetadataModel.TargetedNode(
                 null, null, null, null, returnField, null, null, null, null, null, null, null, null);
@@ -491,7 +547,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null, null,
                 List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel.ReturnType actual = function(apply(derived(true), true, l2),
@@ -505,7 +561,7 @@ public class TriggerUIMetadataCompilerTest {
     public void testFlattenedSourceContextDoesNotEraseInheritedCodedata() {
         TriggerUIMetadataModel.Source source = new TriggerUIMetadataModel.Source(
                 new TriggerUIMetadataModel.Construct("FUNCTION_RETURN"), null, null, null, null, null);
-        TriggerUIMetadataModel.Field returnField = new TriggerUIMetadataModel.Field(
+        TriggerUIMetadataModel.Field returnField = newField(
                 null, null, null, null, null, null, null, null, null, null, null, source, null);
         TriggerUIMetadataModel.TargetedNode returnOverlay = new TriggerUIMetadataModel.TargetedNode(
                 null, null, null, null, returnField, null, null, null, null, null, null, null, null);
@@ -515,7 +571,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, null, null, null, null, null, null, null,
                 List.of(handlerOverlay), null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, List.of(serviceOverlay), null, null);
 
         TriggerUISchemaModel.ReturnType actual = function(apply(derived(true), true, l2),
@@ -537,7 +593,7 @@ public class TriggerUIMetadataCompilerTest {
                 List.of(excludedHandler), null, null, null);
         TriggerUIMetadataModel.TargetedNode pingOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$pingService"), null, null, null, null, null, null, null, null, null, null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay, pingOverlay), null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -550,13 +606,13 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test
     public void testServiceDescriptionIsDistinctFromMetadataDescription() {
-        TriggerUIMetadataModel.Metadata metadata = new TriggerUIMetadataModel.Metadata(
+        TriggerUIMetadataModel.Metadata metadata = newMetadata(
                 "Service", "Selector card description", null, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.TargetedNode serviceOverlay = new TriggerUIMetadataModel.TargetedNode(
                 l1Target("$service"), null, metadata, null, null, null,
                 new TriggerUIMetadataModel.ServiceNode(null, "Runtime service description", null), null,
                 null, null, null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, null, List.of(serviceOverlay), null);
 
         TriggerUISchemaModel.ServiceTypeModel actual = service(apply(derived(true), true, l2),
@@ -570,12 +626,12 @@ public class TriggerUIMetadataCompilerTest {
 
     @Test
     public void testInitFieldCodedataOverride() {
-        TriggerUIMetadataModel.Codedata codedata = new TriggerUIMetadataModel.Codedata(
+        TriggerUIMetadataModel.Codedata codedata = newCodedata(
                 null, "CDC_OPERATION_ENABLE", "onInsert", null, null, null, null, "options.skippedOperations",
                 null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null);
-        TriggerUIMetadataModel.Field field = new TriggerUIMetadataModel.Field(
-                "enableCreate", new TriggerUIMetadataModel.Metadata("Enable Create", null, null, null, null, null,
+        TriggerUIMetadataModel.Field field = newField(
+                "enableCreate", newMetadata("Enable Create", null, null, null, null, null,
                         null, null, null, null, null),
                 null, Boolean.TRUE, null, null, null, null, null, null, null,
                 new TriggerUIMetadataModel.Source(codedata), null);
@@ -584,7 +640,7 @@ public class TriggerUIMetadataCompilerTest {
                         "$listener", null, null, null, null, null, null),
                 null, null, null, field, null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.InitForm initForm = new TriggerUIMetadataModel.InitForm(null, List.of(fieldOverlay));
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, initForm, null, null, null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);
@@ -604,7 +660,7 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUISchemaModel before = derived(true);
         Assert.assertFalse(before.initProperties().isEmpty(), "sanity: the synthesizer derives an init form");
 
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel("v1.0", null, null, null, null, null, null, null);
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel("v1.0", null, null, null, null, null, null, null);
         TriggerUISchemaModel after = apply(before, true, l2);
 
         // "identifier" is the one deliberate exception: the fixture's service type marks it optional,
@@ -623,7 +679,7 @@ public class TriggerUIMetadataCompilerTest {
         Assert.assertTrue(before.initProperties().containsKey("identifier"),
                 "sanity: the fixture's service type derives an identifier field");
 
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel("v1.0", null, null, null, null, null, null, null);
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel("v1.0", null, null, null, null, null, null, null);
         TriggerUISchemaModel after = apply(before, true, l2);
 
         Assert.assertFalse(after.initProperties().containsKey("identifier"),
@@ -638,7 +694,7 @@ public class TriggerUIMetadataCompilerTest {
                 l1Target("$listener"), null, null, null, null, null, null,
                 new TriggerUIMetadataModel.ListenerNode(null, null, null, null, null),
                 null, null, null, null, null);
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, null, List.of(overlay), null, null);
 
         TriggerUISchemaModel model = apply(derived(false), false, l2);
@@ -661,13 +717,13 @@ public class TriggerUIMetadataCompilerTest {
         TriggerUIMetadataModel.TargetedNode fieldOverlay = new TriggerUIMetadataModel.TargetedNode(
                 new TriggerUIMetadataModel.Target("semantic", null, "serviceAnnotationField", "doesNotExist",
                         null, "$service", "$serviceConfig", null, null, null, null),
-                null, new TriggerUIMetadataModel.Metadata("Unmapped Field", null, null, null, null, null, null,
+                null, newMetadata("Unmapped Field", null, null, null, null, null, null,
                         null, null, null, null),
-                null, new TriggerUIMetadataModel.Field("unmapped", null, null, null, null, null, null, null,
+                null, newField("unmapped", null, null, null, null, null, null, null,
                         null, null, null, null, null),
                 null, null, null, null, null, null, null, null);
         TriggerUIMetadataModel.InitForm initForm = new TriggerUIMetadataModel.InitForm(null, List.of(fieldOverlay));
-        TriggerUIMetadataModel l2 = new TriggerUIMetadataModel(
+        TriggerUIMetadataModel l2 = newTriggerUIMetadataModel(
                 "v1.0", null, null, null, initForm, null, null, null);
 
         TriggerUISchemaModel model = apply(derived(true), true, l2);

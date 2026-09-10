@@ -495,7 +495,6 @@ export class ServiceDesignerRpcManager implements ServiceDesignerAPI {
             currentVersion: "",
             minSupportedVersion: params.targetVersion,
             breaking: false,
-            explicitlyPinned: true,
         };
         const { succeeded } = await pullAndBumpConnectors([advice], projectPath);
         return { success: succeeded.length > 0 };

@@ -298,6 +298,7 @@ export class DefaultServer {
             return serviceDesigner.getConnectorUpgradeAdvice(p);
         });
         this.register("pullConnectorUpgrade", async (p) => {
+            await waitForLangClientReady();
             return serviceDesigner.pullConnectorUpgrade(p);
         });
         this.register("getNodeTemplate", async (p) => {

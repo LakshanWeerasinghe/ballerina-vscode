@@ -69,7 +69,7 @@ interface MachineContext extends VisualizerLocation {
     isBISupported: boolean;
     errorCode: string | null;
     dependenciesResolved?: boolean;
-    connectorUpgradesCheckedPaths?: string[];
+    connectorUpgradesCheckedPaths?: Set<string>;
     isInDevant: boolean;
     isViewUpdateTransition?: boolean;
 }
@@ -95,7 +95,7 @@ const stateMachine = createMachine<MachineContext>(
             isBISupported: false,
             view: MACHINE_VIEW.PackageOverview,
             dependenciesResolved: false,
-            connectorUpgradesCheckedPaths: [],
+            connectorUpgradesCheckedPaths: new Set(),
             isInDevant: isInDevant()
         },
         on: {
@@ -390,7 +390,7 @@ const stateMachine = createMachine<MachineContext>(
                                 },
                                 {
                                     target: "checkConnectorUpgrades",
-                                    cond: (context) => !context.connectorUpgradesCheckedPaths?.includes(context.projectPath)
+                                    cond: (context) => !context.connectorUpgradesCheckedPaths?.has(context.projectPath)
                                 },
                                 {
                                     target: "webViewLoading"
@@ -415,9 +415,14 @@ const stateMachine = createMachine<MachineContext>(
                             onDone: {
                                 target: "webViewLoading",
                                 actions: assign({
-                                    connectorUpgradesCheckedPaths: (context) => context.projectPath
-                                        ? [...(context.connectorUpgradesCheckedPaths ?? []), context.projectPath]
-                                        : context.connectorUpgradesCheckedPaths
+                                    connectorUpgradesCheckedPaths: (context) => {
+                                        if (!context.projectPath) {
+                                            return context.connectorUpgradesCheckedPaths;
+                                        }
+                                        const checkedPaths = new Set(context.connectorUpgradesCheckedPaths ?? []);
+                                        checkedPaths.add(context.projectPath);
+                                        return checkedPaths;
+                                    }
                                 })
                             }
                         }
@@ -703,13 +708,11 @@ const stateMachine = createMachine<MachineContext>(
             });
         },
         checkConnectorUpgrades: (context, event) => {
-            return new Promise(async (resolve) => {
-                try {
-                    if (context?.projectPath) {
-                        await checkAndPromptConnectorUpgrades(context.projectPath);
-                    }
-                } catch (error) {
-                    console.error('>>> Error checking connector upgrades', error);
+            return new Promise((resolve) => {
+                if (context?.projectPath) {
+                    checkAndPromptConnectorUpgrades(context.projectPath).catch((error) => {
+                        console.error('>>> Error checking connector upgrades', error);
+                    });
                 }
                 resolve(true);
             });

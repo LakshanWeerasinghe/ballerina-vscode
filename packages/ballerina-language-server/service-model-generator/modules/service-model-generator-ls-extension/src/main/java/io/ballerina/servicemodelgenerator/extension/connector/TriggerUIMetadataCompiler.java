@@ -26,6 +26,7 @@ import com.google.gson.reflect.TypeToken;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.modelgenerator.commons.ModuleAliasResolver;
 import io.ballerina.modelgenerator.commons.ModuleInfo;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerKind;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel;
@@ -38,13 +39,21 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DATA_BINDING;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_CODEDATA;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_IDENTIFIER;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_INIT_PROPERTIES;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_LISTENER;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_LISTENERS;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_LISTENER_FORM;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_METADATA;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_PROPERTIES;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_SCHEMA_FUNCTIONS;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_SERVICE_PROPERTIES;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_TRIGGER_KIND;
 
 /** Applies sparse L2 UI metadata over a runtime model derived from L1 and semantic facts. */
 final class TriggerUIMetadataCompiler {
@@ -52,7 +61,6 @@ final class TriggerUIMetadataCompiler {
     private static final Gson GSON = new Gson();
     private static final List<String> METADATA_FIELDS = List.of("label", "description", "notice", "subLabel",
             "addLabel", "addDescription", "groupName", "badge", "deprecated");
-    private static final Set<String> TRIGGER_KINDS = Set.of("event", "mcp", "graphql", "http", "file", "ai");
 
     private TriggerUIMetadataCompiler() {
     }
@@ -92,23 +100,23 @@ final class TriggerUIMetadataCompiler {
      * survives {@link #finalizeListenerOwnership}'s later fold exactly when it is directly usable.
      */
     private static void refreshListenerChoice(JsonObject root, TriggerMetadataModel l1) {
-        if (!root.has("listeners") || !root.get("listeners").isJsonArray()
-                || root.getAsJsonArray("listeners").isEmpty()) {
+        if (!root.has(PROP_KEY_LISTENERS) || !root.get(PROP_KEY_LISTENERS).isJsonArray()
+                || root.getAsJsonArray(PROP_KEY_LISTENERS).isEmpty()) {
             return;
         }
         List<TriggerUISchemaModel.ListenerModel> listeners =
-                GSON.fromJson(root.get("listeners"), LISTENER_MODEL_LIST_TYPE);
-        TriggerUISchemaModel.ListenerFormModel form = root.has("listenerForm")
-                ? GSON.fromJson(root.get("listenerForm"), TriggerUISchemaModel.ListenerFormModel.class) : null;
+                GSON.fromJson(root.get(PROP_KEY_LISTENERS), LISTENER_MODEL_LIST_TYPE);
+        TriggerUISchemaModel.ListenerFormModel form = root.has(PROP_KEY_LISTENER_FORM)
+                ? GSON.fromJson(root.get(PROP_KEY_LISTENER_FORM), TriggerUISchemaModel.ListenerFormModel.class) : null;
         // Several declared listener *types* is a different UI concern (which kind to create) and
         // carries no reuse signal of its own -- see TriggerModelSynthesizer's matching computation.
         boolean reusable = l1.listeners() != null && l1.listeners().size() == 1
                 && l1.listeners().getFirst().multipleServicesAllowed();
         ListenerChoiceDeriver.derive(listeners, null, reusable, form).ifPresent(listener -> {
-            JsonObject initProperties = root.has("initProperties")
-                    ? root.getAsJsonObject("initProperties") : new JsonObject();
+            JsonObject initProperties = root.has(PROP_KEY_INIT_PROPERTIES)
+                    ? root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES) : new JsonObject();
             initProperties.add(PROP_KEY_LISTENER, GSON.toJsonTree(listener));
-            root.add("initProperties", initProperties);
+            root.add(PROP_KEY_INIT_PROPERTIES, initProperties);
         });
     }
 
@@ -151,30 +159,30 @@ final class TriggerUIMetadataCompiler {
     }
 
     private static void flattenSingleListener(JsonObject root) {
-        if (!root.has("listeners") || !root.get("listeners").isJsonArray()
-                || root.getAsJsonArray("listeners").isEmpty()) {
+        if (!root.has(PROP_KEY_LISTENERS) || !root.get(PROP_KEY_LISTENERS).isJsonArray()
+                || root.getAsJsonArray(PROP_KEY_LISTENERS).isEmpty()) {
             return;
         }
         JsonObject direct = new JsonObject();
-        JsonObject listener = root.getAsJsonArray("listeners").get(0).getAsJsonObject();
-        if (listener.has("initProperties")) {
-            listener.getAsJsonObject("initProperties").entrySet()
+        JsonObject listener = root.getAsJsonArray(PROP_KEY_LISTENERS).get(0).getAsJsonObject();
+        if (listener.has(PROP_KEY_INIT_PROPERTIES)) {
+            listener.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).entrySet()
                     .forEach(entry -> direct.add(entry.getKey(), entry.getValue()));
         }
-        if (listener.has("serviceProperties")) {
-            listener.getAsJsonObject("serviceProperties").entrySet()
+        if (listener.has(PROP_KEY_SERVICE_PROPERTIES)) {
+            listener.getAsJsonObject(PROP_KEY_SERVICE_PROPERTIES).entrySet()
                     .forEach(entry -> direct.add(entry.getKey(), entry.getValue()));
         }
-        if (root.has("initProperties")) {
+        if (root.has(PROP_KEY_INIT_PROPERTIES)) {
             // Excludes the derived "listener" CHOICE: it is being replaced by the flattened ctor
             // fields above, not carried forward alongside them.
-            root.getAsJsonObject("initProperties").entrySet().stream()
+            root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).entrySet().stream()
                     .filter(entry -> !PROP_KEY_LISTENER.equals(entry.getKey()))
                     .forEach(entry -> direct.add(entry.getKey(), entry.getValue()));
         }
-        root.add("initProperties", direct);
-        root.remove("listeners");
-        root.remove("listenerForm");
+        root.add(PROP_KEY_INIT_PROPERTIES, direct);
+        root.remove(PROP_KEY_LISTENERS);
+        root.remove(PROP_KEY_LISTENER_FORM);
     }
 
     private static void applyTrigger(JsonObject root, TriggerUIMetadataModel l2) {
@@ -194,8 +202,8 @@ final class TriggerUIMetadataCompiler {
         if (l2.metadata() != null) {
             String triggerKind = l2.metadata().effectiveTriggerKind();
             put(root, "kind", l2.metadata().kind() == null ? triggerKind : l2.metadata().kind());
-            if (TRIGGER_KINDS.contains(triggerKind)) {
-                root.addProperty("triggerKind", triggerKind);
+            if (TriggerKind.isValid(triggerKind)) {
+                root.addProperty(PROP_KEY_TRIGGER_KIND, triggerKind);
             }
         }
         if (l2.readOnlyMetadata() != null) {
@@ -219,8 +227,8 @@ final class TriggerUIMetadataCompiler {
         if (l2.listeners() == null) {
             return null;
         }
-        JsonArray runtimeListeners = root.has("listeners") && root.get("listeners").isJsonArray()
-                ? root.getAsJsonArray("listeners") : new JsonArray();
+        JsonArray runtimeListeners = root.has(PROP_KEY_LISTENERS) && root.get(PROP_KEY_LISTENERS).isJsonArray()
+                ? root.getAsJsonArray(PROP_KEY_LISTENERS) : new JsonArray();
         JsonArray ordered = new JsonArray();
         JsonObject listenerForm = null;
         for (TriggerUIMetadataModel.TargetedNode overlay : l2.listeners()) {
@@ -233,19 +241,19 @@ final class TriggerUIMetadataCompiler {
                 overlayMetadata(runtime, listener.metadata());
                 put(runtime, "enabled", listener.enabledByDefault());
 
-                Map<String, JsonObject> templates = propertyTemplates(runtime.getAsJsonObject("initProperties"));
-                if (root.has("initProperties")) {
+                Map<String, JsonObject> templates = propertyTemplates(runtime.getAsJsonObject(PROP_KEY_INIT_PROPERTIES));
+                if (root.has(PROP_KEY_INIT_PROPERTIES)) {
                     Map<String, JsonObject> derivedTemplates = propertyTemplatesDeep(
-                            root.getAsJsonObject("initProperties"));
+                            root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES));
                     derivedTemplates.forEach(templates::putIfAbsent);
                 }
                 if (listener.formFields() != null) {
                     enrichListenerTemplatesFromFacts(listener.formFields(), templates,
                             listenerFacts(l1, facts, index.l1Listener(overlay.target())), root, semanticModel);
-                    runtime.add("initProperties", compileFieldMap(listener.formFields(), templates, null));
+                    runtime.add(PROP_KEY_INIT_PROPERTIES, compileFieldMap(listener.formFields(), templates, null));
                 }
                 if (listener.serviceProperties() != null) {
-                    runtime.add("serviceProperties", compileFieldMap(listener.serviceProperties(), Map.of(), null));
+                    runtime.add(PROP_KEY_SERVICE_PROPERTIES, compileFieldMap(listener.serviceProperties(), Map.of(), null));
                 }
                 if (listener.form() != null && listenerForm == null) {
                     listenerForm = GSON.toJsonTree(listener.form()).getAsJsonObject();
@@ -254,21 +262,21 @@ final class TriggerUIMetadataCompiler {
             ordered.add(runtime);
         }
         if (!ordered.isEmpty()) {
-            root.add("listeners", ordered);
+            root.add(PROP_KEY_LISTENERS, ordered);
         } else if (!runtimeListeners.isEmpty()) {
-            root.add("listeners", runtimeListeners);
+            root.add(PROP_KEY_LISTENERS, runtimeListeners);
         }
         if (listenerForm != null) {
-            root.add("listenerForm", listenerForm);
+            root.add(PROP_KEY_LISTENER_FORM, listenerForm);
         }
         return listenerForm;
     }
 
     private static void applyExistingListenerMetadata(JsonObject root, JsonObject listenerForm) {
-        if (!root.has("initProperties") || !root.getAsJsonObject("initProperties").has(PROP_KEY_LISTENER)) {
+        if (!root.has(PROP_KEY_INIT_PROPERTIES) || !root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).has(PROP_KEY_LISTENER)) {
             return;
         }
-        JsonObject choice = root.getAsJsonObject("initProperties").getAsJsonObject(PROP_KEY_LISTENER);
+        JsonObject choice = root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES).getAsJsonObject(PROP_KEY_LISTENER);
         if (!choice.has("choices") || choice.getAsJsonArray("choices").size() < 2) {
             return;
         }
@@ -281,12 +289,12 @@ final class TriggerUIMetadataCompiler {
         if (listenerForm.has("useExistingEditable")) {
             existing.add("editable", listenerForm.get("useExistingEditable"));
         }
-        if (!existing.has("properties") || !existing.getAsJsonObject("properties").has("existingListener")) {
+        if (!existing.has(PROP_KEY_PROPERTIES) || !existing.getAsJsonObject(PROP_KEY_PROPERTIES).has("existingListener")) {
             return;
         }
-        JsonObject selector = existing.getAsJsonObject("properties").getAsJsonObject("existingListener");
+        JsonObject selector = existing.getAsJsonObject(PROP_KEY_PROPERTIES).getAsJsonObject("existingListener");
         if (listenerForm.has("existingListener")) {
-            selector.add("metadata", listenerForm.get("existingListener"));
+            selector.add(PROP_KEY_METADATA, listenerForm.get("existingListener"));
         }
         if (selector.has("types") && !selector.getAsJsonArray("types").isEmpty()) {
             JsonObject type = selector.getAsJsonArray("types").get(0).getAsJsonObject();
@@ -319,7 +327,7 @@ final class TriggerUIMetadataCompiler {
             removeOptionalIdentifier(root);
             return;
         }
-        JsonObject existing = root.has("initProperties") ? root.getAsJsonObject("initProperties") : new JsonObject();
+        JsonObject existing = root.has(PROP_KEY_INIT_PROPERTIES) ? root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES) : new JsonObject();
         JsonObject compiled = new JsonObject();
         // The derived "listener" CHOICE survives an L2 initForm that never mentions it (an L2 typically
         // restates "serviceType"/annotation fields but not this one) -- same principle as the
@@ -347,7 +355,7 @@ final class TriggerUIMetadataCompiler {
             }
             compiled.add(key, field);
         }
-        root.add("initProperties", compiled);
+        root.add(PROP_KEY_INIT_PROPERTIES, compiled);
     }
 
     /**
@@ -357,10 +365,10 @@ final class TriggerUIMetadataCompiler {
      * every service through a field it has no use for by default.
      */
     private static void removeOptionalIdentifier(JsonObject root) {
-        if (!root.has("initProperties")) {
+        if (!root.has(PROP_KEY_INIT_PROPERTIES)) {
             return;
         }
-        JsonObject initProperties = root.getAsJsonObject("initProperties");
+        JsonObject initProperties = root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES);
         if (!initProperties.has(PROP_KEY_IDENTIFIER)) {
             return;
         }
@@ -384,10 +392,10 @@ final class TriggerUIMetadataCompiler {
      * listener-owned service properties, so there is no field for it to restate this under.
      */
     private static void promoteListenerServiceProperties(JsonObject root, TriggerMetadataModel l1) {
-        if (l1.listeners() == null || l1.listeners().size() != 1 || !root.has("initProperties")) {
+        if (l1.listeners() == null || l1.listeners().size() != 1 || !root.has(PROP_KEY_INIT_PROPERTIES)) {
             return;
         }
-        JsonObject initProperties = root.getAsJsonObject("initProperties");
+        JsonObject initProperties = root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES);
         if (!initProperties.has(PROP_KEY_LISTENER)) {
             return;
         }
@@ -397,10 +405,10 @@ final class TriggerUIMetadataCompiler {
             return;
         }
         JsonElement createNew = choice.getAsJsonArray("choices").get(0);
-        if (!createNew.isJsonObject() || !createNew.getAsJsonObject().has("properties")) {
+        if (!createNew.isJsonObject() || !createNew.getAsJsonObject().has(PROP_KEY_PROPERTIES)) {
             return;
         }
-        JsonObject branchProperties = createNew.getAsJsonObject().getAsJsonObject("properties");
+        JsonObject branchProperties = createNew.getAsJsonObject().getAsJsonObject(PROP_KEY_PROPERTIES);
         for (String key : List.copyOf(branchProperties.keySet())) {
             if (ListenerChoiceDeriver.LISTENER_CONFIG_GROUP_KEY.equals(key)) {
                 continue;
@@ -488,7 +496,7 @@ final class TriggerUIMetadataCompiler {
             }
         }
         codedata.addProperty("path", target.path());
-        field.add("codedata", codedata);
+        field.add(PROP_KEY_CODEDATA, codedata);
         return field;
     }
 
@@ -500,8 +508,8 @@ final class TriggerUIMetadataCompiler {
                 string(root, "moduleName"), string(root, "version"));
         PropertyType.typeWithExpression(builder, param.typeSymbol(), moduleInfo, null, semanticModel);
         JsonObject property = GSON.toJsonTree(builder.build()).getAsJsonObject();
-        property.remove("metadata");
-        property.remove("codedata");
+        property.remove(PROP_KEY_METADATA);
+        property.remove(PROP_KEY_CODEDATA);
         return property;
     }
 
@@ -626,7 +634,7 @@ final class TriggerUIMetadataCompiler {
     }
 
     private static void enrichDriverDependencies(JsonObject group, TriggerMetadataModel l1) {
-        if (!group.has("properties") || l1 == null || l1.listeners() == null || l1.listeners().isEmpty()) {
+        if (!group.has(PROP_KEY_PROPERTIES) || l1 == null || l1.listeners() == null || l1.listeners().isEmpty()) {
             return;
         }
         List<TriggerMetadataModel.PlatformDependency> dependencies = l1.listeners().getFirst().platformDependencies();
@@ -635,7 +643,7 @@ final class TriggerUIMetadataCompiler {
         }
         group.add("types", types("GROUP_SECTION", null));
         int index = 0;
-        for (Map.Entry<String, JsonElement> entry : group.getAsJsonObject("properties").entrySet()) {
+        for (Map.Entry<String, JsonElement> entry : group.getAsJsonObject(PROP_KEY_PROPERTIES).entrySet()) {
             if (index >= dependencies.size() || !entry.getValue().isJsonObject()) {
                 break;
             }
@@ -654,9 +662,9 @@ final class TriggerUIMetadataCompiler {
             put(coordinates, "artifactId", dependency.artifactId());
             put(coordinates, "version", dependency.version());
             put(coordinates, "scope", dependency.scope());
-            JsonObject codedata = field.has("codedata") ? field.getAsJsonObject("codedata") : new JsonObject();
+            JsonObject codedata = field.has(PROP_KEY_CODEDATA) ? field.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
             codedata.add("driverDependency", coordinates);
-            field.add("codedata", codedata);
+            field.add(PROP_KEY_CODEDATA, codedata);
         }
     }
 
@@ -683,11 +691,11 @@ final class TriggerUIMetadataCompiler {
                 if (overlay.service().properties().isEmpty()) {
                     // An explicit empty map means L2 wants the auto-derived properties (e.g. a service
                     // annotation the synthesizer always attaches) dropped entirely, not restated as {}.
-                    runtime.remove("properties");
+                    runtime.remove(PROP_KEY_PROPERTIES);
                 } else {
-                    JsonObject existing = runtime.has("properties")
-                            ? runtime.getAsJsonObject("properties") : new JsonObject();
-                    runtime.add("properties",
+                    JsonObject existing = runtime.has(PROP_KEY_PROPERTIES)
+                            ? runtime.getAsJsonObject(PROP_KEY_PROPERTIES) : new JsonObject();
+                    runtime.add(PROP_KEY_PROPERTIES,
                             compileFieldMap(overlay.service().properties(), propertyTemplates(existing), null));
                 }
             }
@@ -703,8 +711,8 @@ final class TriggerUIMetadataCompiler {
                     }
                 }
             }
-            if (runtime.has("name") && runtime.has("metadata") && runtime.getAsJsonObject("metadata").has("label")) {
-                labelsByName.put(string(runtime, "name"), string(runtime.getAsJsonObject("metadata"), "label"));
+            if (runtime.has("name") && runtime.has(PROP_KEY_METADATA) && runtime.getAsJsonObject(PROP_KEY_METADATA).has("label")) {
+                labelsByName.put(string(runtime, "name"), string(runtime.getAsJsonObject(PROP_KEY_METADATA), "label"));
             }
             ordered.add(runtime);
         }
@@ -715,7 +723,7 @@ final class TriggerUIMetadataCompiler {
     }
 
     private static void removeFunctions(JsonObject service, List<JsonObject> excluded) {
-        for (String key : List.of("functions", "schemaFunctions")) {
+        for (String key : List.of("functions", PROP_KEY_SCHEMA_FUNCTIONS)) {
             if (!service.has(key)) {
                 continue;
             }
@@ -737,10 +745,10 @@ final class TriggerUIMetadataCompiler {
      * rather than a separately-humanized guess of the same concept.
      */
     private static void syncServiceTypeSelectorLabels(JsonObject root, Map<String, String> labelsByName) {
-        if (labelsByName.isEmpty() || !root.has("initProperties")) {
+        if (labelsByName.isEmpty() || !root.has(PROP_KEY_INIT_PROPERTIES)) {
             return;
         }
-        JsonObject initProperties = root.getAsJsonObject("initProperties");
+        JsonObject initProperties = root.getAsJsonObject(PROP_KEY_INIT_PROPERTIES);
         if (!initProperties.has("serviceType")) {
             return;
         }
@@ -789,14 +797,14 @@ final class TriggerUIMetadataCompiler {
                 if (authored.properties().isEmpty()) {
                     // An explicit empty map means L2 wants the auto-derived properties (e.g. a handler
                     // annotation the synthesizer always attaches) dropped entirely, not restated as {}.
-                    function.remove("properties");
+                    function.remove(PROP_KEY_PROPERTIES);
                 } else {
                     // A full replacement, not a merge: L2 decomposing an auto-derived annotation
                     // property (e.g. functionConfig) into structured sub-fields (e.g.
                     // afterFileProcessing) means the derived key no longer belongs in the output.
-                    JsonObject existing = function.has("properties")
-                            ? function.getAsJsonObject("properties") : new JsonObject();
-                    function.add("properties",
+                    JsonObject existing = function.has(PROP_KEY_PROPERTIES)
+                            ? function.getAsJsonObject(PROP_KEY_PROPERTIES) : new JsonObject();
+                    function.add(PROP_KEY_PROPERTIES,
                             compileFieldMap(authored.properties(), propertyTemplates(existing), null));
                 }
             }
@@ -865,11 +873,11 @@ final class TriggerUIMetadataCompiler {
                 }
                 JsonObject codedata = sourceCodedata(authored.source());
                 if (codedata != null && !codedata.isEmpty()) {
-                    returnType.add("codedata", codedata);
-                } else if (!returnType.has("codedata")) {
+                    returnType.add(PROP_KEY_CODEDATA, codedata);
+                } else if (!returnType.has(PROP_KEY_CODEDATA)) {
                     JsonObject derived = new JsonObject();
                     derived.addProperty("type", "FUNCTION_RETURN");
-                    returnType.add("codedata", derived);
+                    returnType.add(PROP_KEY_CODEDATA, derived);
                 }
             }
         }
@@ -886,7 +894,7 @@ final class TriggerUIMetadataCompiler {
         }
         JsonObject schema = defaultProperty();
         if (documentation.metadata() != null) {
-            schema.add("metadata", runtimeMetadata(documentation.metadata()));
+            schema.add(PROP_KEY_METADATA, runtimeMetadata(documentation.metadata()));
         }
         put(schema, "placeholder", documentation.placeholder());
         put(schema, "value", documentation.defaultValue() == null ? "" : documentation.defaultValue());
@@ -939,10 +947,10 @@ final class TriggerUIMetadataCompiler {
             replace(runtime, field);
         }
         if (overlay.field() != null && overlay.field().binding() != null) {
-            JsonObject codedata = runtime.has("codedata") ? runtime.getAsJsonObject("codedata") : new JsonObject();
+            JsonObject codedata = runtime.has(PROP_KEY_CODEDATA) ? runtime.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
             put(codedata, "nameEditable", overlay.field().binding().nameEditable());
             put(codedata, "bindingKind", overlay.field().binding().bindingKind());
-            runtime.add("codedata", codedata);
+            runtime.add(PROP_KEY_CODEDATA, codedata);
         }
         if (!normalizeKind) {
             return;
@@ -978,14 +986,14 @@ final class TriggerUIMetadataCompiler {
 
     /** Finds payload leaves through COMPLEX_PAYLOAD/property and CHOICE shapes authored by L2. */
     private static boolean containsPayloadField(JsonObject field) {
-        if (field.has("codedata") && field.get("codedata").isJsonObject()) {
-            String type = string(field.getAsJsonObject("codedata"), "type");
+        if (field.has(PROP_KEY_CODEDATA) && field.get(PROP_KEY_CODEDATA).isJsonObject()) {
+            String type = string(field.getAsJsonObject(PROP_KEY_CODEDATA), "type");
             if (CD_TYPE_PAYLOAD_TYPE.equals(type) || CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD.equals(type)) {
                 return true;
             }
         }
-        if (field.has("properties") && field.get("properties").isJsonObject()) {
-            for (Map.Entry<String, JsonElement> entry : field.getAsJsonObject("properties").entrySet()) {
+        if (field.has(PROP_KEY_PROPERTIES) && field.get(PROP_KEY_PROPERTIES).isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry : field.getAsJsonObject(PROP_KEY_PROPERTIES).entrySet()) {
                 if (entry.getValue().isJsonObject() && containsPayloadField(entry.getValue().getAsJsonObject())) {
                     return true;
                 }
@@ -1027,7 +1035,7 @@ final class TriggerUIMetadataCompiler {
         // the schema entry itself is never individually collapsible, so it doesn't restate one.
         schema.remove("advanced");
         if (metadata != null) {
-            schema.add("metadata", runtimeMetadata(metadata));
+            schema.add(PROP_KEY_METADATA, runtimeMetadata(metadata));
         }
         schema.addProperty("kind", "REQUIRED");
         JsonObject type = schemaField("Type", "The type of the parameter", "string", "TYPE");
@@ -1035,13 +1043,13 @@ final class TriggerUIMetadataCompiler {
         schema.add("type", type);
         schema.add("name", schemaField("Name", "The parameter's identifier", null, "IDENTIFIER"));
         JsonObject defaultValue = defaultProperty();
-        defaultValue.add("metadata", metadata("Default Value", "The default value, if this parameter is optional"));
+        defaultValue.add(PROP_KEY_METADATA, metadata("Default Value", "The default value, if this parameter is optional"));
         defaultValue.add("types", types("EXPRESSION", null));
         defaultValue.addProperty("optional", true);
         defaultValue.addProperty("advanced", true);
         schema.add("defaultValue", defaultValue);
         JsonObject documentation = defaultProperty();
-        documentation.add("metadata", metadata("Description", "The description of the parameter"));
+        documentation.add(PROP_KEY_METADATA, metadata("Description", "The description of the parameter"));
         documentation.add("types", types("DOC_TEXT", null));
         documentation.addProperty("optional", true);
         schema.add("documentation", documentation);
@@ -1051,7 +1059,7 @@ final class TriggerUIMetadataCompiler {
 
     private static JsonObject schemaField(String label, String description, String value, String widgetKind) {
         JsonObject field = defaultProperty();
-        field.add("metadata", metadata(label, description));
+        field.add(PROP_KEY_METADATA, metadata(label, description));
         put(field, "value", value);
         field.add("types", types(widgetKind, null));
         return field;
@@ -1101,7 +1109,7 @@ final class TriggerUIMetadataCompiler {
             // An explicit L2 source.codedata is authoritative for this field: it replaces whatever the
             // matched template carried rather than being merged on top of it, so a field the template
             // doesn't mention isn't left over from a shape L2 chose not to restate.
-            field.remove("codedata");
+            field.remove(PROP_KEY_CODEDATA);
         }
         mergeCodedata(field, authoredCodedata == null ? inheritedCodedata : authoredCodedata);
 
@@ -1124,7 +1132,7 @@ final class TriggerUIMetadataCompiler {
             // fully redefined by L2 (e.g. a plain payload type replaced by a COMPLEX_PAYLOAD container),
             // not incrementally decorated -- whatever codedata the matched template carried belonged to
             // the pre-restructuring shape and shouldn't survive onto the new one unless L2 restates it.
-            field.remove("codedata");
+            field.remove(PROP_KEY_CODEDATA);
         }
         if (authored.choices() != null) {
             if (authoredCodedata == null) {
@@ -1133,7 +1141,7 @@ final class TriggerUIMetadataCompiler {
                 // up by bare property name (see the "properties" branch below), so a name that repeats
                 // across sibling choices (e.g. an "auth" field appearing once per protocol variant)
                 // would otherwise leak one sibling's codedata onto every other one.
-                field.remove("codedata");
+                field.remove(PROP_KEY_CODEDATA);
             }
             // A CHOICE field's own widget.overrides may carry authored data (e.g. a
             // ballerinaType/options enum widget) that the branch above already applied to types[];
@@ -1161,8 +1169,8 @@ final class TriggerUIMetadataCompiler {
                 // isn't mapped to anything; falling back to the *ancestor's* codedata here would leak
                 // that ancestor's annotation path onto every branch despite the branch selector itself
                 // not being the thing written to it.
-                JsonObject inheritedChoiceCodedata = field.has("codedata")
-                        ? field.getAsJsonObject("codedata") : null;
+                JsonObject inheritedChoiceCodedata = field.has(PROP_KEY_CODEDATA)
+                        ? field.getAsJsonObject(PROP_KEY_CODEDATA) : null;
                 JsonObject branch = applyField(choice, branchTemplate, templates, inheritedChoiceCodedata,
                         parentKey, i);
                 // Most choices are sub-forms with no widget of their own (e.g. FTP/SFTP/FTPS), so
@@ -1178,7 +1186,7 @@ final class TriggerUIMetadataCompiler {
                         && parentKey.equals(string(inheritedCodedata, "path"))) {
                     JsonObject mapping = new JsonObject();
                     mapping.addProperty("type", "MAPPING_CONSTRUCTOR");
-                    branch.add("codedata", mapping);
+                    branch.add(PROP_KEY_CODEDATA, mapping);
                 }
                 choices.add(branch);
             }
@@ -1190,18 +1198,18 @@ final class TriggerUIMetadataCompiler {
                 // Nested overlays must inherit the matching nested runtime property. Looking only in the
                 // sibling template map loses payload/widget metadata for structures such as
                 // content.type.payload and content.type.stream.
-                JsonObject childTemplate = field.has("properties")
-                        && field.get("properties").isJsonObject()
-                        && field.getAsJsonObject("properties").has(entry.getKey())
-                        && field.getAsJsonObject("properties").get(entry.getKey()).isJsonObject()
-                        ? field.getAsJsonObject("properties").getAsJsonObject(entry.getKey())
+                JsonObject childTemplate = field.has(PROP_KEY_PROPERTIES)
+                        && field.get(PROP_KEY_PROPERTIES).isJsonObject()
+                        && field.getAsJsonObject(PROP_KEY_PROPERTIES).has(entry.getKey())
+                        && field.getAsJsonObject(PROP_KEY_PROPERTIES).get(entry.getKey()).isJsonObject()
+                        ? field.getAsJsonObject(PROP_KEY_PROPERTIES).getAsJsonObject(entry.getKey())
                         : templates.get(entry.getKey());
                 JsonObject childCodedata = childTemplate == null && inheritedCodedata != null
                         ? serviceAnnotationChildCodedata(inheritedCodedata, entry.getKey(), parentKey) : null;
                 properties.add(entry.getKey(), applyField(entry.getValue(), childTemplate, templates,
                         childCodedata, parentKey, choiceIndex));
             }
-            field.add("properties", properties);
+            field.add(PROP_KEY_PROPERTIES, properties);
             if (!hasWidgetOverride && authored.choices() == null && (template == null || !template.has("types"))) {
                 field.add("types", types("GROUP_SECTION", null));
             }
@@ -1293,8 +1301,8 @@ final class TriggerUIMetadataCompiler {
             }
             JsonObject value = entry.getValue().getAsJsonObject();
             templates.putIfAbsent(entry.getKey(), value);
-            if (value.has("properties")) {
-                collectPropertyTemplates(value.getAsJsonObject("properties"), templates);
+            if (value.has(PROP_KEY_PROPERTIES)) {
+                collectPropertyTemplates(value.getAsJsonObject(PROP_KEY_PROPERTIES), templates);
             }
             if (value.has("choices") && value.get("choices").isJsonArray()) {
                 for (JsonElement choice : value.getAsJsonArray("choices")) {
@@ -1310,11 +1318,11 @@ final class TriggerUIMetadataCompiler {
         if (authored == null) {
             return;
         }
-        JsonObject metadata = target.has("metadata") && target.get("metadata").isJsonObject()
-                ? target.getAsJsonObject("metadata") : new JsonObject();
+        JsonObject metadata = target.has(PROP_KEY_METADATA) && target.get(PROP_KEY_METADATA).isJsonObject()
+                ? target.getAsJsonObject(PROP_KEY_METADATA) : new JsonObject();
         JsonObject source = runtimeMetadata(authored);
         mergeNonNull(metadata, source);
-        target.add("metadata", metadata);
+        target.add(PROP_KEY_METADATA, metadata);
     }
 
     private static JsonObject runtimeMetadata(TriggerUIMetadataModel.Metadata authored) {
@@ -1357,10 +1365,10 @@ final class TriggerUIMetadataCompiler {
         if (authored == null || authored.isEmpty()) {
             return;
         }
-        JsonObject codedata = target.has("codedata") && target.get("codedata").isJsonObject()
-                ? target.getAsJsonObject("codedata") : new JsonObject();
+        JsonObject codedata = target.has(PROP_KEY_CODEDATA) && target.get(PROP_KEY_CODEDATA).isJsonObject()
+                ? target.getAsJsonObject(PROP_KEY_CODEDATA) : new JsonObject();
         mergeNonNull(codedata, authored);
-        target.add("codedata", codedata);
+        target.add(PROP_KEY_CODEDATA, codedata);
     }
 
     private static void mergeNonNull(JsonObject target, JsonObject source) {
@@ -1437,8 +1445,8 @@ final class TriggerUIMetadataCompiler {
                     }
                 }
             }
-            if (runtime.has("listeners")) {
-                for (JsonElement item : runtime.getAsJsonArray("listeners")) {
+            if (runtime.has(PROP_KEY_LISTENERS)) {
+                for (JsonElement item : runtime.getAsJsonArray(PROP_KEY_LISTENERS)) {
                     JsonObject listener = item.getAsJsonObject();
                     String name = string(listener, "name");
                     runtimeListeners.put(name, listener);
@@ -1486,7 +1494,7 @@ final class TriggerUIMetadataCompiler {
                     : target == null ? null
                     : target.name() != null ? target.name() : lastSegment(target.id());
             List<JsonObject> matches = new ArrayList<>();
-            for (String key : List.of("functions", "schemaFunctions")) {
+            for (String key : List.of("functions", PROP_KEY_SCHEMA_FUNCTIONS)) {
                 if (!service.has(key)) {
                     continue;
                 }

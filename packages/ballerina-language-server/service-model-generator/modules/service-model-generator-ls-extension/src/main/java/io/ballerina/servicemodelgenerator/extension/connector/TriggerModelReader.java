@@ -47,14 +47,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.PROP_KEY_LISTENER;
 
 /**
- * Reads the unified {@code trigger-ui-schema.json} for a connector, generated, shipped, or synthesized.
+ * Reads the unified {@code trigger-ui-schema.json} for a connector, synthesized from L1 with L2 overlaid.
  */
 public class TriggerModelReader {
 
@@ -65,56 +64,17 @@ public class TriggerModelReader {
     private static final List<String> INIT_IDENTITY_KEYS = List.of(
             "id", "displayName", "description", "orgName", "packageName", "moduleName", "version", "type", "icon");
 
-    private static final int MAX_CACHE_SIZE = 2;
-    /** Sized for the generated tier once it's the default resolution path: every one of the ~30
-     * packaged connectors may be resolved in one designer session, not just one at a time. */
-    private static final int GENERATED_CACHE_SIZE = 32;
-
-    private static final String GENERATION_MODE_PROPERTY = "ballerina.trigger.models";
-    private static final String GENERATION_MODE_GENERATED = "generated";
-
-    /**
-     * Whether the generated (L1 + semantic facts + L2) tier is tried ahead of the shipped/synthesized
-     * tiers. Generation is opt-in until it has been fully validated against real connector packages;
-     * use {@code -Dballerina.trigger.models=generated} to exercise the new tier. The default keeps the
-     * established shipped/synthesized resolution path intact while the generated models are being
-     * onboarded.
-     */
-    private static boolean generationEnabled(String moduleName) {
-        return GENERATION_MODE_GENERATED.equalsIgnoreCase(System.getProperty(GENERATION_MODE_PROPERTY))
-                && !GENERATION_NOT_YET_ONBOARDED.contains(moduleName);
-    }
-
-    /**
-     * Modules whose packaged L1 + L2 exist (so {@link #getGeneratedTriggerModel} would happily
-     * synthesize a model for them) but which are deliberately kept off the generated tier for now:
-     * {@code http}/{@code graphql}/{@code grpc}/{@code tcp}/{@code websocket}/{@code websub}/
-     * {@code trigger.google.calendar} are not schema-driven today -- {@code ServiceBuilderRouter}/
-     * {@code FunctionBuilderRouter} route
-     * {@code http}/{@code graphql}/{@code tcp} to their own dedicated hardcoded builders via
-     * {@code hasSchemaDrivenModel}, and the rest fall through to {@code DefaultServiceBuilder}.
-     * Silently making {@code hasSchemaDrivenModel} true for them would divert that routing decision as
-     * an unintended side effect of packaging their L1+L2 for the parity harness -- precisely what broke
-     * ~55 unrelated tests the last time a packaged metadata model was seeded for a not-yet-schema-driven
-     * module (see the "Follow-ups from the Trigger Construct Spec v1.0 migration" backlog entry).
-     * Onboarding any of these onto the generated tier is a deliberate follow-up, not a side effect of
-     * this set shrinking.
-     */
-    private static final Set<String> GENERATION_NOT_YET_ONBOARDED = Set.of(
-            "http", "graphql", "grpc", "tcp", "websocket", "websub", "trigger.google.calendar");
+    private static final int MAX_CACHE_SIZE = 3;
 
     private final Gson gson = new Gson();
     /** Static counterpart of {@link #gson}, for the init-form derivation that runs before binding. */
     private static final Gson DERIVATION_GSON = new Gson();
     private static final Type LISTENER_MODEL_LIST_TYPE =
             new TypeToken<List<TriggerUISchemaModel.ListenerModel>>() { }.getType();
+    /** Keyed {@code org/module:version}: output genuinely varies by version (L2 variant selection,
+     * semantic facts from the resolved package), so version is part of the cache key. */
     private final Cache<String, Optional<TriggerUISchemaModel>> schemaDrivenTriggerCache =
             Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
-    /** Keyed {@code org/module:version} -- unlike {@link #schemaDrivenTriggerCache}, version is part of
-     * the key here because the generated tier's output genuinely varies by version (L2 variant
-     * selection, semantic facts from the resolved package). */
-    private final Cache<String, Optional<TriggerUISchemaModel>> generatedTriggerCache =
-            Caffeine.newBuilder().maximumSize(GENERATED_CACHE_SIZE).build();
 
     private TriggerModelReader() {
     }
@@ -181,7 +141,7 @@ public class TriggerModelReader {
         return initFormJson(parsed).map(json -> gson.fromJson(json, ServiceInitModel.class));
     }
 
-    /** Cheap presence check across all tiers: connector-shipped or synthesized. */
+    /** Cheap presence check: connector-shipped or synthesized from L1 (with L2 as an optional overlay). */
     public boolean hasSchemaDrivenModel(String orgName, String moduleName) {
         return getSchemaDrivenTriggerModel(orgName, moduleName, null, false).isPresent();
     }
@@ -192,7 +152,7 @@ public class TriggerModelReader {
         return getSchemaDrivenTriggerModel(orgName, moduleName, version, isLocalRepository).isPresent();
     }
 
-    /** The connector's {@link TriggerUISchemaModel}: generated, shipped, or synthesized. */
+    /** The connector's {@link TriggerUISchemaModel}, synthesized from L1 with L2 applied as an overlay. */
     public Optional<TriggerUISchemaModel> getSchemaDrivenTriggerModel(String orgName, String moduleName) {
         return getSchemaDrivenTriggerModel(orgName, moduleName, null);
     }
@@ -209,15 +169,6 @@ public class TriggerModelReader {
         if (isLocalRepository) {
             return resolveSchemaDrivenTriggerModelFromLocalRepository(orgName, moduleName, version);
         }
-        if (orgName != null && moduleName != null && generationEnabled(moduleName)) {
-            Optional<TriggerUISchemaModel> generated = getCachedGeneratedTriggerModel(orgName, moduleName, version);
-            if (generated.isPresent()) {
-                return generated;
-            }
-            // Falls through: the packaged L1+L2 corpus doesn't (yet) cover this connector, or its
-            // package isn't resolvable offline. The shipped/legacy-synthesize tier below is the same
-            // fallback this method has always had for exactly that case.
-        }
         if (orgName == null || moduleName == null) {
             return Optional.empty();
         }
@@ -231,34 +182,6 @@ public class TriggerModelReader {
             schemaDrivenTriggerCache.put(key, resolution.model());
         }
         return resolution.model();
-    }
-
-    /**
-     * The L1 + semantic facts + L2 generated model, cached by {@code org/module:version}. This is the
-     * default resolution tier as of the L1+L2 cutover -- {@link #getGeneratedTriggerModel} itself stays
-     * uncached and version-precise so callers needing an exact pinned version can bypass the cache,
-     * which is exactly why this wrapper exists rather than caching inside it.
-     */
-    private Optional<TriggerUISchemaModel> getCachedGeneratedTriggerModel(String orgName, String moduleName,
-                                                                          String version) {
-        String key = orgName + "/" + moduleName + ":" + (version == null ? "" : version);
-        Optional<TriggerUISchemaModel> cached = generatedTriggerCache.getIfPresent(key);
-        if (cached != null) {
-            return cached;
-        }
-        Optional<TriggerUISchemaModel> generated;
-        try {
-            generated = getGeneratedTriggerModel(orgName, moduleName, version);
-        } catch (Throwable e) {
-            LOGGER.log(Level.FINE, "Generated trigger model resolution failed for " + orgName + "/" + moduleName,
-                    e);
-            generated = Optional.empty();
-        }
-        generatedTriggerCache.put(key, generated);
-        if (generated.isPresent()) {
-            LOGGER.log(Level.FINE, () -> "Resolved " + orgName + "/" + moduleName + " from the generated tier");
-        }
-        return generated;
     }
 
     /**
@@ -300,12 +223,6 @@ public class TriggerModelReader {
                         initModel.setLocalRepository(true);
                         return initModel;
                     });
-        }
-        if (orgName != null && moduleName != null && generationEnabled(moduleName)) {
-            Optional<TriggerUISchemaModel> generated = getCachedGeneratedTriggerModel(orgName, moduleName, version);
-            if (generated.isPresent()) {
-                return generated.flatMap(model -> buildServiceInitModelFromJson(gson.toJsonTree(model)));
-            }
         }
         if (orgName == null || moduleName == null) {
             return Optional.empty();
@@ -355,7 +272,7 @@ public class TriggerModelReader {
      * resolution and to the package resolver -- rather than always resolving "whatever the offline
      * cache holds as newest". Without a pin, a module with more than one version cached offline (e.g. a
      * connector pulled at both an older and a newer release) resolves arbitrarily, and an unversioned
-     * {@link PackageUtil#getModulePackageOffline(io.ballerina.projects.BuildProject, String, String)}
+     * {@link PackageUtil#getModulePackageOffline(String, String)}
      * lookup can fail to resolve at all in an environment whose local index doesn't already know which
      * version is "newest" -- silently dropping this tier's model instead of resolving the version the
      * caller actually meant.
@@ -368,8 +285,7 @@ public class TriggerModelReader {
         if (metadata.isEmpty()) {
             return metadataReader.isLocallyResolvable(moduleInfo) ? Resolution.ABSENT : Resolution.UNRESOLVED;
         }
-        Optional<Package> pkg = PackageUtil.getModulePackageOffline(PackageUtil.getSampleProject(), orgName,
-                moduleName, version);
+        Optional<Package> pkg = PackageUtil.getModulePackageOffline(orgName, moduleName, version);
         if (pkg.isEmpty()) {
             return Resolution.UNRESOLVED;
         }
@@ -379,17 +295,17 @@ public class TriggerModelReader {
     }
 
     /**
-     * Builds the L1 + semantic + L2 model for one connector: uncached and version-precise, so callers
-     * needing an exact pinned version can bypass the cache. Production resolution goes through
-     * {@link #getCachedGeneratedTriggerModel}, which adds caching on top of this.
+     * Builds the L1 + semantic + L2 model for one connector directly, requiring both L1 and L2 to be
+     * present, uncached and version-precise. Production resolution goes through
+     * {@link #getSchemaDrivenTriggerModel(String, String, String)} instead, which tolerates a missing
+     * L2 and is cached; this method exists for callers (tests) that need an exact, pinned-version result.
      */
     Optional<TriggerUISchemaModel> getGeneratedTriggerModel(String orgName, String moduleName, String version) {
         if (orgName == null || moduleName == null) {
             return Optional.empty();
         }
         ModuleInfo moduleInfo = new ModuleInfo(orgName, moduleName, moduleName, version);
-        Optional<Package> pkg = PackageUtil.getModulePackageOffline(PackageUtil.getSampleProject(), orgName,
-                moduleName, version);
+        Optional<Package> pkg = PackageUtil.getModulePackageOffline(orgName, moduleName, version);
         return pkg.flatMap(value -> getGeneratedTriggerModel(moduleInfo, value));
     }
 

@@ -27,6 +27,7 @@ import io.ballerina.modelgenerator.commons.ModuleInfo;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.trigger.models.ArtifactInfo;
 import io.ballerina.modelgenerator.commons.trigger.models.ArtifactMetadata;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerKind;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.utils.TriggerMetadataGson;
@@ -67,10 +68,8 @@ public final class LibraryMetadataReader {
 
     private static final String TRIGGER_METADATA_RESOURCE_PATH = "metadata/trigger-metadata.json";
     private static final String TRIGGER_UI_METADATA_RESOURCE_PATH = "metadata/trigger-ui-metadata.json";
-    /** Sized for the designer, which resolves one connector at a time. */
     private static final int MAX_CACHE_SIZE = 2;
     private static final Pattern SUPPORTED_VERSION = Pattern.compile("^v1\\.\\d+$");
-    private static final Set<String> TRIGGER_KINDS = Set.of("event", "mcp", "graphql", "http", "file", "ai");
     private static final Set<String> SELF_NAMED_TRIGGER_KIND_MODULES = Set.of("http", "graphql", "mcp", "ai");
     private static final String BALLERINA_ORG = "ballerina";
 
@@ -149,12 +148,6 @@ public final class LibraryMetadataReader {
     /** Artifact-tree L2 read from the Ballerina local repository. */
     public Optional<ArtifactMetadata> getArtifactMetadataFromLocalRepository(ModuleInfo moduleInfo) {
         return localPackageRoot(moduleInfo).flatMap(this::readArtifactMetadata);
-    }
-
-    /** Compatibility accessor for callers interested only in presentation metadata. */
-    public Optional<ArtifactInfo.Resolved> getArtifactInfoFromLocalRepository(ModuleInfo moduleInfo) {
-        return getArtifactMetadataFromLocalRepository(moduleInfo)
-                .flatMap(metadata -> Optional.ofNullable(metadata.artifactInfo()));
     }
 
     /** Every {@code org/name/version} present in the Ballerina local repository, as {@link ModuleInfo}. */
@@ -241,16 +234,17 @@ public final class LibraryMetadataReader {
     }
 
     Optional<ArtifactMetadata> readArtifactMetadata(Path packageRoot) {
-        Path metadataFile = packageRoot.resolve(TRIGGER_UI_METADATA_RESOURCE_PATH).normalize();
-        if (!metadataFile.startsWith(packageRoot) || !Files.isRegularFile(metadataFile)) {
+        Optional<Path> metadataFile = resolveSafeRelativePath(packageRoot, TRIGGER_UI_METADATA_RESOURCE_PATH);
+        if (metadataFile.isEmpty()) {
             return Optional.empty();
         }
-        Path resourceRoot = metadataFile.getParent();
-        try (Reader reader = Files.newBufferedReader(metadataFile, StandardCharsets.UTF_8)) {
-            return parseArtifactMetadata(reader, metadataFile.toString(),
-                    relative -> readRelativeAsset(resourceRoot, relative));
+        Path file = metadataFile.get();
+        Path resourceRoot = file.getParent();
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            return parseArtifactMetadata(reader, file.toString(),
+                    relative -> readResourceFile(resourceRoot, relative));
         } catch (IOException | JsonParseException | IllegalStateException e) {
-            LOGGER.log(Level.WARNING, "Ignoring artifactInfo in " + metadataFile, e);
+            LOGGER.log(Level.WARNING, "Ignoring artifactInfo in " + file, e);
             return Optional.empty();
         }
     }
@@ -276,8 +270,7 @@ public final class LibraryMetadataReader {
                     LOGGER.warning("Ignoring incomplete or unsafe artifact icon in " + source);
                 }
             }
-            String triggerKind = document.triggerKind() != null && TRIGGER_KINDS.contains(document.triggerKind())
-                    ? document.triggerKind() : null;
+            String triggerKind = TriggerKind.isValid(document.triggerKind()) ? document.triggerKind() : null;
             if (resolved == null && triggerKind == null) {
                 return Optional.empty();
             }
@@ -314,22 +307,7 @@ public final class LibraryMetadataReader {
             }
         }
         reader.endObject();
-        return triggerKind == null ? kind : triggerKind;
-    }
-
-    private Optional<String> readRelativeAsset(Path root, String relative) {
-        if (!isSafeRelativePath(relative)) {
-            return Optional.empty();
-        }
-        Path path = root.resolve(relative).normalize();
-        if (!path.startsWith(root) || !Files.isRegularFile(path)) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(Files.readString(path, StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            return Optional.empty();
-        }
+        return TriggerKind.coalesce(triggerKind, kind);
     }
 
     private static boolean isSafeRelativePath(String path) {
@@ -398,7 +376,7 @@ public final class LibraryMetadataReader {
 
     private Optional<Path> resolvePackageRoot(ModuleInfo moduleInfo) {
         try {
-            Optional<Package> pkg = PackageUtil.getModulePackageOffline(PackageUtil.getSampleProject(),
+            Optional<Package> pkg = PackageUtil.getModulePackageOffline(
                     moduleInfo.org(), moduleInfo.moduleName(), moduleInfo.version());
             return pkg.map(aPackage -> aPackage.project().sourceRoot());
         } catch (Throwable e) {
@@ -406,16 +384,33 @@ public final class LibraryMetadataReader {
         }
     }
 
-    /** Reads a package-relative file as UTF-8 text, guarding against it escaping {@code packageRoot}. */
-    private Optional<String> readResourceFile(Path packageRoot, String relativePath) {
-        Path file = packageRoot.resolve(relativePath).normalize();
-        if (!file.startsWith(packageRoot) || !Files.isRegularFile(file)) {
+    /**
+     * Resolves {@code relativePath} against {@code root}, refusing anything that would land outside
+     * of it. This is the single boundary guard for every connector-authored relative path read out of
+     * a {@code .bala} -- a {@code trigger-metadata.json}/{@code trigger-ui-metadata.json} resource path,
+     * or an icon path inside {@code artifactInfo} -- so the escape check only needs auditing once: a
+     * syntactic pre-check ({@link #isSafeRelativePath}) followed by {@code resolve -> normalize ->
+     * startsWith(root) -> isRegularFile}.
+     */
+    private Optional<Path> resolveSafeRelativePath(Path root, String relativePath) {
+        if (!isSafeRelativePath(relativePath)) {
             return Optional.empty();
         }
-        try {
-            return Optional.of(Files.readString(file, StandardCharsets.UTF_8));
-        } catch (IOException e) {
+        Path file = root.resolve(relativePath).normalize();
+        if (!file.startsWith(root) || !Files.isRegularFile(file)) {
             return Optional.empty();
         }
+        return Optional.of(file);
+    }
+
+    /** Reads a package-relative file as UTF-8 text, guarding against it escaping {@code root}. */
+    private Optional<String> readResourceFile(Path root, String relativePath) {
+        return resolveSafeRelativePath(root, relativePath).flatMap(file -> {
+            try {
+                return Optional.of(Files.readString(file, StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                return Optional.empty();
+            }
+        });
     }
 }

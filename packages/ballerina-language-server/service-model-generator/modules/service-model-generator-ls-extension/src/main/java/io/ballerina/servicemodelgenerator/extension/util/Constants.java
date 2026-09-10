@@ -167,6 +167,15 @@ public class Constants {
     public static final String PROP_KEY_STRING_LITERAL = "stringLiteral";
     public static final String PROP_READONLY_METADATA_KEY = "readOnlyMetadata";
     public static final String PROP_KEY_DEFAULT_LISTENER = "defaultListener";
+    public static final String PROP_KEY_PROPERTIES = "properties";
+    public static final String PROP_KEY_INIT_PROPERTIES = "initProperties";
+    public static final String PROP_KEY_CODEDATA = "codedata";
+    public static final String PROP_KEY_LISTENERS = "listeners";
+    public static final String PROP_KEY_METADATA = "metadata";
+    public static final String PROP_KEY_SERVICE_PROPERTIES = "serviceProperties";
+    public static final String PROP_KEY_LISTENER_FORM = "listenerForm";
+    public static final String PROP_KEY_SCHEMA_FUNCTIONS = "schemaFunctions";
+    public static final String PROP_KEY_TRIGGER_KIND = "triggerKind";
     public static final String DEFAULT_LISTENER_TYPE = "Listener";
 
     // protocol listeners

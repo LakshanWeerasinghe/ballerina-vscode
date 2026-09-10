@@ -1463,7 +1463,6 @@ export interface ConnectorUpgradeAdvice {
     currentVersion: string;
     minSupportedVersion: string;
     breaking: boolean;
-    explicitlyPinned: boolean;
     usedInFile?: string;
 }
 

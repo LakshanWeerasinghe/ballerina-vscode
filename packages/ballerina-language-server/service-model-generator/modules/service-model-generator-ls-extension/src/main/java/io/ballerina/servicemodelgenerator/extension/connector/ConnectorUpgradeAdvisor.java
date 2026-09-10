@@ -25,6 +25,7 @@ import io.ballerina.projects.PackageManifest;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.SemanticVersion;
 import io.ballerina.servicemodelgenerator.extension.model.TriggerProperty;
+import io.ballerina.servicemodelgenerator.extension.model.response.ConnectorUpgradeAdvice;
 import io.ballerina.servicemodelgenerator.extension.model.response.ModelResolutionIssue;
 
 import java.util.ArrayList;
@@ -51,28 +52,6 @@ public final class ConnectorUpgradeAdvisor {
     private static final String LOCAL_REPOSITORY = "local";
 
     private ConnectorUpgradeAdvisor() {
-    }
-
-    /**
-     * @param orgName            the connector's organization
-     * @param moduleName         the connector's module name
-     * @param packageName        the connector's package name (equal to {@code moduleName} for a
-     *                           single-module package, which every connector here is)
-     * @param currentVersion     the version this project actually resolves, per
-     *                           {@link ConnectorVersionResolver}
-     * @param minSupportedVersion the lowest version known to ship schema-driven trigger resources
-     * @param breaking           whether {@code currentVersion}'s (major, minor) differs from
-     *                           {@code minSupportedVersion}'s -- crossing a boundary that may carry a
-     *                           breaking API change, and so is never bundled into a one-click update
-     * @param explicitlyPinned   whether {@code Ballerina.toml} declares an explicit, non-local
-     *                           {@code [[dependency]]} entry for this connector (a bump must edit it,
-     *                           since {@code bal build} alone would keep re-resolving to the pin)
-     * @param usedInFile         one file (relative to the package root) where the connector is used as
-     *                           a service/listener, for the prompt's copy
-     */
-    public record ConnectorUpgradeAdvice(String orgName, String moduleName, String packageName,
-                                         String currentVersion, String minSupportedVersion, boolean breaking,
-                                         boolean explicitlyPinned, String usedInFile) {
     }
 
     /** The affected-connector list for {@code project}, or an empty list if none are affected. */
@@ -109,9 +88,8 @@ public final class ConnectorUpgradeAdvisor {
                     return;
                 }
                 boolean breaking = crossesMinorBoundary(currentVersion, minSupportedVersion);
-                boolean explicitlyPinned = isExplicitlyPinned(project, orgName, moduleName);
                 advice.add(new ConnectorUpgradeAdvice(orgName, moduleName, property.packageName(), currentVersion,
-                        minSupportedVersion, breaking, explicitlyPinned, usedInFile));
+                        minSupportedVersion, breaking, usedInFile));
             });
         }
         return advice;
@@ -188,12 +166,6 @@ public final class ConnectorUpgradeAdvisor {
     private static boolean isLocalRepositoryDependency(Project project, String orgName, String moduleName) {
         return declaredDependency(project, orgName, moduleName)
                 .filter(dependency -> LOCAL_REPOSITORY.equals(dependency.repository()))
-                .isPresent();
-    }
-
-    private static boolean isExplicitlyPinned(Project project, String orgName, String moduleName) {
-        return declaredDependency(project, orgName, moduleName)
-                .filter(dependency -> !LOCAL_REPOSITORY.equals(dependency.repository()))
                 .isPresent();
     }
 

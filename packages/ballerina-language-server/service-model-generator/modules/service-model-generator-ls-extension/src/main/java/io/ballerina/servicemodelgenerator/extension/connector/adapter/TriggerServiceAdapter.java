@@ -19,6 +19,7 @@
 package io.ballerina.servicemodelgenerator.extension.connector.adapter;
 
 import io.ballerina.modelgenerator.commons.CommonUtils;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerKind;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.servicemodelgenerator.extension.model.Codedata;
 import io.ballerina.servicemodelgenerator.extension.model.Function;
@@ -99,11 +100,7 @@ public final class TriggerServiceAdapter {
     }
 
     private static String effectiveTriggerKind(TriggerUISchemaModel model) {
-        String value = model.triggerKind() == null ? model.kind() : model.triggerKind();
-        return switch (value == null ? "" : value) {
-            case "event", "mcp", "graphql", "http", "file", "ai" -> value;
-            default -> null;
-        };
+        return TriggerKind.effectiveOrNull(model.triggerKind(), model.kind());
     }
 
     /** Falls back to {@code SINGLE_SELECT_LISTENER} when {@code listenerKind} is absent or unrecognized. */

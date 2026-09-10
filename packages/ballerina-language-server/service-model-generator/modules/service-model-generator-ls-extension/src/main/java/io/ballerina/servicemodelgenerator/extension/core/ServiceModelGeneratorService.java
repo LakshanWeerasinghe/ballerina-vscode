@@ -36,6 +36,7 @@ import io.ballerina.modelgenerator.commons.ModulePrefixContext;
 import io.ballerina.modelgenerator.commons.PackageUtil;
 import io.ballerina.modelgenerator.commons.ServiceDatabaseManager;
 import io.ballerina.modelgenerator.commons.ServiceDeclaration;
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerKind;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
@@ -1378,7 +1379,7 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
         int id = model.moduleName().hashCode();
         return new TriggerBasicInfo(id, label, model.orgName(), model.packageName(), model.moduleName(),
                 model.version(), model.kind(), label, "", protocol, icon,
-                effectiveTriggerKind(model.triggerKind(), model.kind()));
+                TriggerKind.effectiveOrNull(model.triggerKind(), model.kind()));
     }
 
     /** The legacy sqlite-index lookup (seeded from {@code service_artifacts.json}), reached only when
@@ -1439,14 +1440,6 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                 triggerProperty.version());
         return new TriggerBasicInfo(id, label, triggerProperty.orgName(), triggerProperty.packageName(),
                 triggerProperty.name(), triggerProperty.version(), triggerProperty.kind(), label, "",
-                protocol, icon, effectiveTriggerKind(triggerProperty.triggerKind(), triggerProperty.kind()));
-    }
-
-    private static String effectiveTriggerKind(String triggerKind, String kind) {
-        String value = triggerKind == null ? kind : triggerKind;
-        return switch (value == null ? "" : value) {
-            case "event", "mcp", "graphql", "http", "file", "ai" -> value;
-            default -> null;
-        };
+                protocol, icon, TriggerKind.effectiveOrNull(triggerProperty.triggerKind(), triggerProperty.kind()));
     }
 }

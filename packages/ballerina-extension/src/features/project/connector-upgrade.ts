@@ -81,9 +81,9 @@ export async function checkAndPromptConnectorUpgrades(projectPath: string): Prom
  * in-process resolution above) to regenerate {@code Dependencies.toml} and pull the new bala.</li>
  * </ul>
  *
- * Which bucket a connector falls into is detected directly from {@code Ballerina.toml}'s own text,
- * rather than trusted from the caller's {@code explicitlyPinned} flag -- callers that only know a single
- * connector (e.g. the Service Designer's own "Update Now") don't always know whether it's pinned.
+ * Which bucket a connector falls into is detected directly from {@code Ballerina.toml}'s own text --
+ * callers that only know a single connector (e.g. the Service Designer's own "Update Now") don't always
+ * know whether it's pinned.
  */
 export async function pullAndBumpConnectors(
     advice: ConnectorUpgradeAdvice[],
@@ -136,7 +136,7 @@ async function pullViaResolution(
             arguments: [{ key: ARG_KEY_DOC_URI, value: fileUri }]
         });
         notifyCurrentWebview();
-        return { succeeded: advice, failed: [] };
+        return await partitionByPostPullResolution(advice, projectPath);
     } catch (error) {
         console.error('>>> Connector upgrade pull failed', error);
         window.showErrorMessage(
@@ -145,6 +145,38 @@ async function pullViaResolution(
         );
         return { succeeded: [], failed: advice };
     }
+}
+
+/**
+ * A single PULL_MODULE/{@code bal build} re-resolves the whole project at once, so a partial outcome
+ * (e.g. one connector floats to a compatible version while another has none published yet) can't be
+ * told apart from a full success just because the command itself didn't throw. Re-fetches the advice
+ * list and treats whichever of `advice`'s items are still reported back as unsupported as failed --
+ * everything else is taken as having actually resolved.
+ */
+async function partitionByPostPullResolution(
+    advice: ConnectorUpgradeAdvice[],
+    projectPath: string
+): Promise<{ succeeded: ConnectorUpgradeAdvice[]; failed: ConnectorUpgradeAdvice[] }> {
+    try {
+        const response = await StateMachine.langClient().getConnectorUpgradeAdvice({ filePath: projectPath });
+        const stillUnsupported = new Set(
+            (response?.advice ?? []).map((item) => connectorKey(item.orgName, item.moduleName))
+        );
+        return {
+            succeeded: advice.filter((item) => !stillUnsupported.has(connectorKey(item.orgName, item.moduleName))),
+            failed: advice.filter((item) => stillUnsupported.has(connectorKey(item.orgName, item.moduleName)))
+        };
+    } catch (error) {
+        // Couldn't re-verify -- fall back to trusting the pull rather than reporting a false failure
+        // for connectors we have no evidence actually failed.
+        console.error('>>> Error re-checking connector upgrade advice after pull', error);
+        return { succeeded: advice, failed: [] };
+    }
+}
+
+function connectorKey(orgName: string, moduleName: string): string {
+    return `${orgName}/${moduleName}`;
 }
 
 /**
@@ -198,7 +230,10 @@ async function bumpPinnedDependencies(
         documentIdentifier: { uri: Uri.file(projectPath).toString() }
     });
     notifyCurrentWebview();
-    succeeded.push(...toBuild);
+    const resolution = await partitionByPostPullResolution(toBuild, projectPath);
+    succeeded.push(...resolution.succeeded);
+    failed.push(...resolution.failed);
+    reportFailures(resolution.failed);
     return { succeeded, failed };
 }
 

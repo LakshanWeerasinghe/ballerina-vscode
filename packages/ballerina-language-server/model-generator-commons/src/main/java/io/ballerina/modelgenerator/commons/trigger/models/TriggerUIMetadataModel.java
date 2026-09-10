@@ -54,14 +54,6 @@ public record TriggerUIMetadataModel(
         String importPrefix,
         ArtifactInfo artifactInfo) {
 
-    /** Source-compatible constructor for callers that do not author artifact metadata. */
-    public TriggerUIMetadataModel(String version, Metadata metadata, Trigger trigger,
-                                  List<ReadOnlyMetadata> readOnlyMetadata, InitForm initForm,
-                                  List<TargetedNode> listeners, List<TargetedNode> serviceTypes,
-                                  String importPrefix) {
-        this(version, metadata, trigger, readOnlyMetadata, initForm, listeners, serviceTypes, importPrefix, null);
-    }
-
     public record Metadata(
             String label,
             String description,
@@ -76,17 +68,9 @@ public record TriggerUIMetadataModel(
             String kind,
             String triggerKind) {
 
-        /** Source-compatible constructor for metadata written before {@code triggerKind} was introduced. */
-        public Metadata(String label, String description, String notice, String subLabel, String addLabel,
-                        String addDescription, String groupName, String badge, Boolean deprecated, Boolean derived,
-                        String kind) {
-            this(label, description, notice, subLabel, addLabel, addDescription, groupName, badge, deprecated,
-                    derived, kind, null);
-        }
-
         /** Uses the newer canonical field when present and otherwise accepts legacy {@code kind}. */
         public String effectiveTriggerKind() {
-            return triggerKind == null ? kind : triggerKind;
+            return TriggerKind.coalesce(triggerKind, kind);
         }
     }
 
@@ -296,17 +280,6 @@ public record TriggerUIMetadataModel(
             String valueKind,
             String castType,
             Boolean preserveValue) {
-        public Codedata(String type, String argType, String originalName, String moduleName, String orgName,
-                        String packageName, Integer position, String path, String defaultType, String boundType,
-                        Boolean bindable, String bindingKind, String typeConstraint, String template,
-                        String modifier, List<String> supersedes, String targetParam, Object modifiers,
-                        String field, Boolean optional, String value, String valueQualifier, String group,
-                        String variantLabel, Boolean nameEditable, String bindingGroup, Object driverDependency) {
-            this(type, argType, originalName, moduleName, orgName, packageName, position, path, defaultType,
-                    boundType, bindable, bindingKind, typeConstraint, template, modifier, supersedes, targetParam,
-                    modifiers, field, optional, value, valueQualifier, group, variantLabel, nameEditable,
-                    bindingGroup, driverDependency, null, null, null);
-        }
     }
 
     public record State(
@@ -351,12 +324,6 @@ public record TriggerUIMetadataModel(
             Source source,
             Boolean literal,
             Map<String, Object> extensions) {
-        public Field(String key, Metadata metadata, String placeholder, Object defaultValue, WidgetPolicy widget,
-                     List<String> items, List<Field> choices, Map<String, Field> properties,
-                     List<Validation> validations, Binding binding, State state, Source source, Boolean literal) {
-            this(key, metadata, placeholder, defaultValue, widget, items, choices, properties, validations, binding,
-                    state, source, literal, null);
-        }
     }
 
     public record WidgetPolicy(
@@ -392,13 +359,6 @@ public record TriggerUIMetadataModel(
             Map<String, Object> extensions,
             Integer minItems,
             Integer defaultItems) {
-        /** Compatibility constructor for call sites predating {@code minItems}/{@code defaultItems}. */
-        public Widget(String widgetKind, Boolean selected, String ballerinaType, List<Option> options,
-                      List<TypeMember> typeMembers, Object template, String itemLabel, List<PayloadFormat> formats,
-                      List<Validation> validations) {
-            this(widgetKind, selected, ballerinaType, options, typeMembers, template, itemLabel, formats,
-                    validations, null, null, null);
-        }
     }
 
     public record Option(String label, String value, String helperText) {
@@ -478,12 +438,6 @@ public record TriggerUIMetadataModel(
             String existingListenerBallerinaType,
             List<String> existingListenerItems,
             Object existingListenerValue) {
-
-        public ListenerForm(Metadata section, Metadata typeSelector, Metadata createNew,
-                            Metadata useExisting, Metadata listenerConfig) {
-            this(section, typeSelector, createNew, useExisting, listenerConfig, null, null, null, null, null, null,
-                    null);
-        }
     }
 
     /**

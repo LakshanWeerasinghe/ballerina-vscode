@@ -18,7 +18,13 @@
 
 import type { ServiceModel } from "@wso2/ballerina-core";
 
-/** Uses the canonical wire field, falling back to the legacy picker discriminator. */
+/**
+ * Uses the canonical wire field, falling back to the legacy picker discriminator.
+ *
+ * The recognized kind values ("event", "mcp", "graphql", "http", "file", "ai") are owned by the
+ * `TriggerKind` enum in `model-generator-commons` (Java) -- there is no shared enum across the
+ * language boundary, so any change to that allow-list must be mirrored here by hand.
+ */
 export function effectiveTriggerKind(trigger: Pick<ServiceModel, "triggerKind" | "type">): string {
     return trigger.triggerKind ?? trigger.type;
 }

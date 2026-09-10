@@ -18,6 +18,8 @@
 
 package io.ballerina.servicemodelgenerator.extension.model;
 
+import io.ballerina.modelgenerator.commons.trigger.models.TriggerKind;
+
 import java.util.List;
 
 /**
@@ -54,6 +56,6 @@ public record TriggerProperty(String name, String orgName, String packageName, L
                               String minSupportedVersion) {
 
     public String effectiveTriggerKind() {
-        return triggerKind == null ? kind : triggerKind;
+        return TriggerKind.coalesce(triggerKind, kind);
     }
 }

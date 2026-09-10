@@ -488,17 +488,41 @@ public class PackageUtil {
      * {@link #pullModuleAndNotify}) rather than pulling it silently as a side effect of a read.
      */
     public static Optional<Package> getModulePackageOffline(String org, String name) {
+        return getModulePackageOffline(org, name, null);
+    }
+
+    /**
+     * Version-pinned counterpart of {@link #getModulePackageOffline(String, String)}. Without a
+     * version the resolver returns whatever the local cache holds as newest, so a caller that must
+     * reason about a specific release -- the trigger parity harness comparing against a model authored
+     * for one pinned version, or a connector resolved at the version its source declares -- has to say
+     * which one it means.
+     *
+     * <p>Always resolves through this thread's {@link #getSampleProject()}: every production caller
+     * needs only a resolver environment, not a caller-specific project, so there is nothing for a
+     * {@code BuildProject} parameter to vary -- and taking one here would put this resolution outside
+     * the memoized path below, exactly the miss this method exists to avoid.
+     *
+     * @param org     the package's organization
+     * @param name    the package name
+     * @param version the exact version to resolve; {@code null} or blank resolves the newest local
+     * @return the resolved package, or {@code Optional.empty()} when it isn't available offline
+     */
+    public static Optional<Package> getModulePackageOffline(String org, String name, String version) {
         // Memoize the immutable offline bala path under a distinct "offline:" key — kept separate
         // from getModulePackage's latest-version cache, whose miss may pull a newer online version —
         // so repeat lookups skip the resolver entirely. Only the resolve touches the thread-local
         // resolver; the bala load uses a fresh environment per call (see loadBalaPackage).
-        return memoizedSampleBala(OFFLINE_RESOLUTION_KEY_PREFIX + sampleResolutionKey(org, name, null, null),
-                () -> resolveOfflineModuleBala(org, name)).flatMap(PackageUtil::loadBalaPackage);
+        return memoizedSampleBala(OFFLINE_RESOLUTION_KEY_PREFIX + sampleResolutionKey(org, name, version, null),
+                () -> resolveOfflineModuleBala(org, name, version)).flatMap(PackageUtil::loadBalaPackage);
     }
 
-    private static Optional<Path> resolveOfflineModuleBala(String org, String name) {
-        ResolutionRequest resolutionRequest = ResolutionRequest.from(
-                PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name)));
+    private static Optional<Path> resolveOfflineModuleBala(String org, String name, String version) {
+        PackageDescriptor descriptor = version == null || version.isBlank()
+                ? PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name))
+                : PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name),
+                        PackageVersion.from(version));
+        ResolutionRequest resolutionRequest = ResolutionRequest.from(descriptor);
         PackageResolver packageResolver = getSampleProject().projectEnvironmentContext()
                 .getService(PackageResolver.class);
         Optional<PackageMetadataResponse> pkgMetadata = packageResolver.resolvePackageMetadata(
@@ -510,48 +534,6 @@ public class PackageUtil {
             return Optional.empty();
         }
 
-        return packageResolver.resolvePackages(
-                        Collections.singletonList(ResolutionRequest.from(pkgMetadata.get().resolvedDescriptor())),
-                        ResolutionOptions.builder().setOffline(true).build()).stream()
-                .filter(response -> response.resolvedPackage() != null)
-                .findFirst()
-                .map(response -> response.resolvedPackage().project().sourceRoot());
-    }
-
-    public static Optional<Package> getModulePackageOffline(BuildProject buildProject, String org, String name) {
-        return getModulePackageOffline(buildProject, org, name, null);
-    }
-
-    /**
-     * Version-pinned counterpart of {@link #getModulePackageOffline(BuildProject, String, String)}.
-     * Without a version the resolver returns whatever the local cache holds as newest, so a caller that
-     * must reason about a specific release -- the trigger parity harness comparing against a model
-     * authored for one pinned version, or a connector resolved at the version its source declares --
-     * has to say which one it means.
-     *
-     * @param buildProject the project whose environment resolves the package
-     * @param org          the package's organization
-     * @param name         the package name
-     * @param version      the exact version to resolve; {@code null} or blank resolves the newest local
-     * @return the resolved package, or {@code Optional.empty()} when it isn't available offline
-     */
-    public static Optional<Package> getModulePackageOffline(BuildProject buildProject, String org, String name,
-                                                            String version) {
-        PackageDescriptor descriptor = version == null || version.isBlank()
-                ? PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name))
-                : PackageDescriptor.from(PackageOrg.from(org), PackageName.from(name),
-                        PackageVersion.from(version));
-        ResolutionRequest resolutionRequest = ResolutionRequest.from(descriptor);
-        PackageResolver packageResolver = buildProject.projectEnvironmentContext().getService(PackageResolver.class);
-        Collection<PackageMetadataResponse> packageMetadataResponses = packageResolver.resolvePackageMetadata(
-                Collections.singletonList(resolutionRequest),
-                ResolutionOptions.builder().setOffline(true).build());
-        Optional<PackageMetadataResponse> pkgMetadata = packageMetadataResponses.stream().findFirst();
-        if (pkgMetadata.isEmpty() ||
-                pkgMetadata.get().resolutionStatus() == ResolutionResponse.ResolutionStatus.UNRESOLVED) {
-            return Optional.empty();
-        }
-
         // Filter for a RESOLVED entry (matching resolveLatestModuleBala): resolvePackages can return
         // a non-empty collection whose single entry is UNRESOLVED with a null resolvedPackage(),
         // which would otherwise NPE on resolvedPackage().project().
@@ -560,8 +542,7 @@ public class PackageUtil {
                         ResolutionOptions.builder().setOffline(true).build()).stream()
                 .filter(response -> response.resolvedPackage() != null)
                 .findFirst()
-                .map(response -> response.resolvedPackage().project().sourceRoot())
-                .flatMap(PackageUtil::loadBalaPackage);
+                .map(response -> response.resolvedPackage().project().sourceRoot());
     }
 
     public static boolean isModuleUnresolved(String org, String name, String version) {

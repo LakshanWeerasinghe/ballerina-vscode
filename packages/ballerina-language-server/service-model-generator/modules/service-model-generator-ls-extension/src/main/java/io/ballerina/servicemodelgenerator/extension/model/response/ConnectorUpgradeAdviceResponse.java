@@ -18,8 +18,6 @@
 
 package io.ballerina.servicemodelgenerator.extension.model.response;
 
-import io.ballerina.servicemodelgenerator.extension.connector.ConnectorUpgradeAdvisor.ConnectorUpgradeAdvice;
-
 import java.util.Arrays;
 import java.util.List;
 
