@@ -1228,17 +1228,12 @@ public class ServiceModelGeneratorService implements ExtendedLanguageServerServi
                     throw new IllegalStateException("Failed to load the document or semantic model");
                 }
                 String existingVersion = request.isLocalRepository() ? null
-                        : ConnectorVersionResolver.resolve(project, request.orgName(), request.moduleName(), null);
+                        : ConnectorVersionResolver.resolve(project, request.orgName(), request.moduleName(),
+                                request.version());
 
-                ServiceModelRequest effectiveRequest = existingVersion == null && !request.isLocalRepository()
-                        ? new ServiceModelRequest(request.filePath(), request.orgName(), request.pkgName(),
-                                request.moduleName(), request.listenerName(), null, false)
-                        : request;
-
-                Utils.resolveModule(effectiveRequest.orgName(), effectiveRequest.pkgName(),
-                        effectiveRequest.moduleName(), effectiveRequest.version(),
-                        effectiveRequest.isLocalRepository(), lsClientLogger);
-                ServiceInitModel serviceInitModel = ServiceBuilderRouter.getServiceInitModel(effectiveRequest,
+                Utils.resolveModule(request.orgName(), request.pkgName(), request.moduleName(),
+                        request.version(), request.isLocalRepository(), lsClientLogger);
+                ServiceInitModel serviceInitModel = ServiceBuilderRouter.getServiceInitModel(request,
                         project, semanticModel.get(), document.get());
                 if (serviceInitModel == null && existingVersion != null) {
                     Optional<ModelResolutionIssue> issue = ConnectorUpgradeAdvisor.checkResolvedVersion(

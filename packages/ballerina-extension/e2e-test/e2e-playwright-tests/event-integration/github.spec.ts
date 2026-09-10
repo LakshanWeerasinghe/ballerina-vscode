@@ -53,7 +53,7 @@ export default function createTests() {
             await artifactWebView.locator(`text="onOpened"`).waitFor();
 
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `github:IssuesService`]);
+            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `GitHub Event Integration`]);
 
             listenerName = `githubListener`;
             await artifactWebView.locator(`text=${listenerName}`).waitFor();
@@ -101,7 +101,7 @@ export default function createTests() {
             console.log('Deleting Github integration in test attempt: ', testAttempt);
 
             await getWebview(BI_INTEGRATOR_LABEL, page);
-            await deleteArtifactFromTree([DEFAULT_PROJECT_NAME, `github:IssuesService`]);
+            await deleteArtifactFromTree([DEFAULT_PROJECT_NAME, `GitHub Event Integration`]);
         });
     });
 }
