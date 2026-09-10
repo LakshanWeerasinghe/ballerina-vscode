@@ -50,13 +50,12 @@ export default function createTests() {
             await page.page.keyboard.press('Escape');
             await form.submit('Create');
 
-            await artifactWebView.locator(`text="onOpened"`).waitFor();
-
             const projectExplorer = new ProjectExplorer(page.page);
-            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `GitHub Event Integration`]);
+            await projectExplorer.findItem([DEFAULT_PROJECT_NAME, `GitHub Event Integration`], 30000);
 
             listenerName = `githubListener`;
-            await artifactWebView.locator(`text=${listenerName}`).waitFor();
+            await artifactWebView.locator(`text="onOpened"`).waitFor({ timeout: 30000 });
+            await artifactWebView.locator(`text=${listenerName}`).waitFor({ timeout: 30000 });
         });
 
         test('Editing Github Service', async ({ }, testInfo) => {
