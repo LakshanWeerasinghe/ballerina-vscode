@@ -366,8 +366,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
                         <StatusCard>
                             <Icon name="bi-error" sx={{ color: ThemeColors.ERROR, fontSize: "18px" }} />
                             <StatusText variant="body2">
-                                {`${packageName} ${upgradeIssue.currentVersion ?? ""} doesn't support the Service `
-                                    + `Designer. Update to ${upgradeIssue.requiredVersion} to continue.`}
+                                A newer version is required to use this feature..
                             </StatusText>
                             <Button appearance="primary" onClick={handleUpdateNow}>Update Now</Button>
                         </StatusCard>
