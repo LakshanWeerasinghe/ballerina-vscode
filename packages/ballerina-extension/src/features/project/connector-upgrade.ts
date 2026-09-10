@@ -24,6 +24,8 @@ import { StateMachine } from '../../stateMachine';
 import { notifyCurrentWebview } from '../../RPCLayer';
 import { runCommandWithOutput } from '../../utils/runCommand';
 import { buildOutputChannel } from '../../utils/logger';
+import { quoteShellPath } from '../../utils/config';
+import { extension } from '../../BalExtensionContext';
 
 /** {@code CommandConstants.ARG_KEY_DOC_URI} on the LS side -- see PullModuleExecutor.java. */
 const ARG_KEY_DOC_URI = 'doc.uri';
@@ -250,12 +252,7 @@ function reportFailures(failed: ConnectorUpgradeAdvice[]): void {
 /** Runs a real `bal build` (a fresh process, unlike PULL_MODULE's in-process resolve) to pick up an
  * on-disk Ballerina.toml edit and regenerate Dependencies.toml from it. */
 async function rebuildProject(projectPath: string): Promise<boolean> {
-    let buildCommand = 'bal build';
-    const config = workspace.getConfiguration('ballerina');
-    const ballerinaHome = config.get<string>('home');
-    if (ballerinaHome) {
-        buildCommand = path.join(ballerinaHome, 'bin', buildCommand);
-    }
+    const buildCommand = `${quoteShellPath(extension.ballerinaExtInstance.getBallerinaCmd())} build`;
     const result = await runCommandWithOutput(buildCommand, projectPath, buildOutputChannel);
     return result.success;
 }
@@ -305,9 +302,19 @@ async function findDependencyPin(
     return undefined;
 }
 
+const CENTRAL_REQUEST_TIMEOUT_MS = 10_000;
+
 /** The latest version Ballerina Central publishes for `orgName/packageName`, or `undefined` on failure. */
 function getLatestPackageVersion(orgName: string, packageName: string): Promise<string | undefined> {
     return new Promise((resolve) => {
+        let settled = false;
+        const settle = (value: string | undefined) => {
+            if (!settled) {
+                settled = true;
+                resolve(value);
+            }
+        };
+
         const req = https.request({
             hostname: 'api.central.ballerina.io',
             path: `/2.0/registry/packages/${encodeURIComponent(orgName)}/${encodeURIComponent(packageName)}`,
@@ -318,37 +325,56 @@ function getLatestPackageVersion(orgName: string, packageName: string): Promise<
             res.on('data', (chunk) => { body += chunk; });
             res.on('end', () => {
                 if (res.statusCode !== 200) {
-                    resolve(undefined);
+                    settle(undefined);
                     return;
                 }
                 try {
                     const versions: string[] = JSON.parse(body);
                     if (!Array.isArray(versions) || versions.length === 0) {
-                        resolve(undefined);
+                        settle(undefined);
                         return;
                     }
-                    resolve(versions.reduce((latest, current) =>
+                    settle(versions.reduce((latest, current) =>
                         compareSemver(current, latest) > 0 ? current : latest));
                 } catch {
-                    resolve(undefined);
+                    settle(undefined);
                 }
             });
         });
-        req.on('error', () => resolve(undefined));
+        req.setTimeout(CENTRAL_REQUEST_TIMEOUT_MS, () => req.destroy());
+        req.on('error', () => settle(undefined));
         req.end();
     });
 }
 
-/** Numeric (not lexical) semver comparison, so "1.10.0" correctly outranks "1.9.0". */
+/**
+ * Numeric (not lexical) semver comparison, so "1.10.0" correctly outranks "1.9.0". A `-`-suffixed
+ * pre-release (e.g. "2.0.0-beta") always ranks below its own base release ("2.0.0") -- without this,
+ * splitting "0-beta" on "." and parsing it as a number silently truncates to "0", so the pre-release
+ * would tie with its base release and could incorrectly win a `reduce` for "latest".
+ */
 function compareSemver(a: string, b: string): number {
+    const [aBase, aPreRelease] = splitPreRelease(a);
+    const [bBase, bPreRelease] = splitPreRelease(b);
     const partsOf = (v: string) => v.split('.').map((part) => Number.parseInt(part, 10) || 0);
-    const pa = partsOf(a);
-    const pb = partsOf(b);
+    const pa = partsOf(aBase);
+    const pb = partsOf(bBase);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
         const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
         if (diff !== 0) {
             return diff;
         }
     }
+    if (aPreRelease && !bPreRelease) {
+        return -1;
+    }
+    if (!aPreRelease && bPreRelease) {
+        return 1;
+    }
     return 0;
+}
+
+function splitPreRelease(version: string): [string, string | undefined] {
+    const dashIndex = version.indexOf('-');
+    return dashIndex === -1 ? [version, undefined] : [version.slice(0, dashIndex), version.slice(dashIndex + 1)];
 }

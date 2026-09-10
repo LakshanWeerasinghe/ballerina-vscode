@@ -174,7 +174,7 @@ public class TriggerModelReader {
         }
         String key = orgName + "/" + moduleName + ":" + (version == null ? "" : version);
         Optional<TriggerUISchemaModel> cached = schemaDrivenTriggerCache.getIfPresent(key);
-        if (cached != null && cached.isPresent()) {
+        if (cached != null) {
             return cached;
         }
         Resolution resolution = resolveSchemaDrivenTriggerModel(orgName, moduleName, version);
