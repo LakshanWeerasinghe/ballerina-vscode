@@ -76,7 +76,7 @@ json result = person.toJson();
 string jsonText = person.toJsonString();
 \`\`\`
 
-When you need to copy data, use clone() to make a modifiable copy:
+When you need to copy data, use clone() to make a modifiable copy (only for a mutable value — on an already-readonly value clone() returns the same immutable value, so use cloneWithType() instead):
 \`\`\`ballerina
 int[] original = [1, 2, 3];
 int[] copy = original.clone();
