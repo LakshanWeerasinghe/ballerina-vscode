@@ -56,7 +56,7 @@ export const DATA_BINDING_CODING_RULES = `## Data binding, type casts and narrow
 
 ### Copying values
 - \`.clone()\` does NOT copy immutable subtrees: on an already-immutable value it returns that SAME value, still immutable.
-- \`readonly\` distributes into members: whenever a container OR its member type is \`readonly\`, the members have type \`T & readonly\` even when \`T\` is a mutable record — \`T[] & readonly\` and \`(T & readonly)[]\`, \`map<T> & readonly\` and \`map<T & readonly>\`, and likewise for tables, records and tuples. Judge by that member type, not by the variable you assign to: \`T? v = items[k].clone();\` is still immutable, type-checks with no diagnostic, and panics on the first in-place update with an \`InvalidUpdate\` error.
+- \`readonly\` distributes into members: whenever a container OR its member type is \`readonly\`, the members have type \`T & readonly\` even when \`T\` is a mutable record — \`T[] & readonly\` and \`(T & readonly)[]\`, \`map<T> & readonly\` and \`map<T & readonly>\`, and likewise for tables, records and tuples etc. Judge by that member type, not by the variable you assign to: \`T? v = items[k].clone();\` is still immutable, type-checks with no diagnostic, and panics on the first in-place update with an \`InvalidUpdate\` error.
 - To get a mutable copy of a readonly value use \`T v = check ro.cloneWithType();\`, with a target type that is not itself \`readonly\`.
 
 ### Reading fields
