@@ -28,6 +28,12 @@
  * `map<json>`, while a closed record whose fields are json-compatible is one. Every statement was run on
  * Ballerina 2201.13.4.
  *
+ * Copying: generated code seeded a mutable `map<OrderRecord>` from a `readonly & map<OrderRecord>` with
+ * `knownOrders[orderId].clone()`, so the map held immutable members and the first field update panicked
+ * (wso2/product-integrator#2441). `readonly` distributes into members, and per the `ballerina/lang.value`
+ * API docs `clone()` "does not copy immutable subtrees" while `cloneWithType()` takes "the read-only bit
+ * ... from the specified type descriptor".
+ *
  * Kept in its own module (no imports) so it can be unit-tested without loading the extension host.
  * Interpolated into the system prompt by getSystemPrompt() in ./prompts.ts.
  */
@@ -47,6 +53,11 @@ export const DATA_BINDING_CODING_RULES = `## Data binding, type casts and narrow
 ### Check or convert instead of guessing
 - Do not guess a type and cast to it. Check first with \`if x is T { ... }\` (inside the block \`x\` is a \`T\`), or convert with \`T v = check x.ensureType();\`; both return an error instead of panicking.
 - To turn \`json\` into a record use \`T v = check x.cloneWithType();\` — never \`<T>jsonValue\`.
+
+### Copying values
+- \`.clone()\` does NOT copy immutable subtrees: on an already-immutable value it returns that SAME value, still immutable.
+- \`readonly\` distributes into members, so both \`map<T & readonly>\` and \`map<T> & readonly\` hold members of type \`T & readonly\` even when \`T\` is a mutable record. Judge by that type, not by the variable you assign to: \`T? v = m[k].clone();\` is still immutable, type-checks with no diagnostic, and panics on the first in-place update with \`{ballerina/lang.map}InvalidUpdate\`.
+- To get a mutable copy of a readonly value use \`T v = check ro.cloneWithType();\`, with a target type that is not itself \`readonly\`.
 
 ### Reading fields
 - Access record fields with member access (\`.\`) for the field name known at compile time.
