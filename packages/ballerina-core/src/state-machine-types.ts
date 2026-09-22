@@ -61,9 +61,13 @@ export function seededProductMode(): ProductMode | undefined {
     return seed === ProductMode.BALLERINA || seed === ProductMode.INTEGRATOR ? seed : undefined;
 }
 
-/** The assistant's name for a webview with no RPC client of its own. */
+/**
+ * The assistant's name for a webview with no RPC client of its own. Unseeded falls back to
+ * BALLERINA, matching `getProductMode()` — naming a product the user may not have installed is
+ * the worse of the two wrong answers, and these callers have no way to correct it later.
+ */
 export function webviewAssistantName(): string {
-    return assistantName(seededProductMode() ?? ProductMode.INTEGRATOR);
+    return assistantName(seededProductMode() ?? ProductMode.BALLERINA);
 }
 
 export type MachineStateValue =

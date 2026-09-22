@@ -35,7 +35,7 @@ function askHost(rpcClient: BallerinaRpcClient): Promise<ProductMode> {
         })
         .catch(() => {
             inFlight = undefined;
-            return ProductMode.INTEGRATOR;
+            return ProductMode.BALLERINA;
         });
     return inFlight;
 }
@@ -43,7 +43,7 @@ function askHost(rpcClient: BallerinaRpcClient): Promise<ProductMode> {
 export function useProductMode(): ProductMode {
     const { rpcClient } = useRpcContext();
     const resolved = seededProductMode() ?? cached;
-    const [mode, setMode] = useState<ProductMode>(resolved ?? ProductMode.INTEGRATOR);
+    const [mode, setMode] = useState<ProductMode>(resolved ?? ProductMode.BALLERINA);
 
     useEffect(() => {
         if (resolved !== undefined || !rpcClient) {
