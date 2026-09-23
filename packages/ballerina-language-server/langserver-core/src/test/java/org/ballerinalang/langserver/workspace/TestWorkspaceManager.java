@@ -663,6 +663,23 @@ public class TestWorkspaceManager {
     }
 
     @Test
+    public void testWSRunProjectWithNonAsciiOutput()
+            throws WorkspaceDocumentException, EventSyncException, LSCommandExecutorException {
+        Path projectPath = RESOURCE_DIRECTORY.resolve("unicode_output");
+        Path filePath = projectPath.resolve("main.bal");
+        // Written as escapes so the assertion does not depend on how javac reads this file.
+        String expected = "\u3053\u3093\u306B\u3061\u306F \u4E16\u754C caf\u00E9 \u2713";
+        try {
+            RunResult runResult = executeRunCommand(filePath, 1, 0);
+            Assert.assertTrue(runResult.success());
+            Assert.assertEquals(String.join("", runResult.programOutput()).trim(), expected,
+                    "Non-ASCII program output must reach the client unchanged");
+        } finally {
+            executeStopCommand(projectPath);
+        }
+    }
+
+    @Test
     public void testWSRunProjectWithCompilationErrors()
             throws WorkspaceDocumentException, EventSyncException, LSCommandExecutorException {
         Path projectPath = RESOURCE_DIRECTORY.resolve("pkg_with_compilation_errors");
