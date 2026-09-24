@@ -85,6 +85,28 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
     }
 
     /**
+     * Registers every module a parameter type imports (e.g. websocket's {@code http:Request}), so a file
+     * that already binds it under an alias gets the type re-qualified onto that alias.
+     */
+    private static void registerParameterTypeModules(List<Parameter> parameters, ModulePrefixContext prefixes) {
+        if (parameters == null) {
+            return;
+        }
+        for (Parameter parameter : parameters) {
+            Value type = parameter.getType();
+            if (type == null || type.getImports() == null) {
+                continue;
+            }
+            for (String moduleId : type.getImports().values()) {
+                String[] parts = moduleId.split("/", 2);
+                if (parts.length == 2) {
+                    prefixes.prefixFor(parts[0], parts[1].split(":")[0]);
+                }
+            }
+        }
+    }
+
+    /**
      * Re-qualifies every module reference a function emits (parameter types, return type, annotation
      * qualifiers) onto the prefixes the target file actually binds, since the trigger model authors
      * against a module's natural prefix which may be aliased in the target file.
@@ -102,6 +124,7 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
         ModulePrefixContext prefixes = ModulePrefixContext.from(rootNode);
         // Register the function's own module first so it wins any natural-prefix tie.
         prefixes.prefixFor(codedata.getOrgName(), module);
+        registerParameterTypeModules(function.getParameters(), prefixes);
         requalifyProperties(function.getProperties(), prefixes);
         if (!prefixes.hasAliases()) {
             return;

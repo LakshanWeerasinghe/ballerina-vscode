@@ -31,6 +31,7 @@ import org.eclipse.lsp4j.TextEdit;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -151,6 +152,8 @@ public final class SchemaDrivenSourceGenerator {
     private static String buildImports(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                        ModulePartNode rootNode, String emitAlias) {
         StringBuilder imports = new StringBuilder();
+        Set<String> declared = new LinkedHashSet<>();
+        declared.add(filledInitForm.getOrgName() + "/" + filledInitForm.getModuleName());
         if (!Utils.importExists(rootNode, filledInitForm.getOrgName(), filledInitForm.getModuleName())) {
             imports.append(Utils.getImportStmt(filledInitForm.getOrgName(), filledInitForm.getModuleName(),
                     emitAlias));
@@ -177,9 +180,53 @@ public final class SchemaDrivenSourceGenerator {
                     imports.append(alias == null ? Utils.getImportStmt(org, module)
                             : Utils.getImportStmt(org, module, alias));
                 }
+                declared.add(org + "/" + module);
+            }
+        }
+        for (String moduleRef : handlerParameterModules(filledInitForm, triggerModel)) {
+            if (!declared.add(moduleRef)) {
+                continue;
+            }
+            String[] parts = moduleRef.split("/", 2);
+            if (!Utils.importExists(rootNode, parts[0], parts[1])) {
+                imports.append(Utils.getImportStmt(parts[0], parts[1]));
             }
         }
         return imports.toString();
+    }
+
+    /**
+     * The {@code org/module} of every cross-module parameter type in the handlers emitted with the service
+     * (e.g. {@code ballerina/http} for an {@code http:Request} parameter), as named by the type's codedata.
+     */
+    private static Set<String> handlerParameterModules(ServiceInitModel filledInitForm,
+                                                       TriggerUISchemaModel triggerModel) {
+        Set<String> modules = new LinkedHashSet<>();
+        TriggerUISchemaModel.ServiceTypeModel serviceType = triggerModel == null ? null
+                : selectServiceType(filledInitForm, triggerModel);
+        if (serviceType == null || serviceType.functions() == null) {
+            return modules;
+        }
+        for (TriggerUISchemaModel.FunctionModel function : serviceType.functions()) {
+            if (!function.enabled() || Boolean.TRUE.equals(function.optional()) || function.parameters() == null) {
+                continue;
+            }
+            for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
+                TriggerUISchemaModel.Codedata codedata = parameter.type() == null ? null
+                        : parameter.type().codedata();
+                if (!isEmitted(parameter) || codedata == null || codedata.orgName() == null
+                        || codedata.orgName().isBlank() || codedata.moduleName() == null
+                        || codedata.moduleName().isBlank()) {
+                    continue;
+                }
+                if (codedata.orgName().equals(filledInitForm.getOrgName())
+                        && codedata.moduleName().equals(filledInitForm.getModuleName())) {
+                    continue;
+                }
+                modules.add(codedata.orgName() + "/" + codedata.moduleName());
+            }
+        }
+        return modules;
     }
 
     /**
@@ -643,11 +690,7 @@ public final class SchemaDrivenSourceGenerator {
         }
         List<String> params = new ArrayList<>();
         for (TriggerUISchemaModel.Parameter parameter : function.parameters()) {
-            if (FIELD_TYPE_FLAG.equals(PayloadComposer.selectedFieldType(parameter.type()))) {
-                if (!isFlagOn(parameter)) {
-                    continue;
-                }
-            } else if (Boolean.TRUE.equals(parameter.optional())) {
+            if (!isEmitted(parameter)) {
                 continue;
             }
             String type = rewriteSelfPrefix(PayloadComposer.effectiveType(parameter.type()), selfPrefix, emitAlias);
@@ -657,6 +700,14 @@ public final class SchemaDrivenSourceGenerator {
             }
         }
         return String.join(", ", params);
+    }
+
+    /** Whether a handler parameter is written into the signature: a ticked flag, or a non-optional param. */
+    private static boolean isEmitted(TriggerUISchemaModel.Parameter parameter) {
+        if (FIELD_TYPE_FLAG.equals(PayloadComposer.selectedFieldType(parameter.type()))) {
+            return isFlagOn(parameter);
+        }
+        return !Boolean.TRUE.equals(parameter.optional());
     }
 
     private static boolean isFlagOn(TriggerUISchemaModel.Parameter parameter) {

@@ -945,6 +945,63 @@ public class TriggerModelSynthesizerTest {
                 "positional listener arg must precede the included named arg: " + block);
     }
 
+    /**
+     * WebSocket shape: the listener hosts only {@code UpgradeService}; the connection {@code Service} is
+     * returned by the upgrade handler. With one attachable type there is nothing to choose, so no
+     * selector is offered and that type drives the init form and the emitted service.
+     */
+    @Test
+    public void testSingleAttachableServiceTypeSkipsSelector() {
+        TriggerUISchemaModel model = synthesizeTwoServiceTypes(List.of("$upgradeService"));
+
+        Assert.assertFalse(model.initProperties().containsKey("serviceType"),
+                "only one type is attachable, nothing to select");
+        Assert.assertTrue(model.initProperties().containsKey("identifier"),
+                "the attachable type's base path drives the init form");
+        Assert.assertEquals(model.serviceTypes().size(), 2, "the returned connection service is still modelled");
+        Assert.assertTrue(model.serviceTypes().get(0).enabled());
+        Assert.assertFalse(model.serviceTypes().get(0).editable());
+        Assert.assertFalse(model.serviceTypes().get(1).enabled());
+
+        ServiceInitModel initModel = toServiceInitModel(model);
+        initModel.getProperties().get("identifier").setValue("/ws");
+        String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(initModel, model);
+        Assert.assertTrue(block.contains(MODULE + ":UpgradeService"), block);
+    }
+
+    @Test
+    public void testSeveralAttachableServiceTypesKeepSelector() {
+        TriggerUISchemaModel model = synthesizeTwoServiceTypes(List.of("$upgradeService", "$service"));
+
+        TriggerUISchemaModel.Property selector = model.initProperties().get("serviceType");
+        Assert.assertNotNull(selector);
+        Assert.assertEquals(selector.types().get(0).options().size(), 2);
+        Assert.assertTrue(model.serviceTypes().get(0).editable());
+    }
+
+    private static TriggerUISchemaModel synthesizeTwoServiceTypes(List<String> hosted) {
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
+                "$listener", "Listens for upgrades.", new TypeRef("Listener", null), null,
+                hosted, true, null, null, null);
+        TriggerMetadataModel.ServiceType upgrade = new TriggerMetadataModel.ServiceType(
+                "$upgradeService", "Handles the upgrade.", new TypeRef("UpgradeService", null), null, false, true,
+                null, new IdentifierSpec(IdentifierSpec.PRESENCE_REQUIRED, List.of(IdentifierSpec.FORM_BASE_PATH)),
+                new TriggerMetadataModel.ServiceType.Handlers(false, List.of(handlerOption("get", "resource", null,
+                        new ValueSpec("required", List.of("get")), new ValueSpec("required", null)))), null);
+        TriggerMetadataModel.ServiceType connection = new TriggerMetadataModel.ServiceType(
+                "$service", "The connection service.", new TypeRef("Service", null), null, false, false, null,
+                null, new TriggerMetadataModel.ServiceType.Handlers(false,
+                        List.of(handlerOption("onOpen", "remote", null, null, null))), null);
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
+                "v1.0", List.of(listener), List.of(upgrade, connection), null, null);
+        TriggerLibraryFacts facts = new TriggerLibraryFacts(
+                List.of(new TriggerLibraryFacts.Listener("Listener", List.of())),
+                List.of(new TriggerLibraryFacts.ServiceType("UpgradeService", "", List.of()),
+                        new TriggerLibraryFacts.ServiceType("Service", "", List.of())), List.of());
+        return TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel(Map.of()), "1", "WebSocket", null,
+                "event", "testorg", MODULE, MODULE, "0.1.0").orElseThrow();
+    }
+
     private static TriggerMetadataModel.ServiceType.HandlerOption handlerOption(String name, String kind,
                                                                                 String addMode, ValueSpec accessor,
                                                                                 ValueSpec path) {
@@ -1024,6 +1081,55 @@ public class TriggerModelSynthesizerTest {
                 .orElseThrow(), "resource function get .() {");
         Assert.assertEquals(SchemaDrivenSourceGenerator.buildFunctionSource(anyResource).lines().findFirst()
                 .orElseThrow(), "resource function get .() {", "a choice list is emitted with its default");
+    }
+
+    private static TypeRef builtin(String name) {
+        return new TypeRef(name, null, true, null, null, null, null);
+    }
+
+    private static TriggerUISchemaModel.FunctionModel upgradeHandler(List<TypeRef> returns) {
+        TypeRef.PackageInfo http = new TypeRef.PackageInfo("ballerina", "http", "http", "2.16.5");
+        TriggerMetadataModel.ServiceType.Param request = new TriggerMetadataModel.ServiceType.Param(
+                "$service.get.request", "request", "The upgrade request.", null,
+                List.of(new TypeRef("Request", http)), "optional", null, null, null);
+        TriggerMetadataModel.ServiceType.Param own = new TriggerMetadataModel.ServiceType.Param(
+                "$service.get.caller", "caller", "The caller.", null,
+                List.of(new TypeRef("Caller", null)), "required", null, null, null);
+        TriggerMetadataModel.ServiceType.HandlerOption option = new TriggerMetadataModel.ServiceType.HandlerOption(
+                "$service.get", "get", "resource", null, "The upgrade handler.", null, "required", null,
+                List.of(request, own), new TriggerMetadataModel.ServiceType.ReturnSpec("$service.get.returns",
+                returns, null, null), new ValueSpec("required", List.of("get")), new ValueSpec("required", null),
+                null);
+        return synthesizeHandlers(List.of(option)).schemaFunctions().get(0);
+    }
+
+    /** A return union with no nil member stays non-nilable; an authored {@code ()} member still folds to {@code ?}. */
+    @Test
+    public void testReturnTypeIsOnlyNilableWhenAuthoredSo() {
+        TriggerUISchemaModel.FunctionModel upgrade = upgradeHandler(
+                List.of(new TypeRef("Service", null), new TypeRef("UpgradeError", null)));
+        Assert.assertFalse(upgrade.returnType().optional());
+        Assert.assertEquals(TriggerFunctionAdapter.toFunction(upgrade).getReturnType().getValue(),
+                MODULE + ":Service|" + MODULE + ":UpgradeError");
+        Assert.assertTrue(SchemaDrivenSourceGenerator.buildFunctionSource(upgrade)
+                .contains("returns " + MODULE + ":Service|" + MODULE + ":UpgradeError {"));
+
+        TriggerUISchemaModel.FunctionModel errorOrNil = upgradeHandler(List.of(builtin("error"), builtin("()")));
+        Assert.assertEquals(TriggerFunctionAdapter.toFunction(errorOrNil).getReturnType().getValue(), "error?");
+    }
+
+    /** A parameter type from another module carries that module, so adding the handler imports it. */
+    @Test
+    public void testCrossModuleParameterTypeCarriesItsImport() {
+        TriggerUISchemaModel.FunctionModel upgrade = upgradeHandler(List.of(new TypeRef("Service", null)));
+        TriggerUISchemaModel.Parameter request = upgrade.parameters().get(0);
+        Assert.assertEquals(request.type().codedata().orgName(), "ballerina");
+        Assert.assertEquals(request.type().codedata().moduleName(), "http");
+
+        List<io.ballerina.servicemodelgenerator.extension.model.Parameter> wire =
+                TriggerFunctionAdapter.toFunction(upgrade).getParameters();
+        Assert.assertEquals(wire.get(0).getType().getImports(), Map.of("http", "ballerina/http"));
+        Assert.assertNull(wire.get(1).getType().getImports(), "a self-module type needs no import");
     }
 
     private static TriggerUISchemaModel synthesizeWithIdentifier(String form) {
