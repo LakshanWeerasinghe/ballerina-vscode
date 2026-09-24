@@ -119,6 +119,10 @@ public class BallerinaWorkspaceManager implements WorkspaceManager {
     private static final String HEAP_DUMP_FLAG = "-XX:+HeapDumpOnOutOfMemoryError";
     private static final String HEAP_DUMP_PATH_FLAG = "-XX:HeapDumpPath=";
     private static final String DEBUG_ARGS = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:";
+    // The output streams are read back as UTF-8, so the program has to write UTF-8. Without these the JVM encodes
+    // its output with the platform's native encoding, which is not UTF-8 on Windows.
+    private static final String STDOUT_ENCODING_FLAG = "-Dstdout.encoding=UTF-8";
+    private static final String STDERR_ENCODING_FLAG = "-Dstderr.encoding=UTF-8";
 
     /**
      * Cache mapping of document path to source root.
@@ -709,6 +713,8 @@ public class BallerinaWorkspaceManager implements WorkspaceManager {
         commands.add(context.javaCmd());
         commands.add(HEAP_DUMP_FLAG);
         commands.add(getHeapDumpPathArgument(projectRoot));
+        commands.add(STDOUT_ENCODING_FLAG);
+        commands.add(STDERR_ENCODING_FLAG);
         if (context.debugPort() > 0) {
             commands.add(DEBUG_ARGS + context.debugPort());
         }
