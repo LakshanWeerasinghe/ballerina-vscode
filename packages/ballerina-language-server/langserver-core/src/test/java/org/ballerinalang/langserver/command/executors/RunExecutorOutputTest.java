@@ -17,7 +17,6 @@ package org.ballerinalang.langserver.command.executors;
 
 import org.ballerinalang.langserver.commons.client.ExtendedLanguageClient;
 import org.eclipse.lsp4j.LogTraceParams;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -26,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -57,19 +57,24 @@ public class RunExecutorOutputTest {
      * @return text forwarded to the client on the out channel
      */
     private String forwardedOutput(String programOutput) {
+        // The executor logs from a virtual thread while this one reads, so the log it writes to has to be thread safe.
+        // An ArgumentCaptor is not: it is backed by a plain ArrayList.
+        List<LogTraceParams> logs = new CopyOnWriteArrayList<>();
         ExtendedLanguageClient client = Mockito.mock(ExtendedLanguageClient.class, Mockito.withSettings().stubOnly());
-        ArgumentCaptor<LogTraceParams> logCaptor = ArgumentCaptor.forClass(LogTraceParams.class);
-        Mockito.doNothing().when(client).logTrace(logCaptor.capture());
+        Mockito.doAnswer(invocation -> {
+            logs.add(invocation.getArgument(0));
+            return null;
+        }).when(client).logTrace(Mockito.any());
 
         InputStream stdout = new ByteArrayInputStream(programOutput.getBytes(StandardCharsets.UTF_8));
         new RunExecutor().listenOutputAsync(client, () -> stdout, OUT_CHANNEL);
 
-        await().atMost(5, TimeUnit.SECONDS).until(() -> messagesOn(logCaptor, STOPPED_CHANNEL).size() == 1);
-        return String.join("", messagesOn(logCaptor, OUT_CHANNEL));
+        await().atMost(5, TimeUnit.SECONDS).until(() -> !messagesOn(logs, STOPPED_CHANNEL).isEmpty());
+        return String.join("", messagesOn(logs, OUT_CHANNEL));
     }
 
-    private static List<String> messagesOn(ArgumentCaptor<LogTraceParams> logCaptor, String channel) {
-        return List.copyOf(logCaptor.getAllValues()).stream()
+    private static List<String> messagesOn(List<LogTraceParams> logs, String channel) {
+        return logs.stream()
                 .filter(params -> params.getVerbose().equals(channel))
                 .map(LogTraceParams::getMessage)
                 .toList();
