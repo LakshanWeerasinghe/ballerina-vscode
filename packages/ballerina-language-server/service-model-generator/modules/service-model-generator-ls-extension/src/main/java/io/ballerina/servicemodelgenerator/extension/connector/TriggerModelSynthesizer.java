@@ -796,9 +796,10 @@ public final class TriggerModelSynthesizer {
         boolean pathEditable = resource && (option.path() != null
                 || TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(option.name()));
         String accessor = resource ? resourceAccessor(option) : null;
+        String group = many ? option.id() : pathEditable ? option.name() : null;
 
         String name = pathEditable ? DEFAULT_RESOURCE_PATH : many ? "" : option.name();
-        String label = many ? "Handler" : option.name();
+        String label = many ? manyHandlerLabel(option.id()) : option.name();
         String optionDoc = trimmedDoc(option.doc());
         String description = optionDoc == null ? "The `" + option.name() + "` handler." : optionDoc;
         TriggerUISchemaModel.Metadata nameMetadata = pathEditable
@@ -812,7 +813,7 @@ public final class TriggerModelSynthesizer {
                 name, many || pathEditable, nameMetadata,
                 option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
                 accessor, option.kind() == null ? null : List.of(option.kind()),
-                pathEditable ? option.name() : null, null, false, true,
+                group, null, false, true,
                 !required, false, null, null, null, parameters, null, properties, returnType, null,
                 // A "many" handler's *-name is a pure addability convention, not a real backing
                 // function -- restating it as originalName would misrepresent the handler as bound to
@@ -1309,6 +1310,16 @@ public final class TriggerModelSynthesizer {
     /** Strips the spec's leading {@code $} from an id used as a user-facing label or map key. */
     private static String stripId(String id) {
         return id != null && id.startsWith("$") ? id.substring(1) : id;
+    }
+
+    private static String manyHandlerLabel(String id) {
+        if (id == null || id.isBlank()) {
+            return "Handler";
+        }
+        int separator = id.lastIndexOf('.');
+        String segment = stripId(separator >= 0 ? id.substring(separator + 1) : id);
+        return segment.isBlank() || TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(segment)
+                ? "Handler" : humanize(segment);
     }
 
     /** A raw doc comment's trailing newline/whitespace is an artifact of extraction, not content. */

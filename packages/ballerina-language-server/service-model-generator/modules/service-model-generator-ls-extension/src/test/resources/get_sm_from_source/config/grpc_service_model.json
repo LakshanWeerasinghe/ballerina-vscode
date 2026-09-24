@@ -197,13 +197,13 @@
     "schemaFunctions": [
       {
         "metadata": {
-          "label": "Handler",
+          "label": "Unary",
           "description": "Handles a simple RPC, one request message in and one response message out. The method name is the RPC name from the proto definition. Return the response directly, or take a caller and send through it, in which case the method returns error? instead."
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "Handler",
+            "label": "Unary",
             "description": "Handles a simple RPC, one request message in and one response message out. The method name is the RPC name from the proto definition. Return the response directly, or take a caller and send through it, in which case the method returns error? instead."
           },
           "placeholder": "",
@@ -350,20 +350,20 @@
           "version": "1.15.1"
         },
         "properties": {},
-        "group": "",
+        "group": "$service.unary",
         "addLabel": "Add Handler",
         "repeatable": "FALSE",
         "nameEditable": true
       },
       {
         "metadata": {
-          "label": "Handler",
+          "label": "Server Streaming",
           "description": "Handles a server streaming RPC, one request message in and a stream of response messages out. Return the stream directly, or take a caller and send each message through it, in which case the method returns error? instead."
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "Handler",
+            "label": "Server Streaming",
             "description": "Handles a server streaming RPC, one request message in and a stream of response messages out. Return the stream directly, or take a caller and send each message through it, in which case the method returns error? instead."
           },
           "placeholder": "",
@@ -510,20 +510,20 @@
           "version": "1.15.1"
         },
         "properties": {},
-        "group": "",
+        "group": "$service.serverStreaming",
         "addLabel": "Add Handler",
         "repeatable": "FALSE",
         "nameEditable": true
       },
       {
         "metadata": {
-          "label": "Handler",
+          "label": "Client Streaming",
           "description": "Handles a client streaming RPC, a stream of request messages in and one response message out. Return the response directly, or take a caller and send through it, in which case the method returns error? instead."
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "Handler",
+            "label": "Client Streaming",
             "description": "Handles a client streaming RPC, a stream of request messages in and one response message out. Return the response directly, or take a caller and send through it, in which case the method returns error? instead."
           },
           "placeholder": "",
@@ -670,20 +670,20 @@
           "version": "1.15.1"
         },
         "properties": {},
-        "group": "",
+        "group": "$service.clientStreaming",
         "addLabel": "Add Handler",
         "repeatable": "FALSE",
         "nameEditable": true
       },
       {
         "metadata": {
-          "label": "Handler",
+          "label": "Bidi Streaming",
           "description": "Handles a bidirectional streaming RPC, with request and response messages flowing independently in both directions. Taking a caller is the practical form here, since it lets responses be sent while the request stream is still being consumed."
         },
         "kind": "REMOTE",
         "name": {
           "metadata": {
-            "label": "Handler",
+            "label": "Bidi Streaming",
             "description": "Handles a bidirectional streaming RPC, with request and response messages flowing independently in both directions. Taking a caller is the practical form here, since it lets responses be sent while the request stream is still being consumed."
           },
           "placeholder": "",
@@ -830,7 +830,7 @@
           "version": "1.15.1"
         },
         "properties": {},
-        "group": "",
+        "group": "$service.bidiStreaming",
         "addLabel": "Add Handler",
         "repeatable": "FALSE",
         "nameEditable": true

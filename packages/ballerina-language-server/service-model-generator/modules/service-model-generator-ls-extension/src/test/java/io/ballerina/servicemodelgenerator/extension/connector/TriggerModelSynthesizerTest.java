@@ -1010,6 +1010,12 @@ public class TriggerModelSynthesizerTest {
                 null);
     }
 
+    private static TriggerMetadataModel.ServiceType.HandlerOption handlerOptionWithId(String id, String name,
+                                                                                        String kind, String addMode) {
+        return new TriggerMetadataModel.ServiceType.HandlerOption(id, name, kind, addMode, "A handler.", null,
+                null, null, List.of(), null, null, null, null);
+    }
+
     private static TriggerUISchemaModel.ServiceTypeModel synthesizeHandlers(
             List<TriggerMetadataModel.ServiceType.HandlerOption> options) {
         TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
@@ -1081,6 +1087,32 @@ public class TriggerModelSynthesizerTest {
                 .orElseThrow(), "resource function get .() {");
         Assert.assertEquals(SchemaDrivenSourceGenerator.buildFunctionSource(anyResource).lines().findFirst()
                 .orElseThrow(), "resource function get .() {", "a choice list is emitted with its default");
+    }
+
+    @Test
+    public void testManyHandlersUseDistinctOptionIdsAsGroups() {
+        List<TriggerMetadataModel.ServiceType.HandlerOption> options = List.of(
+                handlerOptionWithId("$service.unary", "*", "remote", "many"),
+                handlerOptionWithId("$service.serverStreaming", "*", "remote", "many"),
+                handlerOptionWithId("$service.clientStreaming", "*", "remote", "many"),
+                handlerOptionWithId("$service.bidiStreaming", "*", "remote", "many"));
+
+        TriggerUISchemaModel.ServiceTypeModel type = synthesizeHandlers(options);
+
+        Assert.assertEquals(type.schemaFunctions().stream().map(TriggerUISchemaModel.FunctionModel::group).toList(),
+                List.of("$service.unary", "$service.serverStreaming", "$service.clientStreaming",
+                        "$service.bidiStreaming"));
+        Assert.assertEquals(type.schemaFunctions().stream().map(function -> function.metadata().label()).toList(),
+                List.of("Unary", "Server Streaming", "Client Streaming", "Bidi Streaming"));
+        Assert.assertTrue(type.schemaFunctions().stream().allMatch(function -> function.name().isEmpty()));
+    }
+
+    @Test
+    public void testManyHandlerLabelFallsBackWhenOptionIdIsMissing() {
+        TriggerUISchemaModel.ServiceTypeModel type = synthesizeHandlers(List.of(
+                handlerOptionWithId(null, "*", "remote", "many")));
+
+        Assert.assertEquals(type.schemaFunctions().get(0).metadata().label(), "Handler");
     }
 
     private static TypeRef builtin(String name) {

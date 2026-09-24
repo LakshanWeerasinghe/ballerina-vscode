@@ -117,7 +117,9 @@ public final class TriggerFunctionAdapter {
             builder.documentation(PropertyValueAdapter.toValue(model.documentationSchema()));
         }
         Function function = builder.build();
-        function.setGroup(notBlank(model.group()) ? model.group() : model.name());
+        String group = notBlank(model.group()) ? model.group()
+                : notBlank(model.name()) ? model.name() : label(model.metadata(), "Handler");
+        function.setGroup(group);
         function.setVariantLabel(variantLabel);
         function.setAddLabel(model.metadata() == null ? null : model.metadata().addLabel());
         function.setAddDescription(model.metadata() == null ? null : model.metadata().addDescription());

@@ -47,12 +47,13 @@ export const CODEDATA_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
 
 /** The group id linking a handler's format variants (falls back to its display label). */
 export function handlerGroupId(fn: FunctionModel): string | undefined {
-    return fn.group ?? fn.metadata?.label;
+    const group = fn.group?.trim();
+    return group || fn.metadata?.label;
 }
 
 /** True when the service's functions carry the schema-driven handler-catalog markers. */
 export function isSchemaTriggerFunction(fn: FunctionModel): boolean {
-    return !!fn.group;
+    return !!fn.group?.trim();
 }
 
 /** True when the service is a schema-driven trigger (marker functions or an addable catalog). */
