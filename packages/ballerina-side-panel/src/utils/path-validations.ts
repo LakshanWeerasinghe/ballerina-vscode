@@ -376,3 +376,52 @@ export function parseResourceActionPath(input: string): ParseResult {
     result.valid = result.errors.length === 0;
     return result;
 }
+
+/**
+ * Validates a service resource function's path (e.g. `chat/[string room]`), the same rules the HTTP
+ * resource form applies: no leading slash, `.` for the service root, and bracketed path params.
+ */
+export function parseResourceFunctionPath(input: string): ParseResult {
+    const result: ParseResult = {
+        valid: false,
+        errors: [],
+        segments: []
+    };
+
+    if (!input || input === '') {
+        result.errors.push({ position: 0, message: 'path cannot be empty' });
+        return result;
+    }
+
+    if (input === '.') {
+        result.segments.push({ type: 'dot', start: 0, end: 0 });
+        result.valid = true;
+        return result;
+    }
+
+    if (input.startsWith('/')) {
+        result.errors.push({ position: 0, message: 'path cannot start with a slash (/)' });
+        return result;
+    }
+
+    if (input.includes('//')) {
+        result.errors.push({ position: 0, message: 'cannot have two consecutive slashes (//)' });
+        return result;
+    }
+
+    if (input.endsWith('/')) {
+        result.errors.push({ position: input.length - 1, message: 'path cannot end with a slash (/)' });
+        return result;
+    }
+
+    for (const segment of splitSegments(input)) {
+        if (segment.value.startsWith('[') || segment.value.endsWith(']')) {
+            processParam(segment, result);
+        } else {
+            processSegment(segment, result);
+        }
+    }
+
+    result.valid = result.errors.length === 0;
+    return result;
+}

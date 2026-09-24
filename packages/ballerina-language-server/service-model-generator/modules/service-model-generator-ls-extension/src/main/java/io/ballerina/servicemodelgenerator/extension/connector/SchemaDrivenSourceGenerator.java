@@ -569,9 +569,8 @@ public final class SchemaDrivenSourceGenerator {
             builder.append(annotation).append(NEW_LINE);
         }
         builder.append(qualifiers(function)).append("function").append(SPACE);
-        if (RESOURCE.equals(qualifierKeyword(function.kind())) && function.accessor() != null
-                && !function.accessor().isBlank()) {
-            builder.append(function.accessor()).append(SPACE);
+        if (RESOURCE.equals(qualifierKeyword(function.kind())) && function.defaultAccessor() != null) {
+            builder.append(function.defaultAccessor()).append(SPACE);
         }
         builder.append(effectiveFunctionName(function)).append("(")
                 .append(buildParameterList(function, selfPrefix, emitAlias)).append(")");

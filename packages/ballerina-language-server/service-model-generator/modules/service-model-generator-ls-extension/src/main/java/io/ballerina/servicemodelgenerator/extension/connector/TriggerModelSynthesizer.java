@@ -29,10 +29,12 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUIMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
+import io.ballerina.modelgenerator.commons.trigger.models.ValueSpec;
 import io.ballerina.modelgenerator.commons.trigger.utils.TypeRefRenderer;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
 import io.ballerina.servicemodelgenerator.extension.model.Value;
+import org.ballerinalang.langserver.common.utils.CommonUtil;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -43,6 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.ballerina.modelgenerator.commons.CommonUtils.removeLeadingSingleQuote;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_SERVICE_BASE_PATH;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.ARG_TYPE_SERVICE_TYPE_DESCRIPTOR;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_ANNOTATION_ATTACHMENT;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_LISTENER_VAR_NAME;
@@ -50,6 +54,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYP
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_SERVICE_ANNOTATION;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_STRING_LITERAL;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DATA_BINDING;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DEFAULT_LISTENER_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.DB_KIND_OPTIONAL;
@@ -86,6 +91,9 @@ public final class TriggerModelSynthesizer {
     /** The Ballerina connector convention for a module's own distinct error type, e.g. {@code tcp:Error}. */
     private static final String CUSTOM_ERROR_TYPE = "Error";
     private static final Gson GSON = new Gson();
+    private static final String DEFAULT_RESOURCE_PATH = ".";
+    private static final List<String> RESOURCE_ACCESSORS =
+            List.of("get", "post", "put", "delete", "patch", "head", "options", "default");
 
     private TriggerModelSynthesizer() {
     }
@@ -412,12 +420,18 @@ public final class TriggerModelSynthesizer {
                         createNewProps);
                 continue;
             }
-            Value paramValue = listenerModel.getProperty(param.name());
-            if (paramValue == null) {
+            String key = removeLeadingSingleQuote(param.name());
+            String originalName = CommonUtil.escapeReservedKeyword(key);
+            Value paramValue = listenerModel.getProperty(key);
+            if (paramValue != null) {
+                createNewProps.put(key, enrichListenerParam(paramValue, "LISTENER_PARAM_REQUIRED",
+                        originalName, position, null));
+            } else if (!param.optional() && param.typeSymbol() != null && semanticModel != null) {
+                createNewProps.put(key, syntheticListenerField(param, "LISTENER_PARAM_REQUIRED", originalName,
+                        position, null, identity, semanticModel));
+            } else {
                 continue;
             }
-            createNewProps.put(param.name(), enrichListenerParam(paramValue, "LISTENER_PARAM_REQUIRED",
-                    param.name(), position, null));
             position++;
         }
     }
@@ -440,20 +454,21 @@ public final class TriggerModelSynthesizer {
             return;
         }
         for (TriggerLibraryFacts.Param field : fields) {
+            String key = removeLeadingSingleQuote(field.name());
             String path = parentPath.isEmpty() ? field.name() : parentPath + "." + field.name();
             String argType = field.optional()
                     ? "LISTENER_PARAM_INCLUDED_DEFAULTABLE_FIELD" : "LISTENER_PARAM_INCLUDED_FIELD";
-            Value fieldValue = listenerModel.getProperty(field.name());
+            Value fieldValue = listenerModel.getProperty(key);
             if (fieldValue != null) {
-                createNewProps.put(field.name(), enrichListenerParam(fieldValue, argType, null, null, path));
+                createNewProps.put(key, enrichListenerParam(fieldValue, argType, null, null, path));
                 continue;
             }
             if (field.fields() != null && !field.fields().isEmpty()) {
                 walkIncludedListenerFields(field.fields(), listenerModel, path, identity, semanticModel,
                         createNewProps);
             } else if (field.typeSymbol() != null && semanticModel != null) {
-                createNewProps.put(field.name(),
-                        syntheticIncludedField(field, argType, path, identity, semanticModel));
+                createNewProps.put(key,
+                        syntheticListenerField(field, argType, null, null, path, identity, semanticModel));
             }
         }
     }
@@ -461,21 +476,22 @@ public final class TriggerModelSynthesizer {
     /**
      * Builds a property straight from a facts field's own type symbol via the same
      * {@code typeWithExpression} widget resolver the generic service/annotation field editors use --
-     * the fallback for a leaf the generic {@link Listener} model never exposed as its own value.
-     * {@code originalName} is left unset: an included record's spread field is addressed by {@code path}
-     * alone in the bundled corpus (see {@link #enrichListenerParam}).
+     * the fallback for a param or leaf the generic {@link Listener} model never exposed as its own value.
+     * {@code originalName}/{@code position} are set only for a positional param: an included record's
+     * spread field is addressed by {@code path} alone in the bundled corpus (see {@link #enrichListenerParam}).
      */
-    private static TriggerUISchemaModel.Property syntheticIncludedField(TriggerLibraryFacts.Param field,
-                                                                         String argType, String path,
+    private static TriggerUISchemaModel.Property syntheticListenerField(TriggerLibraryFacts.Param field,
+                                                                         String argType, String originalName,
+                                                                         Integer position, String path,
                                                                          ConnectorIdentity identity,
                                                                          SemanticModel semanticModel) {
         Value.ValueBuilder builder = new Value.ValueBuilder()
-                .metadata(humanize(field.name()), trimmedDoc(field.doc()))
+                .metadata(humanize(removeLeadingSingleQuote(field.name())), trimmedDoc(field.doc()))
                 .value("").enabled(true).editable(true).optional(field.optional()).setAdvanced(false);
         ModuleInfo moduleInfo = new ModuleInfo(identity.orgName(), identity.packageName(), identity.moduleName(),
                 identity.version());
         PropertyType.typeWithExpression(builder, field.typeSymbol(), moduleInfo, null, semanticModel);
-        return enrichListenerParam(builder.build(), argType, null, null, path);
+        return enrichListenerParam(builder.build(), argType, originalName, position, path);
     }
 
     /**
@@ -512,16 +528,20 @@ public final class TriggerModelSynthesizer {
             return;
         }
         boolean isBasePath = identifier.form() != null && identifier.form().contains(IdentifierSpec.FORM_BASE_PATH);
-        String fieldType = isBasePath ? "SERVICE_PATH" : "IDENTIFIER";
         boolean optional = IdentifierSpec.PRESENCE_OPTIONAL.equals(identifier.presence());
-        TriggerUISchemaModel.PropertyType type = new TriggerUISchemaModel.PropertyType(
-                fieldType, true, "string", null, null, null, null, null);
+        List<TriggerUISchemaModel.PropertyType> types = isBasePath
+                ? List.of(new TriggerUISchemaModel.PropertyType("SERVICE_PATH", true, "string", null, null, null,
+                        null, null))
+                : List.of(new TriggerUISchemaModel.PropertyType("TEXT", true, "string", null, null, null, null,
+                                null),
+                        new TriggerUISchemaModel.PropertyType("EXPRESSION", false, "string", null, null, null,
+                                null, null));
         TriggerUISchemaModel.Property property = new TriggerUISchemaModel.Property(
                 new TriggerUISchemaModel.Metadata(isBasePath ? "Service Path" : "Identifier",
                         isBasePath ? "The base path this service is exposed on"
                                 : "The identifier for this service", null, null, null, null, null, null, null, null),
-                true, true, optional, false, isBasePath ? "/" : null, null, List.of(type), null, null, null,
-                cdType("SERVICE_ID"), null);
+                true, true, optional, false, isBasePath ? "/" : null, null, types, null, null, null,
+                cdType(isBasePath ? ARG_TYPE_SERVICE_BASE_PATH : CD_TYPE_STRING_LITERAL), null);
         initProperties.put(IDENTIFIER_KEY, property);
     }
 
@@ -752,21 +772,46 @@ public final class TriggerModelSynthesizer {
         Map<String, TriggerUISchemaModel.Property> properties = buildFunctionAnnotations(option.annotations(),
                 authoring, facts, crossModuleFacts, identity);
 
-        String name = many ? "" : option.name();
+        boolean resource = TriggerMetadataModel.ServiceType.HandlerOption.KIND_RESOURCE.equals(option.kind());
+        boolean pathEditable = resource && (option.path() != null
+                || TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(option.name()));
+        String accessor = resource ? resourceAccessor(option) : null;
+
+        String name = pathEditable ? DEFAULT_RESOURCE_PATH : many ? "" : option.name();
         String label = many ? "Handler" : option.name();
         String optionDoc = trimmedDoc(option.doc());
         String description = optionDoc == null ? "The `" + option.name() + "` handler." : optionDoc;
+        TriggerUISchemaModel.Metadata nameMetadata = pathEditable
+                ? new TriggerUISchemaModel.Metadata("Resource Path", "The resource path this handler serves.",
+                null, null, null, null, null, null, null, null)
+                : null;
         return new TriggerUISchemaModel.FunctionModel(
                 new TriggerUISchemaModel.Metadata(label, description, option.deprecated(), null, null,
                         many ? "Add Handler" : null, null, null,
                         option.deprecated() == null ? null : true, null),
-                name, many, null, option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
-                null, option.kind() == null ? null : List.of(option.kind()), null, null, false, true, !required,
-                false, null, null, null, parameters, null, properties, returnType, null,
+                name, many || pathEditable, nameMetadata,
+                option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
+                accessor, option.kind() == null ? null : List.of(option.kind()),
+                pathEditable ? option.name() : null, null, false, true,
+                !required, false, null, null, null, parameters, null, properties, returnType, null,
                 // A "many" handler's *-name is a pure addability convention, not a real backing
                 // function -- restating it as originalName would misrepresent the handler as bound to
                 // an actual method named "*".
                 cdFunction(many ? null : option.name(), moduleName), null);
+    }
+
+    /**
+     * A resource handler's accessor: every standard HTTP method for an open {@code "*"} spec, the declared
+     * values when there are several (both comma-separated, the first being the default), else the one
+     * pinned value.
+     */
+    private static String resourceAccessor(TriggerMetadataModel.ServiceType.HandlerOption option) {
+        ValueSpec accessor = option.accessor();
+        if (accessor != null && accessor.values() != null && !accessor.values().isEmpty()) {
+            return String.join(",", accessor.isOpen() ? RESOURCE_ACCESSORS : accessor.values());
+        }
+        return TriggerMetadataModel.ServiceType.HandlerOption.WILDCARD_NAME.equals(option.name())
+                ? RESOURCE_ACCESSORS.get(0) : option.name();
     }
 
     /**

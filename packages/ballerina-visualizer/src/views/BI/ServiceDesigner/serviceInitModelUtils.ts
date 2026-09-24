@@ -21,6 +21,87 @@ import { getPrimaryInputType, Property, PropertyModel, RecordTypeField, ServiceI
 import { getImportsForProperty } from "../../../utils/bi";
 import { sanitizedHttpPath, normalizeValueToArray } from "./utils";
 
+/**
+ * Suffix given to a nested field whose key collides with a CHOICE (or top-level) key. Every field of a
+ * service init form shares one flat react-hook-form value map, so e.g. websocket's listener param
+ * `listener` would otherwise overwrite the `listener` choice's selected index and reset the form.
+ */
+const NESTED_FORM_KEY_SUFFIX = "__field";
+
+type PropertyMap = { [key: string]: PropertyModel };
+
+function collectReservedFormKeys(properties: PropertyMap, reserved: Set<string>, topLevel: boolean): void {
+    if (!properties) {
+        return;
+    }
+    for (const [key, property] of Object.entries(properties)) {
+        if (topLevel || getPrimaryInputType(property.types)?.fieldType === "CHOICE") {
+            reserved.add(key);
+        }
+        property.choices?.forEach((choice) => collectReservedFormKeys(choice.properties, reserved, false));
+        collectReservedFormKeys(property.properties, reserved, false);
+    }
+}
+
+function renameNestedKeys(properties: PropertyMap, rename: (key: string, property: PropertyModel) => string): PropertyMap {
+    if (!properties) {
+        return properties;
+    }
+    const renamed: PropertyMap = {};
+    for (const [key, property] of Object.entries(properties)) {
+        const next: PropertyModel = { ...property };
+        if (property.choices) {
+            next.choices = property.choices.map((choice) => choice.properties
+                ? { ...choice, properties: renameNestedKeys(choice.properties, rename) }
+                : choice);
+        }
+        if (property.properties) {
+            next.properties = renameNestedKeys(property.properties, rename);
+        }
+        renamed[rename(key, property)] = next;
+    }
+    return renamed;
+}
+
+/**
+ * Returns a copy of the model whose nested (choice/group) fields no longer share a form key with any
+ * CHOICE or top-level field. Undo with {@link restoreFormKeys} before sending the model back.
+ */
+export function disambiguateFormKeys(model: ServiceInitModel): ServiceInitModel {
+    if (!model?.properties) {
+        return model;
+    }
+    const reserved = new Set<string>();
+    collectReservedFormKeys(model.properties, reserved, true);
+    const properties: PropertyMap = {};
+    for (const [key, property] of Object.entries(model.properties)) {
+        const next: PropertyModel = { ...property };
+        const rename = (nestedKey: string, nested: PropertyModel) =>
+            reserved.has(nestedKey) && getPrimaryInputType(nested.types)?.fieldType !== "CHOICE"
+                ? `${nestedKey}${NESTED_FORM_KEY_SUFFIX}` : nestedKey;
+        if (property.choices) {
+            next.choices = property.choices.map((choice) => choice.properties
+                ? { ...choice, properties: renameNestedKeys(choice.properties, rename) }
+                : choice);
+        }
+        if (property.properties) {
+            next.properties = renameNestedKeys(property.properties, rename);
+        }
+        properties[key] = next;
+    }
+    return { ...model, properties };
+}
+
+/** Reverses {@link disambiguateFormKeys}, so the language server sees its own property keys. */
+export function restoreFormKeys(model: ServiceInitModel): ServiceInitModel {
+    if (!model?.properties) {
+        return model;
+    }
+    const restore = (key: string) => key.endsWith(NESTED_FORM_KEY_SUFFIX)
+        ? key.slice(0, -NESTED_FORM_KEY_SUFFIX.length) : key;
+    return { ...model, properties: renameNestedKeys(model.properties, restore) };
+}
+
 /** Maps `properties` to FormField objects. */
 export function mapPropertiesToFormFields(properties: { [key: string]: PropertyModel; }): FormField[] {
     if (!properties) return [];

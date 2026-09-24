@@ -33,8 +33,10 @@ import { McpOpenApiImportWizard } from "./McpOpenApiImportWizard";
 import { HeaderWrapper, NestedFormWrapper, StatusCard, StatusText } from "./ServiceCreationLayout";
 import {
     applyFormValuesToModel,
+    disambiguateFormKeys,
     collectRecordTypeFields,
     mapPropertiesToFormFields,
+    restoreFormKeys,
     updateChoiceInModel,
 } from "./serviceInitModelUtils";
 
@@ -237,8 +239,9 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
                     title: res.serviceInitModel.displayName,
                     moduleName: res.serviceInitModel.moduleName
                 });
-                setServiceInitModel(res.serviceInitModel);
-                setFormFields(mapPropertiesToFormFields(res.serviceInitModel.properties));
+                const formModel = disambiguateFormKeys(res.serviceInitModel);
+                setServiceInitModel(formModel);
+                setFormFields(mapPropertiesToFormFields(formModel.properties));
                 setPullingStatus(undefined);
             } else if (didTimeout && res?.serviceInitModel) {
                 // If timer expired, show pulling status then load form
@@ -247,8 +250,9 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
                     title: res.serviceInitModel.displayName,
                     moduleName: res.serviceInitModel.moduleName
                 });
-                setServiceInitModel(res.serviceInitModel);
-                setFormFields(mapPropertiesToFormFields(res.serviceInitModel.properties));
+                const formModel = disambiguateFormKeys(res.serviceInitModel);
+                setServiceInitModel(formModel);
+                setFormFields(mapPropertiesToFormFields(formModel.properties));
                 setPullingStatus(undefined);
             } else if (res?.issue?.code === "UNSUPPORTED_CONNECTOR_VERSION") {
                 setUpgradeIssue(res.issue);
@@ -365,7 +369,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
         setIsSaving(true);
         const res = await rpcClient
             .getServiceDesignerRpcClient()
-            .createServiceAndListener({ filePath: "", serviceInitModel: serviceModel });
+            .createServiceAndListener({ filePath: "", serviceInitModel: restoreFormKeys(serviceModel) });
 
         if (!isMountedRef.current) {
             return;

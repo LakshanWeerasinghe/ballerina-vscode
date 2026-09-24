@@ -25,6 +25,9 @@ import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TypeRef;
+import io.ballerina.modelgenerator.commons.trigger.models.ValueSpec;
+import io.ballerina.servicemodelgenerator.extension.connector.adapter.TriggerFunctionAdapter;
+import io.ballerina.servicemodelgenerator.extension.model.Function;
 import io.ballerina.servicemodelgenerator.extension.model.Listener;
 import io.ballerina.servicemodelgenerator.extension.model.MetaData;
 import io.ballerina.servicemodelgenerator.extension.model.PropertyType;
@@ -885,6 +888,191 @@ public class TriggerModelSynthesizerTest {
         Assert.assertFalse(createNew.get("listenerVarName").advanced());
         Assert.assertFalse(listenOnProperty.advanced());
         Assert.assertTrue(listenOnProperty.optional(), "listenOn is still optional (defaultable), just not hidden");
+    }
+
+    /**
+     * WebSocket shape: {@code init(int|http:Listener 'listener, *ListenerConfiguration config)}. The
+     * compiler reports the name unescaped, and {@code ListenerUtil} keys the widget that way too; the
+     * property keeps that key while its originalName is escaped, takes position 1, and is emitted ahead
+     * of the included named args.
+     */
+    @Test
+    public void testReservedKeywordListenerParamOriginalNameIsEscaped() throws Exception {
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
+                "$listener", "Listens for events.", new TypeRef("Listener", null), null,
+                List.of("$service"), false, null, null, null);
+        TriggerMetadataModel.ServiceType.Handlers handlers = new TriggerMetadataModel.ServiceType.Handlers(true,
+                null);
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
+                "$service", "A service.", new TypeRef("Service", null), null, true, false,
+                null, null, handlers, null);
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
+                "v1.0", List.of(listener), List.of(serviceType), null, null);
+
+        TriggerLibraryFacts.Param listenOn = new TriggerLibraryFacts.Param(
+                "listener", "int|http:Listener", false, "REQUIRED", "", List.of());
+        TriggerLibraryFacts.Param host = new TriggerLibraryFacts.Param(
+                "host", "string", true, "RECORD_FIELD", "", List.of());
+        TriggerLibraryFacts.Param config = new TriggerLibraryFacts.Param(
+                "config", "websocket:ListenerConfiguration", true, "INCLUDED_RECORD", "", List.of(host));
+        TriggerLibraryFacts facts = new TriggerLibraryFacts(
+                List.of(new TriggerLibraryFacts.Listener("Listener", List.of(listenOn, config))),
+                List.of(new TriggerLibraryFacts.ServiceType("Service", "", List.of())), List.of());
+
+        Map<String, Value> props = new LinkedHashMap<>();
+        props.put("listener", numberValue("int", "int|http:Listener", false));
+        props.put("host", textValue("string"));
+        TriggerUISchemaModel model = TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel(props),
+                "1", "WebSocket", null, "event", "ballerina", "websocket", "websocket", "2.15.7").orElseThrow();
+
+        Map<String, TriggerUISchemaModel.Property> createNew = model.initProperties().get("listener").choices()
+                .get(0).properties().get("listenerConfig").properties();
+        Assert.assertTrue(createNew.containsKey("listener"), "keyed by the unescaped name");
+        TriggerUISchemaModel.Property listenOnProperty = createNew.get("listener");
+        Assert.assertEquals(listenOnProperty.codedata().argType(), "LISTENER_PARAM_REQUIRED");
+        Assert.assertEquals(listenOnProperty.codedata().position(), Integer.valueOf(1));
+        Assert.assertEquals(listenOnProperty.codedata().originalName(), "'listener");
+        Assert.assertFalse(listenOnProperty.optional());
+
+        ServiceInitModel initModel = toServiceInitModel(model);
+        Value createNewBranch = initModel.getProperties().get("listener").getChoices().stream()
+                .filter(Value::isEnabled).findFirst().orElseThrow();
+        Map<String, Value> fields = createNewBranch.getProperties().get("listenerConfig").getProperties();
+        fields.get("listener").setValue("9090");
+        fields.get("host").setValue("\"localhost\"");
+        String block = SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(initModel, model);
+        Assert.assertTrue(block.contains("new (9090, host = \"localhost\")"),
+                "positional listener arg must precede the included named arg: " + block);
+    }
+
+    private static TriggerMetadataModel.ServiceType.HandlerOption handlerOption(String name, String kind,
+                                                                                String addMode, ValueSpec accessor,
+                                                                                ValueSpec path) {
+        return new TriggerMetadataModel.ServiceType.HandlerOption("$service." + name, name, kind, addMode,
+                "A handler.", null, addMode == null ? "optional" : null, null, List.of(), null, accessor, path,
+                null);
+    }
+
+    private static TriggerUISchemaModel.ServiceTypeModel synthesizeHandlers(
+            List<TriggerMetadataModel.ServiceType.HandlerOption> options) {
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
+                "$listener", "Listens for events.", new TypeRef("Listener", null), null,
+                List.of("$service"), false, null, null, null);
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
+                "$service", "A service.", new TypeRef("Service", null), null, false, false, null, null,
+                new TriggerMetadataModel.ServiceType.Handlers(false, options), null);
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
+                "v1.0", List.of(listener), List.of(serviceType), null, null);
+        TriggerLibraryFacts facts = new TriggerLibraryFacts(
+                List.of(new TriggerLibraryFacts.Listener("Listener", List.of())),
+                List.of(new TriggerLibraryFacts.ServiceType("Service", "", List.of())), List.of());
+        return TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel(Map.of()), "1", "Test", null,
+                "event", "testorg", MODULE, MODULE, "0.1.0").orElseThrow().serviceTypes().get(0);
+    }
+
+    private static TriggerUISchemaModel.FunctionModel schemaFunction(TriggerUISchemaModel.ServiceTypeModel type,
+                                                                   String group) {
+        return type.schemaFunctions().stream().filter(f -> group.equals(f.group()) || group.equals(f.name()))
+                .findFirst().orElseThrow(() -> new AssertionError("no handler " + group));
+    }
+
+    /**
+     * Resource handlers ask for their path, and for their accessor unless the schema pins exactly one;
+     * an open {@code "*"} accessor offers every standard method. A {@code "*"} remote asks for a name.
+     */
+    @Test
+    public void testResourceAccessorPathAndWildcardNameAreAskedFor() {
+        ValueSpec requiredPath = new ValueSpec("required", null);
+        TriggerUISchemaModel.ServiceTypeModel type = synthesizeHandlers(List.of(
+                handlerOption("*", "resource", "many", new ValueSpec("required", List.of("*")), requiredPath),
+                handlerOption("get", "resource", null, new ValueSpec("required", List.of("get")), requiredPath),
+                handlerOption("*", "remote", "many", null, null)));
+
+        TriggerUISchemaModel.FunctionModel anyResource = type.schemaFunctions().get(0);
+        Assert.assertEquals(anyResource.kind(), "RESOURCE");
+        Assert.assertEquals(anyResource.name(), ".", "the path starts at the root resource");
+        Assert.assertTrue(anyResource.nameEditable());
+        Assert.assertEquals(anyResource.nameMetadata().label(), "Resource Path");
+        Assert.assertEquals(anyResource.accessor(), "get,post,put,delete,patch,head,options,default",
+                "an open accessor lists every standard method, comma-separated");
+        Assert.assertEquals(anyResource.defaultAccessor(), "get");
+
+        TriggerUISchemaModel.FunctionModel getResource = schemaFunction(type, "get");
+        Assert.assertEquals(getResource.name(), ".");
+        Assert.assertTrue(getResource.nameEditable(), "a declared path is always user-chosen");
+        Assert.assertEquals(getResource.accessor(), "get", "a single declared accessor stays fixed");
+
+        TriggerUISchemaModel.FunctionModel anyRemote = type.schemaFunctions().get(2);
+        Assert.assertEquals(anyRemote.name(), "");
+        Assert.assertTrue(anyRemote.nameEditable());
+        Assert.assertNull(anyRemote.accessor());
+
+        Function wireAny = TriggerFunctionAdapter.toFunction(anyResource);
+        Assert.assertEquals(wireAny.getName().getTypes().get(0).fieldType(), Value.FieldType.RESOURCE_PATH);
+        Assert.assertTrue(wireAny.getName().isEditable());
+        Assert.assertEquals(wireAny.getAccessor().getTypes().get(0).fieldType(), Value.FieldType.SINGLE_SELECT);
+        Assert.assertEquals(wireAny.getAccessor().getTypes().get(0).options().size(), 8);
+        Assert.assertTrue(wireAny.getAccessor().isEditable());
+
+        Function wireGet = TriggerFunctionAdapter.toFunction(getResource);
+        Assert.assertEquals(wireGet.getAccessor().getValue(), "get");
+        Assert.assertFalse(wireGet.getAccessor().isEditable());
+        Assert.assertEquals(TriggerFunctionAdapter.toFunction(anyRemote).getName().getTypes().get(0).fieldType(),
+                Value.FieldType.IDENTIFIER);
+
+        Assert.assertEquals(SchemaDrivenSourceGenerator.buildFunctionSource(getResource).lines().findFirst()
+                .orElseThrow(), "resource function get .() {");
+        Assert.assertEquals(SchemaDrivenSourceGenerator.buildFunctionSource(anyResource).lines().findFirst()
+                .orElseThrow(), "resource function get .() {", "a choice list is emitted with its default");
+    }
+
+    private static TriggerUISchemaModel synthesizeWithIdentifier(String form) {
+        TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
+                "$listener", "Listens for events.", new TypeRef("Listener", null), null,
+                List.of("$service"), false, null, null, null);
+        TriggerMetadataModel.ServiceType serviceType = new TriggerMetadataModel.ServiceType(
+                "$service", "A service.", new TypeRef("Service", null), null, true, false, null,
+                new IdentifierSpec(IdentifierSpec.PRESENCE_REQUIRED, List.of(form)),
+                new TriggerMetadataModel.ServiceType.Handlers(true, null), null);
+        TriggerMetadataModel authoring = new TriggerMetadataModel(
+                "v1.0", List.of(listener), List.of(serviceType), null, null);
+        TriggerLibraryFacts facts = new TriggerLibraryFacts(
+                List.of(new TriggerLibraryFacts.Listener("Listener", List.of())),
+                List.of(new TriggerLibraryFacts.ServiceType("Service", "", List.of())), List.of());
+        return TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel(Map.of()), "1", "gRPC", null,
+                "event", "ballerina", "grpc", "grpc", "1.15.1").orElseThrow();
+    }
+
+    private String emitWithIdentifier(TriggerUISchemaModel model, String identifierValue) throws Exception {
+        ServiceInitModel initModel = toServiceInitModel(model);
+        initModel.getProperties().get("identifier").setValue(identifierValue);
+        return SchemaDrivenSourceGenerator.buildServiceBlockForTrigger(initModel, model);
+    }
+
+    /** A {@code stringLiteral} identifier (gRPC's service name) is asked for as text and emitted quoted. */
+    @Test
+    public void testStringLiteralIdentifierIsEmitted() throws Exception {
+        TriggerUISchemaModel model = synthesizeWithIdentifier(IdentifierSpec.FORM_STRING_LITERAL);
+        TriggerUISchemaModel.Property identifier = model.initProperties().get("identifier");
+        Assert.assertEquals(identifier.codedata().type(), "STRING_LITERAL");
+        Assert.assertEquals(identifier.types().get(0).fieldType(), "TEXT");
+        Assert.assertEquals(identifier.types().get(1).fieldType(), "EXPRESSION");
+        Assert.assertFalse(identifier.optional());
+
+        String block = emitWithIdentifier(model, "\"helloworld.Greeter\"");
+        Assert.assertTrue(block.contains("\"helloworld.Greeter\" on "), "identifier emitted: " + block);
+    }
+
+    /** A {@code basePath} identifier is asked for as a service path and emitted verbatim. */
+    @Test
+    public void testBasePathIdentifierIsEmitted() throws Exception {
+        TriggerUISchemaModel model = synthesizeWithIdentifier(IdentifierSpec.FORM_BASE_PATH);
+        TriggerUISchemaModel.Property identifier = model.initProperties().get("identifier");
+        Assert.assertEquals(identifier.codedata().type(), "SERVICE_BASE_PATH");
+        Assert.assertEquals(identifier.types().get(0).fieldType(), "SERVICE_PATH");
+
+        String block = emitWithIdentifier(model, "/chat");
+        Assert.assertTrue(block.contains("/chat on "), "base path emitted: " + block);
     }
 
     /** A null {@code annotation.type()} (absent from a malformed metadata file) must not throw. */

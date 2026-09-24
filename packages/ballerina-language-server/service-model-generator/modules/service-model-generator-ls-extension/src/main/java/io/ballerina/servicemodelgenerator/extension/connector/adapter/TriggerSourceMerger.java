@@ -47,6 +47,7 @@ import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYP
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_MODIFIER;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE;
 import static io.ballerina.servicemodelgenerator.extension.util.Constants.CD_TYPE_PAYLOAD_TYPE_INCLUDED_RECORD;
+import static io.ballerina.servicemodelgenerator.extension.util.Constants.KIND_RESOURCE;
 
 /**
  * Folds the functions parsed from the user's source into a schema-driven trigger template
@@ -164,7 +165,8 @@ public final class TriggerSourceMerger {
                 continue;
             }
             Repeatable effective = Repeatable.orDefault(template.getRepeatable()).effective(template.getGroup());
-            if (!effective.staysAddable()) {
+            boolean resource = KIND_RESOURCE.equals(template.getKind());
+            if (!effective.staysAddable() && !resource) {
                 continue;
             }
             if (!Objects.equals(source.getKind(), template.getKind())) {
@@ -172,11 +174,23 @@ public final class TriggerSourceMerger {
             }
             String templateAccessor = valueOf(template.getAccessor());
             if (sourceAccessor == null || templateAccessor == null
-                    || sourceAccessor.equals(templateAccessor)) {
+                    || sourceAccessor.equals(templateAccessor) || offersAccessor(template, sourceAccessor)) {
                 return new TemplateMatch(template, effective);
             }
         }
         return null;
+    }
+
+    /** Whether the template's accessor is a pick-list that includes {@code accessor}. */
+    private static boolean offersAccessor(Function template, String accessor) {
+        Value templateAccessor = template.getAccessor();
+        if (templateAccessor == null || !templateAccessor.isEditable() || templateAccessor.getTypes() == null) {
+            return false;
+        }
+        return templateAccessor.getTypes().stream()
+                .filter(type -> type.options() != null)
+                .flatMap(type -> type.options().stream())
+                .anyMatch(option -> accessor.equals(option.value()));
     }
 
     private static Function copyOf(Function template) {
