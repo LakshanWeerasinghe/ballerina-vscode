@@ -47,13 +47,12 @@ export const CODEDATA_ANNOTATION_ATTACHMENT = "ANNOTATION_ATTACHMENT";
 
 /** The group id linking a handler's format variants (falls back to its display label). */
 export function handlerGroupId(fn: FunctionModel): string | undefined {
-    const group = fn.group?.trim();
-    return group || fn.metadata?.label;
+    return fn.group ?? fn.metadata?.label;
 }
 
 /** True when the service's functions carry the schema-driven handler-catalog markers. */
 export function isSchemaTriggerFunction(fn: FunctionModel): boolean {
-    return !!fn.group?.trim();
+    return !!fn.group;
 }
 
 /** True when the service is a schema-driven trigger (marker functions or an addable catalog). */
@@ -129,7 +128,8 @@ export function withAddedParameters(
  * e.g. right after a handler is added, before the model is refetched:
  *
  *   - a present ONE_OF_GROUP handler hides every sibling of its group (mutually exclusive);
- *   - a present handler that is not TRUE hides its own (same-name) catalog entry (add-once);
+ *   - a present handler that is not TRUE hides its own (same-name) catalog entry (add-once), unless
+ *     that entry is `nameEditable` (its name is only a placeholder);
  *   - a present LEGACY handler hides every NON-LEGACY catalog entry, ignoring group (mutually
  *     incompatible with the "modern" catalog, not just its own group);
  *   - distinct LEGACY entries are independent of each other: none is hidden by another being
@@ -174,7 +174,8 @@ export function addableCatalogOf(serviceModel: ServiceModel): FunctionModel[] {
         if (group && exclusiveGroups.has(group)) {
             return false;
         }
-        if (behavior !== RepeatBehavior.TRUE && fn.name?.value && consumedNames.has(fn.name.value)) {
+        if (behavior !== RepeatBehavior.TRUE && !fn.nameEditable && fn.name?.value
+            && consumedNames.has(fn.name.value)) {
             return false;
         }
         return true;

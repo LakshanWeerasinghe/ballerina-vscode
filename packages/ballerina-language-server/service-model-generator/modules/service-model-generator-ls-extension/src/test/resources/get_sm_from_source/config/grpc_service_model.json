@@ -352,7 +352,7 @@
         "properties": {},
         "group": "$service.unary",
         "addLabel": "Add Handler",
-        "repeatable": "FALSE",
+        "repeatable": "TRUE",
         "nameEditable": true
       },
       {
@@ -512,7 +512,7 @@
         "properties": {},
         "group": "$service.serverStreaming",
         "addLabel": "Add Handler",
-        "repeatable": "FALSE",
+        "repeatable": "TRUE",
         "nameEditable": true
       },
       {
@@ -672,7 +672,7 @@
         "properties": {},
         "group": "$service.clientStreaming",
         "addLabel": "Add Handler",
-        "repeatable": "FALSE",
+        "repeatable": "TRUE",
         "nameEditable": true
       },
       {
@@ -832,7 +832,7 @@
         "properties": {},
         "group": "$service.bidiStreaming",
         "addLabel": "Add Handler",
-        "repeatable": "FALSE",
+        "repeatable": "TRUE",
         "nameEditable": true
       }
     ]

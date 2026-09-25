@@ -33,7 +33,7 @@ jest.mock("../../../utils/bi", () => ({
 
 import { FormField, FormValues } from "@wso2/ballerina-side-panel";
 import { ServiceInitModel } from "@wso2/ballerina-core";
-import { applyFormValuesToModel, disambiguateFormKeys, restoreFormKeys } from "./serviceInitModelUtils";
+import { applyFormValuesToModel, disambiguateFormKeys, restoreFormKeys, toFormValidationErrors } from "./serviceInitModelUtils";
 
 describe("applyFormValuesToModel", () => {
     // GROUP_SECTION subfields previously always wrote `subProperty.value`, even for
@@ -266,5 +266,22 @@ describe("disambiguateFormKeys", () => {
 
         expect(Object.keys(disambiguateFormKeys(model).properties.listener.choices[0].properties))
             .toEqual(["listener__field"]);
+    });
+
+    it("routes a server error on a renamed nested field onto its form key", () => {
+        const model = disambiguateFormKeys({
+            properties: { listener: choiceWith({ listener: field("EXPRESSION"), port: field("EXPRESSION") }) },
+        } as unknown as ServiceInitModel);
+        const error = (propertyPath: string): any => ({ propertyPath, rule: "r", message: "m", severity: "ERROR" });
+
+        expect(toFormValidationErrors(model, [
+            error("listener.choices.0.listener"),
+            error("listener.choices.0.port"),
+            error("listener"),
+        ]).map((e) => e.propertyPath)).toEqual([
+            "listener.choices.0.listener__field",
+            "listener.choices.0.port",
+            "listener",
+        ]);
     });
 });

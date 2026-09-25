@@ -31,6 +31,8 @@ describe("parseResourceFunctionPath", () => {
         ["chat/", "path cannot end with a slash (/)"],
         ["function", 'usage of reserved keyword "function"'],
         ["chat/service", 'usage of reserved keyword "service"'],
+        ["rooms/[string id", "path parameter is missing its closing (]) bracket"],
+        ["rooms/string id]", "path parameter is missing its opening ([) bracket"],
     ])("rejects %p", (path, message) => {
         const result = parseResourceFunctionPath(path);
         expect(result.valid).toBe(false);

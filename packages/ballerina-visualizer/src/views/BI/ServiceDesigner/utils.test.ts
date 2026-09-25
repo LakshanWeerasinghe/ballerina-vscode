@@ -16,18 +16,19 @@
  * under the License.
  */
 
-import { FormField } from "../components/Form/types";
-import { CLIENT_VALIDATION_RULES } from "../components/Form/validationRules";
+jest.mock("@wso2/ballerina-core", () => ({}));
 
-const field = {} as FormField;
-const run = (rule: string, value: string) => CLIENT_VALIDATION_RULES[rule](value, {}, field, {});
+import { sanitizedResourcePath } from "./utils";
 
-describe.each(["common.validate.service.path", "vscode.validate.resource.path"])("%s", (rule) => {
-    it.each(["/chat", "chat/rooms", "'function", "chat/'service"])("accepts %s", (path) => {
-        expect(run(rule, path)).toBeUndefined();
-    });
-
-    it.each(["function", "chat/service", "/listener", "class", "a/foreach"])("rejects the bare reserved word in %s", (path) => {
-        expect(run(rule, path)).toBeDefined();
+describe("sanitizedResourcePath", () => {
+    it.each([
+        ["v1.0", "v1\\.0"],
+        ["a-b", "a\\-b"],
+        ["rooms/[string id]", "rooms/[string id]"],
+        ["a/[int... rest]", "a/[int... rest]"],
+        ["a-b/[string id]/c.d", "a\\-b/[string id]/c\\.d"],
+        ["v1\\.0", "v1\\.0"],
+    ])("sanitizes %p as %p", (path, expected) => {
+        expect(sanitizedResourcePath(path)).toBe(expected);
     });
 });

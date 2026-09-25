@@ -345,6 +345,22 @@ describe("addableCatalogOf — RepeatBehavior semantics, using each connector's 
         expect(addableCatalogOf(model)).toEqual([]);
     });
 
+    it("FALSE path-editable resources: a present `get .` does not hide another `.` template", () => {
+        const resource = (accessor: string) => fn({
+            kind: "RESOURCE",
+            repeatable: RepeatBehavior.FALSE,
+            group: accessor,
+            nameEditable: true,
+            accessor: prop({ value: accessor }),
+            name: prop({ value: ".", editable: true }),
+        });
+        const model = serviceModel({
+            schemaFunctions: [resource("get"), resource("post")],
+            functions: [{ ...resource("get"), enabled: true }],
+        });
+        expect(addableCatalogOf(model).map((f) => f.accessor?.value)).toEqual(["get", "post"]);
+    });
+
     // mcp's Tool: repeat-always — the canonical TRUE example (isSoleRepeatableGroup's own case).
     it("TRUE (mcp Tool): never removed from the catalog no matter how many are already present", () => {
         const tool = fn({ repeatable: RepeatBehavior.TRUE, name: prop({ value: "newTool" }, ) });

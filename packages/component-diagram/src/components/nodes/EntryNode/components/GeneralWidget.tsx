@@ -18,7 +18,7 @@
 
 import React, { useState } from "react";
 import { PortWidget } from "@projectstorm/react-diagrams-core";
-import { CDAutomation, CDService, CDWorkflow, CDWorkflowEvent, CDWorkflowHumanTask, toIconDescriptor, toThemedSvgDataUri } from "@wso2/ballerina-core";
+import { CDAutomation, CDService, CDWorkflow, CDWorkflowEvent, CDWorkflowHumanTask, resolveBrandIcon, toIconDescriptor, toThemedSvgDataUri } from "@wso2/ballerina-core";
 import { Item, Menu, MenuItem, Popover, ImageWithFallback, Icon } from "@wso2/ui-toolkit";
 import { DurableAgentIcon } from "@wso2/bi-diagram";
 import { useDiagramContext } from "../../../DiagramContext";
@@ -104,8 +104,27 @@ export function getColorByMethod(method: string) {
 const HTTP_SERVICE_TYPE = "http:Service";
 
 /**
+ * The last-resort icon once a service's descriptor images are missing or fail to load: the bundled
+ * HTTP glyph for any `http:` service type, the module's brand glyph (e.g. `grpc`) when it has one,
+ * else a generic globe.
+ */
+function getServiceFallbackIcon(service: CDService) {
+    const moduleName = service.type?.split(":")[0];
+    if (moduleName === "http") {
+        return <HttpIcon />;
+    }
+    const brand = resolveBrandIcon(moduleName);
+    return (
+        <Icon
+            name={brand?.glyph ?? "bi-globe"}
+            sx={{ fontSize: 24, width: 24, height: 24, ...(brand?.color ? { color: brand.color } : {}) }}
+        />
+    );
+}
+
+/**
  * Renders a service's icon following the descriptor's representation order: the theme-specific SVG
- * pair first, then the single `url` image, then a protocol-appropriate fallback. Each step falls
+ * pair first, then the single `url` image, then {@link getServiceFallbackIcon}. Each step falls
  * through on a load failure, so a connector shipping an SVG the browser refuses still gets its `url`
  * image rather than an empty icon slot.
  *
@@ -120,7 +139,7 @@ export function getServiceIcon(service: CDService) {
     }
     const descriptor = toIconDescriptor(service.icon);
     const svgDataUri = toThemedSvgDataUri(descriptor);
-    const urlIcon = <ImageWithFallback imageUrl={descriptor?.url ?? ""} fallbackEl={<Icon name="bi-globe" />} />;
+    const urlIcon = <ImageWithFallback imageUrl={descriptor?.url ?? ""} fallbackEl={getServiceFallbackIcon(service)} />;
     if (svgDataUri) {
         return <ImageWithFallback imageUrl={svgDataUri} fallbackEl={urlIcon} />;
     }

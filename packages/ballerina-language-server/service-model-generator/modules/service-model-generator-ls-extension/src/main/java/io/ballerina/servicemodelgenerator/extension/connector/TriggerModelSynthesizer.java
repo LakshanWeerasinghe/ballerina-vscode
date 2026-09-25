@@ -250,16 +250,31 @@ public final class TriggerModelSynthesizer {
      */
     private static void addImportIfCrossModule(Set<String> imports, TypeRef.PackageInfo packageInfo,
                                                ConnectorIdentity identity, boolean sideEffectOnly) {
-        if (packageInfo == null || packageInfo.org() == null || packageInfo.packageName() == null) {
+        if (!isCrossModule(packageInfo, identity)) {
             return;
         }
-        if (packageInfo.org().equals(identity.orgName()) && packageInfo.packageName().equals(identity.packageName())) {
-            return;
-        }
-        String module = packageInfo.moduleName() != null && !packageInfo.moduleName().isBlank()
-                ? packageInfo.moduleName() : packageInfo.packageName();
-        String moduleRef = packageInfo.org() + "/" + module;
+        String moduleRef = packageInfo.org() + "/" + moduleOf(packageInfo);
         imports.add(sideEffectOnly ? moduleRef + " as _" : moduleRef);
+    }
+
+    /**
+     * Whether {@code packageInfo} names a module other than the connector's own -- the one rule both
+     * import collection and parameter-type codedata use, so a type is never imported by one and treated
+     * as self-module by the other.
+     */
+    private static boolean isCrossModule(TypeRef.PackageInfo packageInfo, ConnectorIdentity identity) {
+        if (packageInfo == null || packageInfo.org() == null || packageInfo.packageName() == null) {
+            return false;
+        }
+        return !(packageInfo.org().equals(identity.orgName())
+                && packageInfo.packageName().equals(identity.packageName())
+                && moduleOf(packageInfo).equals(identity.moduleName()));
+    }
+
+    /** The module a {@link TypeRef.PackageInfo} names, defaulting to its package's root module. */
+    private static String moduleOf(TypeRef.PackageInfo packageInfo) {
+        return packageInfo.moduleName() != null && !packageInfo.moduleName().isBlank()
+                ? packageInfo.moduleName() : packageInfo.packageName();
     }
 
     /**
@@ -651,7 +666,7 @@ public final class TriggerModelSynthesizer {
                                                                   TriggerLibraryFacts facts,
                                                                   Map<String, TriggerLibraryFacts> crossModuleFacts,
                                                                   TriggerMetadataModel authoring,
-                                                                  ConnectorIdentity identity, boolean isFirst,
+                                                                  ConnectorIdentity identity, boolean isPrimary,
                                                                   boolean editable, boolean multiType) {
         String moduleName = identity.moduleName();
         String typeName = serviceType.type() == null ? "" : serviceType.type().name();
@@ -699,7 +714,7 @@ public final class TriggerModelSynthesizer {
                 new TriggerUISchemaModel.Metadata(humanize(stripId(serviceType.id())), description,
                         serviceType.deprecated(), null, null, null, null, null,
                         serviceType.deprecated() == null ? null : true, null),
-                qualifiedTypeName, description, isFirst, editable, properties, functions, schemaFunctions,
+                qualifiedTypeName, description, isPrimary, editable, properties, functions, schemaFunctions,
                 cdServiceType(typeName, serviceTypeModule, serviceTypeOrg, serviceTypePackage));
     }
 
@@ -784,7 +799,7 @@ public final class TriggerModelSynthesizer {
         List<TriggerUISchemaModel.Parameter> parameters = new ArrayList<>();
         if (option.params() != null) {
             for (TriggerMetadataModel.ServiceType.Param param : option.params()) {
-                parameters.add(buildParameterFromAuthoring(param, moduleName));
+                parameters.add(buildParameterFromAuthoring(param, moduleName, identity));
             }
         }
         TriggerUISchemaModel.ReturnType returnType = buildReturnTypeFromRefs(
@@ -814,7 +829,8 @@ public final class TriggerModelSynthesizer {
                 option.kind() == null ? null : option.kind().toUpperCase(Locale.ROOT),
                 accessor, option.kind() == null ? null : List.of(option.kind()),
                 group, null, false, true,
-                !required, false, null, null, null, parameters, null, properties, returnType, null,
+                !required, false, many ? Repeatable.TRUE : null, null, null, parameters, null, properties,
+                returnType, null,
                 // A "many" handler's *-name is a pure addability convention, not a real backing
                 // function -- restating it as originalName would misrepresent the handler as bound to
                 // an actual method named "*".
@@ -869,13 +885,13 @@ public final class TriggerModelSynthesizer {
      * parameter renders as a normal typed field.
      */
     private static TriggerUISchemaModel.Parameter buildParameterFromAuthoring(
-            TriggerMetadataModel.ServiceType.Param param, String moduleName) {
+            TriggerMetadataModel.ServiceType.Param param, String moduleName, ConnectorIdentity identity) {
         boolean optional = "optional".equals(param.presence());
         String name = param.name() == null ? "" : param.name();
         TriggerMetadataModel.ServiceType.DataBinding binding = param.dataBinding();
 
         String typeName = renderTypeRef(param.type(), moduleName);
-        TriggerUISchemaModel.Codedata typeCodedata = typeCodedata(param.type(), moduleName);
+        TriggerUISchemaModel.Codedata typeCodedata = typeCodedata(param.type(), identity);
         if (binding == null && optional && !name.isEmpty()) {
             return buildFlagParameter(name, typeName, typeCodedata);
         }
@@ -927,21 +943,19 @@ public final class TriggerModelSynthesizer {
      * websocket's {@code http:Request}), so the emitted handler imports it. The first such member wins,
      * searching array elements and stream completion types too; a self-module type gets empty codedata.
      */
-    private static TriggerUISchemaModel.Codedata typeCodedata(List<TypeRef> type, String moduleName) {
-        TypeRef.PackageInfo packageInfo = crossModulePackage(type, moduleName);
+    private static TriggerUISchemaModel.Codedata typeCodedata(List<TypeRef> type, ConnectorIdentity identity) {
+        TypeRef.PackageInfo packageInfo = crossModulePackage(type, identity);
         if (packageInfo == null) {
             return cd();
         }
-        String module = packageInfo.moduleName() != null && !packageInfo.moduleName().isBlank()
-                ? packageInfo.moduleName() : packageInfo.packageName();
         return TriggerUISchemaModel.Codedata.builder()
                 .orgName(packageInfo.org())
                 .packageName(packageInfo.packageName())
-                .moduleName(module)
+                .moduleName(moduleOf(packageInfo))
                 .build();
     }
 
-    private static TypeRef.PackageInfo crossModulePackage(List<TypeRef> refs, String moduleName) {
+    private static TypeRef.PackageInfo crossModulePackage(List<TypeRef> refs, ConnectorIdentity identity) {
         if (refs == null) {
             return null;
         }
@@ -950,16 +964,12 @@ public final class TriggerModelSynthesizer {
                 continue;
             }
             TypeRef.PackageInfo packageInfo = ref.packageInfo();
-            if (packageInfo != null && packageInfo.org() != null && packageInfo.packageName() != null) {
-                String module = packageInfo.moduleName() != null && !packageInfo.moduleName().isBlank()
-                        ? packageInfo.moduleName() : packageInfo.packageName();
-                if (!module.equals(moduleName)) {
-                    return packageInfo;
-                }
+            if (isCrossModule(packageInfo, identity)) {
+                return packageInfo;
             }
-            TypeRef.PackageInfo nested = crossModulePackage(ref.elementType(), moduleName);
+            TypeRef.PackageInfo nested = crossModulePackage(ref.elementType(), identity);
             if (nested == null) {
-                nested = crossModulePackage(ref.completionType(), moduleName);
+                nested = crossModulePackage(ref.completionType(), identity);
             }
             if (nested != null) {
                 return nested;

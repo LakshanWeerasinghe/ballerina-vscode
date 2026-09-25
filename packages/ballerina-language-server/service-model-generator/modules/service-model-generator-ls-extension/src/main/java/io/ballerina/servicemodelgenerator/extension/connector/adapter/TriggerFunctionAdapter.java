@@ -442,12 +442,7 @@ public final class TriggerFunctionAdapter {
     }
 
     private static Value identifierValue(String value, String label, String description) {
-        return identifierValue(value, label, description, false);
-    }
-
-    /** {@code editable} marks the function-name identifier user-renamable (see {@code nameEditable}). */
-    private static Value identifierValue(String value, String label, String description, boolean editable) {
-        return nameValue(value, label, description, editable, Value.FieldType.IDENTIFIER);
+        return nameValue(value, label, description, false, Value.FieldType.IDENTIFIER);
     }
 
     private static Value nameValue(String value, String label, String description, boolean editable,

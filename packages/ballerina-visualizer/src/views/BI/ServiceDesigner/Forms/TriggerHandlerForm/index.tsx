@@ -55,7 +55,7 @@ import { Parameters } from "./Parameters/Parameters";
 import { ParamEditor as HeaderParamEditor } from "../ResourceForm/Parameters/ParamEditor";
 import { ParamItem as HeaderParamItem } from "../ResourceForm/Parameters/ParamItem";
 import ArtifactForm from "../../../Forms/ArtifactForm";
-import { sanitizedHttpPath } from "../../utils";
+import { sanitizedResourcePath } from "../../utils";
 import { AnnotationExpressionFieldHandle } from "./AnnotationExpressionField";
 import { AnnotationConfigSection } from "./AnnotationConfigSection";
 import {
@@ -389,13 +389,13 @@ function buildArtifactFields(fn: FunctionModel | null | undefined): FormField[] 
 
 /**
  * Escapes a user-entered resource path the way the HTTP resource form does on save (`.`/`-` inside a
- * segment become `\.`/`\-`), leaving the root path `.` untouched.
+ * plain segment become `\.`/`\-`), leaving the root path `.` and `[...]` path params untouched.
  */
 function withSanitizedResourcePath(fn: FunctionModel): FunctionModel {
     if (fn.kind !== "RESOURCE" || !fn.name?.editable || !fn.name.value || fn.name.value === ".") {
         return fn;
     }
-    return { ...fn, name: { ...fn.name, value: sanitizedHttpPath(String(fn.name.value)) } };
+    return { ...fn, name: { ...fn.name, value: sanitizedResourcePath(String(fn.name.value)) } };
 }
 
 /** ArtifactForm fields ordered by the authored `layout`. Done in the rebuild, not render, so the

@@ -99,6 +99,7 @@ public final class SchemaDrivenSourceGenerator {
     private static final String LISTENER_TYPE = "Listener";
     private static final String NEW = "new";
     private static final String ERROR = "error";
+    private static final String RETURNS_PREFIX = "returns ";
     // Default target for a CDC operation flag with no explicit `path` (the cdc convention).
     private static final String CDC_OPTIONS_FIELD = "options";
     private static final String CDC_SKIPPED_OPERATIONS_FIELD = "skippedOperations";
@@ -152,8 +153,8 @@ public final class SchemaDrivenSourceGenerator {
     private static String buildImports(ServiceInitModel filledInitForm, TriggerUISchemaModel triggerModel,
                                        ModulePartNode rootNode, String emitAlias) {
         StringBuilder imports = new StringBuilder();
-        Set<String> declared = new LinkedHashSet<>();
-        declared.add(filledInitForm.getOrgName() + "/" + filledInitForm.getModuleName());
+        Set<ModuleRef> declared = new LinkedHashSet<>();
+        declared.add(new ModuleRef(filledInitForm.getOrgName(), filledInitForm.getModuleName()));
         if (!Utils.importExists(rootNode, filledInitForm.getOrgName(), filledInitForm.getModuleName())) {
             imports.append(Utils.getImportStmt(filledInitForm.getOrgName(), filledInitForm.getModuleName(),
                     emitAlias));
@@ -180,28 +181,33 @@ public final class SchemaDrivenSourceGenerator {
                     imports.append(alias == null ? Utils.getImportStmt(org, module)
                             : Utils.getImportStmt(org, module, alias));
                 }
-                declared.add(org + "/" + module);
+                declared.add(new ModuleRef(org, module));
             }
         }
-        for (String moduleRef : handlerParameterModules(filledInitForm, triggerModel)) {
-            if (!declared.add(moduleRef)) {
-                continue;
-            }
-            String[] parts = moduleRef.split("/", 2);
-            if (!Utils.importExists(rootNode, parts[0], parts[1])) {
-                imports.append(Utils.getImportStmt(parts[0], parts[1]));
+        for (ModuleRef moduleRef : handlerParameterModules(filledInitForm, triggerModel)) {
+            if (declared.add(moduleRef) && !Utils.importExists(rootNode, moduleRef.org(), moduleRef.module())) {
+                imports.append(Utils.getImportStmt(moduleRef.org(), moduleRef.module()));
             }
         }
         return imports.toString();
     }
 
     /**
+     * An {@code org/module} import target.
+     *
+     * @param org    the module's organization
+     * @param module the module's name
+     */
+    private record ModuleRef(String org, String module) {
+    }
+
+    /**
      * The {@code org/module} of every cross-module parameter type in the handlers emitted with the service
      * (e.g. {@code ballerina/http} for an {@code http:Request} parameter), as named by the type's codedata.
      */
-    private static Set<String> handlerParameterModules(ServiceInitModel filledInitForm,
-                                                       TriggerUISchemaModel triggerModel) {
-        Set<String> modules = new LinkedHashSet<>();
+    private static Set<ModuleRef> handlerParameterModules(ServiceInitModel filledInitForm,
+                                                          TriggerUISchemaModel triggerModel) {
+        Set<ModuleRef> modules = new LinkedHashSet<>();
         TriggerUISchemaModel.ServiceTypeModel serviceType = triggerModel == null ? null
                 : selectServiceType(filledInitForm, triggerModel);
         if (serviceType == null || serviceType.functions() == null) {
@@ -223,7 +229,7 @@ public final class SchemaDrivenSourceGenerator {
                         && codedata.moduleName().equals(filledInitForm.getModuleName())) {
                     continue;
                 }
-                modules.add(codedata.orgName() + "/" + codedata.moduleName());
+                modules.add(new ModuleRef(codedata.orgName(), codedata.moduleName()));
             }
         }
         return modules;
@@ -625,8 +631,51 @@ public final class SchemaDrivenSourceGenerator {
         if (!returnClause.isEmpty()) {
             builder.append(SPACE).append(returnClause);
         }
-        builder.append(SPACE).append(OPEN_BRACE).append(NEW_LINE).append(CLOSE_BRACE);
+        builder.append(SPACE).append(OPEN_BRACE).append(NEW_LINE);
+        String stub = stubBody(returnClause.isEmpty() ? "" : returnClause.substring(RETURNS_PREFIX.length()));
+        if (stub != null) {
+            builder.append(TAB).append(stub).append(NEW_LINE);
+        }
+        builder.append(CLOSE_BRACE);
         return builder.toString();
+    }
+
+    /**
+     * The statement a fresh handler needs to compile when its return type is not nilable (e.g. websocket's
+     * required {@code get} returning {@code websocket:Service|websocket:UpgradeError}): an empty body only
+     * type-checks when {@code ()} is returnable. A type with a builtin {@code error} member returns one,
+     * as other generated services do; any other panics, since a plain {@code error} is not assignable to it.
+     * {@code null} when the empty body already compiles.
+     */
+    static String stubBody(String returnType) {
+        List<String> members = topLevelMembers(returnType);
+        if (members.isEmpty() || returnType.trim().endsWith("?") || members.contains("()")) {
+            return null;
+        }
+        return members.contains(ERROR) ? "return error(\"Not Implemented\");" : "panic error(\"Not Implemented\");";
+    }
+
+    /** The top-level {@code |} members of a union type, ignoring those nested in brackets. */
+    private static List<String> topLevelMembers(String type) {
+        List<String> members = new ArrayList<>();
+        if (type == null || type.isBlank()) {
+            return members;
+        }
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < type.length(); i++) {
+            char c = type.charAt(i);
+            if (c == '<' || c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == '>' || c == ')' || c == ']' || c == '}') {
+                depth--;
+            } else if (c == '|' && depth == 0) {
+                members.add(type.substring(start, i).trim());
+                start = i + 1;
+            }
+        }
+        members.add(type.substring(start).trim());
+        return members;
     }
 
     /** The emitted function name: a format-variant handler fans out to the selected variant's name. */
@@ -736,7 +785,7 @@ public final class SchemaDrivenSourceGenerator {
         if (Boolean.TRUE.equals(returnType.optional()) && !type.endsWith("?")) {
             type = type + "?";
         }
-        return "returns" + SPACE + type;
+        return RETURNS_PREFIX + type;
     }
 
     private static String renderListenerDeclaration(String selfPrefix, String emitAlias, ListenerArgs args) {

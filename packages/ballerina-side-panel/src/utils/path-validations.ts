@@ -415,7 +415,14 @@ export function parseResourceFunctionPath(input: string): ParseResult {
     }
 
     for (const segment of splitSegments(input)) {
-        if (segment.value.startsWith('[') || segment.value.endsWith(']')) {
+        const opens = segment.value.startsWith('[');
+        const closes = segment.value.endsWith(']');
+        if (opens !== closes) {
+            result.errors.push({
+                position: opens ? segment.end : segment.start,
+                message: `path parameter is missing its ${opens ? 'closing (])' : 'opening ([)'} bracket`
+            });
+        } else if (opens) {
             processParam(segment, result);
         } else {
             processSegment(segment, result);

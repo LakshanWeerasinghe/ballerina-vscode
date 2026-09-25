@@ -17,7 +17,7 @@
  */
 
 import { FormField, FormImports, FormValues } from "@wso2/ballerina-side-panel";
-import { getPrimaryInputType, Property, PropertyModel, RecordTypeField, ServiceInitModel } from "@wso2/ballerina-core";
+import { getPrimaryInputType, Property, PropertyModel, RecordTypeField, ServiceInitModel, ValidationResult } from "@wso2/ballerina-core";
 import { getImportsForProperty } from "../../../utils/bi";
 import { sanitizedHttpPath, normalizeValueToArray } from "./utils";
 
@@ -102,6 +102,46 @@ export function restoreFormKeys(model: ServiceInitModel): ServiceInitModel {
     const restore = (key: string) => key.endsWith(NESTED_FORM_KEY_SUFFIX)
         ? key.slice(0, -NESTED_FORM_KEY_SUFFIX.length) : key;
     return { ...model, properties: renameNestedKeys(model.properties, restore) };
+}
+
+/**
+ * Rewrites the language server's `propertyPath`s (e.g. `listenerConfig.choices.0.listener`) onto the
+ * keys {@link disambiguateFormKeys} gave `formModel`, so a nested field's error lands on that field
+ * rather than on the top-level field it was renamed away from.
+ */
+export function toFormValidationErrors(formModel: ServiceInitModel, errors: ValidationResult[]): ValidationResult[] {
+    if (!formModel?.properties || !errors) {
+        return errors;
+    }
+    return errors.map((error) => ({
+        ...error,
+        propertyPath: toFormPropertyPath(formModel.properties, error.propertyPath),
+    }));
+}
+
+function toFormPropertyPath(root: PropertyMap, propertyPath: string): string {
+    if (!propertyPath) {
+        return propertyPath;
+    }
+    const segments = propertyPath.split(".");
+    const formSegments: string[] = [];
+    let properties: PropertyMap | undefined = root;
+    let node: PropertyModel | undefined;
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        if (segment === "choices" && node?.choices && i + 1 < segments.length) {
+            node = node.choices[Number(segments[i + 1])];
+            properties = node?.properties;
+            formSegments.push(segment, segments[++i]);
+            continue;
+        }
+        const renamed = `${segment}${NESTED_FORM_KEY_SUFFIX}`;
+        const key = properties && !(segment in properties) && renamed in properties ? renamed : segment;
+        formSegments.push(key);
+        node = properties?.[key];
+        properties = node?.properties;
+    }
+    return formSegments.join(".");
 }
 
 /** Maps `properties` to FormField objects. */

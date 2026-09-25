@@ -37,6 +37,7 @@ import {
     collectRecordTypeFields,
     mapPropertiesToFormFields,
     restoreFormKeys,
+    toFormValidationErrors,
     updateChoiceInModel,
 } from "./serviceInitModelUtils";
 
@@ -379,7 +380,7 @@ export function ServiceCreationView(props: ServiceCreationViewProps) {
         // hand the failures to it rather than leaving the user on a stuck "Saving" button. Only an
         // ERROR blocks — a WARNING rides along with a successful save and must not trap the form.
         if (hasBlockingValidationErrors(res.validationErrors)) {
-            setServerValidationErrors(res.validationErrors);
+            setServerValidationErrors(toFormValidationErrors(serviceModel, res.validationErrors));
             setIsSaving(false);
             return;
         }

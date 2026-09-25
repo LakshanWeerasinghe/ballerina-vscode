@@ -44,7 +44,6 @@ const common = {
     onSubmit: () => {},
     targetLineRange: { startLine: { line: 0, offset: 0 }, endLine: { line: 0, offset: 0 } },
     fileName: "x.bal",
-    nodeInfo: { kind: "" as any },
 };
 
 describe("Form — onValidityChange", () => {

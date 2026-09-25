@@ -21,6 +21,7 @@ package io.ballerina.servicemodelgenerator.extension.connector;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.ballerina.modelgenerator.commons.trigger.models.IdentifierSpec;
+import io.ballerina.modelgenerator.commons.trigger.models.Repeatable;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerLibraryFacts;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerMetadataModel;
 import io.ballerina.modelgenerator.commons.trigger.models.TriggerUISchemaModel;
@@ -1018,6 +1019,11 @@ public class TriggerModelSynthesizerTest {
 
     private static TriggerUISchemaModel.ServiceTypeModel synthesizeHandlers(
             List<TriggerMetadataModel.ServiceType.HandlerOption> options) {
+        return synthesizeModel(options).serviceTypes().get(0);
+    }
+
+    /** A one-service-type model whose handlers are exactly {@code options}, for tests of other stages. */
+    static TriggerUISchemaModel synthesizeModel(List<TriggerMetadataModel.ServiceType.HandlerOption> options) {
         TriggerMetadataModel.Listener listener = new TriggerMetadataModel.Listener(
                 "$listener", "Listens for events.", new TypeRef("Listener", null), null,
                 List.of("$service"), false, null, null, null);
@@ -1030,7 +1036,7 @@ public class TriggerModelSynthesizerTest {
                 List.of(new TriggerLibraryFacts.Listener("Listener", List.of())),
                 List.of(new TriggerLibraryFacts.ServiceType("Service", "", List.of())), List.of());
         return TriggerModelSynthesizer.synthesize(authoring, facts, listenerModel(Map.of()), "1", "Test", null,
-                "event", "testorg", MODULE, MODULE, "0.1.0").orElseThrow().serviceTypes().get(0);
+                "event", "testorg", MODULE, MODULE, "0.1.0").orElseThrow();
     }
 
     private static TriggerUISchemaModel.FunctionModel schemaFunction(TriggerUISchemaModel.ServiceTypeModel type,
@@ -1105,6 +1111,9 @@ public class TriggerModelSynthesizerTest {
         Assert.assertEquals(type.schemaFunctions().stream().map(function -> function.metadata().label()).toList(),
                 List.of("Unary", "Server Streaming", "Client Streaming", "Bidi Streaming"));
         Assert.assertTrue(type.schemaFunctions().stream().allMatch(function -> function.name().isEmpty()));
+        Assert.assertTrue(type.schemaFunctions().stream()
+                        .allMatch(function -> function.repeatable() == Repeatable.TRUE),
+                "a many handler stays addable however many it already backs");
     }
 
     @Test
@@ -1148,6 +1157,28 @@ public class TriggerModelSynthesizerTest {
 
         TriggerUISchemaModel.FunctionModel errorOrNil = upgradeHandler(List.of(builtin("error"), builtin("()")));
         Assert.assertEquals(TriggerFunctionAdapter.toFunction(errorOrNil).getReturnType().getValue(), "error?");
+    }
+
+    /** A required handler whose return is not nilable gets a body that compiles; a nilable one stays empty. */
+    @Test
+    public void testNonNilableHandlerGetsCompilingStubBody() {
+        String upgrade = SchemaDrivenSourceGenerator.buildFunctionSource(upgradeHandler(
+                List.of(new TypeRef("Service", null), new TypeRef("UpgradeError", null))));
+        Assert.assertEquals(upgrade.lines().skip(1).findFirst().orElseThrow(),
+                "\tpanic error(\"Not Implemented\");");
+
+        String withError = SchemaDrivenSourceGenerator.buildFunctionSource(upgradeHandler(
+                List.of(new TypeRef("Service", null), builtin("error"))));
+        Assert.assertEquals(withError.lines().skip(1).findFirst().orElseThrow(),
+                "\treturn error(\"Not Implemented\");");
+
+        String errorOrNil = SchemaDrivenSourceGenerator.buildFunctionSource(
+                upgradeHandler(List.of(builtin("error"), builtin("()"))));
+        Assert.assertEquals(errorOrNil.lines().count(), 2, "a nilable return keeps the empty body");
+
+        Assert.assertNull(SchemaDrivenSourceGenerator.stubBody("stream<int, error?>|()"));
+        Assert.assertEquals(SchemaDrivenSourceGenerator.stubBody("stream<int, error?>"),
+                "panic error(\"Not Implemented\");", "an error nested in a stream is not a union member");
     }
 
     /** A parameter type from another module carries that module, so adding the handler imports it. */
