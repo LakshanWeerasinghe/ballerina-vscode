@@ -405,7 +405,7 @@ function isValidServicePath(path: string): boolean {
             return false;
         }
         const bare = isQuotedIdentifier(segment) ? segment.slice(1) : segment;
-        return IDENTIFIER_PATTERN.test(bare);
+        return IDENTIFIER_PATTERN.test(bare) && (isQuotedIdentifier(segment) || !BALLERINA_RESERVED_WORDS.has(bare));
     });
 }
 
@@ -427,7 +427,7 @@ function isValidResourcePath(path: string): boolean {
             return true;
         }
         const bare = isQuotedIdentifier(segment) ? segment.slice(1) : segment;
-        return IDENTIFIER_PATTERN.test(bare);
+        return IDENTIFIER_PATTERN.test(bare) && (isQuotedIdentifier(segment) || !BALLERINA_RESERVED_WORDS.has(bare));
     });
 }
 

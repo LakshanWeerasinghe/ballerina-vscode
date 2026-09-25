@@ -759,4 +759,10 @@ describe("functionSignatureKey", () => {
         const handlerOn = fn({ name: prop({ value: "onMessage" }), parameters: [{ ...p, enabled: true }] });
         expect(functionSignatureKey(handlerOff)).not.toBe(functionSignatureKey(handlerOn));
     });
+
+    it("changes when a resource's accessor changes, even on the same path", () => {
+        const get = fn({ kind: "RESOURCE", accessor: prop({ value: "get" }), name: prop({ value: "." }), parameters: [] });
+        const post = fn({ kind: "RESOURCE", accessor: prop({ value: "post" }), name: prop({ value: "." }), parameters: [] });
+        expect(functionSignatureKey(get)).not.toBe(functionSignatureKey(post));
+    });
 });

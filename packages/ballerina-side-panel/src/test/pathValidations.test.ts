@@ -19,7 +19,7 @@
 import { parseResourceFunctionPath } from "../utils/path-validations";
 
 describe("parseResourceFunctionPath", () => {
-    it.each([".", "chat", "chat/rooms", "rooms/[string id]", "a/[int... rest]"])("accepts %s", (path) => {
+    it.each([".", "chat", "chat/rooms", "rooms/[string id]", "a/[int... rest]", "'function"])("accepts %s", (path) => {
         expect(parseResourceFunctionPath(path).errors).toEqual([]);
         expect(parseResourceFunctionPath(path).valid).toBe(true);
     });
@@ -29,6 +29,8 @@ describe("parseResourceFunctionPath", () => {
         ["/chat", "path cannot start with a slash (/)"],
         ["chat//rooms", "cannot have two consecutive slashes (//)"],
         ["chat/", "path cannot end with a slash (/)"],
+        ["function", 'usage of reserved keyword "function"'],
+        ["chat/service", 'usage of reserved keyword "service"'],
     ])("rejects %p", (path, message) => {
         const result = parseResourceFunctionPath(path);
         expect(result.valid).toBe(false);

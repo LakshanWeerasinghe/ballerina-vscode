@@ -341,6 +341,8 @@ public class SchemaDrivenFunctionBuilder extends AbstractFunctionBuilder {
             return null;
         }
         return functions.stream().filter(f -> name.equals(f.name())).findFirst()
+                .or(() -> functions.stream()
+                        .filter(f -> servesAccessor(f, name) && f.accessors().size() == 1).findFirst())
                 .orElseGet(() -> functions.stream().filter(f -> servesAccessor(f, name)).findFirst().orElse(null));
     }
 

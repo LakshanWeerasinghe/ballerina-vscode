@@ -419,6 +419,12 @@ export function parseResourceFunctionPath(input: string): ParseResult {
             processParam(segment, result);
         } else {
             processSegment(segment, result);
+            if (keywords.includes(segment.value)) {
+                result.errors.push({
+                    position: segment.start,
+                    message: `usage of reserved keyword "${segment.value}"`
+                });
+            }
         }
     }
 

@@ -73,12 +73,14 @@ export function disambiguateFormKeys(model: ServiceInitModel): ServiceInitModel 
     }
     const reserved = new Set<string>();
     collectReservedFormKeys(model.properties, reserved, true);
+    const topLevel = new Set(Object.keys(model.properties));
     const properties: PropertyMap = {};
     for (const [key, property] of Object.entries(model.properties)) {
         const next: PropertyModel = { ...property };
         const rename = (nestedKey: string, nested: PropertyModel) =>
-            reserved.has(nestedKey) && getPrimaryInputType(nested.types)?.fieldType !== "CHOICE"
-                ? `${nestedKey}${NESTED_FORM_KEY_SUFFIX}` : nestedKey;
+            getPrimaryInputType(nested.types)?.fieldType === "CHOICE"
+                ? topLevel.has(nestedKey) ? `${nestedKey}${NESTED_FORM_KEY_SUFFIX}` : nestedKey
+                : reserved.has(nestedKey) ? `${nestedKey}${NESTED_FORM_KEY_SUFFIX}` : nestedKey;
         if (property.choices) {
             next.choices = property.choices.map((choice) => choice.properties
                 ? { ...choice, properties: renameNestedKeys(choice.properties, rename) }

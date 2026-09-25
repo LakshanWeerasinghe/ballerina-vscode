@@ -501,5 +501,5 @@ export function functionSignatureKey(fn: FunctionModel): string {
     const params = (fn.parameters ?? []).map((p) =>
         [p.kind ?? "", p.name?.value ?? "", p.type?.value ?? "", p.enabled ?? false].join("|")
     );
-    return [fn.name?.value ?? "", ...params].join(";");
+    return [fn.accessor?.value ?? "", fn.name?.value ?? "", ...params].join(";");
 }

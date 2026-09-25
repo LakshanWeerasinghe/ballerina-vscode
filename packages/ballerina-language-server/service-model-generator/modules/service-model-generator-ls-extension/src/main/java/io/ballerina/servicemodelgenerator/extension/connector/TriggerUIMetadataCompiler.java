@@ -1504,6 +1504,8 @@ final class TriggerUIMetadataCompiler {
                     : target == null ? null
                     : target.name() != null ? target.name() : lastSegment(target.id());
             List<JsonObject> matches = new ArrayList<>();
+            List<JsonObject> pinnedAccessorMatches = new ArrayList<>();
+            List<JsonObject> listedAccessorMatches = new ArrayList<>();
             for (String key : List.of("functions", PROP_KEY_SCHEMA_FUNCTIONS)) {
                 if (!service.has(key)) {
                     continue;
@@ -1511,13 +1513,16 @@ final class TriggerUIMetadataCompiler {
                 for (JsonElement item : service.getAsJsonArray(key)) {
                     JsonObject function = item.getAsJsonObject();
                     if (("*".equals(name) && Boolean.TRUE.equals(bool(function, "nameEditable")))
-                            || name != null && name.equals(string(function, "name"))
-                            || name != null && "RESOURCE".equals(string(function, "kind"))
-                            && offersAccessor(string(function, "accessor"), name)) {
+                            || name != null && name.equals(string(function, "name"))) {
                         matches.add(function);
+                    } else if (name != null && "RESOURCE".equals(string(function, "kind"))
+                            && offersAccessor(string(function, "accessor"), name)) {
+                        (name.equals(string(function, "accessor").trim())
+                                ? pinnedAccessorMatches : listedAccessorMatches).add(function);
                     }
                 }
             }
+            matches.addAll(pinnedAccessorMatches.isEmpty() ? listedAccessorMatches : pinnedAccessorMatches);
             return matches;
         }
 
