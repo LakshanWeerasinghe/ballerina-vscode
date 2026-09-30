@@ -34,7 +34,7 @@ jest.mock('@wso2/ballerina-core', () => ({
 }));
 
 import type { NodeProperties, Property } from '@wso2/ballerina-core';
-import { convertNodePropertiesToFormFields, updateNodeProperties } from './node-property-utils';
+import { convertNodePropertiesToFormFields, mergeFormImports, updateNodeProperties } from './node-property-utils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -383,5 +383,58 @@ describe('updateNodeProperties', () => {
             const updated = updateNodeProperties({ variable: 'changed' }, nodeProperties, {});
             expect(updated.type!.value).toBe('string');
         });
+
+        it('keeps imports the property already carried when the form tracked none', () => {
+            const nodeProperties: NodeProperties = {
+                expression: makeProperty({
+                    fieldType: 'EXPRESSION',
+                    value: 'time:utcNow()',
+                    imports: { time: 'ballerina/time' },
+                }),
+            };
+
+            const updated = updateNodeProperties({ expression: 'time:utcNow()' }, nodeProperties, {});
+            expect(updated.expression!.imports).toEqual({ time: 'ballerina/time' });
+        });
+    });
+});
+
+describe('mergeFormImports', () => {
+    it('adds imports for a key that has none yet', () => {
+        expect(mergeFormImports({}, 'expression', { time: 'ballerina/time' })).toEqual({
+            expression: { time: 'ballerina/time' },
+        });
+    });
+
+    it('INVARIANT: a second module on the same key is added, not dropped', () => {
+        // The reported bug (wso2/product-integrator#2380): the previous condition merged only when
+        // the prefix was ALREADY present, so the second distinct module silently vanished.
+        const prev = { expression: { time: 'ballerina/time' } };
+        expect(mergeFormImports(prev, 'expression', { uuid: 'ballerina/uuid' })).toEqual({
+            expression: { time: 'ballerina/time', uuid: 'ballerina/uuid' },
+        });
+    });
+
+    it('leaves other keys untouched', () => {
+        const prev = { type: { time: 'ballerina/time' } };
+        const next = mergeFormImports(prev, 'expression', { uuid: 'ballerina/uuid' });
+        expect(next.type).toEqual({ time: 'ballerina/time' });
+    });
+
+    it('re-registering the same prefix is a no-op in content', () => {
+        const prev = { expression: { time: 'ballerina/time' } };
+        expect(mergeFormImports(prev, 'expression', { time: 'ballerina/time' })).toEqual(prev);
+    });
+
+    it('returns the input unchanged for empty imports', () => {
+        const prev = { expression: { time: 'ballerina/time' } };
+        expect(mergeFormImports(prev, 'expression', {})).toBe(prev);
+        expect(mergeFormImports(prev, 'expression', undefined as any)).toBe(prev);
+    });
+
+    it('does not mutate the previous map', () => {
+        const prev = { expression: { time: 'ballerina/time' } };
+        mergeFormImports(prev, 'expression', { uuid: 'ballerina/uuid' });
+        expect(prev).toEqual({ expression: { time: 'ballerina/time' } });
     });
 });

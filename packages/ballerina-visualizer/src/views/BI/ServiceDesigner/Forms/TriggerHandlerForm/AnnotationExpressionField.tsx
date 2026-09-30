@@ -26,6 +26,7 @@ import {
     LineRange,
     PropertyModel,
     RecordTypeField,
+    TextEdit,
     TriggerCharacter,
     TRIGGER_CHARACTERS,
 } from "@wso2/ballerina-core";
@@ -396,6 +397,24 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
             } as any);
         }, [filePath, id, effectiveTargetLineRange, filteredCompletions, property, handleRetrieveCompletions]);
 
+        // An annotation value is mirrored out as a plain string (see onChange above), never as a
+        // Property carrying `imports`, so there is no per-field bookkeeping to feed source
+        // generation with. Writing the import into the file here is therefore the whole fix: the
+        // helper pane's function path already does the same server-side via functionCallTemplate.
+        const handleCompletionItemSelect = useCallback(async (
+            _value: string,
+            _fieldKey: string,
+            additionalTextEdits?: TextEdit[]
+        ) => {
+            if (!filePath || !additionalTextEdits?.[0]?.newText) {
+                return;
+            }
+            await rpcClient.getBIDiagramRpcClient().updateImports({
+                filePath,
+                importStatement: additionalTextEdits[0].newText,
+            });
+        }, [filePath, rpcClient]);
+
         // ----- expression editor RPC bundle -----
         const expressionEditor = useMemo(() => ({
             completions: filteredCompletions,
@@ -407,7 +426,7 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
                 getExpressionTokens: (expression: string, fileName: string, position: any) =>
                     rpcClient.getBIDiagramRpcClient().getExpressionTokens({ expression, filePath: fileName, position }),
             },
-            onCompletionItemSelect: () => { },
+            onCompletionItemSelect: handleCompletionItemSelect,
             onFocus: () => { },
             onBlur: () => { },
             onCancel: () => {
@@ -417,7 +436,7 @@ export const AnnotationExpressionField = forwardRef<AnnotationExpressionFieldHan
             onOpenRecordConfigPage: openRecordConfigPage,
         }) as unknown as FormExpressionEditorProps, [
             filteredCompletions, handleRetrieveCompletions, debouncedDiagnostics, handleGetHelperPane, rpcClient,
-            openRecordConfigPage,
+            openRecordConfigPage, handleCompletionItemSelect,
         ]);
 
         const formContextValue = useMemo(() => ({

@@ -367,6 +367,17 @@ export function handleRepeatableProperty(property: Property, formField: FormFiel
 // Form fields → Template
 // ---------------------------------------------------------------------------
 
+/**
+ * Add a field's newly resolved imports to the form's collected imports. A single field can
+ * reference several modules, so prefixes accumulate per key rather than replacing each other.
+ */
+export function mergeFormImports(prev: FormImports, key: string, imports: Imports): FormImports {
+    if (!imports || Object.keys(imports).length === 0) {
+        return prev;
+    }
+    return { ...prev, [key]: { ...(prev?.[key] ?? {}), ...imports } };
+}
+
 export function updateNodeProperties(
     values: FormValues,
     nodeProperties: NodeProperties,
@@ -402,7 +413,9 @@ export function updateNodeProperties(
         if (updatedNodeProperties.hasOwnProperty(key)) {
             const expression = updatedNodeProperties[key as NodePropertyKey];
             if (expression) {
-                expression.imports = formImports?.[key] as Imports;
+                if (formImports?.[key]) {
+                    expression.imports = formImports[key] as Imports;
+                }
                 expression.modified = dirtyFields?.hasOwnProperty(key);
 
                 const dataValue = values[key];

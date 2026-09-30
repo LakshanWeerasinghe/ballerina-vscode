@@ -55,9 +55,18 @@ export function removeDuplicateDiagnostics(diagnostics: Diagnostic[]) {
  * @returns Filtered diagnostics
  */
 export function filterUnsupportedDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
-    return diagnostics.filter((diagnostic) => {
-        return !diagnostic.message.startsWith('unknown type') && !diagnostic.message.startsWith('undefined module');
-    });
+    return diagnostics
+        .filter((diagnostic) => !diagnostic.message.startsWith('unknown type'))
+        .map((diagnostic) => {
+            // A hand-typed `time:utcFromString(...)` carries no import - nothing in the form can
+            // resolve a bare prefix to a module, so the user has to. Dropping this diagnostic made
+            // that failure silent; a warning tells them without blocking save the way an ERROR
+            // would, which still matters for the local-connection false positives this filter
+            // was originally added for.
+            return diagnostic.message.startsWith('undefined module')
+                ? { ...diagnostic, severity: 2 }
+                : diagnostic;
+        });
 }
 
 /**
