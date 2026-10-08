@@ -63,6 +63,7 @@ import {
     convertToVisibleTypes,
     filterUnsupportedDiagnostics,
     getImportsForFormFields,
+    mergeFormImports,
     calculateExpressionOffsets,
     injectHighlightTheme,
     removeDuplicateDiagnostics,
@@ -934,20 +935,12 @@ export function ArtifactForm(props: ArtifactFormProps) {
     };
 
     const handleUpdateImports = (key: string, imports: Imports, codedata?: CodeData) => {
-        importsCodedataRef.current = codedata;
-        const importKey = Object.keys(imports)?.[0];
-
-        if (Object.keys(formImports).includes(key)) {
-            if (importKey && !Object.keys(formImports[key]).includes(importKey)) {
-                const updatedImports = { ...formImports, [key]: { ...formImports[key], ...imports } };
-                formImportsRef.current = updatedImports;
-                setFormImports(updatedImports);
-            }
-        } else {
-            const updatedImports = { ...formImports, [key]: imports };
-            formImportsRef.current = updatedImports;
-            setFormImports(updatedImports);
+        if (codedata) {
+            importsCodedataRef.current = codedata;
         }
+        const updatedImports = mergeFormImports(formImportsRef.current, key, imports);
+        formImportsRef.current = updatedImports;
+        setFormImports(updatedImports);
     }
 
     const onCloseTypeEditor = () => {
