@@ -139,7 +139,14 @@ public final class SchemaDrivenSourceGenerator {
         List<TextEdit> edits = new ArrayList<>();
         String emitAlias = resolveEmitAlias(rootNode, filledInitForm, triggerModel);
         Map<String, String> boundPrefixes = new LinkedHashMap<>();
-        String imports = buildImports(filledInitForm, triggerModel, rootNode, emitAlias, boundPrefixes);
+        StringBuilder importsBuilder = new StringBuilder(
+                buildImports(filledInitForm, triggerModel, rootNode, emitAlias, boundPrefixes));
+        for (String importStmt : Utils.getMissingPropertyImportStmts(rootNode, filledInitForm.getProperties())) {
+            if (importsBuilder.indexOf(importStmt) < 0) {
+                importsBuilder.append(importStmt);
+            }
+        }
+        String imports = importsBuilder.toString();
         if (!imports.isEmpty()) {
             edits.add(new TextEdit(Utils.toRange(rootNode.lineRange().startLine()), imports));
         }

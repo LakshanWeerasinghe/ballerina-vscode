@@ -62,7 +62,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -152,10 +151,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
                 .append(CLOSE_BRACE).append(NEW_LINE);
 
         List<TextEdit> edits = new ArrayList<>();
-        if (!importExists(modulePartNode, serviceInitModel.getOrgName(), serviceInitModel.getModuleName())) {
-            String importText = getImportStmt(serviceInitModel.getOrgName(), serviceInitModel.getModuleName());
-            edits.add(new TextEdit(Utils.toRange(modulePartNode.lineRange().startLine()), importText));
-        }
+        Utils.getServiceInitImportEdit(modulePartNode, serviceInitModel).ifPresent(edits::add);
         edits.add(new TextEdit(Utils.toRange(modulePartNode.lineRange().endLine()), builder.toString()));
 
         return Map.of(context.filePath(), edits);
@@ -439,6 +435,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
                 importStmts.add(getImportStmt(orgName, moduleName));
             }
         });
+        importStmts.addAll(Utils.getMissingPropertyImportStmts(rootNode, service.getProperties()));
 
         if (!importStmts.isEmpty()) {
             String importsStmts = String.join(NEW_LINE, importStmts);
@@ -521,24 +518,7 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
         if (!(serviceNode.syntaxTree().rootNode() instanceof ModulePartNode rootNode)) {
             return;
         }
-        Set<String> importStmts = new LinkedHashSet<>();
-        for (Value property : service.getProperties().values()) {
-            Map<String, String> propertyImports = property.getImports();
-            if (Objects.isNull(propertyImports)) {
-                continue;
-            }
-            for (String moduleId : propertyImports.values()) {
-                String[] importParts = moduleId.split("/");
-                if (importParts.length < 2) {
-                    continue;
-                }
-                String orgName = importParts[0];
-                String moduleName = importParts[1].split(":")[0];
-                if (!importExists(rootNode, orgName, moduleName)) {
-                    importStmts.add(getImportStmt(orgName, moduleName));
-                }
-            }
-        }
+        Set<String> importStmts = Utils.getMissingPropertyImportStmts(rootNode, service.getProperties());
         if (!importStmts.isEmpty()) {
             edits.addFirst(new TextEdit(Utils.toRange(rootNode.lineRange().startLine()),
                     String.join(NEW_LINE, importStmts)));
