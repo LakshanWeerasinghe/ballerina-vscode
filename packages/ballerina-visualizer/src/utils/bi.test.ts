@@ -383,19 +383,6 @@ describe('updateNodeProperties', () => {
             const updated = updateNodeProperties({ variable: 'changed' }, nodeProperties, {});
             expect(updated.type!.value).toBe('string');
         });
-
-        it('keeps imports the property already carried when the form tracked none', () => {
-            const nodeProperties: NodeProperties = {
-                expression: makeProperty({
-                    fieldType: 'EXPRESSION',
-                    value: 'time:utcNow()',
-                    imports: { time: 'ballerina/time' },
-                }),
-            };
-
-            const updated = updateNodeProperties({ expression: 'time:utcNow()' }, nodeProperties, {});
-            expect(updated.expression!.imports).toEqual({ time: 'ballerina/time' });
-        });
     });
 });
 

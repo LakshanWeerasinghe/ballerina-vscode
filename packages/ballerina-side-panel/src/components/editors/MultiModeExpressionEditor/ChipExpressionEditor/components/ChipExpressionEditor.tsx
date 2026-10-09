@@ -137,12 +137,13 @@ export const ChipExpressionEditorComponent = (props: ChipExpressionEditorCompone
 
     const completionAcceptRef = useRef<(docValue: string, item: CompletionItem) => void>();
     completionAcceptRef.current = (docValue, item) => {
-        if (!item.additionalTextEdits?.length) {
+        const fieldKey = fieldContext?.field?.key;
+        if (!fieldKey || !item.additionalTextEdits?.length) {
             return;
         }
         void expressionEditor?.onCompletionItemSelect?.(
             configuration.deserializeValue(docValue),
-            fieldContext?.field?.key ?? "expression",
+            fieldKey,
             item.additionalTextEdits
         );
     };

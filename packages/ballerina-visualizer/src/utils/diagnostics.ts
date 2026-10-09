@@ -55,13 +55,9 @@ export function removeDuplicateDiagnostics(diagnostics: Diagnostic[]) {
  * @returns Filtered diagnostics
  */
 export function filterUnsupportedDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
-    return diagnostics
-        .filter((diagnostic) => !diagnostic.message.startsWith('unknown type'))
-        .map((diagnostic) => {
-            return diagnostic.message.startsWith('undefined module')
-                ? { ...diagnostic, severity: 2 }
-                : diagnostic;
-        });
+    return diagnostics.filter((diagnostic) => {
+        return !diagnostic.message.startsWith('unknown type') && !diagnostic.message.startsWith('undefined module');
+    });
 }
 
 /**

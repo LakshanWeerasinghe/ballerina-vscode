@@ -413,9 +413,7 @@ export function updateNodeProperties(
         if (updatedNodeProperties.hasOwnProperty(key)) {
             const expression = updatedNodeProperties[key as NodePropertyKey];
             if (expression) {
-                if (formImports?.[key]) {
-                    expression.imports = formImports[key] as Imports;
-                }
+                expression.imports = formImports?.[key] as Imports;
                 expression.modified = dirtyFields?.hasOwnProperty(key);
 
                 const dataValue = values[key];

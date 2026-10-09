@@ -935,9 +935,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
     };
 
     const handleUpdateImports = (key: string, imports: Imports, codedata?: CodeData) => {
-        if (codedata) {
-            importsCodedataRef.current = codedata;
-        }
+        importsCodedataRef.current = codedata;
         const updatedImports = mergeFormImports(formImportsRef.current, key, imports);
         formImportsRef.current = updatedImports;
         setFormImports(updatedImports);

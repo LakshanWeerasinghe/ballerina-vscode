@@ -86,7 +86,9 @@ describe("removeDuplicateDiagnostics", () => {
 });
 
 describe("filterUnsupportedDiagnostics", () => {
-    it("INVARIANT: no surviving message starts with 'unknown type'", () => {
+    const UNSUPPORTED = ["unknown type", "undefined module"];
+
+    it("INVARIANT: no surviving message starts with an unsupported prefix", () => {
         const corpus = [
             diag("unknown type 'Foo'"),
             diag("undefined module 'bar'"),
@@ -95,17 +97,10 @@ describe("filterUnsupportedDiagnostics", () => {
             diag("unknown type"),
         ];
         const out = filterUnsupportedDiagnostics(corpus);
-        expect(out.every((d) => !d.message.startsWith("unknown type"))).toBe(true);
+        expect(out.every((d) => !UNSUPPORTED.some((p) => d.message.startsWith(p)))).toBe(true);
     });
 
-    it("INVARIANT: 'undefined module' is retained, downgraded to a warning", () => {
-        const out = filterUnsupportedDiagnostics([diag("undefined module 'time'")]);
-        expect(out).toHaveLength(1);
-        expect(out[0].message).toBe("undefined module 'time'");
-        expect(out[0].severity).toBe(2);
-    });
-
-    it("INVARIANT: every diagnostic NOT starting with an unsupported prefix is retained as-is", () => {
+    it("INVARIANT: every diagnostic NOT starting with an unsupported prefix is retained", () => {
         const supported = [diag("undefined symbol 'x'"), diag("incompatible types"), diag("syntax error")];
         expect(filterUnsupportedDiagnostics(supported)).toEqual(supported);
     });

@@ -1046,9 +1046,7 @@ export const FlowNodeForm = forwardRef<FormExpressionEditorRef, FlowNodeFormProp
     }
 
     const handleUpdateImports = (key: string, imports: Imports, codedata?: CodeData) => {
-        if (codedata) {
-            importsCodedataRef.current = codedata;
-        }
+        importsCodedataRef.current = codedata;
         formImportsRef.current = mergeFormImports(formImportsRef.current, key, imports);
     }
 
