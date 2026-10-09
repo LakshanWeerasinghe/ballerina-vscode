@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -503,7 +504,45 @@ public abstract class AbstractServiceBuilder implements ServiceNodeBuilder {
             String stmt = getDefaultListenerDeclarationStmt(defaultListener);
             edits.add(new TextEdit(Utils.toRange(defaultListener.linePosition()), stmt));
         }
+        addPropertyImportEdits(service, serviceNode, edits);
         return Map.of(context.filePath(), edits);
+    }
+
+    /**
+     * Adds the import declarations the service's properties carry (e.g. a module referenced from the
+     * service annotation's expression) that the file does not already declare.
+     *
+     * @param service     the service model
+     * @param serviceNode the service declaration node being updated
+     * @param edits       the edits to append the import declaration edit to
+     */
+    private static void addPropertyImportEdits(Service service, ServiceDeclarationNode serviceNode,
+                                               List<TextEdit> edits) {
+        if (!(serviceNode.syntaxTree().rootNode() instanceof ModulePartNode rootNode)) {
+            return;
+        }
+        Set<String> importStmts = new LinkedHashSet<>();
+        for (Value property : service.getProperties().values()) {
+            Map<String, String> propertyImports = property.getImports();
+            if (Objects.isNull(propertyImports)) {
+                continue;
+            }
+            for (String moduleId : propertyImports.values()) {
+                String[] importParts = moduleId.split("/");
+                if (importParts.length < 2) {
+                    continue;
+                }
+                String orgName = importParts[0];
+                String moduleName = importParts[1].split(":")[0];
+                if (!importExists(rootNode, orgName, moduleName)) {
+                    importStmts.add(getImportStmt(orgName, moduleName));
+                }
+            }
+        }
+        if (!importStmts.isEmpty()) {
+            edits.addFirst(new TextEdit(Utils.toRange(rootNode.lineRange().startLine()),
+                    String.join(NEW_LINE, importStmts)));
+        }
     }
 
     @Override

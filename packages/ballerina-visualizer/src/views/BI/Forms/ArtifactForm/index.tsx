@@ -748,6 +748,10 @@ export function ArtifactForm(props: ArtifactFormProps) {
                                 }
                             });
                         }
+                        const formFieldImports = formImportsRef.current[key];
+                        const updatedProperty = formFieldImports
+                            ? { ...property, imports: { ...(property.imports || {}), ...formFieldImports } }
+                            : property;
                         const response = await rpcClient.getBIDiagramRpcClient().getExpressionDiagnostics({
                             filePath: fileName,
                             context: {
@@ -756,7 +760,7 @@ export function ArtifactForm(props: ArtifactFormProps) {
                                 lineOffset: 0,
                                 offset: 0,
                                 codedata: field.codedata,
-                                property: property,
+                                property: updatedProperty,
                             },
                         });
 
