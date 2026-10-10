@@ -1561,6 +1561,10 @@ public final class Utils {
                 String.join(Constants.NEW_LINE, importStmts)));
     }
 
+    private static boolean contributesSource(Value property) {
+        return property.isEnabledWithValue() || !property.isEnabled() && !property.isEditable();
+    }
+
     private static void collectMissingPropertyImportStmts(ModulePartNode rootNode, Map<String, Value> properties,
                                                           Set<String> coveredModules,
                                                           Map<String, String> importStmts) {
@@ -1571,7 +1575,7 @@ public final class Utils {
             if (Objects.isNull(property)) {
                 continue;
             }
-            if (Objects.nonNull(property.getImports())) {
+            if (Objects.nonNull(property.getImports()) && contributesSource(property)) {
                 for (Map.Entry<String, String> entry : property.getImports().entrySet()) {
                     String[] importParts = entry.getValue().split("/");
                     if (importParts.length < 2) {

@@ -49,7 +49,7 @@ public class PropertyImportEditsTest {
     }
 
     private Value propertyWithImports(Map<String, String> imports) {
-        return new Value.ValueBuilder().setImports(imports).enabled(true).build();
+        return new Value.ValueBuilder().setImports(imports).value("expr").enabled(true).build();
     }
 
     private Map<String, Value> properties(Object... keyValues) {
@@ -123,6 +123,16 @@ public class PropertyImportEditsTest {
                 propertyWithImports(Map.of("time", "ballerina/time")));
         Assert.assertTrue(Utils.getMissingPropertyImportStmts(rootOf(""), properties,
                 Set.of("ballerina/time")).isEmpty());
+    }
+
+    @Test
+    public void testImportsOfPropertyWithoutValueAreSkipped() {
+        Value cleared = new Value.ValueBuilder().setImports(Map.of("time", "ballerina/time")).value("")
+                .enabled(true).build();
+        Value disabled = new Value.ValueBuilder().setImports(Map.of("uuid", "ballerina/uuid")).value("expr")
+                .enabled(false).editable(true).build();
+        Assert.assertTrue(Utils.getMissingPropertyImportStmts(rootOf(""),
+                properties("a", cleared, "b", disabled)).isEmpty());
     }
 
     @Test
