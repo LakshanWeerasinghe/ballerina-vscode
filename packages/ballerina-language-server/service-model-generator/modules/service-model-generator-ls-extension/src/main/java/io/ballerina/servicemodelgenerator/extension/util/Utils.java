@@ -103,6 +103,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -1517,9 +1518,24 @@ public final class Utils {
      */
     public static Set<String> getMissingPropertyImportStmts(ModulePartNode rootNode,
                                                             Map<String, Value> properties) {
-        Set<String> importStmts = new LinkedHashSet<>();
-        collectMissingPropertyImportStmts(rootNode, properties, importStmts);
-        return importStmts;
+        return getMissingPropertyImportStmts(rootNode, properties, Set.of());
+    }
+
+    /**
+     * Same as {@link #getMissingPropertyImportStmts(ModulePartNode, Map)}, additionally skipping the modules
+     * already covered by an import the caller emits, so a module is never imported under two prefixes.
+     *
+     * @param rootNode       module part node of the file being edited
+     * @param properties     the properties whose imports are collected
+     * @param coveredModules {@code org/module} references already imported by the caller
+     * @return the missing import statements, in encounter order
+     */
+    public static Set<String> getMissingPropertyImportStmts(ModulePartNode rootNode,
+                                                            Map<String, Value> properties,
+                                                            Set<String> coveredModules) {
+        Map<String, String> importStmts = new LinkedHashMap<>();
+        collectMissingPropertyImportStmts(rootNode, properties, coveredModules, importStmts);
+        return new LinkedHashSet<>(importStmts.values());
     }
 
     /**
@@ -1536,7 +1552,8 @@ public final class Utils {
         if (!importExists(rootNode, serviceInitModel.getOrgName(), serviceInitModel.getModuleName())) {
             importStmts.add(getImportStmt(serviceInitModel.getOrgName(), serviceInitModel.getModuleName()));
         }
-        importStmts.addAll(getMissingPropertyImportStmts(rootNode, serviceInitModel.getProperties()));
+        importStmts.addAll(getMissingPropertyImportStmts(rootNode, serviceInitModel.getProperties(),
+                Set.of(serviceInitModel.getOrgName() + "/" + serviceInitModel.getModuleName())));
         if (importStmts.isEmpty()) {
             return Optional.empty();
         }
@@ -1545,30 +1562,37 @@ public final class Utils {
     }
 
     private static void collectMissingPropertyImportStmts(ModulePartNode rootNode, Map<String, Value> properties,
-                                                          Set<String> importStmts) {
+                                                          Set<String> coveredModules,
+                                                          Map<String, String> importStmts) {
         if (Objects.isNull(properties)) {
             return;
         }
         for (Value property : properties.values()) {
+            if (Objects.isNull(property)) {
+                continue;
+            }
             if (Objects.nonNull(property.getImports())) {
-                for (String moduleId : property.getImports().values()) {
-                    String[] importParts = moduleId.split("/");
+                for (Map.Entry<String, String> entry : property.getImports().entrySet()) {
+                    String[] importParts = entry.getValue().split("/");
                     if (importParts.length < 2) {
                         continue;
                     }
                     String orgName = importParts[0];
                     String moduleName = importParts[1].split(":")[0];
-                    if (!importExists(rootNode, orgName, moduleName)) {
-                        importStmts.add(getImportStmt(orgName, moduleName));
+                    String moduleKey = orgName + "/" + moduleName;
+                    if (coveredModules.contains(moduleKey) || importStmts.containsKey(moduleKey)
+                            || importExists(rootNode, orgName, moduleName)) {
+                        continue;
                     }
+                    importStmts.put(moduleKey, getImportStmt(orgName, moduleName, entry.getKey()));
                 }
             }
             if (Objects.nonNull(property.getChoices())) {
                 property.getChoices().stream().filter(Value::isEnabled)
                         .forEach(choice -> collectMissingPropertyImportStmts(rootNode, choice.getProperties(),
-                                importStmts));
+                                coveredModules, importStmts));
             }
-            collectMissingPropertyImportStmts(rootNode, property.getProperties(), importStmts);
+            collectMissingPropertyImportStmts(rootNode, property.getProperties(), coveredModules, importStmts);
         }
     }
 

@@ -102,6 +102,30 @@ public class PropertyImportEditsTest {
     }
 
     @Test
+    public void testPropertyImportPrefixIsPreserved() {
+        Map<String, Value> properties = properties("annotServiceConfig",
+                propertyWithImports(Map.of("clockAlias", "ballerina/time")));
+        Assert.assertEquals(Utils.getMissingPropertyImportStmts(rootOf(""), properties),
+                Set.of(Utils.getImportStmt("ballerina", "time", "clockAlias")));
+    }
+
+    @Test
+    public void testModuleImportedUnderTwoPrefixesIsCollectedOnce() {
+        Map<String, Value> properties = properties(
+                "a", propertyWithImports(Map.of("clockAlias", "ballerina/time")),
+                "b", propertyWithImports(Map.of("time", "ballerina/time")));
+        Assert.assertEquals(Utils.getMissingPropertyImportStmts(rootOf(""), properties).size(), 1);
+    }
+
+    @Test
+    public void testCoveredModulesAreSkipped() {
+        Map<String, Value> properties = properties("annotServiceConfig",
+                propertyWithImports(Map.of("time", "ballerina/time")));
+        Assert.assertTrue(Utils.getMissingPropertyImportStmts(rootOf(""), properties,
+                Set.of("ballerina/time")).isEmpty());
+    }
+
+    @Test
     public void testMalformedModuleIdIsSkipped() {
         Map<String, Value> properties = properties("annotServiceConfig",
                 propertyWithImports(Map.of("time", "time")));
